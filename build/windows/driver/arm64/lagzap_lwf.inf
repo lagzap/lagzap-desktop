@@ -1,0 +1,92 @@
+;-------------------------------------------------------------------------
+; LAGZAP_LWF.INF -- LazZap NDIS LWF driver
+;
+; Copyright (c) LagZap.  All rights reserved.
+;-------------------------------------------------------------------------
+[version]
+Signature   	= "$Windows NT$"
+Class     	= NetService
+ClassGUID  	= {4D36E974-E325-11CE-BFC1-08002BE10318}
+Provider    = %Ntkr%
+CatalogFile = lagzap.cat
+PnpLockdown	= 1
+DriverVer = 05/02/2025,3.6.1.1
+
+[Manufacturer]
+%Ntkr%=Ntkr,NTx86,NTia64,NTamd64,NTARM64
+
+[Ntkr.NTx86]
+%lagzap_Desc%=Install, nt_lagzap
+
+[Ntkr.NTia64]
+%lagzap_Desc%=Install, nt_lagzap
+
+[Ntkr.NTamd64]
+%lagzap_Desc%=Install, nt_lagzap
+
+[Ntkr.NTARM64]
+%lagzap_Desc%=Install, nt_lagzap
+
+;-------------------------------------------------------------------------
+; Installation Section
+;-------------------------------------------------------------------------
+[Install]
+AddReg=Inst_Ndi
+Characteristics=0x40000
+NetCfgInstanceId="{060C8D54-44F3-4E56-9A18-F581268A3B21}"
+Copyfiles = lagzap.copyfiles.sys
+
+[SourceDisksNames]
+1=%lagzap_Desc%,"",,
+
+[SourceDisksFiles]
+lagzap.sys=1
+
+[DestinationDirs]
+DefaultDestDir=12
+lagzap.copyfiles.sys=12
+
+[lagzap.copyfiles.sys]
+lagzap.sys,,,2
+
+
+;-------------------------------------------------------------------------
+; Ndi installation support
+;-------------------------------------------------------------------------
+[Inst_Ndi]
+HKR, Ndi,Service,,"lagzap"
+HKR, Ndi,CoServices,0x00010000,"lagzap"
+HKR, Ndi,HelpText,,%lagzap_HelpText%
+HKR, Ndi,FilterClass,, compression
+HKR, Ndi,FilterType,0x00010001,0x00000002
+HKR, Ndi\Interfaces,UpperRange,,"noupper"
+HKR, Ndi\Interfaces,LowerRange,,"ndis5,ndis4"
+HKR, Ndi\Interfaces, FilterMediaTypes,,"ethernet, wan, ppip, bluetooth, ndis5, nolower"
+HKR, Ndi,FilterRunType, 0x00010001, 1 ;this filter must run before any protocol can bind to the below miniport  
+
+;-------------------------------------------------------------------------
+; Service installation support
+;-------------------------------------------------------------------------
+[Install.Services]
+AddService=lagzap,,lagzap_Service_Inst
+
+[lagzap_Service_Inst]
+DisplayName     = %lagzap_Desc%
+ServiceType     = 1 ;SERVICE_KERNEL_DRIVER
+StartType       = 1 ;SERVICE_SYSTEM_START
+ErrorControl    = 1 ;SERVICE_ERROR_NORMAL
+ServiceBinary   = %12%\lagzap.sys
+LoadOrderGroup  = NDIS
+Description     = %lagzap_Desc%
+AddReg          = NdisImPlatformBindingOptions.reg
+
+[Install.Remove.Services]
+DelService=lagzap,0x200
+
+[NdisImPlatformBindingOptions.reg]
+HKR, Parameters, NdisImPlatformBindingOptions,0x00010001,2
+
+[Strings]
+Ntkr = "LagZap"
+lagzap_Desc = "LagZap LightWeight Filter"
+lagzap_HelpText = "LagZap NDIS LightWeight Filter"

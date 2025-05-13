@@ -1,0 +1,77 @@
+version: '3'
+
+includes:
+  common: ../Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the application for Windows
+    deps:
+      - task: common:go:mod:tidy
+      - task: common:build:frontend
+        vars:
+          GARBLE_SEED: 'test'
+          BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+      - task: common:generate:icons
+    cmds:
+      - task: generate:syso
+      # - go install mvdan.cc/garble@latest
+      # - garble -seed=random build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
+      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
+      - cmd: powershell Remove-item *.syso
+        platforms: [windows]
+      - cmd: rm -f *.syso
+        platforms: [linux, darwin]
+    vars:
+      BUILD_FLAGS: '{{if eq .BUILD_TYPE "production"}}-tags production,with_gvisor -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{else}}-tags with_gvisor -buildvcs=false -gcflags=all="-l"{{end}}'
+    env:
+      GOOS: windows
+      CGO_ENABLED: 0
+      GOARCH: '{{.ARCH | default ARCH}}'
+      BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+
+  package:
+    summary: Packages a build of the application into a `.exe` bundle
+    cmds:
+      - task: create:nsis:installer
+
+  generate:syso:
+    summary: Generates Windows `.syso` file
+    dir: build
+    cmds:
+      - wails3 generate syso -arch {{.ARCH}} -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_{{.ARCH}}.syso
+    vars:
+      ARCH: '{{.ARCH | default ARCH}}'
+
+  create:nsis:installer:
+    summary: Creates an NSIS installer
+    dir: build/windows/nsis
+    deps:
+      - task: build
+        vars:
+          BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+    cmds:
+      - |
+        if [ "{{.ARCH}}" = "amd64" ]; then
+          CAB_PATH="Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.x64.cab"
+          CAB_URL="https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/1b804d96-e8b8-4de8-be67-52a6bfff099a/Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.x64.cab"
+        else
+          CAB_PATH="Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.arm64.cab"
+          CAB_URL="https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/ecc86302-6899-4672-b4bb-129fcf38ce84/Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.arm64.cab"
+        fi
+        if [ ! -f "$CAB_PATH" ]; then
+          pwd
+          echo "Downloading WebView2 runtime..."
+          curl.exe -L "$CAB_URL" -o "$CAB_PATH"
+        fi
+        expand.exe "$CAB_PATH" -F:* .
+        xcopy /E /I /Y "Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.x64" "{{.ROOT_DIR}}\{{.BIN_DIR}}"
+        cmd.exe /C "rmdir /S /Q Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.x64"
+      - makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}\{{.BIN_DIR}}\{{.APP_NAME}}.exe" "{{.ROOT_DIR}}\build\windows\installer\project.nsi"
+    vars:
+      ARCH: '{{.ARCH | default ARCH}}'
+      ARG_FLAG: '{{if eq .ARCH "amd64"}}AMD64{{else}}ARM64{{end}}'
+
+  run:
+    cmds:
+      - '{{.BIN_DIR}}\\{{.APP_NAME}}.exe'

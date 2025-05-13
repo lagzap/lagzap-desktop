@@ -1,0 +1,18 @@
+@font-face {
+  font-style: normal;
+  font-weight: 100 900;
+  src: local('Vazirmatn'), 
+       url('Vazirmatn.woff2') format('woff2 supports variations'),
+       url('Vazirmatn.woff2') format('woff2-variations');
+  font-family: 'Vazirmatn';
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+10E60-10E7F, U+1EE00-1EEFF;
+}
+
+@font-face {
+  font-style: normal;
+  font-weight: 400;
+  src: url('Righteous.ttf');
+  font-family: 'Righteous';
+  font-display: swap;
+}

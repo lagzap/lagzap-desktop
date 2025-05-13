@@ -1,0 +1,73 @@
+html,
+body {
+  height: 100%;
+  overflow: hidden !important;
+}
+
+* {
+  -webkit-user-drag: none !important;
+  user-select: none !important;
+}
+
+.zoom-in,
+.layout-enter-active,
+.layout-leave-activee {
+  animation: zoom-in 0.25s cubic-bezier(0.05, 0.7, 0.1, 1) both;
+}
+
+.zoom-out,
+.layout-leave-active {
+  animation: zoom-out 0.15s cubic-bezier(0.05, 0.7, 0.1, 1) reverse both;
+}
+
+@keyframes zoom-in {
+  from {
+    transform: scale3d(0.9, 0.9, 0.9);
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes zoom-out {
+  from {
+    transform: scale3d(1, 1, 1);
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.lagzap-name {
+  color: var(--v-theme-surface) !important;
+  font-style: normal;
+  font-weight: 400;
+  font-family: "Righteous", 'Vazirmatn', sans-serif;
+  text-decoration: none !important;
+}
+
+.small-flag {
+  transform: scale(0.35);
+  margin: 0em -0.8em 0 -0.8em;
+  border-radius: 4px;
+}

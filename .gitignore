@@ -1,0 +1,13 @@
+.idea
+.vscode
+.task
+bin
+build/bin
+node_modules
+frontend/dist
+/*.json
+/*.srs
+/*.db
+/lagzap.exe
+/config.d/
+/*.log

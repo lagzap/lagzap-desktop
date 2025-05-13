@@ -1,0 +1,88 @@
+version: '3'
+
+tasks:
+  go:mod:tidy:
+    summary: Runs `go mod tidy`
+    internal: true
+    cmds:
+      - go mod tidy
+
+  install:frontend:deps:
+    summary: Install frontend dependencies
+    dir: frontend
+    sources:
+      - package.json
+      - bun.lockb
+    generates:
+      - node_modules/*
+    preconditions:
+      - sh: bun
+        msg: "Looks like bun isn't installed: https://bun.sh/"
+    cmds:
+      - bun install
+
+  build:frontend:
+    summary: Build the frontend project
+    dir: frontend
+    sources:
+      - "**/*"
+    generates:
+      - dist/*
+    deps:
+      - task: install:frontend:deps
+      - task: generate:bindings
+    cmds:
+      - '{{.BUILD_COMMAND}}'
+    env:
+      AUTH_URL: '{{if eq .BUILD_TYPE "production"}}https://auth.lagzap.network{{else}}https://auth-beta.lagzap.network{{end}}'
+      API_URL: '{{if eq .BUILD_TYPE "production"}}https://api.lagzap.network{{else}}https://api-beta.lagzap.network{{end}}'
+      COORDINATOR_URL: '{{if eq .BUILD_TYPE "production"}}https://api.lagzap.network{{else}}https://beta.lagzap.network{{end}}'
+      BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+      NODE_ENV: 'production'
+    vars:
+      BUILD_COMMAND: '{{if eq .BUILD_TYPE "production"}}bun run production{{else}}bun run build{{end}}'
+      BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+
+  generate:bindings:
+    summary: Generates bindings for the frontend
+    deps:
+      - task: go:mod:tidy
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - "frontend/bindings/**/*"
+    cmds:
+      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true 
+
+  generate:icons:
+    summary: Generates Windows `.ico` and Mac `.icns` files from an image
+    dir: build
+    sources:
+      - "appicon.png"
+    generates:
+      - "icons.icns"
+      - "icons.ico"
+    cmds:
+      - wails3 generate icons -input appicon.png -windowsfilename windows/icons.ico
+
+  dev:frontend:
+    summary: Runs the frontend in development mode
+    dir: frontend
+    env:
+      AUTH_URL: 'http://localhost:4000'
+      API_URL: 'http://localhost:4000'
+      COORDINATOR_URL: 'http://localhost:4000'
+      BUILD_TYPE: 'local'
+      NODE_ENV: 'development'
+    deps:
+      - task: install:frontend:deps
+    cmds:
+      - bun run dev -- --port {{.VITE_PORT}}
+
+  update:build-assets:
+    summary: Updates the build assets
+    dir: build
+    cmds:
+      - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .

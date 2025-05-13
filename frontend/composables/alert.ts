@@ -1,0 +1,45 @@
+import { useMessagesStore } from "~/stores/messages";
+
+export const displayAlert = (
+  text: string,
+  color: "error" | "success" | "warning" | "info" | undefined = "info",
+  timeout: number = 2000
+) => {
+  const messagesStore = useMessagesStore();
+  messagesStore.add({ text, color, timeout });
+};
+
+export const displayError = (error: any) => {
+  console.dir(error)
+  error = error.value ?? error.response?._data ?? error._data ?? error
+  let message = error.data?.message ?? error.message ?? error.cause?.message ?? 'An error occurred'
+  switch (error.statusCode) {
+    case 401:
+      message = 'An error occurred. Code: 0x00021'
+      break
+    case 403:
+      message = 'An error occurred. Code: 0x00041'
+      break
+    case 404:
+      message = 'An error occurred. Code: 0x00044'
+      break
+    case 500:
+      message = 'Internal server error. Code: 0x00069'
+      break
+    case 501:
+      message = 'Feature is not implemented yet. Code: 0x00079'
+      break
+    case 502:
+      message = 'Request could not be made. Code: 0x00070'
+      break
+    case 503:
+      message = 'Service is unavailable at the moment, please try again later!'
+      break
+    case 504:
+      message = 'Service is unavailable at the moment, please try again later!'
+      break
+  }
+
+  const messagesStore = useMessagesStore();
+  messagesStore.add({ text: message, color: 'error' });
+};

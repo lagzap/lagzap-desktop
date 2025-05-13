@@ -1,0 +1,80 @@
+.v-theme {
+  &--light {
+    &::-webkit-scrollbar {
+      width: 15px;
+    }
+    &::-webkit-scrollbar-track {
+      border-left: 1px solid #dadada;
+      background: #e6e6e6;
+    }
+    &::-webkit-scrollbar-thumb {
+      border: solid 3px #e6e6e6;
+      border-radius: 7px;
+      background: #b0b0b0;
+      &:hover {
+        background: black;
+      }
+    }
+  }
+
+  &--dark {
+    &::-webkit-scrollbar {
+      width: 15px;
+    }
+    &::-webkit-scrollbar-track {
+      border-left: 1px solid #2c2c2c;
+      background: #202020;
+    }
+    &::-webkit-scrollbar-thumb {
+      border: solid 3px #202020;
+      border-radius: 7px;
+      background: #3e3e3e;
+      &:hover {
+        background: white;
+      }
+    }
+  }
+}
+
+.v-navigation-drawer__content {
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background-color: transparent;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(var(--v-border-color), 0.05);
+  }
+}
+
+.v-input,
+.v-btn,
+.v-card {
+  --wails-draggable: none !important;
+}
+
+.v-app-bar.v-toolbar {
+  --wails-draggable: drag;
+  backdrop-filter: blur(8px);
+  background-color: transparent !important;
+}
+
+.v-card {
+  &:not(.v-overlay .v-card):not(.v-theme--light) {
+    background-color: rgba(var(--v-theme-surface-variant), 0.1);
+  }
+
+  &.v-theme--light {
+    background-color: #fff;
+  }
+}
+
+.v-switch__thumb {
+  background-color: rgb(var(--v-theme-secondary)) !important;
+}
