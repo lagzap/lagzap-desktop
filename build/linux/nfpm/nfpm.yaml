@@ -3,48 +3,44 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: ""
+name: "lagzap"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.1.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "My Product Description"
-vendor: "My Company"
-homepage: "https://wails.io"
-license: "MIT"
+description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience"
+vendor: "LagZap"
+homepage: "https://www.lagzap.com"
+license: "private"
 release: "1"
 
 contents:
-  - src: "./bin/"
-    dst: "/usr/local/bin/"
+  - src: "./bin/lagzap"
+    dst: "/usr/local/bin/lagzap"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/.png"
-  - src: "./build/linux/.desktop"
-    dst: "/usr/share/applications/.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/lagzap.png"
+  - src: "./build/linux/lagzap.desktop"
+    dst: "/usr/share/applications/lagzap.desktop"
 
+replaces:
+  - foobar
+provides:
+  - bar
 depends:
   - gtk3
   - libwebkit2gtk
-
-# replaces:
-#   - foobar
-# provides:
-#   - bar
-# depends:
-#   - gtk3
-#   - libwebkit2gtk
-# recommends:
-#   - whatever
-# suggests:
-#   - something-else
-# conflicts:
-#   - not-foo
-#   - not-bar
-# changelog: "changelog.yaml"
-# scripts:
-#   preinstall: ./build/linux/nfpm/scripts/preinstall.sh
-#   postinstall: ./build/linux/nfpm/scripts/postinstall.sh
-#   preremove: ./build/linux/nfpm/scripts/preremove.sh
-#   postremove: ./build/linux/nfpm/scripts/postremove.sh
+recommends:
+  - whatever
+suggests:
+  - something-else
+conflicts:
+  - not-foo
+  - not-bar
+changelog: "changelog.yaml"
+scripts:
+  preinstall: ./build/linux/nfpm/scripts/preinstall.sh
+  postinstall: ./build/linux/nfpm/scripts/postinstall.sh
+  preremove: ./build/linux/nfpm/scripts/preremove.sh
+  postremove: ./build/linux/nfpm/scripts/postremove.sh

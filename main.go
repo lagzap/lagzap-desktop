@@ -7,14 +7,11 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
-	"syscall"
 	"time"
 
 	"github.com/lagzap/lagzap/log"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
-	"golang.org/x/sys/windows"
 )
 
 //go:embed all:frontend/.output/public
@@ -176,28 +173,4 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func runAsAdministrator() {
-	verb := "runas"
-	exe, _ := os.Executable()
-	cwd, _ := os.Getwd()
-	args := strings.Join(os.Args[1:], " ")
-
-	verbPtr, _ := syscall.UTF16PtrFromString(verb)
-	exePtr, _ := syscall.UTF16PtrFromString(exe)
-	cwdPtr, _ := syscall.UTF16PtrFromString(cwd)
-	argPtr, _ := syscall.UTF16PtrFromString(args)
-
-	var showCmd int32 = 1 // SW_NORMAL
-
-	err := windows.ShellExecute(0, verbPtr, exePtr, argPtr, cwdPtr, showCmd)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-func isAdminUser() bool {
-	_, err := os.Open("\\\\.\\PHYSICALDRIVE0")
-	return err == nil
 }
