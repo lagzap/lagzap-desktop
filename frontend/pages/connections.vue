@@ -6,15 +6,12 @@ import country from 'country-list-js';
 import { rand } from "@vueuse/core";
 import { sum } from "es-toolkit";
 
-const data = useSanctumUser<DataResponse>()
 const store = useStore();
 const { connections } = useMonitoringStore(false);
 const items = computed(
   () =>
     connections.value?.filter((c) =>
-      data.value.titles.find(
-        (t) => t.process_regex && new RegExp(t.process_regex).test(c.process)
-      )
+      store.findTitleByProcessRegex(c.process)
     ).sort((a, b) => (a.downlink + a.uplink) > (b.downlink + b.uplink) ? -1 : 1) ?? []
 );
 
@@ -92,24 +89,12 @@ const sortBy = ref<VDataTable["sortBy"]>([
       >
         <template #item.process="{ item }">
           <v-list-item
-            :title="
-              data.titles.find(
-                (t) =>
-                  t.process_regex &&
-                  new RegExp(t.process_regex).test(item.process)
-              )?.name ?? '-'
-            "
+            :title="store.findTitleByProcessRegex(item.process)?.name ?? '-'"
           >
             <template #prepend>
               <v-avatar
                 size="x-small"
-                :image="
-                  data.titles.find(
-                    (t) =>
-                      t.process_regex &&
-                      new RegExp(t.process_regex).test(item.process)
-                  )?.icon_url
-                "
+                :image="store.findTitleByProcessRegex(item.process)?.icon_url"
               />
             </template>
           </v-list-item>
@@ -183,13 +168,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
             @click="toggleGroup(item)">
             <td>
               <v-avatar
-                :image="
-                  data.titles.find(
-                    (t) =>
-                      t.process_regex &&
-                      new RegExp(t.process_regex).test(item.value)
-                  )?.icon_url
-                "
+                :image="store.findTitleByProcessRegex(item.value)?.icon_url"
                 size="x-small"
               />
             </td>

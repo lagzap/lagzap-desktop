@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { GetLatency, InstallDriver } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { InstallDriver } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 const router = useRouter();
 const store = useStore();
@@ -11,17 +11,58 @@ definePageMeta({
   },
 });
 
-const { init } = useSanctumAuth();
+const errorName = ref<string | null>(null)
+
+const { init, refreshIdentity, isAuthenticated, logout } = useSanctumAuth();
 onMounted(async () => {
   await nextTick();
   try {
     await init();
   } catch (e) {
-    router.replace({ name: "auth" });
+    errorName.value = e.name;
+    if (e.status == 401) {
+      router.replace({ name: "auth" });
+    } else {
+      store.error = true;
+      store.statusMessage = getErrorMessage(e);
+    }
     return;
+  } finally {
+    store.loading = false;
   }
-  await initApp();
+
+  await start()
 });
+
+async function start () {
+  try {
+    store.loading = true;
+    store.statusMessage = "Logging into online service";
+    if (!isAuthenticated.value) {
+      await refreshIdentity();
+    }
+  } catch (e) {
+    console.error(e);
+    errorName.value = e.name;
+    if (store.serviceReady) {
+      store.stopNDIS();
+      store.stopService();
+    }
+    if (e.status == 401) {
+      router.replace({ name: "auth" });
+    } else {
+      store.error = true;
+      store.statusMessage = getErrorMessage(e);
+    }
+    return;
+  } finally {
+    if (isAuthenticated.value) {
+      await initApp();
+    } else {
+      store.loading = false;
+    }
+  }
+}
 
 async function initApp() {
   try {
@@ -73,8 +114,11 @@ async function installDriver() {
       <v-card-subtitle v-if="store.driverInstalled === false" class="text-info">
         Driver missing
       </v-card-subtitle>
-      <v-card-subtitle v-else-if="!store.serviceReady && store.error" class="text-error">
+      <v-card-subtitle v-else-if="!store.serviceReady && store.error && errorName != 'FetchError'" class="text-error">
         Service Failed
+      </v-card-subtitle>
+      <v-card-subtitle v-else-if="!store.serviceReady && store.error" class="text-error">
+        Connection Failed!
       </v-card-subtitle>
 
       <v-card-text
@@ -89,12 +133,20 @@ async function installDriver() {
     </div>
 
     <template #actions>
+      <v-btn
+        v-if="!store.serviceReady && store.error && isAuthenticated"
+        color="warning"
+        density="comfortable"
+        size="large"
+        @click="logout"
+      >
+        Logout
+      </v-btn>
       <v-spacer />
       <v-dialog v-if="store.driverInstalled === false" max-width="500">
         <template v-slot:activator="{ props: activatorProps }">
           <v-btn
             v-bind="activatorProps"
-            variant="elevated"
             color="success"
             density="comfortable"
             size="large"
@@ -116,7 +168,6 @@ async function installDriver() {
             <v-card-actions>
               <v-spacer />
               <v-btn
-                variant="elevated"
                 color="success"
                 density="comfortable"
                 size="large"
@@ -135,15 +186,13 @@ async function installDriver() {
       </v-dialog>
       <v-btn
         v-else-if="!store.serviceReady && store.error"
-        variant="elevated"
-        color="primary"
+        color="info"
         density="comfortable"
         size="large"
-        class="ma-2"
         :loading="store.loading"
-        @click="initApp"
+        @click="isAuthenticated ? initApp() : start()"
       >
-        Reload Service
+        Retry
       </v-btn>
     </template>
   </v-card>

@@ -38,7 +38,13 @@ onActivated(async () => {
     <template #prepend>
       <v-list-item rounded="xl">
         <template #title>
-          <span class="lagzap-name">LagZap</span>
+          <v-badge location="bottom right" size="x-small" inline>
+            <span class="lagzap-name me-1">LagZap</span>
+
+            <template #badge>
+              <small>BETA</small>
+            </template>
+          </v-badge>
         </template>
         <template #prepend>
           <v-avatar>
@@ -64,16 +70,16 @@ onActivated(async () => {
       <v-list v-if="user" nav density="compact">
         <v-list-item
           :to="{ name: 'profile' }"
-          :title="user.name ?? 'Player'"
-          subtitle="No active subscription"
+          :title="user.name ?? 'Player 1'"
+          subtitle="Unlimited"
           rounded="xl"
         >
           <template #prepend>
-            <v-avatar color="secondary" size="small">
-              <span v-if="!!user.name" class="text-xl text-uppercase">{{
-                user.name[0]
+            <v-avatar variant="tonal">
+              <span v-if="(user.name || user.email)?.length" class="text-xl text-uppercase">{{
+                (user.name || user.email)[0]
               }}</span>
-              <v-icon icon="mdi-account" />
+              <v-icon v-else icon="mdi-account-circle" size="x-large" />
             </v-avatar>
           </template>
 
@@ -104,16 +110,17 @@ onActivated(async () => {
         density="compact"
       />
       <v-list-item
-        :to="{ name: 'console' }"
-        title="Xbox & PlayStation"
-        prepend-icon="mdi-controller"
+        :to="{ name: 'titles' }"
+        title="Apps & Games"
+        prepend-icon="mdi-gamepad"
         rounded="xl"
         density="compact"
       />
       <v-list-item
-        :to="{ name: 'titles' }"
-        title="Apps & Games"
-        prepend-icon="mdi-gamepad"
+        v-if="false"
+        :to="{ name: 'console' }"
+        title="Gaming Consoles"
+        prepend-icon="mdi-controller"
         rounded="xl"
         density="compact"
       />
@@ -132,6 +139,7 @@ onActivated(async () => {
         density="compact"
       />
       <v-list-item
+        v-if="false"
         :to="{ name: 'monitoring' }"
         title="Monitoring"
         prepend-icon="mdi-chart-line"

@@ -100,6 +100,7 @@ async function requestOTP() {
 
       <template #actions>
         <v-btn
+          disabled
           type="submit"
           color="tertiary"
           :loading="isSubmitting"

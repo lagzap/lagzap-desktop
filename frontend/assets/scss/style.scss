@@ -71,3 +71,28 @@ body {
   margin: 0em -0.8em 0 -0.8em;
   border-radius: 4px;
 }
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  border-radius: 4px;
+  background: rgb(var(--v-theme-background));
+}
+
+::-webkit-scrollbar-thumb {
+  opacity: 0.4;
+  border-radius: 4px;
+  background-color: rgb(var(--v-theme-background));
+}
+
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.7;
+  background-color: rgb(var(--v-theme-surface-variant));
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

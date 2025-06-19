@@ -9,8 +9,7 @@ export const displayAlert = (
   messagesStore.add({ text, color, timeout });
 };
 
-export const displayError = (error: any) => {
-  console.dir(error)
+export const getErrorMessage = (error: any) => {
   error = error.value ?? error.response?._data ?? error._data ?? error
   let message = error.data?.message ?? error.message ?? error.cause?.message ?? 'An error occurred'
   switch (error.statusCode) {
@@ -40,6 +39,11 @@ export const displayError = (error: any) => {
       break
   }
 
+  return message
+};
+
+export const displayError = (error: any) => {
+  const message = getErrorMessage(error);
   const messagesStore = useMessagesStore();
   messagesStore.add({ text: message, color: 'error' });
 };

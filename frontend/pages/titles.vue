@@ -15,8 +15,9 @@ const titles = computed(() => store.getTitles());
       </template>
 
       <v-card
-        class="mt-3 px-3 bg-transparent"
-        flat>
+        class="my-3 px-3 bg-transparent"
+        flat
+      >
         <v-data-iterator
           :items="titles"
           :items-per-page="titles.length"
@@ -34,6 +35,7 @@ const titles = computed(() => store.getTitles());
               >
                 <v-card
                   :to="{ name: 'title-id', params: { id: item.raw.id } }"
+                  class="py-1 mb-1"
                 >
                   <v-list-item
                     :prepend-avatar="item.raw.icon_url"

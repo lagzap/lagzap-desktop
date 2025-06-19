@@ -9,13 +9,24 @@ includes:
 vars:
   APP_NAME: "LagZap"
   BIN_DIR: "bin"
+  DEV_AUTH_URL: '{{.DEV_AUTH_URL | default "https://dev.lagzap-network.ir"}}'
+  DEV_API_URL: '{{.DEV_API_URL | default "https://dev.lagzap-network.ir"}}'
+  DEV_COORDINATOR_URL: '{{.DEV_COORDINATOR_URL | default "wss://dev.lagzap-network.ir"}}'
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  GOHOSTOS:
+    sh: go env GOHOSTOS
+  GOHOSTARCH:
+    sh: go env GOHOSTARCH
+  VERSION:
+    sh: CGO_ENABLED=0 GOOS={{.GOHOSTOS}} GOARCH={{.GOHOSTARCH}} go run ../../cmd/internal/read_tag
 
 tasks:
   build:
     summary: Builds the application
     env:
       BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}' # production or beta
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+      PARAMS: "-v -trimpath -ldflags \"-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -s -w -buildid=\""
     cmds:
       - task: "{{OS}}:build"
 
@@ -23,6 +34,7 @@ tasks:
     summary: Packages a build of the application
     env:
       BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}' # production or beta
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
     cmds:
       - task: "{{OS}}:package"
 
@@ -33,6 +45,7 @@ tasks:
 
   dev:
     summary: Runs the application in development mode
+    env:
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
-

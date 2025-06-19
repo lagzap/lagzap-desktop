@@ -21,6 +21,16 @@ import * as application$0 from "../../wailsapp/wails/v3/pkg/application/models.j
 import * as $models from "./models.js";
 
 /**
+ * @param {string} titleId
+ * @param {string} action
+ * @returns {Promise<void> & { cancel(): void }}
+ */
+export function ActionTitle(titleId, action) {
+    let $resultPromise = /** @type {any} */($Call.ByID(3369209383, titleId, action));
+    return $resultPromise;
+}
+
+/**
  * @param {string} process
  * @param {boolean} tcp
  * @param {boolean} udp
@@ -48,6 +58,14 @@ export function DeviceHash() {
 }
 
 /**
+ * @returns {Promise<string> & { cancel(): void }}
+ */
+export function DeviceInfo() {
+    let $resultPromise = /** @type {any} */($Call.ByID(3650439767));
+    return $resultPromise;
+}
+
+/**
  * @returns {Promise<[adapter$0.NetworkInterface | null, control$0.Interface[]]> & { cancel(): void }}
  */
 export function GetInterfaces() {
@@ -67,6 +85,30 @@ export function GetInterfaces() {
  */
 export function GetLatency(force) {
     let $resultPromise = /** @type {any} */($Call.ByID(2666750551, force));
+    return $resultPromise;
+}
+
+/**
+ * @returns {Promise<void> & { cancel(): void }}
+ */
+export function GetNodes() {
+    let $resultPromise = /** @type {any} */($Call.ByID(3650039068));
+    return $resultPromise;
+}
+
+/**
+ * @returns {Promise<void> & { cancel(): void }}
+ */
+export function GetRegions() {
+    let $resultPromise = /** @type {any} */($Call.ByID(3658744404));
+    return $resultPromise;
+}
+
+/**
+ * @returns {Promise<void> & { cancel(): void }}
+ */
+export function GetTitles() {
+    let $resultPromise = /** @type {any} */($Call.ByID(94823092));
     return $resultPromise;
 }
 
@@ -184,6 +226,33 @@ export function ResetNetwork() {
 }
 
 /**
+ * @param {string} token
+ * @returns {Promise<void> & { cancel(): void }}
+ */
+export function SetAccessToken(token) {
+    let $resultPromise = /** @type {any} */($Call.ByID(2196676062, token));
+    return $resultPromise;
+}
+
+/**
+ * @param {string} url
+ * @returns {Promise<void> & { cancel(): void }}
+ */
+export function SetCoordinatorURL(url) {
+    let $resultPromise = /** @type {any} */($Call.ByID(43301544, url));
+    return $resultPromise;
+}
+
+/**
+ * @param {string} url
+ * @returns {Promise<void> & { cancel(): void }}
+ */
+export function SetProxyURL(url) {
+    let $resultPromise = /** @type {any} */($Call.ByID(3595532422, url));
+    return $resultPromise;
+}
+
+/**
  * @param {application$0.SystemTray | null} systray
  * @returns {Promise<void> & { cancel(): void }}
  */
@@ -220,14 +289,10 @@ export function StartNDIS(options) {
 }
 
 /**
- * @param {string} logLevel
- * @param {$models.Region[]} regions
- * @param {$models.Node[]} nodes
- * @param {$models.HeadlessRule[]} ruleSet
  * @returns {Promise<void> & { cancel(): void }}
  */
-export function StartService(logLevel, regions, nodes, ruleSet) {
-    let $resultPromise = /** @type {any} */($Call.ByID(679122770, logLevel, regions, nodes, ruleSet));
+export function StartService() {
+    let $resultPromise = /** @type {any} */($Call.ByID(679122770));
     return $resultPromise;
 }
 

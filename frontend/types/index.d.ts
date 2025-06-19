@@ -4,14 +4,16 @@ declare module "*.vue" {
 }
 
 interface DataResponse {
-  regions: Region[]
-  nodes: Node[]
-  titles: Title[]
   user: User
   abilities?: string[]
   active_limit: number
   active_titles: string[]
   recent_titles: Record<string, number>
+}
+
+interface SessionResponse {
+  coordinator: string
+  proxy: string
 }
 
 interface Region {
@@ -40,7 +42,19 @@ interface Title {
   name: string
   icon_url: string | null
   poster_url: string | null
-  process_regex: string
+  profiles: Profile[]
+}
+
+interface Profile {
+  id: string
+  flags: number
+  title_id: string
+  rule_id: string
+  name: string
+  description?: string | null
+  process_regex?: string | null
+  created_at: string
+  updated_at: string
 }
 
 interface User {

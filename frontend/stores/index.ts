@@ -1,6 +1,5 @@
 import {defineStore} from 'pinia'
-import { string } from 'zod';
-import {HeadlessRule, Region as RegionServer, Node as NodeServer, StartNdisOptions} from '~/bindings/github.com/lagzap/lagzap-desktop';
+import {StartNdisOptions} from '~/bindings/github.com/lagzap/lagzap-desktop';
 import {
     AddProcess,
     GetLatency,
@@ -9,9 +8,15 @@ import {
     IsRunning,
     Nodes,
     RemoveProcess,
-    StartNDIS, StartService,
+    StartNDIS,
+    StartService,
     StopNDIS,
-    StopService
+    StopService,
+    DeviceInfo,
+    SetAccessToken,
+    SetCoordinatorURL,
+    ActionTitle,
+    SetProxyURL
 } from '~/bindings/github.com/lagzap/lagzap-desktop/service';
 import type { EchoResult } from '~/bindings/github.com/lagzap/lagzap/adapter';
 
@@ -26,14 +31,19 @@ interface State {
     driverInstalled: boolean | null
     statusMessage: string
     error: boolean
+    optimizing: boolean
 
     authenticated: boolean
     serviceReady: boolean
     ndisRunning: boolean
 
-    nodes: Node[]
-    regions: Region[]
+    titles: Record<string, Title>
+    profiles: Record<string, Profile>
+    nodes: Record<string, Node>
+    regions: Record<string, Region>
 
+    coordinateUrl: string | null
+    proxyUrl: string | null
     deviceHash: string
     defaultOutbound: string | 'global'
     nodeLatencies: Record<string, EchoResult>
@@ -50,37 +60,40 @@ export const useStore = defineStore('index', {
         driverInstalled: null,
         statusMessage: "Initializing",
         error: false,
+        optimizing: true,
 
         authenticated: false,
         serviceReady: false,
         ndisRunning: false,
         recentTitles: {},
 
-        regions: [],
-        nodes: [],
+        titles: {},
+        profiles: {},
+        regions: {},
+        nodes: {},
 
+        coordinateUrl: null,
+        proxyUrl: null,
         deviceHash: '',
         defaultOutbound: 'global',
         nodeLatencies: {},
     }),
     getters: {
         getTitles: (state) => () => {
-            const data = useSanctumUser<DataResponse>()
-            const activeTitles = data.value.titles
+            const activeTitles = Object.values(state.titles)
                 .filter(title => state.activeTitles.includes(title.id))
                 .sort((a, b) => (state.recentTitles[b.id] || 0) - (state.recentTitles[a.id] || 0));
-            const inactiveTitles = data.value.titles
+            const inactiveTitles = Object.values(state.titles)
                 .filter(title => !state.activeTitles.includes(title.id))
                 .sort((a, b) => (state.recentTitles[b.id] || 0) - (state.recentTitles[a.id] || 0));
             return [...activeTitles, ...inactiveTitles];
         },
         getRecentTitles: (state) => () => {
-            const data = useSanctumUser<DataResponse>()
-            const activeTitles = data.value.titles
+            const activeTitles = Object.values(state.titles)
                 .filter(title => state.activeTitles.includes(title.id))
                 .sort((a, b) => (state.recentTitles[b.id] || 0) - (state.recentTitles[a.id] || 0))
                 .slice(0, state.displayLimit);
-            const inactiveTitles = data.value.titles
+            const inactiveTitles = Object.values(state.titles)
                 .filter(title => !state.activeTitles.includes(title.id))
                 .sort((a, b) => (state.recentTitles[b.id] || 0) - (state.recentTitles[a.id] || 0))
                 .slice(0, state.displayLimit);
@@ -95,17 +108,45 @@ export const useStore = defineStore('index', {
             this.error = false
             
             try {
-                this.statusMessage = "Processing data";
-                await this.applyData()
-
                 this.statusMessage = "Authenticating";
-
                 this.deviceHash = await DeviceHash()
-                this.authenticated = false
+                const data = useSanctumUser<DataResponse>()
+                this.abilities = data.value.abilities || []
+                this.activeTitles = data.value.active_titles || []
+                this.recentTitles = data.value.recent_titles || {}
+
                 try {
-                    await this.authenticate()
+                    this.authenticated = false
+                    
+                    const deviceInfo = await DeviceInfo()
+                    const runtimeConfig = useRuntimeConfig()
+                    const { data, status, error } = await useSanctumFetch<SessionResponse>(`/device/${this.deviceHash}`, {
+                        method: 'POST',
+                        baseURL: runtimeConfig.public.authBaseUrl,
+                        retry: 100,
+                        retryDelay: 5 * 1000,
+                        body: deviceInfo
+                    })
+
+                    if (status.value == 'success') {
+                        this.authenticated = true
+                        this.coordinateUrl = data.value.coordinator
+                        this.proxyUrl = data.value.proxy
+                        const accessToken = await getToken('lz.access_token') ?? ''
+                        await SetAccessToken(accessToken)
+                        await SetCoordinatorURL(this.coordinateUrl)
+                        await SetProxyURL(this.proxyUrl)
+                    } else {
+                        this.statusMessage = getErrorMessage(error.value)
+                        this.error = true
+                        this.authenticated = false
+                    }
                 } catch (err) {
                     this.authenticated = false
+                } finally {
+                    if (this.authenticated === false) {
+                        return
+                    }
                 }
 
                 this.statusMessage = "Preparing service";
@@ -114,7 +155,6 @@ export const useStore = defineStore('index', {
                     this.statusMessage = "Starting service";
                     await this.startService();
                 }
-                await GetLatency(true)
         
                 this.driverInstalled = true
                 this.statusMessage = "LagZap is Ready!";
@@ -128,35 +168,10 @@ export const useStore = defineStore('index', {
                 } else {
                     this.statusMessage = "Could not start the service!";
                 }
-                console.error(err)
                 this.error = true
                 throw err
             } finally {
                 this.loading = false
-            }
-        },
-        async authenticate() {
-            const runtimeConfig = useRuntimeConfig()
-            const { data } = await useSanctumFetch(`/authenticate/${this.deviceHash}`, {
-                method: 'POST',
-                baseURL: runtimeConfig.public.coordinatorUrl,
-                retry: 5,
-                retryDelay: 60 * 1000,
-            })
-            console.log(data.value)
-            this.authenticated = true
-        },
-        async applyData() {
-            try {
-                const data = useSanctumUser<DataResponse>()
-                this.activeTitles = data.value.active_titles || []
-                this.recentTitles = data.value.recent_titles || {}
-                this.abilities = data.value.abilities || []
-                this.regions = data.value.regions || []
-                this.nodes = data.value.nodes || []
-            } catch (err) {
-                displayError(err)
-                throw err
             }
         },
 
@@ -165,12 +180,21 @@ export const useStore = defineStore('index', {
             if (this.isTitleActive(title.id)) {
                 await this.deactivateTitle(title.id);
                 if (this.ndisRunning) {
-                    await RemoveProcess(title.process_regex, true, true);
+                    const titleObj = this.titles[title.id];
+                    if (titleObj && titleObj.profiles) {
+                        const removePromises = Object.values(titleObj.profiles)
+                            .map(profile => RemoveProcess(profile.process_regex, true, true));
+                        await Promise.allSettled(removePromises);
+                    }
                 }
             } else {
                 await this.activateTitle(title.id);
                 if (this.ndisRunning) {
-                    await AddProcess(title.process_regex, true, true);
+                    if (title.profiles) {
+                        const addPromises = Object.values(title.profiles)
+                            .map(profile => AddProcess(profile.process_regex, true, true));
+                        await Promise.allSettled(addPromises);
+                    }
                 }
             }
         },
@@ -184,50 +208,65 @@ export const useStore = defineStore('index', {
             if (this.isTitleActive(id)) {
                 return
             }
-            
-            const runtimeConfig = useRuntimeConfig()
+
             this.activeTitles.push(id)
             try {
-                await useSanctumFetch(`/title/${id}/activate`, {
-                    method: 'POST',
-                    baseURL: runtimeConfig.public.apiBaseUrl,
-                    retry: 5,
-                    retryDelay: 60 * 1000,
-                    credentials: 'include'
-                })
+                await ActionTitle(id, "activate")
             } catch (e) {
                 displayError(e)
             }
         },
         async deactivateTitle(id: string) {
             this.activeTitles = this.activeTitles.filter(title => title !== id)
-
-            const runtimeConfig = useRuntimeConfig()
             try {
-                await useSanctumFetch(`/title/${id}/deactivate`, {
-                    method: 'POST',
-                    baseURL: runtimeConfig.public.apiBaseUrl,
-                    retry: 5,
-                    retryDelay: 60 * 1000,
-                })
+                await ActionTitle(id, "deactivate")
             } catch (e) {
                 displayError(e)
             }
         },
         async visitTitle(id: string) {
-            const runtimeConfig = useRuntimeConfig()
-
             this.recentTitles[id] = Date.now();
             try {
-                await useSanctumFetch(`/title/${id}/visit`, {
-                    method: 'POST',
-                    baseURL: runtimeConfig.public.apiBaseUrl,
-                    retry: 5,
-                    retryDelay: 60 * 1000,
-                })
+                await ActionTitle(id, "visit")
             } catch (e) {
                 displayError(e)
             }
+        },
+        upsertTitles(titles: Title[]) {
+            for (const title of titles) {
+                this.titles[title.id] = title;
+                if (title.profiles && Array.isArray(title.profiles)) {
+                    for (const profile of title.profiles) {
+                        this.profiles[profile.id] = profile;
+                    }
+                }
+            }
+        },
+        upsertRegions(regions: Record<string, Region>) {
+            for (const [tag, region] of Object.entries(regions)) {
+                this.regions[tag] = { ...this.regions[tag], ...region };
+            }
+        },
+        upsertNodes(nodes: Record<string, Node>) {
+            for (const [id, node] of Object.entries(nodes)) {
+                this.nodes[id] = { ...this.nodes[id], ...node };
+            }
+        },
+        findTitleByProcessRegex(processRegex: string): Title | undefined {
+            // Find the profile with the given process_regex
+            const profileEntry = Object.entries(this.profiles).find(
+                ([, profile]) => profile.process_regex === processRegex
+            );
+            if (!profileEntry) return undefined;
+            const [profileId, profile] = profileEntry;
+
+            // Find the parent title that contains this profile
+            return Object.values(this.titles).find(title => title.profiles[profileId]);
+        },
+        findProfileByProcessRegex(processRegex: string): Profile | undefined {
+            return Object.values(this.profiles).find(
+            (profile) => profile.process_regex === processRegex
+            );
         },
 
         // Service
@@ -242,36 +281,8 @@ export const useStore = defineStore('index', {
                 return
             }
 
-            const logLevel = this.abilities.includes('view log trace') || import.meta.env.DEV ? "trace" : "fatal"
             try {
-                const ruleSet: HeadlessRule[] = [];
-                const regions: RegionServer[] = [];
-                const nodes: NodeServer[] = [];
-                this.nodes.forEach((node) => {
-                    const nodeServer = new NodeServer({
-                        id: node.id,
-                        region: node.region,
-                        area: node.area,
-                        name: node.name,
-                        country: node.country,
-                        city: node.city,
-                        latitude: node.latitude,
-                        longitude: node.longitude,
-                        ipv4: node.ipv4,
-                        ipv6: node.ipv6 || null
-                    });
-                    nodes.push(nodeServer);
-                })
-                this.regions.forEach((region) => {
-                    const regionServer = new RegionServer({
-                        tag: region.tag,
-                        name: region.name,
-                        host: region.host,
-                        active: region.active,
-                    });
-                    regions.push(regionServer);
-                })
-                await StartService(logLevel, regions, nodes, ruleSet);
+                await StartService();
                 this.ndisRunning = await IsNDISRunning()
                 const wasNdisRunning = this.ndisRunning;
                 await this.checkNDIS();
@@ -319,6 +330,7 @@ export const useStore = defineStore('index', {
             if (processRegex.length > 0) {
                 processRegex.push('^C:\\\\Windows\\\\System32\\\\svchost\\.exe$')
             }
+            
             const options = new StartNdisOptions({
                 process_tcp: processRegex as Array<string>,
                 process_udp: processRegex as Array<string>,
@@ -340,9 +352,14 @@ export const useStore = defineStore('index', {
             }
         },
 
+        async optimize() {
+            this.optimizing = true
+            await GetLatency(true)
+            await this.updateLatency();
+            this.optimizing = false
+        },
         async updateLatency() {
             this.nodeLatencies = await Nodes();
-            console.log(this.nodeLatencies)
         },
         setNodeLatency(tag: string, result: EchoResult | null) {
             if (result === null) {

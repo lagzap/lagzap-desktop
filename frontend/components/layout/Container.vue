@@ -32,7 +32,7 @@ onMounted(() => {
       :style="{
         position: 'fixed',
         '--wails-draggable': 'drag',
-        'padding-right': mobile ? '108px' : '144px',
+        [$vuetify.locale.isRtl ? 'padding-left' : 'padding-right']: mobile ? '108px' : '144px',
       }"
     >
       <v-scroll-y-transition leave-absolute>
@@ -46,6 +46,7 @@ onMounted(() => {
             @click="searchMode = true"
           />
           <v-btn
+            v-if="false"
             icon="mdi-chat-question"
           />
         </div>

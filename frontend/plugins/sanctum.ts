@@ -1,9 +1,12 @@
+import { SetAccessToken } from "~/bindings/github.com/lagzap/lagzap-desktop/service"
+
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook('sanctum:login', () => {
-    console.log('Sanctum login hook triggered', nuxtApp)
+    // console.log('Sanctum login hook triggered', nuxtApp)
   })
   nuxtApp.hook('sanctum:logout', async () => {
     const store = useStore()
+    await SetAccessToken("")
     if (store.ndisRunning) {
       await store.stopNDIS()
     }
@@ -12,17 +15,15 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
   })
   nuxtApp.hook('sanctum:refresh', async () => {
-    const store = useStore()
-    await store.applyData()
-    console.log('Sanctum refresh hook triggered', nuxtApp)
+    // console.log('Sanctum refresh hook triggered', nuxtApp)
   })
   nuxtApp.hook('sanctum:redirect', (url) => {
-    console.log('Sanctum redirect hook triggered', url, nuxtApp)
+    // console.log('Sanctum redirect hook triggered', url, nuxtApp)
   })
   nuxtApp.hook('sanctum:error:request', (context) => {
-    console.log('Sanctum request error hook triggered', context, nuxtApp)
+    // console.log('Sanctum request error hook triggered', context, nuxtApp)
   })
   nuxtApp.hook('sanctum:error', (response) => {
-    console.log('Sanctum error hook triggered', response, nuxtApp)
+    // console.log('Sanctum error hook triggered', response, nuxtApp)
   })
 })

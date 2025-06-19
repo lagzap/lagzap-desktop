@@ -22,10 +22,9 @@ const { logout } = useSanctumAuth();
 
       <ProfilePassword />
 
-      <v-divider v-if="false" class="mx-4" />
+      <v-divider class="mx-4" />
 
       <v-card
-        v-if="false"
         title="Delete Account"
         class="mt-3 bg-transparent"
         flat
@@ -33,14 +32,12 @@ const { logout } = useSanctumAuth();
       >
         <v-card-text>
           Once your account is deleted, all of its resources and data will be
-          permanently deleted. <br />
-          Before deleting your account, please download any data or information
-          that you wish to retain.
+          permanently deleted. But in some cases your data may remain in for 
+          at least 6 months.
         </v-card-text>
 
         <template #actions>
-          <v-btn color="error"> Delete Account </v-btn>
-          <v-btn color="info"> Download Data </v-btn>
+          <v-btn color="error" disabled> Delete Permanently </v-btn>
         </template>
       </v-card>
     </Container>

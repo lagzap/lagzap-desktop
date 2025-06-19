@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { VDataTable, VDataTableVirtual } from "vuetify/components";
+import type { VDataTableVirtual } from "vuetify/components";
 import Container from "~/components/layout/Container.vue";
 import CountryFlag from "vue-country-flag-next";
-import { useDate } from "vuetify";
 
 const data = useSanctumUser<DataResponse>()
 const store = useStore();
@@ -86,7 +85,6 @@ const headers = computed<VDataTableVirtual["headers"]>(() => {
   ]
 });
 
-
 const extractProcessName = (fullPath: string): string => {
   const parts = fullPath.split("\\");
   return parts[parts.length - 1];
@@ -154,11 +152,7 @@ const extractProcessName = (fullPath: string): string => {
         <template v-slot:item.process="{ item }">
           <v-list-item
             :title="
-              data.titles.find(
-                (t) =>
-                  t.process_regex &&
-                  new RegExp(t.process_regex).test(item.process)
-              )?.name ?? extractProcessName(item.process)
+              store.findTitleByProcessRegex(item.process)?.name ?? extractProcessName(item.process)
             "
           >
             <template #prepend>
@@ -171,11 +165,7 @@ const extractProcessName = (fullPath: string): string => {
               <v-avatar
                 size="x-small"
                 :image="
-                  data.titles.find(
-                    (t) =>
-                      t.process_regex &&
-                      new RegExp(t.process_regex).test(item.process)
-                  )?.icon_url
+                  store.findTitleByProcessRegex(item.process)?.icon_url
                 "
               />
             </template>

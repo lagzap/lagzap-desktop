@@ -15,7 +15,8 @@ export default defineAppConfig({
         ctx: FetchContext,
         logger: ConsolaInstance
       ) => {
-        logger.debug(`custom onRequest interceptor (${ctx.request})`);
+        const store = useStore()
+        ctx.options.headers.set("X-Device", store.deviceHash)
       },
 
       onResponse: async (
@@ -23,7 +24,7 @@ export default defineAppConfig({
         ctx: FetchContext,
         logger: ConsolaInstance
       ) => {
-        logger.debug(`custom onResponse interceptor (${ctx.request})`);
+        //
       },
     },
 

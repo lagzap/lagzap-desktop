@@ -82,6 +82,7 @@ const onSubmit = handleSubmit(async (values) => {
 
       <template #actions>
         <v-btn
+          disabled
           type="submit"
           color="tertiary"
           :loading="isSubmitting"

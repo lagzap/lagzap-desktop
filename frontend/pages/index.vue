@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { DeviceHash } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { GetRegions } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import Container from "~/components/layout/Container.vue";
 
-const deviceHash = await DeviceHash()
+async function loadRegions() {
+  const regions = await GetRegions();
+  console.log(regions);
+}
 </script>
 
 <template>
@@ -13,7 +16,10 @@ const deviceHash = await DeviceHash()
       </template>
 
       <v-card-text>
-        Device hash: {{ deviceHash }}
+        Nothing yet.
+        <v-btn @click="loadRegions">
+          Load Regions
+        </v-btn>
       </v-card-text>
     </Container>
   </div>

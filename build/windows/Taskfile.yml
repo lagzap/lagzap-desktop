@@ -23,7 +23,13 @@ tasks:
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
     vars:
-      BUILD_FLAGS: '{{if eq .BUILD_TYPE "production"}}-tags production,with_gvisor -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{else}}-tags with_gvisor -buildvcs=false -gcflags=all="-l"{{end}}'
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+      BUILD_FLAGS: >-
+        {{if eq .BUILD_TYPE "production"}}
+        -tags production,with_gvisor -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -w -s -H windowsgui"
+        {{else}}
+        -tags with_gvisor -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}'" -gcflags=all="-l"
+        {{end}}
     env:
       GOOS: windows
       CGO_ENABLED: 0

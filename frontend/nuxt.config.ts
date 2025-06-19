@@ -17,8 +17,8 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      apiBaseUrl: import.meta.env.API_URL,
       coordinatorUrl: import.meta.env.COORDINATOR_URL,
+      apiBaseUrl: import.meta.env.API_URL,
       authBaseUrl: import.meta.env.AUTH_URL,
     },
   },
@@ -48,8 +48,10 @@ export default defineNuxtConfig({
 
   sanctum: {
     mode: "token",
+    userStateKey: 'lagzap.user.identity',
     baseUrl: import.meta.env.AUTH_URL,
     redirectIfAuthenticated: true,
+    redirectIfUnauthenticated: true,
     endpoints: {
       login: "/token",
       logout: "/token/revoke",

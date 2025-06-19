@@ -56,6 +56,7 @@ func (c *Command) GetLatency(force bool) error {
 		})
 	}
 	b.Wait()
+	c.app.EmitEvent("optimized")
 	return nil
 }
 

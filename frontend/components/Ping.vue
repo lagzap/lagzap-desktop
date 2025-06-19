@@ -20,6 +20,6 @@ defineProps<{
         : 'text-red'
     "
   >
-    {{ latency === null ? "" : `${latency}ms` }}
+    {{ latency === null ? "timeout" : `${latency}ms` }}
   </component>
 </template>
