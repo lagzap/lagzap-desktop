@@ -37,6 +37,12 @@ export const getErrorMessage = (error: any) => {
     case 504:
       message = 'Service is unavailable at the moment, please try again later!'
       break
+    default:
+      message = 'An error occurred. Code: 0x00000'
+      if (message.includes('<no response>')) {
+        message = 'Network error. Please check your connection.'
+      }
+      break
   }
 
   return message

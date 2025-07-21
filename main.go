@@ -31,6 +31,7 @@ func main() {
 	}
 	ctx := context.Background()
 	service := &Service{}
+	internal := NewInternal(ctx)
 
 	path, err := os.Executable()
 	if err != nil {
@@ -100,12 +101,11 @@ func main() {
 			window.SetBackgroundColour(application.NewRGBA(255, 248, 244, 255))
 		}
 	})
-	app.OnApplicationEvent(events.Windows.APMSuspend, func(e *application.ApplicationEvent) {
-		service.Pause()
-	})
-	app.OnApplicationEvent(events.Windows.APMResumeSuspend, func(e *application.ApplicationEvent) {
-		service.Wake()
-	})
+
+	proxyAddr := ""
+	if internal != nil && internal.ProxyAddr() != "" {
+		proxyAddr = internal.ProxyAddr()
+	}
 
 	window = app.NewWebviewWindowWithOptions(application.WebviewWindowOptions{
 		Name:                       "main",
@@ -141,6 +141,8 @@ func main() {
 				LightModeBorder:            0x00FFFFFF,
 				LightModeBorderInactive:    0x00FFFFFF,
 			},
+
+			ProxyAddr: proxyAddr,
 		},
 		URL: "/start-service/",
 	})

@@ -22,6 +22,17 @@ import * as $models from "./models.js";
 
 /**
  * @param {string} titleId
+ * @param {string} profileId
+ * @param {string} action
+ * @returns {Promise<void> & { cancel(): void }}
+ */
+export function ActionProfile(titleId, profileId, action) {
+    let $resultPromise = /** @type {any} */($Call.ByID(155782560, titleId, profileId, action));
+    return $resultPromise;
+}
+
+/**
+ * @param {string} titleId
  * @param {string} action
  * @returns {Promise<void> & { cancel(): void }}
  */
@@ -50,19 +61,35 @@ export function Close() {
 }
 
 /**
- * @returns {Promise<string> & { cancel(): void }}
+ * @returns {Promise<void> & { cancel(): void }}
  */
-export function DeviceHash() {
-    let $resultPromise = /** @type {any} */($Call.ByID(4227702467));
+export function FetchData() {
+    let $resultPromise = /** @type {any} */($Call.ByID(1261637403));
     return $resultPromise;
 }
 
 /**
- * @returns {Promise<string> & { cancel(): void }}
+ * @returns {Promise<adapter$0.TestProgress | null> & { cancel(): void }}
  */
-export function DeviceInfo() {
-    let $resultPromise = /** @type {any} */($Call.ByID(3650439767));
-    return $resultPromise;
+export function GetEchoProgress() {
+    let $resultPromise = /** @type {any} */($Call.ByID(1503013345));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType1($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
+}
+
+/**
+ * @returns {Promise<{ [_: string]: adapter$0.NodeEchoResult | null }> & { cancel(): void }}
+ */
+export function GetEchoResults() {
+    let $resultPromise = /** @type {any} */($Call.ByID(3605346236));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType4($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
@@ -71,21 +98,12 @@ export function DeviceInfo() {
 export function GetInterfaces() {
     let $resultPromise = /** @type {any} */($Call.ByID(585328639));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        $result[0] = $$createType1($result[0]);
-        $result[1] = $$createType3($result[1]);
+        $result[0] = $$createType6($result[0]);
+        $result[1] = $$createType8($result[1]);
         return $result;
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
-}
-
-/**
- * @param {boolean} force
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function GetLatency(force) {
-    let $resultPromise = /** @type {any} */($Call.ByID(2666750551, force));
-    return $resultPromise;
 }
 
 /**
@@ -174,39 +192,6 @@ export function New(app) {
 }
 
 /**
- * @returns {Promise<{ [_: string]: adapter$0.EchoResult | null }> & { cancel(): void }}
- */
-export function Nodes() {
-    let $resultPromise = /** @type {any} */($Call.ByID(4019409066));
-    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType6($result);
-    }));
-    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
-    return $typingPromise;
-}
-
-/**
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function Pause() {
-    let $resultPromise = /** @type {any} */($Call.ByID(1262253853));
-    return $resultPromise;
-}
-
-/**
- * @param {string} outbound
- * @returns {Promise<{ [_: string]: adapter$0.EchoResult | null }> & { cancel(): void }}
- */
-export function PingOutbound(outbound) {
-    let $resultPromise = /** @type {any} */($Call.ByID(4184993321, outbound));
-    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType6($result);
-    }));
-    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
-    return $typingPromise;
-}
-
-/**
  * @param {string} process
  * @param {boolean} tcp
  * @param {boolean} udp
@@ -214,41 +199,6 @@ export function PingOutbound(outbound) {
  */
 export function RemoveProcess(process, tcp, udp) {
     let $resultPromise = /** @type {any} */($Call.ByID(3831290530, process, tcp, udp));
-    return $resultPromise;
-}
-
-/**
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function ResetNetwork() {
-    let $resultPromise = /** @type {any} */($Call.ByID(2011158070));
-    return $resultPromise;
-}
-
-/**
- * @param {string} token
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function SetAccessToken(token) {
-    let $resultPromise = /** @type {any} */($Call.ByID(2196676062, token));
-    return $resultPromise;
-}
-
-/**
- * @param {string} url
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function SetCoordinatorURL(url) {
-    let $resultPromise = /** @type {any} */($Call.ByID(43301544, url));
-    return $resultPromise;
-}
-
-/**
- * @param {string} url
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function SetProxyURL(url) {
-    let $resultPromise = /** @type {any} */($Call.ByID(3595532422, url));
     return $resultPromise;
 }
 
@@ -289,10 +239,12 @@ export function StartNDIS(options) {
 }
 
 /**
+ * @param {string} serverURL
+ * @param {string} accessToken
  * @returns {Promise<void> & { cancel(): void }}
  */
-export function StartService() {
-    let $resultPromise = /** @type {any} */($Call.ByID(679122770));
+export function StartService(serverURL, accessToken) {
+    let $resultPromise = /** @type {any} */($Call.ByID(679122770, serverURL, accessToken));
     return $resultPromise;
 }
 
@@ -313,6 +265,21 @@ export function StopService() {
 }
 
 /**
+ * @param {string} nodeId
+ * @returns {Promise<[adapter$0.NodeEchoResult | null, { [_: string]: adapter$0.NodeEchoResult | null }]> & { cancel(): void }}
+ */
+export function TestSpecificNode(nodeId) {
+    let $resultPromise = /** @type {any} */($Call.ByID(5819569, nodeId));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        $result[0] = $$createType3($result[0]);
+        $result[1] = $$createType4($result[1]);
+        return $result;
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
+}
+
+/**
  * UninstallDriver uninstalls the driver using netcfg.exe.
  * @returns {Promise<void> & { cancel(): void }}
  */
@@ -321,19 +288,13 @@ export function UninstallDriver() {
     return $resultPromise;
 }
 
-/**
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function Wake() {
-    let $resultPromise = /** @type {any} */($Call.ByID(97948605));
-    return $resultPromise;
-}
-
 // Private type creation functions
-const $$createType0 = adapter$0.NetworkInterface.createFrom;
+const $$createType0 = adapter$0.TestProgress.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = control$0.Interface.createFrom;
-const $$createType3 = $Create.Array($$createType2);
-const $$createType4 = adapter$0.EchoResult.createFrom;
-const $$createType5 = $Create.Nullable($$createType4);
-const $$createType6 = $Create.Map($Create.Any, $$createType5);
+const $$createType2 = adapter$0.NodeEchoResult.createFrom;
+const $$createType3 = $Create.Nullable($$createType2);
+const $$createType4 = $Create.Map($Create.Any, $$createType3);
+const $$createType5 = adapter$0.NetworkInterface.createFrom;
+const $$createType6 = $Create.Nullable($$createType5);
+const $$createType7 = control$0.Interface.createFrom;
+const $$createType8 = $Create.Array($$createType7);

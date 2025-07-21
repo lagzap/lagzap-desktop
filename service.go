@@ -4,12 +4,7 @@ import (
 	"context"
 
 	"github.com/lagzap/lagzap"
-	"github.com/lagzap/lagzap-desktop/command"
-	"github.com/lagzap/lagzap-desktop/coordinator"
-	"github.com/lagzap/lagzap-desktop/coordinator/handler"
-	"github.com/lagzap/lagzap-desktop/monitoring"
 	"github.com/lagzap/lagzap/adapter"
-	"github.com/lagzap/lagzap/adapter/echo"
 	"github.com/lagzap/lagzap/include"
 	"github.com/lagzap/zap/common/control"
 	E "github.com/lagzap/zap/common/exceptions"
@@ -19,65 +14,32 @@ import (
 
 type Service struct {
 	adapter.LifecycleService
-	ctx        context.Context
-	cancel     context.CancelFunc
-	app        *application.App
-	window     *application.WebviewWindow
-	systray    *application.SystemTray
-	lagzap     *lagzap.LagZap
-	monitoring *monitoring.Monitoring
-	command    *command.Command
-
-	coordinator    *coordinator.Coordinator
-	coordinatorURL string
-	proxyURL       string
-	accessToken    string
-	deviceHash     string
-	credentials    *handler.SessionCredentialsPayload
-
-	servicePauseFields
+	ctx         context.Context
+	cancel      context.CancelFunc
+	app         *application.App
+	window      *application.WebviewWindow
+	systray     *application.SystemTray
+	lagzap      *lagzap.LagZap
+	coordinator adapter.Coordinator
 }
+
+const LAGZAP_DEFAULT_SESSION_ID = "00000000-0000-0000-0000-000000000000"
+const LAGZAP_DEFAULT_SUBSCRIBER_ID = "00000000-0000-0000-0000-000000000000"
 
 func (s *Service) New(ctx context.Context, app *application.App) {
 	s.ctx = lagzap.Context(ctx, include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry(), include.DNSTransportRegistry())
 	s.app = app
 }
 
-func (s *Service) StartService() error {
+func (s *Service) StartService(serverURL, accessToken string) error {
 	if s.lagzap != nil {
 		_ = s.StopNDIS()
 		_ = s.StopService()
 	}
 	ctx, cancel := context.WithCancel(s.ctx)
-	historyStorage := echo.NewHistoryStorage()
-	ctx = service.ContextWithPtr(ctx, historyStorage)
 	s.cancel = cancel
-	s.coordinator = coordinator.New(ctx, cancel, s.app, s.coordinatorURL, s.proxyURL, s.accessToken, s.deviceHash)
-	if err := s.coordinator.Connect(); err != nil {
-		cancel()
-		return err
-	}
-	credentials, err := s.coordinator.CheckSession()
-	if err != nil {
-		cancel()
-		return err
-	}
-	s.credentials = credentials
-	s.app.EmitEvent("new-session")
-	err = s.GetRegions()
-	if err != nil {
-		return E.Cause(err, "failed to get regions")
-	}
-	err = s.GetTitles()
-	if err != nil {
-		return E.Cause(err, "failed to get titles")
-	}
-	err = s.GetNodes()
-	if err != nil {
-		return E.Cause(err, "failed to get nodes")
-	}
 
-	options := s.coordinator.GetOptions()
+	options := s.generateConfig(serverURL, accessToken)
 	instance, err := lagzap.New(lagzap.Options{
 		Context: ctx,
 		Options: options,
@@ -86,14 +48,16 @@ func (s *Service) StartService() error {
 		cancel()
 		return E.Cause(err, "create service")
 	}
-	s.monitoring = monitoring.NewManager(ctx)
-	instance.Router().SetTracker(s.monitoring)
 	err = instance.Start()
-	s.command = command.New(ctx, s.app)
 	if err != nil {
-		cancel()
+		s.StopService()
 		return E.Cause(err, "start service")
 	}
+	s.coordinator = service.FromContext[adapter.Coordinator](s.ctx)
+	s.coordinator.Listen(func(event string, data any) {
+		s.app.EmitEvent(event, data)
+	})
+
 	s.lagzap = instance
 	s.app.EmitEvent("service-started")
 	go s.startMonitoring()
@@ -109,8 +73,7 @@ func (s *Service) StopService() error {
 	}
 	err := s.lagzap.Close()
 	s.lagzap = nil
-	s.monitoring = nil
-	s.command = nil
+	s.coordinator = nil
 	s.app.EmitEvent("service-stopped")
 	return err
 }
@@ -140,16 +103,4 @@ func (s *Service) SetWindow(window *application.WebviewWindow) {
 
 func (s *Service) SetSystray(systray *application.SystemTray) {
 	s.systray = systray
-}
-
-func (s *Service) SetAccessToken(token string) {
-	s.accessToken = token
-}
-
-func (s *Service) SetCoordinatorURL(url string) {
-	s.coordinatorURL = url
-}
-
-func (s *Service) SetProxyURL(url string) {
-	s.proxyURL = url
 }

@@ -12,6 +12,27 @@ export class StartNdisOptions {
      * @param {Partial<StartNdisOptions>} [$$source = {}] - The source object to create the StartNdisOptions.
      */
     constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["process_tcp"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["process_udp"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["interface_name"] = "";
+        }
 
         Object.assign(this, $$source);
     }
@@ -22,7 +43,18 @@ export class StartNdisOptions {
      * @returns {StartNdisOptions}
      */
     static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType0;
+        const $$createField1_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("process_tcp" in $$parsedSource) {
+            $$parsedSource["process_tcp"] = $$createField0_0($$parsedSource["process_tcp"]);
+        }
+        if ("process_udp" in $$parsedSource) {
+            $$parsedSource["process_udp"] = $$createField1_0($$parsedSource["process_udp"]);
+        }
         return new StartNdisOptions(/** @type {Partial<StartNdisOptions>} */($$parsedSource));
     }
 }
+
+// Private type creation functions
+const $$createType0 = $Create.Array($Create.Any);

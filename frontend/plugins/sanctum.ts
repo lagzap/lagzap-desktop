@@ -1,12 +1,9 @@
-import { SetAccessToken } from "~/bindings/github.com/lagzap/lagzap-desktop/service"
-
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook('sanctum:login', () => {
     // console.log('Sanctum login hook triggered', nuxtApp)
   })
   nuxtApp.hook('sanctum:logout', async () => {
     const store = useStore()
-    await SetAccessToken("")
     if (store.ndisRunning) {
       await store.stopNDIS()
     }

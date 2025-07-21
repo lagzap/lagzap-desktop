@@ -4,15 +4,17 @@ import CountryFlag from "vue-country-flag-next";
 import MiddleEast from "~/components/icons/regions/middle-east.vue";
 import Europe from "~/components/icons/regions/europe.vue";
 import country from "country-list-js";
-import { PingOutbound } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import Ping from "~/components/Ping.vue";
+import { GetEchoResults, TestSpecificNode } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 const store = useStore();
-
-onMounted(async () => await store.updateLatency());
-
 const regions = computed(() => store.regions);
+const filterMode = ref('all');
+
+const echo = computed(() => store.echo || {});
+
 const areas = computed(() => {
-  return Object.values(store.nodes)
+  const allNodes = Object.values(store.nodes)
     .slice()
     .sort((a, b) => {
       const countryA = country.findByIso2(a.country)?.name || "";
@@ -27,31 +29,74 @@ const areas = computed(() => {
 
       return acc;
     }, {} as Record<string, Node[]>);
-});
-const latencies = computed(() => store.nodeLatencies);
 
-const loading = ref(false);
-async function pingAll() {
-  loading.value = true;
-  await store.optimize()
-  loading.value = false;
-}
-
-async function pingArea(area: string, value: any) {
-  const nodes = areas.value[area];
-  nodes.forEach(async (node) => {
-    const data = await PingOutbound(node.id);
-    Object.keys(data).forEach((key) => {
-      store.setNodeLatency(node.id, data[key]);
+  if (filterMode.value !== 'all') {
+    const filteredAreas: Record<string, Node[]> = {};
+    Object.entries(allNodes).forEach(([area, nodes]) => {
+      if (nodes[0]?.region === filterMode.value) {
+        filteredAreas[area] = nodes;
+      }
     });
-  });
-}
+    return filteredAreas;
+  }
 
-async function pingNode(nodeId: string) {
-  const data = await PingOutbound(nodeId);
-  Object.keys(data).forEach((key) => {
-    store.setNodeLatency(nodeId, data[key]);
+  return allNodes;
+});
+
+const areasByRegion = computed(() => {
+  if (filterMode.value !== 'all') {
+    return { [filterMode.value]: areas.value };
+  }
+
+  const regionGroups: Record<string, Record<string, Node[]>> = {};
+  Object.entries(areas.value).forEach(([area, nodes]) => {
+    const regionTag = nodes[0]?.region;
+    if (regionTag) {
+      regionGroups[regionTag] = regionGroups[regionTag] || {};
+      regionGroups[regionTag][area] = nodes;
+    }
   });
+
+  const sortedRegionGroups: Record<string, Record<string, Node[]>> = {};
+  Object.values(regions.value).forEach((region: any) => {
+    if (regionGroups[region.tag]) {
+      sortedRegionGroups[region.tag] = regionGroups[region.tag];
+    }
+  });
+
+  return sortedRegionGroups;
+});
+
+const allCountries = computed(() => {
+  const countries: string[] = [];
+  if (filterMode.value === 'all') {
+    Object.values(areasByRegion.value).forEach(regionAreas => {
+      Object.keys(regionAreas).forEach(area => {
+        countries.push(area);
+      });
+    });
+  } else {
+    Object.keys(areas.value).forEach(area => {
+      countries.push(area);
+    });
+  }
+  return countries;
+});
+
+const openedCountries = ref<string[]>(allCountries.value);
+
+// Update opened countries when filter mode or countries change
+watch([allCountries, filterMode], () => {
+  openedCountries.value = [...allCountries.value];
+}, { immediate: true });
+
+onMounted(async () => {
+  await GetEchoResults();
+})
+
+async function pingTag(tag: string) {
+  const latency = await store.pingNode(tag)
+  console.log(latency)
 }
 </script>
 
@@ -62,19 +107,25 @@ async function pingNode(nodeId: string) {
         <v-app-bar-title>Network Latency</v-app-bar-title>
 
         <v-spacer />
-        <v-btn variant="plain" :loading="loading" @click="pingAll">
+        <v-btn variant="plain" :loading="store.optimizing" @click="store.optimize()">
           Optimize
         </v-btn>
       </template>
       <v-card-text>
-        <v-expansion-panels variant="accordion">
-          <v-expansion-panel
+        <v-chip-group v-model="filterMode" color="primary" class="mb-3" filter mandatory>
+          <v-chip rounded size="large" value="all">
+            <span>All Regions</span>
+          </v-chip>
+          <v-chip 
             v-for="region in regions"
             :key="region.tag"
+            rounded 
+            size="large" 
+            :value="region.tag"
             :disabled="region.active === false"
           >
-            <v-expansion-panel-title disable-icon-rotate>
-              <v-avatar size="32">
+            <template #prepend>
+              <v-avatar size="24" class="me-2">
                 <Europe
                   v-if="region.tag == 'europe'"
                   src="~/assets/svgs/regions/europe.svg"
@@ -84,63 +135,108 @@ async function pingNode(nodeId: string) {
                   src="~/assets/svgs/regions/middle-east.svg"
                 />
               </v-avatar>
-              <span class="ms-3">
-                {{ region.name }}
+            </template>
+            <span>{{ region.name }}</span>
+          </v-chip>
+        </v-chip-group>
 
-                <Ping :latency="latencies[region.tag]?.min_latency ?? null" />
-              </span>
-            </v-expansion-panel-title>
-            <v-expansion-panel-text>
-              <v-list>
-                <v-list-group
-                  v-for="[area, nodes] in Object.entries(areas).filter(([, nodes]) => nodes[0].region === region.tag)"
-                  :key="area"
-                  :value="area"
-                >
-                  <template v-slot:activator="{ props }">
-                    <v-list-item
-                      v-bind="props"
-                      :value="area"
-                      lines="two"
-                      rounded="lg"
-                      @click.stop="pingArea(area, $event)"
-                    >
-                      <template #prepend>
-                        <v-avatar>
-                          <span style="height: 40px">
-                            <CountryFlag :country="area" />
-                          </span>
-                        </v-avatar>
-                      </template>
-
-                      <template #title>
-                        {{ country.findByIso2(area)?.name }}
-                      </template>
-
-                      <template #subtitle>
-                        <Ping :latency="latencies[area]?.min_latency ?? null" />
-                      </template>
-                    </v-list-item>
-                  </template>
-
+        <v-list class="bg-transparent" density="compact" :opened="openedCountries">
+          <template v-if="filterMode === 'all'">
+            <template v-for="[regionTag, regionAreas] in Object.entries(areasByRegion)" :key="regionTag">
+              <v-list-subheader>
+                {{ Object.values(regions).find((r: any) => r.tag === regionTag)?.name }}
+              </v-list-subheader>
+              
+              <v-list-group
+                v-for="[area, nodes] in Object.entries(regionAreas)"
+                :key="area"
+                :value="true"
+              >
+                <template v-slot:activator="{ props }">
                   <v-list-item
-                    v-for="(node, i) in nodes"
-                    :key="i"
-                    :title="node.name"
-                    :value="node.id"
+                    v-bind="props"
+                    :value="area"
+                    lines="one"
                     rounded="lg"
-                    :lines="false"
-                    @click.stop="pingNode(node.id)"
+                    slim
                   >
-                    <template #append>
-                      <Ping :latency="latencies[node.id]?.min_latency ?? null" />
+                    <template #prepend>
+                      <v-avatar>
+                        <span style="height: 40px">
+                          <CountryFlag :country="area" />
+                        </span>
+                      </v-avatar>
+                    </template>
+
+                    <template #title>
+                      {{ country.findByIso2(area)?.name }}
                     </template>
                   </v-list-item>
-                </v-list-group>
-              </v-list>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-        </v-expansion-panels>
+                </template>
+
+                <v-list-item
+                  v-for="(node, i) in nodes"
+                  :key="i"
+                  :title="node.name"
+                  :value="node.id"
+                  rounded="lg"
+                  slim
+                  :lines="false"
+                  @click="pingTag(node.id)"
+                >
+                  <template #append>
+                    <Ping :tag="node.id" />
+                  </template>
+                </v-list-item>
+              </v-list-group>
+            </template>
+          </template>
+          
+          <template v-else>
+            <v-list-group
+              v-for="[area, nodes] in Object.entries(areas)"
+              :key="area"
+              :value="area"
+            >
+              <template v-slot:activator="{ props }">
+                <v-list-item
+                  v-bind="props"
+                  :value="area"
+                  lines="one"
+                  rounded="lg"
+                  slim
+                >
+                  <template #prepend>
+                    <v-avatar>
+                      <span style="height: 40px">
+                        <CountryFlag :country="area" />
+                      </span>
+                    </v-avatar>
+                  </template>
+
+                  <template #title>
+                    {{ country.findByIso2(area)?.name }}
+                  </template>
+                </v-list-item>
+              </template>
+
+              <v-list-item
+                v-for="(node, i) in nodes"
+                :key="i"
+                :title="node.name"
+                :value="node.id"
+                rounded="lg"
+                slim
+                :lines="false"
+                @click="pingTag(node.id)"
+              >
+                <template #append>
+                  <Ping :tag="node.id" />
+                </template>
+              </v-list-item>
+            </v-list-group>
+          </template>
+        </v-list>
       </v-card-text>
     </Container>
   </div>

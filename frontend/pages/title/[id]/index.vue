@@ -98,8 +98,10 @@ onMounted(() => {
           <v-item v-slot="{ isSelected, toggle }" :value="profile.id">
             <v-card
               :title="profile.name"
-              :subtitle="isSelected ? 'Active' : 'Inactive'"
+              subtitle="Automatic Server"
               class="mt-3"
+              append-icon="mdi-chevron-right"
+              @click=""
             >
               <template v-slot:prepend>
                 <v-switch
@@ -109,11 +111,11 @@ onMounted(() => {
                   intermediate
                   class="me-4"
                   color="green"
-                  @click="toggle"
+                  @click.stop.prevent="toggle"
                 />
               </template>
 
-              <v-card-text>
+              <v-card-text v-if="profile.description?.length">
                 {{ profile.description }}
               </v-card-text>
             </v-card>

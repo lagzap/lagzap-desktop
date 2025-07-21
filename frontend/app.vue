@@ -2,8 +2,7 @@
 import { useDisplay, useTheme } from "vuetify";
 import { Events, System, Window } from "@wailsio/runtime";
 import { useMessagesStore } from "~/stores/messages";
-import { GetNodes, GetRegions, GetTitles, StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import type { EchoResult } from "./bindings/github.com/lagzap/lagzap/adapter";
+import { StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 const store = useStore();
 const messages = useMessagesStore();
@@ -34,18 +33,16 @@ Events.On("service-started", async () => {
       resolve(true);
     }, 1000);
   });
-  await store.optimize()
 });
 Events.On("service-stopped", async () => await store.checkService());
-Events.On("echo-test", ({ data }) => {
-  data.forEach((item) => {
-    const { Tag, Result } = item as { Tag: string; Result: EchoResult };
-    store.setNodeLatency(Tag, Result);
-  });
-});
 Events.On("titles", ({ data }) => store.upsertTitles(data[0]));
+Events.On("delete_title", ({ data }) => store.deleteTitle(data[0]));
+Events.On("profiles", ({ data }) => store.upsertProfiles(data[0]));
+Events.On("delete_profile", ({ data }) => store.deleteProfile(data[0]));
 Events.On("regions", ({ data }) => store.upsertRegions(data[0]));
+Events.On("delete_region", ({ data }) => store.deleteRegion(data[0]));
 Events.On("nodes", ({ data }) => store.upsertNodes(data[0]));
+Events.On("delete_node", ({ data }) => store.deleteNode(data[0]));
 
 const isMaximized = ref<boolean>(false);
 onMounted(async () => {

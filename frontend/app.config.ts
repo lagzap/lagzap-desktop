@@ -15,8 +15,6 @@ export default defineAppConfig({
         ctx: FetchContext,
         logger: ConsolaInstance
       ) => {
-        const store = useStore()
-        ctx.options.headers.set("X-Device", store.deviceHash)
       },
 
       onResponse: async (

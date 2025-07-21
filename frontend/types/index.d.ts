@@ -9,6 +9,7 @@ interface DataResponse {
   active_limit: number
   active_titles: string[]
   recent_titles: Record<string, number>
+  active_profiles: Record<string, string[]>
 }
 
 interface SessionResponse {

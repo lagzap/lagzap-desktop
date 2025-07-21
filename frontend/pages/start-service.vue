@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { InstallDriver } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { InstallDriver, FetchData } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 const router = useRouter();
 const store = useStore();
@@ -44,7 +44,7 @@ async function start () {
   } catch (e) {
     console.error(e);
     errorName.value = e.name;
-    if (store.serviceReady) {
+    if (store.isReady()) {
       store.stopNDIS();
       store.stopService();
     }
@@ -70,12 +70,14 @@ async function initApp() {
   } catch (e) {
     return;
   }
-  if (!store.driverInstalled) {
+  console.log(store.driverInstalled)
+  if (store.driverInstalled === false) {
     installDriver();
     return;
   }
-  if (store.serviceReady) {
+  if (store.isReady()) {
     router.replace({ name: "index" });
+    await FetchData()
   }
 }
 
@@ -114,18 +116,18 @@ async function installDriver() {
       <v-card-subtitle v-if="store.driverInstalled === false" class="text-info">
         Driver missing
       </v-card-subtitle>
-      <v-card-subtitle v-else-if="!store.serviceReady && store.error && errorName != 'FetchError'" class="text-error">
-        Service Failed
+      <v-card-subtitle v-else-if="store.serviceReady && store.error && errorName != 'FetchError'" class="text-error">
+        Coordination failed
       </v-card-subtitle>
-      <v-card-subtitle v-else-if="!store.serviceReady && store.error" class="text-error">
-        Connection Failed!
+      <v-card-subtitle v-else-if="!store.isReady() && store.error" class="text-error">
+        Connection failed
       </v-card-subtitle>
 
       <v-card-text
         class="text-center"
         :class="{
           'text-danger': store.error,
-          'text-success': !store.error && store.serviceReady,
+          'text-success': !store.error && store.isReady(),
         }"
       >
         {{ store.statusMessage }}
@@ -134,7 +136,7 @@ async function installDriver() {
 
     <template #actions>
       <v-btn
-        v-if="!store.serviceReady && store.error && isAuthenticated"
+        v-if="!store.isReady() && store.error && isAuthenticated"
         color="warning"
         density="comfortable"
         size="large"
@@ -185,7 +187,7 @@ async function installDriver() {
         </template>
       </v-dialog>
       <v-btn
-        v-else-if="!store.serviceReady && store.error"
+        v-else-if="!store.isReady() && store.error"
         color="info"
         density="comfortable"
         size="large"

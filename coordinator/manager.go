@@ -1,4 +1,4 @@
-package monitoring
+package coordinator
 
 import (
 	"context"
@@ -32,7 +32,7 @@ type Monitoring struct {
 	memory                  uint64
 }
 
-func NewManager(ctx context.Context) *Monitoring {
+func NewMonitoring(ctx context.Context) *Monitoring {
 	return &Monitoring{
 		ctx:      ctx,
 		router:   service.FromContext[adapter.Router](ctx),

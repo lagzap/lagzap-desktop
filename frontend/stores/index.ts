@@ -2,29 +2,27 @@ import {defineStore} from 'pinia'
 import {StartNdisOptions} from '~/bindings/github.com/lagzap/lagzap-desktop';
 import {
     AddProcess,
-    GetLatency,
-    DeviceHash,
     IsNDISRunning,
     IsRunning,
-    Nodes,
     RemoveProcess,
     StartNDIS,
     StartService,
     StopNDIS,
     StopService,
-    DeviceInfo,
-    SetAccessToken,
-    SetCoordinatorURL,
     ActionTitle,
-    SetProxyURL
+    GetEchoResults,
+    TestSpecificNode,
+    ActionProfile,
 } from '~/bindings/github.com/lagzap/lagzap-desktop/service';
-import type { EchoResult } from '~/bindings/github.com/lagzap/lagzap/adapter';
+import type { NodeEchoResult } from '~/bindings/github.com/lagzap/lagzap/adapter';
+import { ProfileFlag } from '~/constants/profile';
 
 interface State {
     abilities: string[]
 
     displayLimit: number
     activeTitles: string[]
+    activeProfiles: Record<string, string[]> // profileId: titleId[]
     recentTitles: Record<string, number>
 
     loading: boolean
@@ -42,11 +40,9 @@ interface State {
     nodes: Record<string, Node>
     regions: Record<string, Region>
 
-    coordinateUrl: string | null
-    proxyUrl: string | null
-    deviceHash: string
+    echo: Record<string, NodeEchoResult>,
+
     defaultOutbound: string | 'global'
-    nodeLatencies: Record<string, EchoResult>
 }
 
 export const useStore = defineStore('index', {
@@ -55,12 +51,13 @@ export const useStore = defineStore('index', {
 
         displayLimit: 10,
         activeTitles: [],
+        activeProfiles: {},
 
         loading: false,
         driverInstalled: null,
         statusMessage: "Initializing",
         error: false,
-        optimizing: true,
+        optimizing: false,
 
         authenticated: false,
         serviceReady: false,
@@ -72,13 +69,14 @@ export const useStore = defineStore('index', {
         regions: {},
         nodes: {},
 
-        coordinateUrl: null,
-        proxyUrl: null,
-        deviceHash: '',
+        echo: {},
+
         defaultOutbound: 'global',
-        nodeLatencies: {},
     }),
     getters: {
+        isReady: (state) => () => {
+            return state.serviceReady;
+        },
         getTitles: (state) => () => {
             const activeTitles = Object.values(state.titles)
                 .filter(title => state.activeTitles.includes(title.id))
@@ -108,55 +106,22 @@ export const useStore = defineStore('index', {
             this.error = false
             
             try {
-                this.statusMessage = "Authenticating";
-                this.deviceHash = await DeviceHash()
-                const data = useSanctumUser<DataResponse>()
-                this.abilities = data.value.abilities || []
-                this.activeTitles = data.value.active_titles || []
-                this.recentTitles = data.value.recent_titles || {}
-
-                try {
-                    this.authenticated = false
-                    
-                    const deviceInfo = await DeviceInfo()
-                    const runtimeConfig = useRuntimeConfig()
-                    const { data, status, error } = await useSanctumFetch<SessionResponse>(`/device/${this.deviceHash}`, {
-                        method: 'POST',
-                        baseURL: runtimeConfig.public.authBaseUrl,
-                        retry: 100,
-                        retryDelay: 5 * 1000,
-                        body: deviceInfo
-                    })
-
-                    if (status.value == 'success') {
-                        this.authenticated = true
-                        this.coordinateUrl = data.value.coordinator
-                        this.proxyUrl = data.value.proxy
-                        const accessToken = await getToken('lz.access_token') ?? ''
-                        await SetAccessToken(accessToken)
-                        await SetCoordinatorURL(this.coordinateUrl)
-                        await SetProxyURL(this.proxyUrl)
-                    } else {
-                        this.statusMessage = getErrorMessage(error.value)
-                        this.error = true
-                        this.authenticated = false
-                    }
-                } catch (err) {
-                    this.authenticated = false
-                } finally {
-                    if (this.authenticated === false) {
-                        return
-                    }
-                }
-
                 this.statusMessage = "Preparing service";
                 await this.checkService();
                 if (!this.serviceReady) {
                     this.statusMessage = "Starting service";
                     await this.startService();
                 }
-        
                 this.driverInstalled = true
+
+                this.statusMessage = "Authenticating";
+                const data = useSanctumUser<DataResponse>()
+                this.abilities = data.value.abilities || []
+                this.abilities = ['admin'] // TODO: temp
+                this.activeTitles = data.value.active_titles || []
+                this.recentTitles = data.value.recent_titles || {}
+                this.activeProfiles = data.value.active_profiles || {}
+
                 this.statusMessage = "LagZap is Ready!";
                 if (callback !== undefined) {
                     callback()
@@ -204,12 +169,15 @@ export const useStore = defineStore('index', {
         isTitleActive(id: string): boolean {
             return this.activeTitles.includes(id);
         },
+        isProfileActive(id: string): boolean {
+            return this.activeProfiles[id] !== undefined && this.activeProfiles[id].length > 0;
+        },
         async activateTitle(id: string) {
             if (this.isTitleActive(id)) {
                 return
             }
-
             this.activeTitles.push(id)
+            this.setDefaultProfiles(id)
             try {
                 await ActionTitle(id, "activate")
             } catch (e) {
@@ -220,6 +188,32 @@ export const useStore = defineStore('index', {
             this.activeTitles = this.activeTitles.filter(title => title !== id)
             try {
                 await ActionTitle(id, "deactivate")
+            } catch (e) {
+                displayError(e)
+            }
+        },
+        async activateProfile(titleId: string, profileId: string) {
+            if (!this.activeProfiles[profileId]) {
+                this.activeProfiles[profileId] = [];
+            }
+            if (!this.activeProfiles[profileId].includes(titleId)) {
+                this.activeProfiles[profileId].push(titleId);
+            }
+            try {
+                await ActionProfile(titleId, profileId, "activate")
+            } catch (e) {
+                displayError(e)
+            }
+        },
+        async deactivateProfile(titleId: string, profileId: string) {
+            if (this.activeProfiles[profileId]) {
+                this.activeProfiles[profileId] = this.activeProfiles[profileId].filter(id => id !== titleId);
+                if (this.activeProfiles[profileId].length === 0) {
+                    delete this.activeProfiles[profileId];
+                }
+            }
+            try {
+                await ActionProfile(titleId, profileId, "deactivate")
             } catch (e) {
                 displayError(e)
             }
@@ -242,6 +236,19 @@ export const useStore = defineStore('index', {
                 }
             }
         },
+        upsertProfiles(profiles: Profile[]) {
+            for (const profile of profiles) {
+                this.profiles[profile.id] = profile;
+                for (const title of Object.values(this.titles)) {
+                    if (Array.isArray(title.profiles)) {
+                        const idx = title.profiles.findIndex(p => p.id === profile.id);
+                        if (idx !== -1) {
+                            title.profiles[idx] = profile;
+                        }
+                    }
+                }
+            }
+        },
         upsertRegions(regions: Record<string, Region>) {
             for (const [tag, region] of Object.entries(regions)) {
                 this.regions[tag] = { ...this.regions[tag], ...region };
@@ -251,22 +258,62 @@ export const useStore = defineStore('index', {
             for (const [id, node] of Object.entries(nodes)) {
                 this.nodes[id] = { ...this.nodes[id], ...node };
             }
+            this.updateEcho();
         },
+        deleteTitle(id: string) {
+            delete this.titles[id];
+            this.activeTitles = this.activeTitles.filter(titleId => titleId !== id);
+            delete this.recentTitles[id];
+            if (this.titles[id]?.profiles) {
+                for (const profileId of Object.keys(this.titles[id].profiles)) {
+                    delete this.profiles[profileId];
+                }
+            }
+        },
+        deleteProfile(id: string) {
+            delete this.profiles[id];
+            delete this.activeProfiles[id];
+            for (const title of Object.values(this.titles)) {
+                title.profiles = title.profiles.filter(profile => profile.id !== id);
+            }
+        },
+        deleteRegion(tag: string) {
+            delete this.regions[tag];
+        },
+        deleteNode(id: string) {
+            delete this.nodes[id];
+            delete this.echo[id];
+        },
+
         findTitleByProcessRegex(processRegex: string): Title | undefined {
-            // Find the profile with the given process_regex
             const profileEntry = Object.entries(this.profiles).find(
                 ([, profile]) => profile.process_regex === processRegex
             );
             if (!profileEntry) return undefined;
-            const [profileId, profile] = profileEntry;
-
-            // Find the parent title that contains this profile
-            return Object.values(this.titles).find(title => title.profiles[profileId]);
+            const [profileId] = profileEntry;
+            return Object.values(this.titles).find(title => title.profiles && title.profiles[profileId]);
         },
         findProfileByProcessRegex(processRegex: string): Profile | undefined {
             return Object.values(this.profiles).find(
-            (profile) => profile.process_regex === processRegex
+                (profile) => profile.process_regex === processRegex
             );
+        },
+        setDefaultProfiles(titleId: string) {
+            const title = this.titles[titleId];
+            if (!title || !title.profiles) {
+                return;
+            }
+            const defaultProfiles = Object.values(title.profiles).filter(
+                (profile) => profile.flags & ProfileFlag.DEFAULT_SELECTED
+            );
+            for (const profile of defaultProfiles) {
+                if (!this.isProfileActive(profile.id)) {
+                    this.activateProfile(titleId, profile.id);
+                }
+            }
+        },
+        activeDefaultProfile(titleId: string) {
+            this.setDefaultProfiles(titleId);
         },
 
         // Service
@@ -282,7 +329,9 @@ export const useStore = defineStore('index', {
             }
 
             try {
-                await StartService();
+                const accessToken = await getToken('lz.access_token') ?? ''
+                const a = await StartService('wss://dev.lagzap.network', accessToken);
+                console.log(a)
                 this.ndisRunning = await IsNDISRunning()
                 const wasNdisRunning = this.ndisRunning;
                 await this.checkNDIS();
@@ -290,6 +339,8 @@ export const useStore = defineStore('index', {
                     await this.startNDIS();
                 }
             } catch (e) {
+                this.error = true
+                this.statusMessage = e.getMessage()
                 console.error(e)
                 throw e
             } finally {
@@ -326,14 +377,14 @@ export const useStore = defineStore('index', {
             const isRunning = await IsNDISRunning()
             if (isRunning) await StopNDIS()
 
-            const processRegex = Object.values(this.activeTitles)
-            if (processRegex.length > 0) {
-                processRegex.push('^C:\\\\Windows\\\\System32\\\\svchost\\.exe$')
-            }
+            // const processRegex = Object.values(this.activeTitles)
+            // if (processRegex.length > 0) {
+            //     processRegex.push('^C:\\\\Windows\\\\System32\\\\svchost\\.exe$')
+            // }
             
             const options = new StartNdisOptions({
-                process_tcp: processRegex as Array<string>,
-                process_udp: processRegex as Array<string>,
+                // process_tcp: processRegex as Array<string>,
+                // process_udp: processRegex as Array<string>,
             });
             await StartNDIS(options);
             this.ndisRunning = await IsNDISRunning()
@@ -352,21 +403,20 @@ export const useStore = defineStore('index', {
             }
         },
 
+        // network analysis
         async optimize() {
             this.optimizing = true
-            await GetLatency(true)
-            await this.updateLatency();
+            this.echo = await GetEchoResults();
             this.optimizing = false
         },
-        async updateLatency() {
-            this.nodeLatencies = await Nodes();
+        async updateEcho() {
+            this.echo = await GetEchoResults();
         },
-        setNodeLatency(tag: string, result: EchoResult | null) {
-            if (result === null) {
-                delete this.nodeLatencies[tag]
-                return
-            }
-            this.nodeLatencies[tag] = result
+        async pingNode(tag: string) {
+            const result = await TestSpecificNode(tag)
+            const [nodeResult] = result
+            this.echo[tag] = nodeResult
+            return nodeResult
         }
     }
 })

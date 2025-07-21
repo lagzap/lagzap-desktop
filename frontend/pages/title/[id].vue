@@ -26,13 +26,6 @@ onMounted(() => {
           <v-img :src="title?.icon_url" />
         </v-avatar>
         <v-app-bar-title>{{ title?.name }}</v-app-bar-title>
-
-        <v-btn
-          variant="plain"
-          color="secondary"
-          prepend-icon="mdi-bug-outline"
-          text="Report"
-        />
       </template>
 
       <NuxtPage

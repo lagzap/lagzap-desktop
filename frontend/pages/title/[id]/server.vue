@@ -7,8 +7,6 @@ import country from "country-list-js";
 const store = useStore();
 const route = useRoute();
 
-onMounted(async () => await store.updateLatency());
-
 const mode = ref('global');
 
 const regions = computed(() => store.regions);
@@ -29,7 +27,6 @@ const areas = computed(() => {
       return acc;
     }, {} as Record<string, Node[]>);
 });
-const latencies = computed(() => store.nodeLatencies);
 </script>
 
 <template>
@@ -100,7 +97,7 @@ const latencies = computed(() => store.nodeLatencies);
                   @click="toggle"
                 >
                   <template #subtitle>
-                    <Ping :latency="latencies[region.tag]?.min_latency ?? null" />
+                    <span />
                   </template>
 
                   <template #prepend>
@@ -159,7 +156,7 @@ const latencies = computed(() => store.nodeLatencies);
                   </template>
 
                   <template #subtitle>
-                    <Ping :latency="latencies[area]?.min_latency ?? null" />
+                    <span />
                   </template>
                 </v-card>
               </v-item>
@@ -179,7 +176,7 @@ const latencies = computed(() => store.nodeLatencies);
             <span class="ms-3">
               {{ region.name }}
 
-              <Ping :latency="latencies[region.tag]?.min_latency ?? null" />
+              <span />
             </span>
           </v-expansion-panel-title>
           <v-expansion-panel-text>
@@ -209,7 +206,7 @@ const latencies = computed(() => store.nodeLatencies);
                     </template>
 
                     <template #subtitle>
-                      <Ping :latency="latencies[area]?.min_latency ?? null" />
+                      <span />
                     </template>
                   </v-list-item>
                 </template>
@@ -223,7 +220,7 @@ const latencies = computed(() => store.nodeLatencies);
                   :lines="false"
                 >
                   <template #append>
-                    <Ping :latency="latencies[node.id]?.min_latency ?? null" />
+                    <span />
                   </template>
                 </v-list-item>
               </v-list-group>

@@ -11,87 +11,79 @@ import {Create as $Create} from "@wailsio/runtime";
 import * as constant$0 from "../constant/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as timestamppb$0 from "../../../../google.golang.org/protobuf/types/known/timestamppb/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as net$0 from "../../../../net/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as netip$0 from "../../../../net/netip/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as time$0 from "../../../../time/models.js";
 
-export class EchoResult {
+export class HopMetric {
     /**
-     * Creates a new EchoResult instance.
-     * @param {Partial<EchoResult>} [$$source = {}] - The source object to create the EchoResult.
+     * Creates a new HopMetric instance.
+     * @param {Partial<HopMetric>} [$$source = {}] - The source object to create the HopMetric.
      */
     constructor($$source = {}) {
-        if (!("time" in $$source)) {
+        if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {time$0.Time}
+             * @type {string | undefined}
              */
-            this["time"] = null;
+            this["ip"] = "";
         }
-        if (!("min_latency" in $$source)) {
+        if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {number}
+             * @type {HopStatus | undefined}
              */
-            this["min_latency"] = 0;
+            this["status"] = (/** @type {HopStatus} */(0));
         }
-        if (!("max_latency" in $$source)) {
+        if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {number}
+             * @type {number | undefined}
              */
-            this["max_latency"] = 0;
+            this["latency"] = 0;
         }
-        if (!("avg_latency" in $$source)) {
+        if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {number}
+             * @type {number | undefined}
              */
-            this["avg_latency"] = 0;
-        }
-        if (!("ping_list" in $$source)) {
-            /**
-             * @member
-             * @type {number[]}
-             */
-            this["ping_list"] = [];
-        }
-        if (!("packet_loss" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["packet_loss"] = 0;
-        }
-        if (!("jitter" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["jitter"] = 0;
+            this["hop_index"] = 0;
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new EchoResult instance from a string or object.
+     * Creates a new HopMetric instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {EchoResult}
+     * @returns {HopMetric}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("ping_list" in $$parsedSource) {
-            $$parsedSource["ping_list"] = $$createField4_0($$parsedSource["ping_list"]);
-        }
-        return new EchoResult(/** @type {Partial<EchoResult>} */($$parsedSource));
+        return new HopMetric(/** @type {Partial<HopMetric>} */($$parsedSource));
     }
 }
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const HopStatus = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    HopStatus_HOP_STATUS_UNSPECIFIED: 0,
+    HopStatus_HOP_STATUS_OK: 1,
+    HopStatus_HOP_STATUS_ERROR: 2,
+    HopStatus_HOP_STATUS_TIMEOUT: 3,
+    HopStatus_HOP_STATUS_NON_ZAP: 4,
+};
 
 export class NetworkInterface {
     /**
@@ -179,9 +171,9 @@ export class NetworkInterface {
      * @returns {NetworkInterface}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType1;
-        const $$createField5_0 = $$createType2;
-        const $$createField7_0 = $$createType3;
+        const $$createField3_0 = $$createType0;
+        const $$createField5_0 = $$createType1;
+        const $$createField7_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("HardwareAddr" in $$parsedSource) {
             $$parsedSource["HardwareAddr"] = $$createField3_0($$parsedSource["HardwareAddr"]);
@@ -193,6 +185,158 @@ export class NetworkInterface {
             $$parsedSource["DNSServers"] = $$createField7_0($$parsedSource["DNSServers"]);
         }
         return new NetworkInterface(/** @type {Partial<NetworkInterface>} */($$parsedSource));
+    }
+}
+
+export class NodeEchoResult {
+    /**
+     * Creates a new NodeEchoResult instance.
+     * @param {Partial<NodeEchoResult>} [$$source = {}] - The source object to create the NodeEchoResult.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["tag"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["target_addr"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["edge_addrs"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {timestamppb$0.Timestamp | null | undefined}
+             */
+            this["last_test"] = null;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["is_testing"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["is_available"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["packet_sent"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["packet_received"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["packet_loss"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["avg_latency"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["min_latency"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["max_latency"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["jitter"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["score"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(HopMetric | null)[] | undefined}
+             */
+            this["hop_metrics"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["error_message"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {TestType | undefined}
+             */
+            this["test_type"] = (/** @type {TestType} */(0));
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NodeEchoResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {NodeEchoResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType2;
+        const $$createField3_0 = $$createType4;
+        const $$createField14_0 = $$createType7;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("edge_addrs" in $$parsedSource) {
+            $$parsedSource["edge_addrs"] = $$createField2_0($$parsedSource["edge_addrs"]);
+        }
+        if ("last_test" in $$parsedSource) {
+            $$parsedSource["last_test"] = $$createField3_0($$parsedSource["last_test"]);
+        }
+        if ("hop_metrics" in $$parsedSource) {
+            $$parsedSource["hop_metrics"] = $$createField14_0($$parsedSource["hop_metrics"]);
+        }
+        return new NodeEchoResult(/** @type {Partial<NodeEchoResult>} */($$parsedSource));
     }
 }
 
@@ -212,13 +356,89 @@ export const StartStage = {
     StartStateStarted: 3,
 };
 
-// Private type creation functions
-const $$createType0 = $Create.Array($Create.Any);
-var $$createType1 = /** @type {(...args: any[]) => any} */(function $$initCreateType1(...args) {
-    if ($$createType1 === $$initCreateType1) {
-        $$createType1 = $Create.ByteSlice;
+export class TestProgress {
+    /**
+     * Creates a new TestProgress instance.
+     * @param {Partial<TestProgress>} [$$source = {}] - The source object to create the TestProgress.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["total_tests"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["completed_tests"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["current_test"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["is_complete"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["progress_percentage"] = 0;
+        }
+
+        Object.assign(this, $$source);
     }
-    return $$createType1(...args);
+
+    /**
+     * Creates a new TestProgress instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TestProgress}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TestProgress(/** @type {Partial<TestProgress>} */($$parsedSource));
+    }
+}
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const TestType = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    TestType_TEST_TYPE_UNSPECIFIED: 0,
+    TestType_TEST_TYPE_DIRECT: 1,
+    TestType_TEST_TYPE_SINGLE_HOP: 2,
+    TestType_TEST_TYPE_MULTI_HOP: 3,
+};
+
+// Private type creation functions
+var $$createType0 = /** @type {(...args: any[]) => any} */(function $$initCreateType0(...args) {
+    if ($$createType0 === $$initCreateType0) {
+        $$createType0 = $Create.ByteSlice;
+    }
+    return $$createType0(...args);
 });
+const $$createType1 = $Create.Array($Create.Any);
 const $$createType2 = $Create.Array($Create.Any);
-const $$createType3 = $Create.Array($Create.Any);
+const $$createType3 = timestamppb$0.Timestamp.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = HopMetric.createFrom;
+const $$createType6 = $Create.Nullable($$createType5);
+const $$createType7 = $Create.Array($$createType6);
