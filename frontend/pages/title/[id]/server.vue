@@ -3,6 +3,7 @@ import CountryFlag from "vue-country-flag-next";
 import MiddleEast from "~/components/icons/regions/middle-east.vue";
 import Europe from "~/components/icons/regions/europe.vue";
 import country from "country-list-js";
+import type { Node } from "~/bindings/github.com/lagzap/lagzap/adapter";
 
 const store = useStore();
 const route = useRoute();

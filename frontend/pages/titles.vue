@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import Container from "~/components/layout/Container.vue";
+import type { Title } from "~/bindings/github.com/lagzap/lagzap/adapter";
 
 const store = useStore();
-const titles = computed(() => store.getTitles());
+const titles = computed(() => store.getTitles);
 </script>
 
 <template>

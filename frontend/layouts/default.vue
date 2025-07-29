@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {useDisplay} from "vuetify";
+import { Events } from "@wailsio/runtime";
 import NavigationDrawer from "~/components/layout/NavigationDrawer.vue";
 
 const {mobile} = useDisplay();
@@ -7,7 +8,14 @@ const sidebar = ref(!mobile.value);
 provide("sidebar", sidebar);
 
 const store = useStore();
-const optimizing = computed(() => store.optimizing);
+const optimizing = ref(false);
+
+const progress = ref(0)
+Events.On("echo_progress", ({ data }) => {
+  const progress = data[0]
+  optimizing.value = progress.progress_percentage > 0 && progress.progress_percentage < 100
+  progress.value = progress.progress_percentage
+});
 </script>
 
 <template>
@@ -33,10 +41,10 @@ const optimizing = computed(() => store.optimizing);
           <template v-slot:append>
             <v-progress-circular
               color="primary"
-              indeterminate="disable-shrink"
               size="16"
               width="2"
               class="ms-3"
+              :value="progress"
             />
           </template>
         </v-card>

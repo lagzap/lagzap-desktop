@@ -5,7 +5,7 @@ import MiddleEast from "~/components/icons/regions/middle-east.vue";
 import Europe from "~/components/icons/regions/europe.vue";
 import country from "country-list-js";
 import Ping from "~/components/Ping.vue";
-import { GetEchoResults, TestSpecificNode } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import type { Node } from "~/bindings/github.com/lagzap/lagzap/adapter";
 
 const store = useStore();
 const regions = computed(() => store.regions);
@@ -85,13 +85,12 @@ const allCountries = computed(() => {
 
 const openedCountries = ref<string[]>(allCountries.value);
 
-// Update opened countries when filter mode or countries change
 watch([allCountries, filterMode], () => {
   openedCountries.value = [...allCountries.value];
 }, { immediate: true });
 
 onMounted(async () => {
-  await GetEchoResults();
+  await store.updateEcho();
 })
 
 async function pingTag(tag: string) {

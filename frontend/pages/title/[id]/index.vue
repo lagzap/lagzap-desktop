@@ -19,7 +19,19 @@ const connections = computed(
     ) ?? []
 );
 
-const selectedProfiles = ref<string[]>([])
+const activeProfiles = computed(() => 
+  title.value?.profiles?.filter(profile => store.isProfileActive(profile.id)).map(profile => profile.id) ?? []
+);
+
+const toggleProfile = async (profile: any) => {
+  if (!title.value) return;
+  
+  if (store.isProfileActive(profile.id)) {
+    await store.deactivateProfile(title.value.id, profile.id);
+  } else {
+    await store.activateProfile(title.value.id, profile.id);
+  }
+};
 
 const headers = ref<VDataTableVirtual["headers"]>([
   {
@@ -83,7 +95,7 @@ onMounted(() => {
 
     <v-item-group
       v-if="title"
-      v-model:model-value="selectedProfiles"
+      :model-value="activeProfiles"
       selected-class="bg-primary"
       multiple
     >
@@ -95,7 +107,7 @@ onMounted(() => {
           xl="4"
           lg="6"
         >
-          <v-item v-slot="{ isSelected, toggle }" :value="profile.id">
+          <v-item v-slot="{ isSelected }" :value="profile.id">
             <v-card
               :title="profile.name"
               subtitle="Automatic Server"
@@ -105,13 +117,13 @@ onMounted(() => {
             >
               <template v-slot:prepend>
                 <v-switch
-                  :model-value="isSelected"
+                  :model-value="store.isProfileActive(profile.id)"
                   inset
                   hide-details
                   intermediate
                   class="me-4"
                   color="green"
-                  @click.stop.prevent="toggle"
+                  @click.stop.prevent="toggleProfile(profile)"
                 />
               </template>
 

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { min } from 'es-toolkit/compat';
-import type { NodeEchoResult } from '~/bindings/github.com/lagzap/lagzap/adapter';
+import type { NodeOptimizeResult } from '~/bindings/github.com/lagzap/lagzap/adapter';
 
 
 const props = defineProps<{
@@ -9,7 +9,7 @@ const props = defineProps<{
 
 const store = useStore();
 
-const echo = computed<NodeEchoResult | null>(() => store.echo ? store.echo[props.tag] : null);
+const echo = computed<NodeOptimizeResult | null>(() => store.echo ? store.echo[props.tag] : null);
 
 // Helper function to get color class based on gaming score
 function getScoreColorClass(score: number | null): string {
@@ -65,7 +65,7 @@ function getScoreIcon(score: number | null): string {
 
 <template>
   <span :class="getScoreColorClass(echo?.score || null)" class="d-flex align-center gap-1">
-    <span class="me-1">{{ echo && echo.min_latency ? `${echo.min_latency}ms` : "timeout" }}</span>
+    <span class="me-1">{{ echo && echo.min_latency ? `${Math.max(0, echo.min_latency - 3)}ms` : "timeout" }}</span>
     <v-icon :icon="getScoreIcon(echo?.score || null)" size="small" />
   </span>
 </template>

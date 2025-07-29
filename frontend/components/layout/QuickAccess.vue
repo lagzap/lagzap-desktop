@@ -2,7 +2,7 @@
 import { useStore } from "@/stores";
 
 const store = useStore();
-const recentTitles = computed(() => store.getRecentTitles());
+const recentTitles = computed(() => store.getRecentTitles);
 </script>
 
 <template>

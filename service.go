@@ -5,6 +5,8 @@ import (
 
 	"github.com/lagzap/lagzap"
 	"github.com/lagzap/lagzap/adapter"
+	"github.com/lagzap/lagzap/coordinator"
+	"github.com/lagzap/lagzap/coordinator/monitoring"
 	"github.com/lagzap/lagzap/include"
 	"github.com/lagzap/zap/common/control"
 	E "github.com/lagzap/zap/common/exceptions"
@@ -21,6 +23,7 @@ type Service struct {
 	systray     *application.SystemTray
 	lagzap      *lagzap.LagZap
 	coordinator adapter.Coordinator
+	monitoring  *monitoring.Manager
 }
 
 const LAGZAP_DEFAULT_SESSION_ID = "00000000-0000-0000-0000-000000000000"
@@ -57,7 +60,9 @@ func (s *Service) StartService(serverURL, accessToken string) error {
 	s.coordinator.Listen(func(event string, data any) {
 		s.app.EmitEvent(event, data)
 	})
-
+	if coordinator, ok := s.coordinator.(*coordinator.Coordinator); ok {
+		s.monitoring = coordinator.TrafficManager()
+	}
 	s.lagzap = instance
 	s.app.EmitEvent("service-started")
 	go s.startMonitoring()

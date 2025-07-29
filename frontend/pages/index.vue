@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { GetEchoResults, FetchData } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import type { NodeEchoResult } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { StartOptimizing, FetchData } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import type { NodeOptimizeResult } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import Container from "~/components/layout/Container.vue";
 
-const tests = ref<Record<string, NodeEchoResult>>({});
+const store = useStore()
+const tests = ref<Record<string, NodeOptimizeResult>>({});
 
 async function loadRegions() {
   const regions = await FetchData();
   console.log(regions);
 }
 async function loadTests() {
-  tests.value = await GetEchoResults();
-  console.log(tests.value);
+  await StartOptimizing()
 }
 </script>
 
@@ -32,6 +32,7 @@ async function loadTests() {
 
       <v-card-text>
         <pre>{{ tests }}</pre>
+        <pre>{{ store.nodes }}</pre>
       </v-card-text>
     </Container>
   </div>

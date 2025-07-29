@@ -21,24 +21,31 @@ import * as application$0 from "../../wailsapp/wails/v3/pkg/application/models.j
 import * as $models from "./models.js";
 
 /**
- * @param {string} titleId
  * @param {string} profileId
- * @param {string} action
- * @returns {Promise<void> & { cancel(): void }}
+ * @param {adapter$0.ProfileState | null} payload
+ * @returns {Promise<adapter$0.ProfileState | null> & { cancel(): void }}
  */
-export function ActionProfile(titleId, profileId, action) {
-    let $resultPromise = /** @type {any} */($Call.ByID(155782560, titleId, profileId, action));
-    return $resultPromise;
+export function ActionProfile(profileId, payload) {
+    let $resultPromise = /** @type {any} */($Call.ByID(155782560, profileId, payload));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType1($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
  * @param {string} titleId
- * @param {string} action
- * @returns {Promise<void> & { cancel(): void }}
+ * @param {adapter$0.TitleState | null} payload
+ * @returns {Promise<adapter$0.TitleState | null> & { cancel(): void }}
  */
-export function ActionTitle(titleId, action) {
-    let $resultPromise = /** @type {any} */($Call.ByID(3369209383, titleId, action));
-    return $resultPromise;
+export function ActionTitle(titleId, payload) {
+    let $resultPromise = /** @type {any} */($Call.ByID(3369209383, titleId, payload));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType3($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
@@ -69,37 +76,13 @@ export function FetchData() {
 }
 
 /**
- * @returns {Promise<adapter$0.TestProgress | null> & { cancel(): void }}
- */
-export function GetEchoProgress() {
-    let $resultPromise = /** @type {any} */($Call.ByID(1503013345));
-    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType1($result);
-    }));
-    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
-    return $typingPromise;
-}
-
-/**
- * @returns {Promise<{ [_: string]: adapter$0.NodeEchoResult | null }> & { cancel(): void }}
- */
-export function GetEchoResults() {
-    let $resultPromise = /** @type {any} */($Call.ByID(3605346236));
-    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType4($result);
-    }));
-    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
-    return $typingPromise;
-}
-
-/**
  * @returns {Promise<[adapter$0.NetworkInterface | null, control$0.Interface[]]> & { cancel(): void }}
  */
 export function GetInterfaces() {
     let $resultPromise = /** @type {any} */($Call.ByID(585328639));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        $result[0] = $$createType6($result[0]);
-        $result[1] = $$createType8($result[1]);
+        $result[0] = $$createType5($result[0]);
+        $result[1] = $$createType7($result[1]);
         return $result;
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
@@ -107,27 +90,87 @@ export function GetInterfaces() {
 }
 
 /**
- * @returns {Promise<void> & { cancel(): void }}
+ * @returns {Promise<{ [_: string]: adapter$0.Node | null }> & { cancel(): void }}
  */
 export function GetNodes() {
     let $resultPromise = /** @type {any} */($Call.ByID(3650039068));
-    return $resultPromise;
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType10($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {Promise<void> & { cancel(): void }}
+ * @returns {Promise<adapter$0.OptimizeProgress | null> & { cancel(): void }}
+ */
+export function GetOptimizeProgress() {
+    let $resultPromise = /** @type {any} */($Call.ByID(200422283));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType12($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
+}
+
+/**
+ * @returns {Promise<{ [_: string]: adapter$0.NodeOptimizeResult | null }> & { cancel(): void }}
+ */
+export function GetOptimizeResults() {
+    let $resultPromise = /** @type {any} */($Call.ByID(2696120310));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType15($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
+}
+
+/**
+ * @returns {Promise<{ [_: string]: adapter$0.ProfileState | null }> & { cancel(): void }}
+ */
+export function GetProfileStates() {
+    let $resultPromise = /** @type {any} */($Call.ByID(3829360106));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType16($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
+}
+
+/**
+ * @returns {Promise<{ [_: string]: adapter$0.Region | null }> & { cancel(): void }}
  */
 export function GetRegions() {
     let $resultPromise = /** @type {any} */($Call.ByID(3658744404));
-    return $resultPromise;
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType19($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {Promise<void> & { cancel(): void }}
+ * @returns {Promise<{ [_: string]: adapter$0.TitleState | null }> & { cancel(): void }}
+ */
+export function GetTitleStates() {
+    let $resultPromise = /** @type {any} */($Call.ByID(2788903497));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType20($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
+}
+
+/**
+ * @returns {Promise<{ [_: string]: adapter$0.Title | null }> & { cancel(): void }}
  */
 export function GetTitles() {
     let $resultPromise = /** @type {any} */($Call.ByID(94823092));
-    return $resultPromise;
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType23($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
@@ -239,6 +282,14 @@ export function StartNDIS(options) {
 }
 
 /**
+ * @returns {Promise<void> & { cancel(): void }}
+ */
+export function StartOptimizing() {
+    let $resultPromise = /** @type {any} */($Call.ByID(1400408683));
+    return $resultPromise;
+}
+
+/**
  * @param {string} serverURL
  * @param {string} accessToken
  * @returns {Promise<void> & { cancel(): void }}
@@ -266,13 +317,13 @@ export function StopService() {
 
 /**
  * @param {string} nodeId
- * @returns {Promise<[adapter$0.NodeEchoResult | null, { [_: string]: adapter$0.NodeEchoResult | null }]> & { cancel(): void }}
+ * @returns {Promise<[adapter$0.NodeOptimizeResult | null, { [_: string]: adapter$0.NodeOptimizeResult | null }]> & { cancel(): void }}
  */
 export function TestSpecificNode(nodeId) {
     let $resultPromise = /** @type {any} */($Call.ByID(5819569, nodeId));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        $result[0] = $$createType3($result[0]);
-        $result[1] = $$createType4($result[1]);
+        $result[0] = $$createType14($result[0]);
+        $result[1] = $$createType15($result[1]);
         return $result;
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
@@ -289,12 +340,27 @@ export function UninstallDriver() {
 }
 
 // Private type creation functions
-const $$createType0 = adapter$0.TestProgress.createFrom;
+const $$createType0 = adapter$0.ProfileState.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = adapter$0.NodeEchoResult.createFrom;
+const $$createType2 = adapter$0.TitleState.createFrom;
 const $$createType3 = $Create.Nullable($$createType2);
-const $$createType4 = $Create.Map($Create.Any, $$createType3);
-const $$createType5 = adapter$0.NetworkInterface.createFrom;
-const $$createType6 = $Create.Nullable($$createType5);
-const $$createType7 = control$0.Interface.createFrom;
-const $$createType8 = $Create.Array($$createType7);
+const $$createType4 = adapter$0.NetworkInterface.createFrom;
+const $$createType5 = $Create.Nullable($$createType4);
+const $$createType6 = control$0.Interface.createFrom;
+const $$createType7 = $Create.Array($$createType6);
+const $$createType8 = adapter$0.Node.createFrom;
+const $$createType9 = $Create.Nullable($$createType8);
+const $$createType10 = $Create.Map($Create.Any, $$createType9);
+const $$createType11 = adapter$0.OptimizeProgress.createFrom;
+const $$createType12 = $Create.Nullable($$createType11);
+const $$createType13 = adapter$0.NodeOptimizeResult.createFrom;
+const $$createType14 = $Create.Nullable($$createType13);
+const $$createType15 = $Create.Map($Create.Any, $$createType14);
+const $$createType16 = $Create.Map($Create.Any, $$createType1);
+const $$createType17 = adapter$0.Region.createFrom;
+const $$createType18 = $Create.Nullable($$createType17);
+const $$createType19 = $Create.Map($Create.Any, $$createType18);
+const $$createType20 = $Create.Map($Create.Any, $$createType3);
+const $$createType21 = adapter$0.Title.createFrom;
+const $$createType22 = $Create.Nullable($$createType21);
+const $$createType23 = $Create.Map($Create.Any, $$createType22);

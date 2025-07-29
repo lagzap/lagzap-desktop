@@ -44,7 +44,7 @@ async function start () {
   } catch (e) {
     console.error(e);
     errorName.value = e.name;
-    if (store.isReady()) {
+    if (store.isReady) {
       store.stopNDIS();
       store.stopService();
     }
@@ -75,7 +75,7 @@ async function initApp() {
     installDriver();
     return;
   }
-  if (store.isReady()) {
+  if (store.isReady) {
     router.replace({ name: "index" });
     await FetchData()
   }
@@ -119,7 +119,7 @@ async function installDriver() {
       <v-card-subtitle v-else-if="store.serviceReady && store.error && errorName != 'FetchError'" class="text-error">
         Coordination failed
       </v-card-subtitle>
-      <v-card-subtitle v-else-if="!store.isReady() && store.error" class="text-error">
+      <v-card-subtitle v-else-if="!store.isReady && store.error" class="text-error">
         Connection failed
       </v-card-subtitle>
 
@@ -127,7 +127,7 @@ async function installDriver() {
         class="text-center"
         :class="{
           'text-danger': store.error,
-          'text-success': !store.error && store.isReady(),
+          'text-success': !store.error && store.isReady,
         }"
       >
         {{ store.statusMessage }}
@@ -136,7 +136,7 @@ async function installDriver() {
 
     <template #actions>
       <v-btn
-        v-if="!store.isReady() && store.error && isAuthenticated"
+        v-if="!store.isReady && store.error && isAuthenticated"
         color="warning"
         density="comfortable"
         size="large"
@@ -187,7 +187,7 @@ async function installDriver() {
         </template>
       </v-dialog>
       <v-btn
-        v-else-if="!store.isReady() && store.error"
+        v-else-if="!store.isReady && store.error"
         color="info"
         density="comfortable"
         size="large"

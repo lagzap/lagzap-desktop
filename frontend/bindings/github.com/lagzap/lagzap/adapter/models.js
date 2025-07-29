@@ -11,9 +11,6 @@ import {Create as $Create} from "@wailsio/runtime";
 import * as constant$0 from "../constant/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as timestamppb$0 from "../../../../google.golang.org/protobuf/types/known/timestamppb/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as net$0 from "../../../../net/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -188,10 +185,129 @@ export class NetworkInterface {
     }
 }
 
-export class NodeEchoResult {
+export class Node {
     /**
-     * Creates a new NodeEchoResult instance.
-     * @param {Partial<NodeEchoResult>} [$$source = {}] - The source object to create the NodeEchoResult.
+     * Creates a new Node instance.
+     * @param {Partial<Node>} [$$source = {}] - The source object to create the Node.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["id"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["name"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["status"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["region"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["area"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["country"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["city"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["latitude"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["longitude"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["ipv4"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["ipv6"] = null;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["echo_port"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["edge_port"] = null;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["relay_port"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Node instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Node}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Node(/** @type {Partial<Node>} */($$parsedSource));
+    }
+}
+
+export class NodeOptimizeResult {
+    /**
+     * Creates a new NodeOptimizeResult instance.
+     * @param {Partial<NodeOptimizeResult>} [$$source = {}] - The source object to create the NodeOptimizeResult.
      */
     constructor($$source = {}) {
         if (/** @type {any} */(false)) {
@@ -218,9 +334,9 @@ export class NodeEchoResult {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {timestamppb$0.Timestamp | null | undefined}
+             * @type {number | undefined}
              */
-            this["last_test"] = null;
+            this["last_test"] = 0;
         }
         if (/** @type {any} */(false)) {
             /**
@@ -318,48 +434,28 @@ export class NodeEchoResult {
     }
 
     /**
-     * Creates a new NodeEchoResult instance from a string or object.
+     * Creates a new NodeOptimizeResult instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {NodeEchoResult}
+     * @returns {NodeOptimizeResult}
      */
     static createFrom($$source = {}) {
         const $$createField2_0 = $$createType2;
-        const $$createField3_0 = $$createType4;
-        const $$createField14_0 = $$createType7;
+        const $$createField14_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("edge_addrs" in $$parsedSource) {
             $$parsedSource["edge_addrs"] = $$createField2_0($$parsedSource["edge_addrs"]);
         }
-        if ("last_test" in $$parsedSource) {
-            $$parsedSource["last_test"] = $$createField3_0($$parsedSource["last_test"]);
-        }
         if ("hop_metrics" in $$parsedSource) {
             $$parsedSource["hop_metrics"] = $$createField14_0($$parsedSource["hop_metrics"]);
         }
-        return new NodeEchoResult(/** @type {Partial<NodeEchoResult>} */($$parsedSource));
+        return new NodeOptimizeResult(/** @type {Partial<NodeOptimizeResult>} */($$parsedSource));
     }
 }
 
-/**
- * @readonly
- * @enum {number}
- */
-export const StartStage = {
+export class OptimizeProgress {
     /**
-     * The Go zero value for the underlying type of the enum.
-     */
-    $zero: 0,
-
-    StartStateInitialize: 0,
-    StartStateStart: 1,
-    StartStatePostStart: 2,
-    StartStateStarted: 3,
-};
-
-export class TestProgress {
-    /**
-     * Creates a new TestProgress instance.
-     * @param {Partial<TestProgress>} [$$source = {}] - The source object to create the TestProgress.
+     * Creates a new OptimizeProgress instance.
+     * @param {Partial<OptimizeProgress>} [$$source = {}] - The source object to create the OptimizeProgress.
      */
     constructor($$source = {}) {
         if (/** @type {any} */(false)) {
@@ -402,15 +498,262 @@ export class TestProgress {
     }
 
     /**
-     * Creates a new TestProgress instance from a string or object.
+     * Creates a new OptimizeProgress instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {TestProgress}
+     * @returns {OptimizeProgress}
      */
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new TestProgress(/** @type {Partial<TestProgress>} */($$parsedSource));
+        return new OptimizeProgress(/** @type {Partial<OptimizeProgress>} */($$parsedSource));
     }
 }
+
+export class Profile {
+    /**
+     * Creates a new Profile instance.
+     * @param {Partial<Profile>} [$$source = {}] - The source object to create the Profile.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["id"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["flags"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["title_id"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["rule_id"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["name"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["description"] = null;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["process_regex"] = null;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["created_at"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["updated_at"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Profile instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Profile}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Profile(/** @type {Partial<Profile>} */($$parsedSource));
+    }
+}
+
+export class ProfileState {
+    /**
+     * Creates a new ProfileState instance.
+     * @param {Partial<ProfileState>} [$$source = {}] - The source object to create the ProfileState.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["active"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["titleId"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["profileId"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {RoutingMode | undefined}
+             */
+            this["mode"] = (/** @type {RoutingMode} */(0));
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["regions"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["countries"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["cities"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProfileState instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ProfileState}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType2;
+        const $$createField5_0 = $$createType2;
+        const $$createField6_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("regions" in $$parsedSource) {
+            $$parsedSource["regions"] = $$createField4_0($$parsedSource["regions"]);
+        }
+        if ("countries" in $$parsedSource) {
+            $$parsedSource["countries"] = $$createField5_0($$parsedSource["countries"]);
+        }
+        if ("cities" in $$parsedSource) {
+            $$parsedSource["cities"] = $$createField6_0($$parsedSource["cities"]);
+        }
+        return new ProfileState(/** @type {Partial<ProfileState>} */($$parsedSource));
+    }
+}
+
+export class Region {
+    /**
+     * Creates a new Region instance.
+     * @param {Partial<Region>} [$$source = {}] - The source object to create the Region.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["tag"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["name"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["host"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["active"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Region instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Region}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Region(/** @type {Partial<Region>} */($$parsedSource));
+    }
+}
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const RoutingMode = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    RoutingMode_ROUTING_MODE_GLOBAL: 0,
+    RoutingMode_ROUTING_MODE_REGIONAL: 1,
+    RoutingMode_ROUTING_MODE_COUNTRY: 2,
+    RoutingMode_ROUTING_MODE_CITY: 3,
+};
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const StartStage = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    StartStateInitialize: 0,
+    StartStateStart: 1,
+    StartStatePostStart: 2,
+    StartStateStarted: 3,
+};
 
 /**
  * @readonly
@@ -428,6 +771,169 @@ export const TestType = {
     TestType_TEST_TYPE_MULTI_HOP: 3,
 };
 
+export class Title {
+    /**
+     * Creates a new Title instance.
+     * @param {Partial<Title>} [$$source = {}] - The source object to create the Title.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["id"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["flags"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["enabled"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["name"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["alias_name"] = null;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["icon_url"] = null;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["poster_url"] = null;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(Profile | null)[] | undefined}
+             */
+            this["profiles"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Title instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Title}
+     */
+    static createFrom($$source = {}) {
+        const $$createField7_0 = $$createType8;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("profiles" in $$parsedSource) {
+            $$parsedSource["profiles"] = $$createField7_0($$parsedSource["profiles"]);
+        }
+        return new Title(/** @type {Partial<Title>} */($$parsedSource));
+    }
+}
+
+export class TitleState {
+    /**
+     * Creates a new TitleState instance.
+     * @param {Partial<TitleState>} [$$source = {}] - The source object to create the TitleState.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["active"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["titleId"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["visited_at"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {RoutingMode | undefined}
+             */
+            this["mode"] = (/** @type {RoutingMode} */(0));
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["regions"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["countries"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["cities"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TitleState instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TitleState}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType2;
+        const $$createField5_0 = $$createType2;
+        const $$createField6_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("regions" in $$parsedSource) {
+            $$parsedSource["regions"] = $$createField4_0($$parsedSource["regions"]);
+        }
+        if ("countries" in $$parsedSource) {
+            $$parsedSource["countries"] = $$createField5_0($$parsedSource["countries"]);
+        }
+        if ("cities" in $$parsedSource) {
+            $$parsedSource["cities"] = $$createField6_0($$parsedSource["cities"]);
+        }
+        return new TitleState(/** @type {Partial<TitleState>} */($$parsedSource));
+    }
+}
+
 // Private type creation functions
 var $$createType0 = /** @type {(...args: any[]) => any} */(function $$initCreateType0(...args) {
     if ($$createType0 === $$initCreateType0) {
@@ -437,8 +943,9 @@ var $$createType0 = /** @type {(...args: any[]) => any} */(function $$initCreate
 });
 const $$createType1 = $Create.Array($Create.Any);
 const $$createType2 = $Create.Array($Create.Any);
-const $$createType3 = timestamppb$0.Timestamp.createFrom;
+const $$createType3 = HopMetric.createFrom;
 const $$createType4 = $Create.Nullable($$createType3);
-const $$createType5 = HopMetric.createFrom;
-const $$createType6 = $Create.Nullable($$createType5);
-const $$createType7 = $Create.Array($$createType6);
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = Profile.createFrom;
+const $$createType7 = $Create.Nullable($$createType6);
+const $$createType8 = $Create.Array($$createType7);

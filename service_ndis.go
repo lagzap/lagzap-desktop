@@ -36,7 +36,6 @@ func (s *Service) StartNDIS(options *StartNdisOptions) error {
 		&option.NDISInboundOptions{
 			ProcessTCP:    options.ProcessTCP,
 			ProcessUDP:    options.ProcessUDP,
-			InterfaceName: options.InterfaceName,
 		},
 	)
 }

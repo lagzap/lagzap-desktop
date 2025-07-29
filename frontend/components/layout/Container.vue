@@ -6,7 +6,7 @@ const router = useRouter();
 const { mobile, height } = useDisplay();
 const sidebar = inject<Ref<boolean>>("sidebar");
 
-const titles = computed(() => store.getTitles())
+const titles = computed(() => Object.values(store.titles))
 const searchMode = ref(false);
 
 onMounted(() => {

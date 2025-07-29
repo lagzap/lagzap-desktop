@@ -2,7 +2,6 @@ package main
 
 import (
 	"net/netip"
-	"time"
 
 	C "github.com/lagzap/lagzap/constant"
 	"github.com/lagzap/lagzap/option"
@@ -55,12 +54,12 @@ func (c *Service) generateConfig(serverURL, accessToken string) option.Options {
 		},
 		Lagzap: &option.LagzapOptions{
 			EnableNdis: true,
-			Echo: &option.EchoOptions{
+			Optimizer: &option.OptimizerOptions{
 				Enabled: true,
 			},
 			Service: &option.CoordinatorOptions{
-				Enabled: true,
-				Server: serverURL,
+				Enabled:     true,
+				Server:      serverURL,
 				AccessToken: accessToken,
 			},
 			Debug: &option.DebugOptions{
@@ -162,19 +161,14 @@ func (c *Service) generateConfig(serverURL, accessToken string) option.Options {
 		},
 		Outbounds: []option.Outbound{
 			{
-				Type: C.TypeDirect,
-				Tag:  "direct",
-				Options: &option.DirectOutboundOptions{
-					DialerOptions: option.DialerOptions{
-						TCPFastOpen:  true,
-						TCPMultiPath: true,
-						DomainResolver: &option.DomainResolveOptions{
-							Strategy: option.DomainStrategy(C.DomainStrategyPreferIPv4),
-							Server:   "local",
-							DisableCache: true,
-						},
-					},
-				},
+				Type:    C.TypeDirect,
+				Tag:     "default",
+				Options: &option.DirectOutboundOptions{},
+			},
+			{
+				Type:    C.TypeZap,
+				Tag:     "zap",
+				Options: &option.StubOptions{},
 			},
 			{
 				Type: C.TypeDirect,
@@ -184,8 +178,8 @@ func (c *Service) generateConfig(serverURL, accessToken string) option.Options {
 						TCPFastOpen:  true,
 						TCPMultiPath: true,
 						DomainResolver: &option.DomainResolveOptions{
-							Strategy: option.DomainStrategy(C.DomainStrategyPreferIPv4),
-							Server:   "google-udp",
+							Strategy:     option.DomainStrategy(C.DomainStrategyPreferIPv4),
+							Server:       "google-udp",
 							DisableCache: true,
 						},
 					},
@@ -199,8 +193,8 @@ func (c *Service) generateConfig(serverURL, accessToken string) option.Options {
 						TCPFastOpen:  true,
 						TCPMultiPath: true,
 						DomainResolver: &option.DomainResolveOptions{
-							Strategy: option.DomainStrategy(C.DomainStrategyPreferIPv4),
-							Server:   "cloudflare-udp",
+							Strategy:     option.DomainStrategy(C.DomainStrategyPreferIPv4),
+							Server:       "cloudflare-udp",
 							DisableCache: true,
 						},
 					},
@@ -214,8 +208,8 @@ func (c *Service) generateConfig(serverURL, accessToken string) option.Options {
 						TCPFastOpen:  true,
 						TCPMultiPath: true,
 						DomainResolver: &option.DomainResolveOptions{
-							Strategy: option.DomainStrategy(C.DomainStrategyPreferIPv4),
-							Server:   "level3-udp",
+							Strategy:     option.DomainStrategy(C.DomainStrategyPreferIPv4),
+							Server:       "level3-udp",
 							DisableCache: true,
 						},
 					},
@@ -229,8 +223,8 @@ func (c *Service) generateConfig(serverURL, accessToken string) option.Options {
 						TCPFastOpen:  true,
 						TCPMultiPath: true,
 						DomainResolver: &option.DomainResolveOptions{
-							Strategy: option.DomainStrategy(C.DomainStrategyPreferIPv4),
-							Server:   "predefined",
+							Strategy:     option.DomainStrategy(C.DomainStrategyPreferIPv4),
+							Server:       "predefined",
 							DisableCache: true,
 						},
 					},
@@ -238,88 +232,9 @@ func (c *Service) generateConfig(serverURL, accessToken string) option.Options {
 			},
 		},
 		Route: &option.RouteOptions{
-			Rules: []option.Rule{
-				{
-					Tag:  "sniff",
-					Type: C.RuleTypeDefault,
-					DefaultOptions: option.DefaultRule{
-						RuleAction: option.RuleAction{
-							Action: "sniff",
-							SniffOptions: option.RouteActionSniff{
-								Sniffer: []string{
-									"http",
-									"tls",
-									"dns",
-									"dtls",
-								},
-								Timeout: badoption.Duration(time.Second),
-							},
-						},
-						RawDefaultRule: option.RawDefaultRule{},
-					},
-				},
-				{
-					Tag:  "route-dns-tls",
-					Type: C.RuleTypeDefault,
-					DefaultOptions: option.DefaultRule{
-						RawDefaultRule: option.RawDefaultRule{
-							Protocol:          []string{"tls"},
-							Port:              []uint16{53},
-							SourceIPIsPrivate: true,
-						},
-						RuleAction: option.RuleAction{
-							Action: "route",
-							RouteOptions: option.RouteActionOptions{
-								Outbound: "global",
-							},
-						},
-					},
-				},
-				{
-					Tag:  "hijack-dns",
-					Type: C.RuleTypeDefault,
-					DefaultOptions: option.DefaultRule{
-						RawDefaultRule: option.RawDefaultRule{
-							Protocol:          []string{"dns"},
-							Port:              []uint16{53},
-							SourceIPIsPrivate: true,
-						},
-						RuleAction: option.RuleAction{Action: "hijack-dns"},
-					},
-				},
-				{
-					Tag:  "resolve",
-					Type: C.RuleTypeDefault,
-					DefaultOptions: option.DefaultRule{
-						RuleAction: option.RuleAction{
-							Action: "resolve",
-							ResolveOptions: option.RouteActionResolve{
-								Server:   "predefined",
-								Strategy: option.DomainStrategy(C.DomainStrategyPreferIPv4),
-							},
-						},
-						RawDefaultRule: option.RawDefaultRule{},
-					},
-				},
-				{
-					Tag:  "route-lagzap-network",
-					Type: C.RuleTypeDefault,
-					DefaultOptions: option.DefaultRule{
-						RawDefaultRule: option.RawDefaultRule{
-							Inbound: []string{"lagzap"},
-						},
-						RuleAction: option.RuleAction{
-							Action: "route",
-							RouteOptions: option.RouteActionOptions{
-								Outbound: "lagzap",
-							},
-						},
-					},
-				},
-			},
-			RuleSet: []option.RuleSet{},
-			Final:   "direct",
-			// DefaultInterface: "Ethernet",
+			Rules:               []option.Rule{},
+			RuleSet:             []option.RuleSet{},
+			Final:               "default",
 			FindProcess:         true,
 			AutoDetectInterface: true,
 			DefaultDomainResolver: &option.DomainResolveOptions{
