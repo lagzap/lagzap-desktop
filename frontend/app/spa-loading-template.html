@@ -9,6 +9,36 @@
     background-color: rgb(10, 9, 5);
   }
 
+  /* Light theme styles */
+  @media (prefers-color-scheme: light) {
+    body {
+      background-color: rgb(245, 245, 245);
+    }
+    
+    .circle {
+      fill: rgba(200, 200, 200, 0.3) !important;
+    }
+    
+    .logo-element {
+      fill: #ff9800 !important;
+    }
+  }
+
+  /* Dark theme styles */
+  @media (prefers-color-scheme: dark) {
+    body {
+      background-color: rgb(10, 9, 5);
+    }
+    
+    .circle {
+      fill: rgba(73, 70, 67, .1) !important;
+    }
+    
+    .logo-element {
+      fill: #ffc107 !important;
+    }
+  }
+
   * {
     --wails-draggable: drag;
   }
@@ -16,13 +46,13 @@
   .loader {
     display: block;
     position: fixed;
-    z-index: 1031;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    z-index: 1031;
+    box-sizing: border-box;
     width: 40vh;
     height: 40vh;
-    box-sizing: border-box;
     --wails-draggable: drag;
   }
 

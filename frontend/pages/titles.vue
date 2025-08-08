@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import Container from "~/components/layout/Container.vue";
-import type { Title } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { useLocale } from "vuetify";
 
+const locale = useLocale();
+const { t } = locale
 const store = useStore();
 const titles = computed(() => store.getTitles);
 </script>
@@ -11,7 +13,7 @@ const titles = computed(() => store.getTitles);
     <Container>
       <template #header>
         <v-app-bar-title>
-          Apps & Games
+          {{ t('$vuetify.navigation.titles') }}
         </v-app-bar-title>
       </template>
 
@@ -40,7 +42,7 @@ const titles = computed(() => store.getTitles);
                 >
                   <v-list-item
                     :prepend-avatar="item.raw.icon_url"
-                    :title="item.raw.name"
+                    :title="store.localized(item.raw.name)"
                   >
                     <template #append>
                       <v-tooltip
@@ -52,7 +54,8 @@ const titles = computed(() => store.getTitles);
                             :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
                             variant="text"
                             size="md"
-                            @click.stop.prevent="store.toggleActiveState(item.raw)"
+                            :disabled="!store.connected"
+                            @click.stop.prevent="store.toggleTitleState(item.raw)"
                           />
                         </template>
                       </v-tooltip>
@@ -72,7 +75,13 @@ const titles = computed(() => store.getTitles);
           size="x-large"
           color="info"
           variant="elevated"
-          style="position: fixed; bottom: 16px; right: 16px; z-index: 10000"
+          :style="{
+            position: 'fixed',
+            bottom: '24px',
+            [locale.isRtl.value ? 'left' : 'right']: '24px',
+            zIndex: 10000
+          }"
+          :disabled="!store.connected"
         >
           <v-icon>
             mdi-plus

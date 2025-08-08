@@ -9,9 +9,9 @@ includes:
 vars:
   APP_NAME: "LagZap"
   BIN_DIR: "bin"
-  DEV_AUTH_URL: '{{.DEV_AUTH_URL | default "https://dev.lagzap-network.ir"}}'
-  DEV_API_URL: '{{.DEV_API_URL | default "https://dev.lagzap-network.ir"}}'
-  DEV_COORDINATOR_URL: '{{.DEV_COORDINATOR_URL | default "wss://dev.lagzap-network.ir"}}'
+  DEV_AUTH_URL: '{{.DEV_AUTH_URL | default "https://dev.lagzap.network"}}'
+  DEV_API_URL: '{{.DEV_API_URL | default "https://dev.lagzap.network"}}'
+  DEV_COORDINATOR_URL: '{{.DEV_COORDINATOR_URL | default "wss://dev.lagzap.network"}}'
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   GOHOSTOS:
     sh: go env GOHOSTOS

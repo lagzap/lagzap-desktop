@@ -3,5 +3,5 @@ $header-font: "Vazirmatn", "Roboto";
 
 @use "vuetify" with (
   $body-font-family: $font,
-  $heading-font-family: $header-font
+  $heading-font-family: $header-font,
 );

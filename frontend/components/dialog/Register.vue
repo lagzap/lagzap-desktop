@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useLocale } from "vuetify";
+
+const { t } = useLocale();
 defineEmits(['register'])
 
 const dialog = defineModel<boolean>({
@@ -14,8 +17,8 @@ const dialog = defineModel<boolean>({
     max-width="500"
   >
     <v-card
-      :title="__('auth.registerDialog.title')"
-      :text="__('auth.registerDialog.description')"
+      :title="t('$vuetify.auth.registerDialog.title')"
+      :text="t('$vuetify.auth.registerDialog.description')"
     >
       <template #actions>
         <v-spacer />
@@ -25,7 +28,7 @@ const dialog = defineModel<boolean>({
           variant="elevated"
           @click="$emit('register')"
         >
-          {{ __('auth.registerDialog.createAccountButton') }}
+          {{ t('$vuetify.auth.registerDialog.createAccountButton') }}
         </v-btn>
       </template>
     </v-card>

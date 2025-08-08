@@ -16,17 +16,12 @@ import * as control$0 from "../zap/common/control/models.js";
 // @ts-ignore: Unused imports
 import * as application$0 from "../../wailsapp/wails/v3/pkg/application/models.js";
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as $models from "./models.js";
-
 /**
- * @param {string} profileId
- * @param {adapter$0.ProfileState | null} payload
+ * @param {adapter$0.ProfileState | null} profileState
  * @returns {Promise<adapter$0.ProfileState | null> & { cancel(): void }}
  */
-export function ActionProfile(profileId, payload) {
-    let $resultPromise = /** @type {any} */($Call.ByID(155782560, profileId, payload));
+export function ActionProfile(profileState) {
+    let $resultPromise = /** @type {any} */($Call.ByID(155782560, profileState));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType1($result);
     }));
@@ -35,12 +30,11 @@ export function ActionProfile(profileId, payload) {
 }
 
 /**
- * @param {string} titleId
- * @param {adapter$0.TitleState | null} payload
+ * @param {adapter$0.TitleState | null} titleState
  * @returns {Promise<adapter$0.TitleState | null> & { cancel(): void }}
  */
-export function ActionTitle(titleId, payload) {
-    let $resultPromise = /** @type {any} */($Call.ByID(3369209383, titleId, payload));
+export function ActionTitle(titleState) {
+    let $resultPromise = /** @type {any} */($Call.ByID(3369209383, titleState));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType3($result);
     }));
@@ -49,21 +43,18 @@ export function ActionTitle(titleId, payload) {
 }
 
 /**
- * @param {string} process
- * @param {boolean} tcp
- * @param {boolean} udp
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function AddProcess(process, tcp, udp) {
-    let $resultPromise = /** @type {any} */($Call.ByID(3204958041, process, tcp, udp));
-    return $resultPromise;
-}
-
-/**
  * @returns {Promise<void> & { cancel(): void }}
  */
 export function Close() {
     let $resultPromise = /** @type {any} */($Call.ByID(3215732723));
+    return $resultPromise;
+}
+
+/**
+ * @returns {Promise<string> & { cancel(): void }}
+ */
+export function DeviceHash() {
+    let $resultPromise = /** @type {any} */($Call.ByID(4227702467));
     return $resultPromise;
 }
 
@@ -138,12 +129,24 @@ export function GetProfileStates() {
 }
 
 /**
+ * @returns {Promise<{ [_: string]: adapter$0.Profile | null }> & { cancel(): void }}
+ */
+export function GetProfiles() {
+    let $resultPromise = /** @type {any} */($Call.ByID(1281462161));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType19($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
+}
+
+/**
  * @returns {Promise<{ [_: string]: adapter$0.Region | null }> & { cancel(): void }}
  */
 export function GetRegions() {
     let $resultPromise = /** @type {any} */($Call.ByID(3658744404));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType19($result);
+        return $$createType22($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
@@ -155,7 +158,7 @@ export function GetRegions() {
 export function GetTitleStates() {
     let $resultPromise = /** @type {any} */($Call.ByID(2788903497));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType20($result);
+        return $$createType23($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
@@ -167,21 +170,10 @@ export function GetTitleStates() {
 export function GetTitles() {
     let $resultPromise = /** @type {any} */($Call.ByID(94823092));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType23($result);
+        return $$createType26($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
-}
-
-/**
- * @param {string} process
- * @param {boolean} tcp
- * @param {boolean} udp
- * @returns {Promise<[boolean, boolean]> & { cancel(): void }}
- */
-export function HasProcess(process, tcp, udp) {
-    let $resultPromise = /** @type {any} */($Call.ByID(3661784552, process, tcp, udp));
-    return $resultPromise;
 }
 
 /**
@@ -196,8 +188,24 @@ export function InstallDriver() {
 /**
  * @returns {Promise<boolean> & { cancel(): void }}
  */
+export function IsConnected() {
+    let $resultPromise = /** @type {any} */($Call.ByID(739746928));
+    return $resultPromise;
+}
+
+/**
+ * @returns {Promise<boolean> & { cancel(): void }}
+ */
 export function IsNDISRunning() {
     let $resultPromise = /** @type {any} */($Call.ByID(2499758594));
+    return $resultPromise;
+}
+
+/**
+ * @returns {Promise<boolean> & { cancel(): void }}
+ */
+export function IsReady() {
+    let $resultPromise = /** @type {any} */($Call.ByID(898380692));
     return $resultPromise;
 }
 
@@ -235,17 +243,6 @@ export function New(app) {
 }
 
 /**
- * @param {string} process
- * @param {boolean} tcp
- * @param {boolean} udp
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function RemoveProcess(process, tcp, udp) {
-    let $resultPromise = /** @type {any} */($Call.ByID(3831290530, process, tcp, udp));
-    return $resultPromise;
-}
-
-/**
  * @param {application$0.SystemTray | null} systray
  * @returns {Promise<void> & { cancel(): void }}
  */
@@ -273,11 +270,10 @@ export function Start(stage) {
 }
 
 /**
- * @param {$models.StartNdisOptions | null} options
  * @returns {Promise<void> & { cancel(): void }}
  */
-export function StartNDIS(options) {
-    let $resultPromise = /** @type {any} */($Call.ByID(3347669349, options));
+export function StartNDIS() {
+    let $resultPromise = /** @type {any} */($Call.ByID(3347669349));
     return $resultPromise;
 }
 
@@ -290,12 +286,20 @@ export function StartOptimizing() {
 }
 
 /**
- * @param {string} serverURL
+ * @param {string} hostname
  * @param {string} accessToken
  * @returns {Promise<void> & { cancel(): void }}
  */
-export function StartService(serverURL, accessToken) {
-    let $resultPromise = /** @type {any} */($Call.ByID(679122770, serverURL, accessToken));
+export function StartService(hostname, accessToken) {
+    let $resultPromise = /** @type {any} */($Call.ByID(679122770, hostname, accessToken));
+    return $resultPromise;
+}
+
+/**
+ * @returns {Promise<adapter$0.ConnectionStatus> & { cancel(): void }}
+ */
+export function Status() {
+    let $resultPromise = /** @type {any} */($Call.ByID(3414141343));
     return $resultPromise;
 }
 
@@ -357,10 +361,13 @@ const $$createType13 = adapter$0.NodeOptimizeResult.createFrom;
 const $$createType14 = $Create.Nullable($$createType13);
 const $$createType15 = $Create.Map($Create.Any, $$createType14);
 const $$createType16 = $Create.Map($Create.Any, $$createType1);
-const $$createType17 = adapter$0.Region.createFrom;
+const $$createType17 = adapter$0.Profile.createFrom;
 const $$createType18 = $Create.Nullable($$createType17);
 const $$createType19 = $Create.Map($Create.Any, $$createType18);
-const $$createType20 = $Create.Map($Create.Any, $$createType3);
-const $$createType21 = adapter$0.Title.createFrom;
-const $$createType22 = $Create.Nullable($$createType21);
-const $$createType23 = $Create.Map($Create.Any, $$createType22);
+const $$createType20 = adapter$0.Region.createFrom;
+const $$createType21 = $Create.Nullable($$createType20);
+const $$createType22 = $Create.Map($Create.Any, $$createType21);
+const $$createType23 = $Create.Map($Create.Any, $$createType3);
+const $$createType24 = adapter$0.Title.createFrom;
+const $$createType25 = $Create.Nullable($$createType24);
+const $$createType26 = $Create.Map($Create.Any, $$createType25);

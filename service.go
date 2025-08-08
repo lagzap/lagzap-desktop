@@ -8,6 +8,7 @@ import (
 	"github.com/lagzap/lagzap/coordinator"
 	"github.com/lagzap/lagzap/coordinator/monitoring"
 	"github.com/lagzap/lagzap/include"
+	"github.com/lagzap/lagzap/log"
 	"github.com/lagzap/zap/common/control"
 	E "github.com/lagzap/zap/common/exceptions"
 	"github.com/lagzap/zap/service"
@@ -24,17 +25,18 @@ type Service struct {
 	lagzap      *lagzap.LagZap
 	coordinator adapter.Coordinator
 	monitoring  *monitoring.Manager
+	logFactory  log.ObservableFactory
 }
 
 const LAGZAP_DEFAULT_SESSION_ID = "00000000-0000-0000-0000-000000000000"
 const LAGZAP_DEFAULT_SUBSCRIBER_ID = "00000000-0000-0000-0000-000000000000"
 
 func (s *Service) New(ctx context.Context, app *application.App) {
-	s.ctx = lagzap.Context(ctx, include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry(), include.DNSTransportRegistry())
+	s.ctx = lagzap.Context(ctx, include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry(), include.DNSTransportRegistry(), include.ServiceRegistry())
 	s.app = app
 }
 
-func (s *Service) StartService(serverURL, accessToken string) error {
+func (s *Service) StartService(hostname, accessToken string) error {
 	if s.lagzap != nil {
 		_ = s.StopNDIS()
 		_ = s.StopService()
@@ -42,7 +44,7 @@ func (s *Service) StartService(serverURL, accessToken string) error {
 	ctx, cancel := context.WithCancel(s.ctx)
 	s.cancel = cancel
 
-	options := s.generateConfig(serverURL, accessToken)
+	options := s.generateConfig(hostname, accessToken)
 	instance, err := lagzap.New(lagzap.Options{
 		Context: ctx,
 		Options: options,
@@ -58,14 +60,17 @@ func (s *Service) StartService(serverURL, accessToken string) error {
 	}
 	s.coordinator = service.FromContext[adapter.Coordinator](s.ctx)
 	s.coordinator.Listen(func(event string, data any) {
-		s.app.EmitEvent(event, data)
+		s.app.Event.Emit(event, data)
 	})
 	if coordinator, ok := s.coordinator.(*coordinator.Coordinator); ok {
 		s.monitoring = coordinator.TrafficManager()
 	}
 	s.lagzap = instance
-	s.app.EmitEvent("service-started")
+	s.app.Event.Emit("service-started")
 	go s.startMonitoring()
+
+	s.logFactory = instance.Logger()
+	go s.startLogging()
 	return nil
 }
 
@@ -79,7 +84,7 @@ func (s *Service) StopService() error {
 	err := s.lagzap.Close()
 	s.lagzap = nil
 	s.coordinator = nil
-	s.app.EmitEvent("service-stopped")
+	s.app.Event.Emit("service-stopped")
 	return err
 }
 
@@ -100,6 +105,14 @@ func (s *Service) NeedWIFIState() bool {
 
 func (s *Service) IsRunning() bool {
 	return s.lagzap != nil
+}
+
+func (s *Service) IsReady() bool {
+	return s.coordinator != nil
+}
+
+func (s *Service) IsConnected() bool {
+	return s.coordinator != nil && s.coordinator.Status() == adapter.StatusConnected
 }
 
 func (s *Service) SetWindow(window *application.WebviewWindow) {

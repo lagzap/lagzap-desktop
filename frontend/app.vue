@@ -1,52 +1,48 @@
 <script setup lang="ts">
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay, useTheme, useLocale } from "vuetify";
 import { Events, System, Window } from "@wailsio/runtime";
 import { useMessagesStore } from "~/stores/messages";
 import { StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 const store = useStore();
 const messages = useMessagesStore();
-const { logout } = useSanctumAuth();
+window.addEventListener('auxclick', (e) => {
+  if (e.button === 1) { // Middle click
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+}, true);
 
+const theme = useTheme();
+const locale = useLocale();
+const { mobile } = useDisplay();
+
+const { settings, loadSettings, isLoaded } = useSettings(locale, theme);
+
+onMounted(async () => {
+  await loadSettings();
+});
+
+watch(isLoaded, (loaded) => {
+  if (loaded && (!settings.value.theme || settings.value.theme === 'system')) {
+    System.IsDarkMode().then((systemTheme) => {
+      theme.change(systemTheme ? 'dark' : 'light');
+    });
+  }
+});
+
+Events.On("theme", ({ data }) => {
+  if (!settings.value.theme || settings.value.theme === 'system') {
+    theme.change(data[0]);
+  }
+});
+
+const isMaximized = ref<boolean>(false);
 const loaded = ref(false);
-onMounted(() => {
+onMounted(async () => {
   setTimeout(() => {
     loaded.value = true;
   }, 300);
-});
-
-const theme = useTheme();
-const { mobile } = useDisplay();
-
-System.IsDarkMode().then((systemTheme) => {
-  theme.global.name.value = systemTheme ? 'dark' : 'light';
-})
-
-Events.On("theme", ({ data }) => {
-  theme.global.name.value = data[0];
-});
-Events.On("service-started", async () => {
-  await store.checkService()
-  await nextTick()
-  await new Promise((resolve) => { // timeout for animations
-    setTimeout(() => {
-      resolve(true);
-    }, 1000);
-  });
-});
-Events.On("service-stopped", async () => await store.checkService());
-Events.On("titles", ({ data }) => store.upsertTitles(data[0]));
-Events.On("delete_title", ({ data }) => store.deleteTitle(data[0]));
-Events.On("profiles", ({ data }) => store.upsertProfiles(data[0]));
-Events.On("delete_profile", ({ data }) => store.deleteProfile(data[0]));
-Events.On("regions", ({ data }) => store.upsertRegions(data[0]));
-Events.On("delete_region", ({ data }) => store.deleteRegion(data[0]));
-Events.On("nodes", ({ data }) => store.upsertNodes(data[0]));
-Events.On("delete_node", ({ data }) => store.deleteNode(data[0]));
-
-const isMaximized = ref<boolean>(false);
-onMounted(async () => {
-  await store.checkService();
   isMaximized.value = await Window.IsMaximised();
 });
 
@@ -61,12 +57,17 @@ async function toggleMaximise() {
   await Window.ToggleMaximise();
   isMaximized.value = await Window.IsMaximised();
 }
-const closing = ref(false);
 async function close() {
-  closing.value = true;
+  await Window.Hide();
+}
+
+const quitDialog = ref(false);
+const quiting = ref(false);
+async function quit() {
+  quiting.value = true;
   try {
     await store.stopNDIS();
-    await store.stopService();
+    await store.disconnect();
   } catch (e) {
     displayError(e);
   } finally {
@@ -80,12 +81,13 @@ async function close() {
     <NuxtPage />
   </NuxtLayout>
   <div
-    class="align-self-start position-fixed top-0"
+    class="d-flex align-self-start position-fixed top-0"
     :class="{
+      'flex-row-reverse': $vuetify.locale.isRtl,
       'left-0': $vuetify.locale.isRtl,
       'right-0': !$vuetify.locale.isRtl,
     }"
-    style="z-index: 2005"
+    style="z-index: 99999 !important"
   >
     <v-btn
       icon
@@ -116,52 +118,7 @@ async function close() {
         "
       />
     </v-btn>
-    <v-dialog v-if="store.serviceReady && store.ndisRunning" max-width="500" :persistent="closing">
-      <template v-slot:activator="{ props: activatorProps }">
-        <v-btn
-          icon
-          rounded="0"
-          variant="plain"
-          color="accent"
-          :density="mobile ? 'comfortable' : 'default'"
-          :height="48"
-          style="--wails-draggable: none; margin-inline-end: 0"
-          v-bind="activatorProps"
-        >
-          <v-icon size="sm" icon="mdi-close" />
-        </v-btn>
-      </template>
-
-      <template v-slot:default="{ isActive }">
-        <v-card title="Exiting" subtitle="Are you sure you want to exit?" :loading="closing">
-          <v-card-text>
-            The proxy service is already running, make sure you save your works before exiting completely.
-          </v-card-text>
-
-          <v-card-actions>
-            <v-btn
-              text="Cancel"
-              @click="isActive.value = false"
-            />
-            <v-spacer />
-
-            <v-btn
-              text="Logout"
-              color="warning"
-              @click="logout"
-            />
-            <v-btn
-              text="Exit LagZap"
-              color="red"
-              :loading="closing"
-              @click="close"
-            />
-          </v-card-actions>
-        </v-card>
-      </template>
-    </v-dialog>
     <v-btn
-      v-else
       icon
       rounded="0"
       variant="plain"
@@ -169,7 +126,6 @@ async function close() {
       :density="mobile ? 'comfortable' : 'default'"
       :height="48"
       style="--wails-draggable: none; margin-inline-end: 0"
-      :loading="closing"
       @click="close"
     >
       <v-icon size="sm" icon="mdi-close" />

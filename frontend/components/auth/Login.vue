@@ -1,8 +1,11 @@
 <script lang="ts" setup>
 import { useForm } from "vee-validate";
+import { useLocale } from "vuetify";
 import { object, string } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
 
+const  locale = useLocale()
+const { t } = locale
 const { login } = useSanctumAuth()
 
 const emit = defineEmits(['back', 'otp'])
@@ -16,7 +19,7 @@ const props = defineProps<RegisterProps>()
 const { defineField, handleSubmit, isSubmitting } = useForm<LoginForm>({
   validationSchema: toTypedSchema(
     object({
-      password: string().min(6, __('validation.required')).max(32, __('validation.max', 32)),
+      password: string().min(6, t('$vuetify.validation.required')).max(32, t('$vuetify.validation.max', 32)),
     })
   )
 });
@@ -24,16 +27,14 @@ const [password, passwordAttrs] = defineField("password", vuetifyConfig);
 
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const credentials: LoginCredentials = {
+    await login({
       type: props.type,
       phone: props.type == 'phone' ? parseInt(props.entry) : undefined,
       email: props.type == 'email' ? props.entry : undefined,
       password: values.password,
-    }
-
-    await login(credentials)
+    })
   } catch (e) {
-    displayError(e)
+    displayError(e, locale)
   }
 })
 
@@ -57,7 +58,7 @@ async function requestOTP() {
 
         <v-toolbar-title
           class="text-h6"
-          :text="__('auth.login.title')"
+          :text="t('$vuetify.auth.login.title')"
         />
       </v-toolbar>
       <v-card-text>
@@ -88,7 +89,8 @@ async function requestOTP() {
           autofocus
           type="password"
           variant="outlined"
-          :label="__('auth.fields.password')"
+          density="comfortable"
+          :label="t('$vuetify.auth.fields.password')"
         />
       </v-card-text>
 
@@ -98,7 +100,7 @@ async function requestOTP() {
           color="secondary"
           @click="requestOTP"
         >
-          {{ __('auth.login.otpLogin') }}
+          {{ t('$vuetify.auth.login.otpLogin') }}
         </v-btn>
         <v-spacer />
         <v-btn
@@ -106,7 +108,7 @@ async function requestOTP() {
           rounded
           :loading="isSubmitting"
         >
-          {{ __('auth.login.loginButton') }}
+          {{ t('$vuetify.auth.login.loginButton') }}
         </v-btn>
       </template>
     </v-card>

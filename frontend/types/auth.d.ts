@@ -18,19 +18,6 @@ interface OtpResponse {
   otpID: number;
 }
 
-interface LoginCredentials {
-  type: AuthBy;
-  phone: number | undefined;
-  email: string | undefined;
-  password: string | undefined;
-}
-interface LoginOtpCredentials {
-  type: AuthBy;
-  phone: number | undefined;
-  email: string | undefined;
-  otp: string | undefined;
-  otpID: number | undefined;
-}
 interface LoginForm {
   password: string;
 }

@@ -3,7 +3,10 @@ import { ref } from "vue";
 import { useForm } from "vee-validate";
 import { object, string } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
+import { useLocale } from "vuetify";
 
+const locale = useLocale();
+const { t } = locale;
 const runtimeConfig = useRuntimeConfig()
 const requestFetch = useRequestFetch()
 const emit = defineEmits(['login', 'register'])
@@ -13,7 +16,7 @@ const type = ref<AuthBy>()
 const { defineField, handleSubmit, isSubmitting } = useForm<EntryForm>({
   validationSchema: toTypedSchema(
     object({
-      entry: string().min(1, __('validation.required'))
+      entry: string().min(1, t('$vuetify.validation.required'))
     })
   )
 });
@@ -34,7 +37,7 @@ const onSubmit = handleSubmit(async (values) => {
       emit('register', type.value, entry.value)
     }
   } catch (e) {
-    displayError(e)
+    displayError(e, locale)
   }
 })
 
@@ -49,11 +52,11 @@ const onSubmit = handleSubmit(async (values) => {
         </v-avatar>
         <v-card-title>
           <span class="lagzap-name">
-            {{ __('app_name') }}
+            {{ t('$vuetify.app_name') }}
           </span>
         </v-card-title>
         <v-card-subtitle>
-          {{ __('auth.description') }}
+          {{ t('$vuetify.auth.description') }}
         </v-card-subtitle>
       </div>
 
@@ -62,8 +65,10 @@ const onSubmit = handleSubmit(async (values) => {
           <v-text-field
             v-model="entry"
             v-bind="entryAttrs"
-            :label="__('auth.fields.entry')"
+            :label="t('$vuetify.auth.fields.entry')"
             variant="outlined"
+            density="comfortable"
+            :readonly="isSubmitting"
           />
         </v-locale-provider>
       </v-card-text>
@@ -75,7 +80,7 @@ const onSubmit = handleSubmit(async (values) => {
           rounded
           :loading="isSubmitting"
         >
-          {{ __('auth.continueButton') }}
+          {{ t('$vuetify.auth.continueButton') }}
         </v-btn>
       </template>
     </v-card>

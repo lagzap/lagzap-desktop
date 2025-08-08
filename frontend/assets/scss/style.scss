@@ -4,9 +4,14 @@ body {
   overflow: hidden !important;
 }
 
-* {
+*:not(.selectable) {
   -webkit-user-drag: none !important;
   user-select: none !important;
+}
+
+.selectable {
+  -webkit-user-drag: auto !important;
+  user-select: auto !important;
 }
 
 .zoom-in,
@@ -17,7 +22,7 @@ body {
 
 .zoom-out,
 .layout-leave-active {
-  animation: zoom-out 0.15s cubic-bezier(0.05, 0.7, 0.1, 1) reverse both;
+  animation: zoom-out 0.15s cubic-bezier(0.05, 0.7, 0.1, 1) both;
 }
 
 @keyframes zoom-in {
@@ -33,10 +38,11 @@ body {
 @keyframes zoom-out {
   from {
     transform: scale3d(1, 1, 1);
-    opacity: 0;
+    opacity: 1;
   }
   to {
-    opacity: 1;
+    transform: scale3d(1.1, 1.1, 1.1);
+    opacity: 0;
   }
 }
 
@@ -85,7 +91,8 @@ body {
 ::-webkit-scrollbar-thumb {
   opacity: 0.4;
   border-radius: 4px;
-  background-color: rgb(var(--v-theme-background));
+  background-color: rgb(var(--v-theme-surface));
+  min-height: 50px;
 }
 
 ::-webkit-scrollbar-thumb:hover {

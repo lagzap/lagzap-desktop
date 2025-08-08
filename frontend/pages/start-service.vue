@@ -1,8 +1,10 @@
 <script lang="ts" setup>
-import { InstallDriver, FetchData } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { InstallDriver } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { useLocale } from "vuetify";
 
 const router = useRouter();
 const store = useStore();
+const { t } = useLocale()
 
 definePageMeta({
   layout: "start",
@@ -37,7 +39,7 @@ onMounted(async () => {
 async function start () {
   try {
     store.loading = true;
-    store.statusMessage = "Logging into online service";
+    store.statusMessage = t("$vuetify.startService.loggingIntoOnlineService");
     if (!isAuthenticated.value) {
       await refreshIdentity();
     }
@@ -46,10 +48,11 @@ async function start () {
     errorName.value = e.name;
     if (store.isReady) {
       store.stopNDIS();
-      store.stopService();
+      store.disconnect();
     }
     if (e.status == 401) {
       router.replace({ name: "auth" });
+      redirecting.value = true;
     } else {
       store.error = true;
       store.statusMessage = getErrorMessage(e);
@@ -64,6 +67,7 @@ async function start () {
   }
 }
 
+const redirecting = ref(false);
 async function initApp() {
   try {
     await store.initialize();
@@ -76,20 +80,20 @@ async function initApp() {
     return;
   }
   if (store.isReady) {
+    redirecting.value = true;
     router.replace({ name: "index" });
-    await FetchData()
   }
 }
 
 async function installDriver() {
   try {
     store.loading = true;
-    store.statusMessage = "Installing LagZap kernel driver";
+    store.statusMessage = t('$vuetify.startService.installingLagZapKernelDriver');
     await InstallDriver();
-    store.statusMessage = "LagZap kernel driver installed successfully";
+    store.statusMessage = t('$vuetify.startService.lagZapKernelDriverInstalledSuccessfully');
     await initApp()
   } catch (e) {
-    store.statusMessage = "Failed to install driver";
+    store.statusMessage = t('$vuetify.startService.failedToInstallDriver');
     store.error = true;
   } finally {
     store.loading = false;
@@ -102,7 +106,10 @@ async function installDriver() {
     :loading="store.loading"
     width="100vw"
     max-width="500px"
-    class="zoom-in"
+    :class="{
+      'zoom-in': !redirecting,
+      'zoom-out': redirecting
+    }"
   >
     <div class="d-flex flex-column align-center pt-10">
       <v-avatar size="96">
@@ -110,17 +117,17 @@ async function installDriver() {
       </v-avatar>
       <v-card-title>
         <span class="lagzap-name">
-          {{ __("app_name") }}
+          {{ t("$vuetify.app_name") }}
         </span>
       </v-card-title>
       <v-card-subtitle v-if="store.driverInstalled === false" class="text-info">
-        Driver missing
+        {{ t('$vuetify.status.driverMissing') }}
       </v-card-subtitle>
       <v-card-subtitle v-else-if="store.serviceReady && store.error && errorName != 'FetchError'" class="text-error">
-        Coordination failed
+        {{ t('$vuetify.status.coordinationFailed') }}
       </v-card-subtitle>
       <v-card-subtitle v-else-if="!store.isReady && store.error" class="text-error">
-        Connection failed
+        {{ t('$vuetify.status.connectionFailed') }}
       </v-card-subtitle>
 
       <v-card-text
@@ -142,7 +149,7 @@ async function installDriver() {
         size="large"
         @click="logout"
       >
-        Logout
+        {{ t("$vuetify.startService.logout") }}
       </v-btn>
       <v-spacer />
       <v-dialog v-if="store.driverInstalled === false" max-width="500">
@@ -155,16 +162,14 @@ async function installDriver() {
             class="ma-2"
             :loading="store.loading"
           >
-            Install Driver
+            {{ t("$vuetify.startService.installDriver") }}
           </v-btn>
         </template>
 
         <template v-slot:default="{ isActive }">
-          <v-card title="Install LagZap Driver">
+          <v-card :title="t('$vuetify.startService.installLagZapDriver')">
             <v-card-text>
-              Installing the driver causes your network to be interrupted for a
-              few seconds. This is required to install the driver. Please make
-              sure you have saved all your work before proceeding.
+              {{ t("$vuetify.startService.driverInstallationWarning") }}
             </v-card-text>
 
             <v-card-actions>
@@ -180,7 +185,7 @@ async function installDriver() {
                   installDriver();
                 "
               >
-                Continue
+                {{ t("$vuetify.startService.continue") }}
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -194,7 +199,7 @@ async function installDriver() {
         :loading="store.loading"
         @click="isAuthenticated ? initApp() : start()"
       >
-        Retry
+        {{ t("$vuetify.startService.retry") }}
       </v-btn>
     </template>
   </v-card>

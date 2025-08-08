@@ -6,7 +6,8 @@ require (
 	github.com/lagzap/lagzap v0.1.0-beta.8
 	github.com/lagzap/zap v0.1.0-beta
 	github.com/wailsapp/wails/v3 v3.0.0-00010101000000-000000000000
-	golang.org/x/sys v0.31.0
+	golang.org/x/sys v0.33.0
+	google.golang.org/protobuf v1.36.6
 )
 
 require (
@@ -46,7 +47,7 @@ require (
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
-	github.com/lagzap/echo v0.1.0-beta.11 // indirect
+	github.com/lagzap/echo v0.1.0-beta.20 // indirect
 	github.com/lagzap/lagzap-tun v0.1.0-beta // indirect
 	github.com/lagzap/lagzaprd v1.0.0 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
@@ -58,7 +59,7 @@ require (
 	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
 	github.com/metacubex/tfo-go v0.0.0-20241006021335-daedaf0ca7aa // indirect
-	github.com/miekg/dns v1.1.65 // indirect
+	github.com/miekg/dns v1.1.67 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.12.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
@@ -85,16 +86,15 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	go4.org v0.0.0-20200411211856-f5505b9728dd // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac // indirect
 	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/net v0.37.0 // indirect
-	golang.org/x/sync v0.12.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/net v0.40.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	golang.org/x/tools v0.31.0 // indirect
+	golang.org/x/tools v0.33.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -104,5 +104,7 @@ require (
 replace github.com/lagzap/lagzap => ../../
 
 replace github.com/lagzap/echo => ../../../echo
+
+replace github.com/lagzap/zap => ../../../zap
 
 replace github.com/wailsapp/wails/v3 => ../../../wails/v3

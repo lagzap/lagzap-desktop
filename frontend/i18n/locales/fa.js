@@ -6,7 +6,96 @@ export default {
         email: 'ایمیل نامعتبر میباشد',
         min: 'این فیلد حداقل باید {0} کاراکتر باشد',
         max: 'این فیلد حداکثر باید {0} کاراکتر باشد',
-        passwordNotMatch: 'رمزعبور و تایید آن با یکدیگر مطابقت ندارد'
+        passwordNotMatch: 'گذرواژه و تایید آن با یکدیگر مطابقت ندارد'
+    },
+    server_errors: {
+        invalid_credentials: 'اطلاعات ورود نامعتبر است!',
+        incorrect_password: 'گذرواژه اشتباه است!',
+        invalid_request: 'درخواست نامعتبر!',
+        otp_expired: 'این کد یکبار مصرف منقضی شده است، کد جدیدی درخواست نمایید!',
+        invalid_otp: 'کد یکبار مصرف اشتباه است!',
+        access_denied: 'دسترسی مجاز نیست!',
+        internal_server_error: 'خطای داخلی سرور',
+        invalid_email_or_phone: 'ایمیل یا شماره همراه نامعتبر!',
+        login_rate_limit_exceeded: 'حداکثر تعداد درخواست ورود به پایان رسیده است، لطفاً ۲۴ ساعت دیگر تلاش نمایید.',
+        login_otp_request_limit_exceeded: 'حداکثر تعداد درخواست کد یکبار مصرف به پایان رسیده است، لطفاً ۲۴ ساعت دیگر تلاش نمایید.',
+        authentication_failed: 'احراز هویت ناموفق!',
+        failed_to_send_otp: 'ارسال کد یکبار مصرف ناموفق بود، لطفاً دوباره تلاش نمایید.',
+        invalid_phone_number: 'شماره همراه نامعتبر',
+        fields_have_errors: 'برخی از فیلدها دارای خطا هستند',
+        cannot_register_phone_number: 'امکان ثبت نام با این شماره همراه وجود ندارد!',
+        cannot_register_email: 'امکان ثبت نام با این ایمیل وجود ندارد!',
+        register_successful: 'شما با موفقیت ثبت نام شدید!',
+        rate_limit_exceeded: 'به دلیل درخواست‌های زیاد موقتاً مسدود شده‌اید.'
+    },
+    navigation: {
+        overview: 'نمایه کلی',
+        titles: 'برنامه و بازی',
+        gamingConsoles: 'کنسول های بازی',
+        networkLatency: 'تاخیر شبکه',
+        connections: 'اتصالات',
+        monitoring: 'نظارت',
+        logs: 'گزارشات',
+        quickAccess: 'دسترسی سریع',
+        admin: 'مدیریت'
+    },
+    profile: {
+        basicInformation: 'اطلاعات پایه',
+        updatePassword: 'بروزرسانی گذرواژه',
+        name: 'نام',
+        phone: 'شماره همراه',
+        email: 'ایمیل',
+        nameHint: 'نام مستعار، تگ گیمر یا نام کامل شما',
+        phoneHint: 'می‌توانید شماره همراه خود را برای ورود به LagZap وارد نمایید',
+        emailHint: 'برای دریافت بروزرسانی‌ها یا ورود به LagZap استفاده خواهد شد'
+    },
+    settings: {
+        generalSettings: 'تنظیمات عمومی',
+        networkAdapter: 'آداپتور شبکه',
+        language: 'زبان',
+        theme: 'پوسته',
+        systemTheme: 'سیستم',
+        lightTheme: 'روشن',
+        darkTheme: 'تیره',
+        interfaces: 'رابط‌ها',
+        interfacesHint: 'رابطی که LagZap برای هدایت ترافیک استفاده می‌کند'
+    },
+    server: {
+        selectServer: 'انتخاب سرور',
+        automatic: 'خودکار',
+        byAI: 'توسط هوش مصنوعی',
+        byRegion: 'بر اساس منطقه',
+        byCountry: 'بر اساس کشور',
+        byCity: 'بر اساس شهر',
+        automaticServer: 'سرور خودکار',
+        automaticSelection: 'انتخاب خودکار',
+        global: 'جهانی',
+        automaticServerSelectionEnabled: 'انتخاب خودکار سرور فعال شده',
+        routingSystemDescription: 'سیستم مسیریابی LagZap به طور مؤثر داده‌های شما را از طریق پایدارترین اتصال به بهترین سرور ممکن بر اساس موقعیت شما و کمترین تأخیر هدایت می‌کند.'
+    },
+    status: {
+        active: 'فعال',
+        inactive: 'غیرفعال',
+        serviceNotRunning: 'سرویس در حال اجرا نیست',
+        unlimited: 'نامحدود',
+        beta: 'آزمایشی',
+        player1: 'بازیکن ۱',
+        driverMissing: 'درایور موجود نیست',
+        coordinationFailed: 'هماهنگی ناموفق',
+        connectionFailed: 'اتصال ناموفق'
+    },
+    network: {
+        tcp: 'TCP',
+        udp: 'UDP',
+        upload: 'آپلود',
+        download: 'دانلود',
+        hiddenProcesses: 'پروسه‌های مخفی',
+        allRegions: 'تمام مناطق'
+    },
+    common: {
+        search: 'جستجو',
+        searchPlaceholder: 'جستجو برای اپلیکیشن ها و بازی ها...',
+        closed: 'بسته'
     },
     auth: {
         fields: {
@@ -14,8 +103,8 @@ export default {
             name: 'نام',
             phone: 'شماره همراه',
             email: 'ایمیل',
-            password: 'رمزعبور',
-            passwordConfirm: 'تایید رمزعبور',
+            password: 'گذرواژه',
+            passwordConfirm: 'تایید گذرواژه',
         },
 
         description: 'برای ادامه ایمیل یا شماره همراه خود را وارد نمایید.',
@@ -26,23 +115,47 @@ export default {
             title: 'ورود به سیستم',
             loginButton: 'ورود به سیستم',
             otpLogin: 'دریافت رمز یکبارمصرف',
-            descriptionOtpEmail: 'Enter the code sent to your email to continue:',
-            descriptionOtpPhone: 'Enter the code sent to your phone to continue:',
+            descriptionOtpEmail: 'کد ارسال شده به ایمیل خود را وارد نمایید:',
+            descriptionOtpPhone: 'کد ارسال شده به شماره همراه خود را وارد نمایید:',
         },
 
         registerDialog: {
-            title: 'ثبت نام کنید!',
+            title: 'ثبت نام نمایید!',
             description: 'بنظر میرسد شما هنوز ثبت نام نکرده اید، آیا مایل به ثبت نام هستید؟',
             createAccountButton: 'ساخت حساب کاربری',
         },
         register: {
             title: 'ساخت حساب کاربری',
-            descriptionEmail: 'کد  ارسال شده به ایمیل خود را وارد نمایید و سپس رمزعبوری را برای حساب خود انتخاب نمایید تا دفعات بعد نیازی به دریافت کد تایید نداشته باشید.',
-            descriptionPhone: 'کد پیامک شده را وارد نمایید و سپس رمزعبوری را برای حساب خود انتخاب نمایید تا دفعات بعد نیازی به دریافت کد تایید نداشته باشید.',
+            descriptionEmail: 'کد  ارسال شده به ایمیل خود را وارد نمایید و سپس گذرواژهی را برای حساب خود انتخاب نمایید تا دفعات بعد نیازی به دریافت کد تایید نداشته باشید.',
+            descriptionPhone: 'کد پیامک شده را وارد نمایید و سپس گذرواژهی را برای حساب خود انتخاب نمایید تا دفعات بعد نیازی به دریافت کد تایید نداشته باشید.',
             codeNotReceived: 'کد را دریافت نکرده اید؟',
             resendCode: 'ارسال مجدد',
             registerButton: 'ثبت نام',
         }
     },
     close: 'بستن',
+    service: {
+        initializing: 'راه‌اندازی',
+        preparing: 'آماده‌سازی',
+        connecting: 'برقراری اتصال',
+        fetchingData: 'دریافت داده‌ها',
+        ready: 'LagZap آماده است!',
+        driverMustBeInstalled: 'درایور LagZap باید برای عملکرد صحیح برنامه نصب شود. لطفاً درایور را نصب کنید.',
+        couldNotStartService: 'امکان شروع سرویس وجود ندارد!',
+        disconnecting: 'قطع اتصال',
+        serviceStopped: 'سرویس متوقف شد',
+        connectionFailed: 'اتصال و راه اندازی سرویس ناموفق بود!'
+    },
+    startService: {
+        loggingIntoOnlineService: 'ورود به سرویس آنلاین',
+        installingLagZapKernelDriver: 'نصب درایور هسته LagZap',
+        lagZapKernelDriverInstalledSuccessfully: 'درایور هسته LagZap با موفقیت نصب شد',
+        failedToInstallDriver: 'نصب درایور ناموفق بود',
+        logout: 'خروج',
+        installDriver: 'نصب درایور',
+        installLagZapDriver: 'نصب درایور LagZap',
+        driverInstallationWarning: 'نصب درایور باعث قطع شدن موقت شبکه شما برای چند ثانیه می‌شود. این برای نصب درایور ضروری است. لطفاً قبل از ادامه مطمئن شوید که تمام کارهای خود را ذخیره کرده‌اید.',
+        continue: 'ادامه',
+        retry: 'تلاش مجدد'
+    },
 }

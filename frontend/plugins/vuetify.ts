@@ -97,11 +97,10 @@ export default defineNuxtPlugin(async (app) => {
         dark: vuetifyThemeFromColor(
           primaryColor,
           true,
-          0.3,
+          0.4,
           {},
           {
             background: "#0a0905",
-            accent: '#fff'
           }
         ),
         light: vuetifyThemeFromColor(

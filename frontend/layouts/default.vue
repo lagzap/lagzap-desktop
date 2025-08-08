@@ -1,54 +1,62 @@
 <script setup lang="ts">
-import {useDisplay} from "vuetify";
+import { useDisplay } from "vuetify";
 import { Events } from "@wailsio/runtime";
 import NavigationDrawer from "~/components/layout/NavigationDrawer.vue";
 
-const {mobile} = useDisplay();
+const { mobile } = useDisplay();
 const sidebar = ref(!mobile.value);
 provide("sidebar", sidebar);
 
 const store = useStore();
-const optimizing = ref(false);
 
-const progress = ref(0)
-Events.On("echo_progress", ({ data }) => {
-  const progress = data[0]
-  optimizing.value = progress.progress_percentage > 0 && progress.progress_percentage < 100
-  progress.value = progress.progress_percentage
-});
+const progress = ref(0);
 </script>
 
 <template>
   <v-app full-height>
-    <NavigationDrawer v-model="sidebar"/>
+    <NavigationDrawer v-model="sidebar" />
 
-    <slot/>
+    <slot />
 
-    <div class="position-fixed d-flex flex-column align-center justify-center" style="bottom: 2rem; left: 0; right: 0; z-index: 2000">
-      <v-scale-transition leave-absolute>
-        <v-card
-          v-show="optimizing"
-          density="compact"
-          title="Optimizing"
-          variant="text"
-        >
-          <template v-slot:prepend>
-            <v-avatar>
-              <LagzapLogo />
-            </v-avatar>
-          </template>
+    <v-dialog
+      :model-value="store.optimizing"
+      persistent
+      scrim
+      max-width="500"
+      style="--wails-draggable: drag"
+    >
+      <v-card
+        v-show="store.optimizing"
+        density="compact"
+        title="Optimizing"
+        :subtitle="`${store.optimizeProgress.completed_tests || 0} / ${store.optimizeProgress.total_tests || 0}`"
+        variant="elevated"
+      >
+        <template v-slot:prepend>
+          <v-avatar>
+            <LagzapLogo />
+          </v-avatar>
+        </template>
 
-          <template v-slot:append>
+        <template v-slot:append>
+          <v-scale-transition leave-absolute>
             <v-progress-circular
+              v-if="store.optimizeProgress.progress_percentage <= 100"
               color="primary"
-              size="16"
+              size="24"
               width="2"
               class="ms-3"
-              :value="progress"
+              :model-value="store.optimizeProgress.progress_percentage"
             />
-          </template>
-        </v-card>
-      </v-scale-transition>
-    </div>
+            <v-icon
+              v-else-if="store.optimizeProgress.progress_percentage === 100"
+              color="green"
+            >
+              mdi-check-circle
+            </v-icon>
+          </v-scale-transition>
+        </template>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>

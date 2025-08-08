@@ -1,6 +1,8 @@
 <script lang="ts" setup>
-import { useDisplay } from "vuetify";
+import { useDisplay, useLocale } from "vuetify";
 
+const locale = useLocale();
+const { t } = locale
 const store = useStore();
 const router = useRouter();
 const { mobile, height } = useDisplay();
@@ -51,13 +53,13 @@ onMounted(() => {
           />
         </div>
         <div v-else class="v-toolbar__content">
-          <v-btn icon="mdi-arrow-left" @click="searchMode = false" />
+          <v-btn :icon="locale.isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'" @click="searchMode = false" />
           <v-autocomplete
             autofocus
             class="mx-4"
             variant="plain"
             density="compact"
-            placeholder="Search for apps & games..."
+            :placeholder="t('$vuetify.common.searchPlaceholder')"
             hide-details
             single-line
             clearable
@@ -72,7 +74,7 @@ onMounted(() => {
               <v-list-item
                 v-bind="props"
                 :prepend-avatar="item.raw.icon_url"
-                :title="item.raw.name"
+                :title="store.localized(item.raw.name)"
               >
                 <template #append>
                   <v-tooltip :text="store.isTitleActive(item.raw.id) ? (store.ndisRunning ? 'Active' : 'Service is not running') : 'Inactive'">
@@ -83,7 +85,7 @@ onMounted(() => {
                         :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
                         variant="text"
                         size="md"
-                        @click.stop.prevent="store.toggleActiveState(item.raw)"
+                        @click.stop.prevent="store.toggleTitleState(item.raw)"
                       />
                     </template>
                   </v-tooltip>

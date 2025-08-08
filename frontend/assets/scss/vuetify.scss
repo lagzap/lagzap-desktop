@@ -78,3 +78,7 @@
 .v-switch__thumb {
   background-color: rgb(var(--v-theme-secondary)) !important;
 }
+
+.v-application.v-locale--is-rtl .v-btn__content {
+  letter-spacing: normal !important;
+}

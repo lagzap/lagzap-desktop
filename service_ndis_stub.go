@@ -2,10 +2,7 @@
 
 package main
 
-type StartNdisOptions struct {
-}
-
-func (s *Service) StartNDIS(options *StartNdisOptions) error {
+func (s *Service) StartNDIS() error {
 	return nil
 }
 

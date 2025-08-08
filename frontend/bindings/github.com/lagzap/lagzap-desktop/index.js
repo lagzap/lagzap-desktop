@@ -6,5 +6,3 @@ import * as Service from "./service.js";
 export {
     Service
 };
-
-export * from "./models.js";

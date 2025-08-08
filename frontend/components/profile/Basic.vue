@@ -1,8 +1,11 @@
 <script lang="ts" setup>
 import { useForm } from "vee-validate";
-import { object, string, number } from 'zod';
+import { object, string } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
+import { useLocale } from "vuetify";
 
+const locale = useLocale();
+const { t } = locale
 const runtimeConfig = useRuntimeConfig()
 const requestFetch = useRequestFetch()
 const data = useSanctumUser<DataResponse>();
@@ -37,7 +40,7 @@ const onSubmit = handleSubmit(async (values) => {
 
     displayAlert(data.message, "info", 3000)
   } catch (e) {
-    displayError(e)
+    displayError(e, locale)
   }
 })
 </script>
@@ -45,7 +48,7 @@ const onSubmit = handleSubmit(async (values) => {
 <template>
   <v-form @submit="onSubmit">
     <v-card
-      title="Basic Information"
+      :title="t('$vuetify.profile.basicInformation')"
       class="mt-3 bg-transparent"
       flat
       max-width="400"
@@ -54,8 +57,8 @@ const onSubmit = handleSubmit(async (values) => {
         <v-text-field
           v-model="name"
           v-bind="nameAttrs"
-          label="Name"
-          hint="Your nickname, gamer tag or your full name"
+          :label="t('$vuetify.profile.name')"
+          :hint="t('$vuetify.profile.nameHint')"
           density="comfortable"
           class="mb-4"
           variant="outlined"
@@ -63,8 +66,8 @@ const onSubmit = handleSubmit(async (values) => {
         <v-text-field
           v-model="phone"
           v-bind="phoneAttrs"
-          label="Phone"
-          hint="You may enter your phone number to enter LagZap"
+          :label="t('$vuetify.profile.phone')"
+          :hint="t('$vuetify.profile.phoneHint')"
           density="comfortable"
           class="mb-4"
           variant="outlined"
@@ -72,8 +75,8 @@ const onSubmit = handleSubmit(async (values) => {
         <v-text-field
           v-model="email"
           v-bind="emailAttrs"
-          label="Email"
-          hint="Will be used to email updates or entering LagZap"
+          :label="t('$vuetify.profile.email')"
+          :hint="t('$vuetify.profile.emailHint')"
           density="comfortable"
           variant="outlined"
           type="email"

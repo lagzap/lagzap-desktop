@@ -31,7 +31,6 @@ func main() {
 	}
 	ctx := context.Background()
 	service := &Service{}
-	internal := NewInternal(ctx)
 
 	path, err := os.Executable()
 	if err != nil {
@@ -40,7 +39,7 @@ func main() {
 	webviewBrowserPath := path[:len(path)-len(filepath.Base(path))]
 
 	var window *application.WebviewWindow
-	// var systray *application.SystemTray
+	var systray *application.SystemTray
 	app := application.New(application.Options{
 		LogLevel:    slog.Level(log.LevelError),
 		Name:        "LagZap",
@@ -74,7 +73,10 @@ func main() {
 			fmt.Printf("Error: %s\n", panicDetails.Error)
 			fmt.Printf("Stacktrace: %s\n", panicDetails.StackTrace)
 
-			application.InfoDialog().SetMessage("There was a panic!").Show()
+			dialog := application.InfoDialog()
+			dialog.SetTitle("LagZap crashed!")
+			dialog.SetMessage("A crash has been occurred, please restart the application!")
+			dialog.Show()
 			file, err := os.OpenFile("panic.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 			if err != nil {
 				fmt.Printf("Failed to open panic log file: %s\n", err)
@@ -89,25 +91,25 @@ func main() {
 		},
 	})
 
-	app.OnApplicationEvent(events.Windows.ApplicationStarted, func(e *application.ApplicationEvent) {
+	app.Event.OnApplicationEvent(events.Windows.ApplicationStarted, func(e *application.ApplicationEvent) {
 		service.New(ctx, app)
 	})
-	app.OnApplicationEvent(events.Windows.SystemThemeChanged, func(event *application.ApplicationEvent) {
+	app.Event.OnApplicationEvent(events.Windows.SystemThemeChanged, func(event *application.ApplicationEvent) {
 		if event.Context().IsDarkMode() {
-			app.EmitEvent("theme", "dark")
+			app.Event.Emit("theme", "dark")
 			window.SetBackgroundColour(application.NewRGBA(10, 9, 5, 255))
 		} else {
-			app.EmitEvent("theme", "light")
+			app.Event.Emit("theme", "light")
 			window.SetBackgroundColour(application.NewRGBA(255, 248, 244, 255))
 		}
 	})
 
-	proxyAddr := ""
-	if internal != nil && internal.ProxyAddr() != "" {
-		proxyAddr = internal.ProxyAddr()
-	}
+	// proxyAddr := ""
+	// if internal != nil && internal.ProxyAddr() != "" {
+	// 	proxyAddr = internal.ProxyAddr()
+	// }
 
-	window = app.NewWebviewWindowWithOptions(application.WebviewWindowOptions{
+	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:                       "main",
 		Title:                      "LagZap",
 		Width:                      1000,
@@ -127,49 +129,66 @@ func main() {
 			GeneralAutofillEnabled:  false,
 			PasswordAutosaveEnabled: false,
 
-			CustomTheme: &application.ThemeSettings{
-				DarkModeBorder:             0x002D2D2D,
-				DarkModeBorderInactive:     0x00171717,
-				DarkModeTitleBar:           0x00050a09,
-				DarkModeTitleBarInactive:   0x00050a09,
-				DarkModeTitleText:          0x00FFFFFF,
-				DarkModeTitleTextInactive:  0x00C8C8C8,
-				LightModeTitleBar:          0x00FFFFFF,
-				LightModeTitleText:         0x00000000,
-				LightModeTitleTextInactive: 0x00000000,
-				LightModeTitleBarInactive:  0x00FFFFFF,
-				LightModeBorder:            0x00FFFFFF,
-				LightModeBorderInactive:    0x00FFFFFF,
+			CustomTheme: application.ThemeSettings{
+				DarkModeActive: &application.WindowTheme{
+					BorderColour:    func() *uint32 { v := uint32(0x002D2D2D); return &v }(),
+					TitleBarColour:  func() *uint32 { v := uint32(0x00050a09); return &v }(),
+					TitleTextColour: func() *uint32 { v := uint32(0x00FFFFFF); return &v }(),
+				},
+				DarkModeInactive: &application.WindowTheme{
+					BorderColour:    func() *uint32 { v := uint32(0x00171717); return &v }(),
+					TitleBarColour:  func() *uint32 { v := uint32(0x00050a09); return &v }(),
+					TitleTextColour: func() *uint32 { v := uint32(0x00C8C8C8); return &v }(),
+				},
+				LightModeActive: &application.WindowTheme{
+					BorderColour:    func() *uint32 { v := uint32(0x00FFFFFF); return &v }(),
+					TitleBarColour:  func() *uint32 { v := uint32(0x00FFFFFF); return &v }(),
+					TitleTextColour: func() *uint32 { v := uint32(0x00000000); return &v }(),
+				},
+				LightModeInactive: &application.WindowTheme{
+					BorderColour:    func() *uint32 { v := uint32(0x00FFFFFF); return &v }(),
+					TitleBarColour:  func() *uint32 { v := uint32(0x00FFFFFF); return &v }(),
+					TitleTextColour: func() *uint32 { v := uint32(0x00000000); return &v }(),
+				},
 			},
 
-			ProxyAddr: proxyAddr,
+			// ProxyAddr: proxyAddr,
 		},
+		OpenInspectorOnStartup: true,
 		URL: "/start-service/",
 	})
 	window.OnWindowEvent(events.Windows.WindowClosing, func(e *application.WindowEvent) {
-		e.Cancel()
 		window.Hide()
+		e.Cancel()
 	})
 	window.OnWindowEvent(events.Windows.WindowActive, func(e *application.WindowEvent) {
 		service.SetWindow(window)
 	})
 
-	// iconBytes, _ := assets.ReadFile("assets/images/lagzap-logo-circle.png")
-	// systray = app.NewSystemTray()
-	// systray.SetLabel("LagZap")
-	// systray.SetIcon(iconBytes)
-	// systray.AttachWindow(window)
+	lightIcon, _ := assets.ReadFile("assets/images/icons/light/warning.png")
+	darkIcon, _ := assets.ReadFile("assets/images/icons/dark/warning.png")
+	systray = app.SystemTray.New()
+	systray.SetLabel("LagZap")
+	systray.SetIcon(lightIcon)
+	systray.SetDarkModeIcon(darkIcon)
 
 	menu := application.NewMenu()
 	menu.Add("Open").OnClick(func(ctx *application.Context) {
 		window.Show()
+		window.Focus()
 	})
 	menu.Add("Quit").OnClick(func(ctx *application.Context) {
 		app.Quit()
 	})
-	// systray.SetMenu(menu)
+	systray.OnClick(func() {
+		window.Focus()
+	})
+	systray.OnDoubleClick(func() {
+		window.Show()
+	})
+	systray.SetMenu(menu)
 
-	// service.SetSystray(systray)
+	service.SetSystray(systray)
 	err = app.Run()
 	// systray.Run()
 	if err != nil {

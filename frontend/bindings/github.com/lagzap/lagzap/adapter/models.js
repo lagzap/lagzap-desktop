@@ -16,6 +16,21 @@ import * as net$0 from "../../../../net/models.js";
 // @ts-ignore: Unused imports
 import * as netip$0 from "../../../../net/netip/models.js";
 
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const ConnectionStatus = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    StatusDisconnected: 0,
+    StatusConnected: 1,
+    StatusReconnecting: 2,
+};
+
 export class HopMetric {
     /**
      * Creates a new HopMetric instance.
@@ -210,13 +225,6 @@ export class Node {
              * @member
              * @type {string | undefined}
              */
-            this["status"] = "";
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
             this["region"] = "";
         }
         if (/** @type {any} */(false)) {
@@ -236,9 +244,9 @@ export class Node {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string | undefined}
+             * @type {{ [_: string]: string } | undefined}
              */
-            this["city"] = "";
+            this["city"] = {};
         }
         if (/** @type {any} */(false)) {
             /**
@@ -271,23 +279,37 @@ export class Node {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {number | undefined}
+             * @type {string[] | undefined}
              */
-            this["echo_port"] = 0;
+            this["additional_ips"] = [];
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {number | null | undefined}
+             * @type {string[] | undefined}
              */
-            this["edge_port"] = null;
+            this["allowed_plans"] = [];
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {number | null | undefined}
+             * @type {ServiceMode[] | undefined}
              */
-            this["relay_port"] = null;
+            this["available_modes"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["full_capacity"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["public"] = false;
         }
 
         Object.assign(this, $$source);
@@ -299,7 +321,23 @@ export class Node {
      * @returns {Node}
      */
     static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType3;
+        const $$createField10_0 = $$createType2;
+        const $$createField11_0 = $$createType2;
+        const $$createField12_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("city" in $$parsedSource) {
+            $$parsedSource["city"] = $$createField5_0($$parsedSource["city"]);
+        }
+        if ("additional_ips" in $$parsedSource) {
+            $$parsedSource["additional_ips"] = $$createField10_0($$parsedSource["additional_ips"]);
+        }
+        if ("allowed_plans" in $$parsedSource) {
+            $$parsedSource["allowed_plans"] = $$createField11_0($$parsedSource["allowed_plans"]);
+        }
+        if ("available_modes" in $$parsedSource) {
+            $$parsedSource["available_modes"] = $$createField12_0($$parsedSource["available_modes"]);
+        }
         return new Node(/** @type {Partial<Node>} */($$parsedSource));
     }
 }
@@ -440,7 +478,7 @@ export class NodeOptimizeResult {
      */
     static createFrom($$source = {}) {
         const $$createField2_0 = $$createType2;
-        const $$createField14_0 = $$createType5;
+        const $$createField14_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("edge_addrs" in $$parsedSource) {
             $$parsedSource["edge_addrs"] = $$createField2_0($$parsedSource["edge_addrs"]);
@@ -545,23 +583,44 @@ export class Profile {
         if (/** @type {any} */(false)) {
             /**
              * @member
+             * @type {number | undefined}
+             */
+            this["order"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {{ [_: string]: string } | undefined}
+             */
+            this["name"] = {};
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {{ [_: string]: string } | undefined}
+             */
+            this["description"] = {};
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
              * @type {string | undefined}
              */
-            this["name"] = "";
+            this["route_action"] = "";
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string | null | undefined}
+             * @type {string | undefined}
              */
-            this["description"] = null;
+            this["dns_action"] = "";
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string | null | undefined}
+             * @type {string | undefined}
              */
-            this["process_regex"] = null;
+            this["metadata"] = "";
         }
         if (/** @type {any} */(false)) {
             /**
@@ -587,7 +646,19 @@ export class Profile {
      * @returns {Profile}
      */
     static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType3;
+        const $$createField6_0 = $$createType3;
+        const $$createField9_0 = $Create.ByteSlice;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("name" in $$parsedSource) {
+            $$parsedSource["name"] = $$createField5_0($$parsedSource["name"]);
+        }
+        if ("description" in $$parsedSource) {
+            $$parsedSource["description"] = $$createField6_0($$parsedSource["description"]);
+        }
+        if ("metadata" in $$parsedSource) {
+            $$parsedSource["metadata"] = $$createField9_0($$parsedSource["metadata"]);
+        }
         return new Profile(/** @type {Partial<Profile>} */($$parsedSource));
     }
 }
@@ -647,6 +718,34 @@ export class ProfileState {
              */
             this["cities"] = [];
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["tcp_connections"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["udp_connections"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["network_interfaces"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["allow_local_routes"] = false;
+        }
 
         Object.assign(this, $$source);
     }
@@ -660,6 +759,7 @@ export class ProfileState {
         const $$createField4_0 = $$createType2;
         const $$createField5_0 = $$createType2;
         const $$createField6_0 = $$createType2;
+        const $$createField9_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("regions" in $$parsedSource) {
             $$parsedSource["regions"] = $$createField4_0($$parsedSource["regions"]);
@@ -669,6 +769,9 @@ export class ProfileState {
         }
         if ("cities" in $$parsedSource) {
             $$parsedSource["cities"] = $$createField6_0($$parsedSource["cities"]);
+        }
+        if ("network_interfaces" in $$parsedSource) {
+            $$parsedSource["network_interfaces"] = $$createField9_0($$parsedSource["network_interfaces"]);
         }
         return new ProfileState(/** @type {Partial<ProfileState>} */($$parsedSource));
     }
@@ -690,9 +793,9 @@ export class Region {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string | undefined}
+             * @type {{ [_: string]: string } | undefined}
              */
-            this["name"] = "";
+            this["name"] = {};
         }
         if (/** @type {any} */(false)) {
             /**
@@ -718,7 +821,11 @@ export class Region {
      * @returns {Region}
      */
     static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("name" in $$parsedSource) {
+            $$parsedSource["name"] = $$createField1_0($$parsedSource["name"]);
+        }
         return new Region(/** @type {Partial<Region>} */($$parsedSource));
     }
 }
@@ -737,6 +844,21 @@ export const RoutingMode = {
     RoutingMode_ROUTING_MODE_REGIONAL: 1,
     RoutingMode_ROUTING_MODE_COUNTRY: 2,
     RoutingMode_ROUTING_MODE_CITY: 3,
+};
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const ServiceMode = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    ServiceMode_RELAY: 0,
+    ServiceMode_EDGE: 1,
+    ServiceMode_CONTENT_DELIVERY: 2,
 };
 
 /**
@@ -801,9 +923,9 @@ export class Title {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string | undefined}
+             * @type {{ [_: string]: string } | undefined}
              */
-            this["name"] = "";
+            this["name"] = {};
         }
         if (/** @type {any} */(false)) {
             /**
@@ -826,13 +948,6 @@ export class Title {
              */
             this["poster_url"] = null;
         }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {(Profile | null)[] | undefined}
-             */
-            this["profiles"] = [];
-        }
 
         Object.assign(this, $$source);
     }
@@ -843,10 +958,10 @@ export class Title {
      * @returns {Title}
      */
     static createFrom($$source = {}) {
-        const $$createField7_0 = $$createType8;
+        const $$createField3_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("profiles" in $$parsedSource) {
-            $$parsedSource["profiles"] = $$createField7_0($$parsedSource["profiles"]);
+        if ("name" in $$parsedSource) {
+            $$parsedSource["name"] = $$createField3_0($$parsedSource["name"]);
         }
         return new Title(/** @type {Partial<Title>} */($$parsedSource));
     }
@@ -879,34 +994,6 @@ export class TitleState {
              */
             this["visited_at"] = 0;
         }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {RoutingMode | undefined}
-             */
-            this["mode"] = (/** @type {RoutingMode} */(0));
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string[] | undefined}
-             */
-            this["regions"] = [];
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string[] | undefined}
-             */
-            this["countries"] = [];
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string[] | undefined}
-             */
-            this["cities"] = [];
-        }
 
         Object.assign(this, $$source);
     }
@@ -917,19 +1004,7 @@ export class TitleState {
      * @returns {TitleState}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType2;
-        const $$createField5_0 = $$createType2;
-        const $$createField6_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("regions" in $$parsedSource) {
-            $$parsedSource["regions"] = $$createField4_0($$parsedSource["regions"]);
-        }
-        if ("countries" in $$parsedSource) {
-            $$parsedSource["countries"] = $$createField5_0($$parsedSource["countries"]);
-        }
-        if ("cities" in $$parsedSource) {
-            $$parsedSource["cities"] = $$createField6_0($$parsedSource["cities"]);
-        }
         return new TitleState(/** @type {Partial<TitleState>} */($$parsedSource));
     }
 }
@@ -943,9 +1018,8 @@ var $$createType0 = /** @type {(...args: any[]) => any} */(function $$initCreate
 });
 const $$createType1 = $Create.Array($Create.Any);
 const $$createType2 = $Create.Array($Create.Any);
-const $$createType3 = HopMetric.createFrom;
-const $$createType4 = $Create.Nullable($$createType3);
-const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = Profile.createFrom;
-const $$createType7 = $Create.Nullable($$createType6);
-const $$createType8 = $Create.Array($$createType7);
+const $$createType3 = $Create.Map($Create.Any, $Create.Any);
+const $$createType4 = $Create.Array($Create.Any);
+const $$createType5 = HopMetric.createFrom;
+const $$createType6 = $Create.Nullable($$createType5);
+const $$createType7 = $Create.Array($$createType6);

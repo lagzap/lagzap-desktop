@@ -8,6 +8,95 @@ export default {
         max: 'This field should be max {0} characters',
         passwordNotMatch: 'The password confirmation does not match'
     },
+    server_errors: {
+        invalid_credentials: 'The credentials are invalid!',
+        incorrect_password: 'Incorrect password!',
+        invalid_request: 'Invalid request!',
+        otp_expired: 'This OTP has been expired, request new one!',
+        invalid_otp: 'Incorrect OTP!',
+        access_denied: 'Access denied!',
+        internal_server_error: 'Internal server error',
+        invalid_email_or_phone: 'Invalid email or phone number!',
+        login_rate_limit_exceeded: 'Maximum amount of login request has been reached, please try again in 24 hours.',
+        login_otp_request_limit_exceeded: 'Maximum amount of OTP request has been reached, please try again in 24 hours.',
+        authentication_failed: 'Authentication failed!',
+        failed_to_send_otp: 'Failed to send OTP, please try again.',
+        invalid_phone_number: 'Invalid phone number',
+        fields_have_errors: 'Some of fields are having errors',
+        cannot_register_phone_number: 'Could not register with this phone number!',
+        cannot_register_email: 'Could not register with this email!',
+        register_successful: 'You have been registered successfully!',
+        rate_limit_exceeded: 'You have been banned temporarily due to many requests.'
+    },
+    navigation: {
+        overview: 'Overview',
+        titles: 'Apps & Games',
+        gamingConsoles: 'Gaming Consoles',
+        networkLatency: 'Network Latency',
+        connections: 'Connections',
+        monitoring: 'Monitoring',
+        logs: 'Logs',
+        quickAccess: 'Quick Access',
+        admin: 'Admin'
+    },
+    profile: {
+        basicInformation: 'Basic Information',
+        updatePassword: 'Update Password',
+        name: 'Name',
+        phone: 'Phone',
+        email: 'Email',
+        nameHint: 'Your nickname, gamer tag or your full name',
+        phoneHint: 'You may enter your phone number to enter LagZap',
+        emailHint: 'Will be used to email updates or entering LagZap'
+    },
+    settings: {
+        generalSettings: 'General Settings',
+        networkAdapter: 'Network Adapter',
+        language: 'Language',
+        theme: 'Theme',
+        systemTheme: 'System',
+        lightTheme: 'Light',
+        darkTheme: 'Dark',
+        interfaces: 'Interfaces',
+        interfacesHint: 'The interface that LagZap uses to route traffic through'
+    },
+    server: {
+        selectServer: 'Select Server',
+        automatic: 'Automatic',
+        byAI: 'By AI',
+        byRegion: 'By Region',
+        byCountry: 'By Country',
+        byCity: 'By City',
+        automaticServer: 'Automatic Server',
+        automaticSelection: 'Automatic selection',
+        global: 'Global',
+        automaticServerSelectionEnabled: 'Automatic server selection enabled',
+        routingSystemDescription: 'LagZap routing system will efficiently routes your data through the most stable connection to the best possible server based on your location and lowest latency.'
+    },
+    status: {
+        active: 'Active',
+        inactive: 'Inactive',
+        serviceNotRunning: 'Service is not running',
+        unlimited: 'Unlimited',
+        beta: 'BETA',
+        player1: 'Player 1',
+        driverMissing: 'Driver missing',
+        coordinationFailed: 'Coordination failed',
+        connectionFailed: 'Connection failed'
+    },
+    network: {
+        tcp: 'TCP',
+        udp: 'UDP',
+        upload: 'Upload',
+        download: 'Download',
+        hiddenProcesses: 'Hidden Processes',
+        allRegions: 'All Regions'
+    },
+    common: {
+        search: 'Search',
+        searchPlaceholder: 'Search for apps & games...',
+        closed: 'Closed'
+    },
     auth: {
         fields: {
             entry: 'Phone / Email',
@@ -45,4 +134,28 @@ export default {
         }
     },
     close: 'Close',
+    service: {
+        initializing: 'Initializing',
+        preparing: 'Preparing service',
+        connecting: 'Connecting...',
+        fetchingData: 'Fetching data',
+        ready: 'LagZap is Ready!',
+        driverMustBeInstalled: 'The LagZap driver must be installed for the application to function properly. Please install the driver.',
+        couldNotStartService: 'Could not start the service!',
+        disconnecting: 'Disconnecting...',
+        serviceStopped: 'Disconnected',
+        connetionFailed: 'Service has failed to stop!'
+    },
+    startService: {
+        loggingIntoOnlineService: 'Logging into online service',
+        installingLagZapKernelDriver: 'Installing LagZap kernel driver',
+        lagZapKernelDriverInstalledSuccessfully: 'LagZap kernel driver installed successfully',
+        failedToInstallDriver: 'Failed to install driver',
+        logout: 'Logout',
+        installDriver: 'Install Driver',
+        installLagZapDriver: 'Install LagZap Driver',
+        driverInstallationWarning: 'Installing the driver causes your network to be interrupted for a few seconds. This is required to install the driver. Please make sure you have saved all your work before proceeding.',
+        continue: 'Continue',
+        retry: 'Retry'
+    },
 }

@@ -3,7 +3,10 @@ import { useDisplay } from "vuetify";
 import LagzapLogo from "~/components/LagzapLogo.vue";
 import QuickAccess from "./QuickAccess.vue";
 import { Events } from "@wailsapp/runtime";
+import { ConnectionStatus } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { useLocale } from "vuetify";
 
+const { t } = useLocale();
 const data = useSanctumUser<DataResponse>();
 const user = computed(() => data.value.user);
 const { mobile } = useDisplay();
@@ -38,13 +41,7 @@ onActivated(async () => {
     <template #prepend>
       <v-list-item rounded="xl">
         <template #title>
-          <v-badge location="bottom right" size="x-small" inline>
-            <span class="lagzap-name me-1">LagZap</span>
-
-            <template #badge>
-              <small>BETA</small>
-            </template>
-          </v-badge>
+          <span class="lagzap-name me-1">{{ t('$vuetify.app_name') }}</span>
         </template>
         <template #prepend>
           <v-avatar>
@@ -70,13 +67,14 @@ onActivated(async () => {
       <v-list v-if="user" nav density="compact">
         <v-list-item
           :to="{ name: 'profile' }"
-          :title="user.name ?? 'Player 1'"
-          subtitle="Unlimited"
+          :title="user.name ?? t('$vuetify.status.player1')"
+          :subtitle="store.connected ? t('$vuetify.status.unlimited') : store.status"
           rounded="xl"
         >
           <template #prepend>
-            <v-avatar variant="tonal">
-              <span v-if="(user.name || user.email)?.length" class="text-xl text-uppercase">{{
+            <v-avatar :variant="store.status == ConnectionStatus.StatusReconnecting ? 'text' : 'tonal'">
+              <v-progress-circular v-if="store.status == ConnectionStatus.StatusReconnecting" indeterminate />
+              <span v-else-if="(user.name || user.email)?.length" class="text-xl text-uppercase">{{
                 (user.name || user.email)[0]
               }}</span>
               <v-icon v-else icon="mdi-account-circle" size="x-large" />
@@ -101,39 +99,38 @@ onActivated(async () => {
       </v-list>
     </template>
 
-    <v-list nav :lines="false">
+    <v-list nav :lines="false" variant="text" color="tertiary">
       <v-list-item
         :to="{ name: 'index' }"
-        title="Overview"
+        :title="t('$vuetify.navigation.overview')"
         prepend-icon="mdi-view-dashboard"
         rounded="xl"
         density="compact"
       />
       <v-list-item
         :to="{ name: 'titles' }"
-        title="Apps & Games"
+        :title="t('$vuetify.navigation.titles')"
         prepend-icon="mdi-gamepad"
         rounded="xl"
         density="compact"
       />
       <v-list-item
-        v-if="false"
         :to="{ name: 'console' }"
-        title="Gaming Consoles"
+        :title="t('$vuetify.navigation.gamingConsoles')"
         prepend-icon="mdi-controller"
         rounded="xl"
         density="compact"
       />
       <v-list-item
         :to="{ name: 'network-latency' }"
-        title="Network Latency"
+        :title="t('$vuetify.navigation.networkLatency')"
         prepend-icon="mdi-map-marker-path"
         rounded="xl"
         density="compact"
       />
       <v-list-item
         :to="{ name: 'connections' }"
-        title="Connections"
+        :title="t('$vuetify.navigation.connections')"
         prepend-icon="mdi-network-outline"
         rounded="xl"
         density="compact"
@@ -141,7 +138,7 @@ onActivated(async () => {
       <v-list-item
         v-if="false"
         :to="{ name: 'monitoring' }"
-        title="Monitoring"
+        :title="t('$vuetify.navigation.monitoring')"
         prepend-icon="mdi-chart-line"
         rounded="xl"
         density="compact"
@@ -151,19 +148,21 @@ onActivated(async () => {
     <v-list
       v-if="store.abilities.includes('admin')"
       nav
+      variant="text"
+      color="tertiary"
       :lines="false"
     >
-      <v-list-subheader>Admin</v-list-subheader>
+      <v-list-subheader>{{ t('$vuetify.navigation.admin') }}</v-list-subheader>
       <v-list-item
         :to="{ name: 'admin-connections' }"
-        title="Connections"
+        :title="t('$vuetify.navigation.connections')"
         prepend-icon="mdi-network-outline"
         rounded="xl"
         density="compact"
       />
       <v-list-item
         :to="{ name: 'admin-logs' }"
-        title="Logs"
+        :title="t('$vuetify.navigation.logs')"
         prepend-icon="mdi-text"
         rounded="xl"
         density="compact"

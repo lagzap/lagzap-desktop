@@ -2,7 +2,10 @@
 import { useForm } from "vee-validate";
 import { object, string } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
+import { useLocale } from "vuetify";
 
+const locale = useLocale();
+const { t } = locale
 const runtimeConfig = useRuntimeConfig()
 
 const otpDialog = ref(false)
@@ -11,8 +14,8 @@ const { defineField, handleSubmit, isSubmitting } = useForm<ProfilePasswordForm>
   validationSchema: toTypedSchema(
     object({
       otp: string().min(6).max(6),
-      password: string().min(6, __('validation.required')).max(32, __('validation.max', 32)),
-      passwordConfirm: string().min(6, __('validation.required')),
+      password: string().min(6, t('$vuetify.validation.required')).max(32, t('$vuetify.validation.max', 32)),
+      passwordConfirm: string().min(6, t('$vuetify.validation.required')),
     })
   )
 });
@@ -38,7 +41,7 @@ const onSubmit = handleSubmit(async (values) => {
       displayAlert(data.value.message, "info", 3000)
     }
   } catch (e) {
-    displayError(e)
+    displayError(e, locale)
   }
 })
 
@@ -73,7 +76,7 @@ async function requestOTP() {
 <template>
   <v-form @submit="onSubmit">
     <v-card
-      title="Update Password"
+      :title="t('$vuetify.profile.updatePassword')"
       class="mt-3 bg-transparent"
       flat
       max-width="400"
@@ -82,7 +85,7 @@ async function requestOTP() {
         <v-text-field
           v-model="password"
           v-bind="passwordAttrs"
-          :label="__('auth.fields.password')"
+          :label="t('$vuetify.auth.fields.password')"
           variant="outlined"
           density="comfortable"
           class="mb-3"
@@ -91,7 +94,7 @@ async function requestOTP() {
         <v-text-field
           v-model="passwordConfirm"
           v-bind="passwordConfirmAttrs"
-          :label="__('auth.fields.passwordConfirm')"
+          :label="t('$vuetify.auth.fields.passwordConfirm')"
           variant="outlined"
           density="comfortable"
           type="password"

@@ -3,7 +3,10 @@ import { ref } from "vue";
 import { useForm } from "vee-validate";
 import { object, string } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
+import { useLocale } from "vuetify";
 
+const locale = useLocale();
+const { t } = locale
 const runtimeConfig = useRuntimeConfig()
 const requestFetch = useRequestFetch()
 const { login } = useSanctumAuth()
@@ -22,10 +25,10 @@ const { defineField, handleSubmit, isSubmitting } = useForm<RegisterForm>({
   validationSchema: toTypedSchema(
     object({
       otp: string().min(6).max(6),
-      password: string().min(6, __('validation.required')).max(32, __('validation.max', 32)),
-      passwordConfirm: string().min(6, __('validation.required')),
+      password: string().min(6, t('$vuetify.validation.required')).max(32, t('$vuetify.validation.max', 32)),
+      passwordConfirm: string().min(6, t('$vuetify.validation.required')),
     }).refine((data) => data.password === data.passwordConfirm, {
-      message:  __('validation.passwordNotMatch'),
+      message:  t('$vuetify.validation.passwordNotMatch'),
       path: ["passwordConfirm"],
     })
   )
@@ -50,16 +53,14 @@ const onSubmit = handleSubmit(async (values) => {
 
     displayAlert(data.message, "info", 3000)
 
-    const credentials: LoginCredentials = {
+    await login({
       type: props.type,
       phone: props.type == 'phone' ? parseInt(props.entry) : undefined,
       email: props.type == 'email' ? props.entry : undefined,
       password: values.password ? values.password : '',
-    }
-
-    await login(credentials)
+    })
   } catch (e) {
-    displayError(e)
+    displayError(e, locale)
   }
 })
 
@@ -75,7 +76,7 @@ async function requestOTP() {
 
     displayAlert(data.message, "info", 3000)
   } catch (e) {
-    displayError(e)
+    displayError(e, locale)
   }
 }
 
@@ -88,10 +89,10 @@ onMounted(() => {
 <template>
   <v-form @submit="onSubmit">
     <v-card
-      :title="__('auth.register.title')"
+      :title="t('$vuetify.auth.register.title')"
     >
       <v-card-text>
-        {{ props.type == 'email' ? __('auth.register.descriptionEmail') : __('auth.register.descriptionPhone') }}
+        {{ props.type == 'email' ? t('$vuetify.auth.register.descriptionEmail') : t('$vuetify.auth.register.descriptionPhone') }}
         <v-locale-provider :rtl="false">
           <v-otp-input
             v-model="otp"
@@ -99,18 +100,19 @@ onMounted(() => {
             :error="otpAttrs['error-messages']?.length"
             focus-all
             variant="outlined"
+            density="comfortable"
             label="رمز یکبار مصرف"
           />
         </v-locale-provider>
 
         <div class="text-caption">
-          {{ __('auth.register.codeNotReceived') }}
+          {{ t('$vuetify.auth.register.codeNotReceived') }}
           <v-btn
             variant="tonal"
             size="small"
             @click="requestOTP"
           >
-            {{ __('auth.register.resendCode') }}
+            {{ t('$vuetify.auth.register.resendCode') }}
           </v-btn>
         </div>
       </v-card-text>
@@ -118,17 +120,19 @@ onMounted(() => {
         <v-text-field
           v-model="password"
           v-bind="passwordAttrs"
-          :label="__('auth.fields.password')"
+          :label="t('$vuetify.auth.fields.password')"
           autofocus
           type="password"
           variant="outlined"
+          density="comfortable"
         />
         <v-text-field
           v-model="passwordConfirm"
           v-bind="passwordConfirmAttrs"
-          :label="__('auth.fields.passwordConfirm')"
+          :label="t('$vuetify.auth.fields.passwordConfirm')"
           type="password"
           variant="outlined"
+          density="comfortable"
         />
       </v-card-text>
 
@@ -138,7 +142,7 @@ onMounted(() => {
           :loading="isSubmitting"
           @click="emit('back')"
         >
-          {{ __('auth.backButton') }}
+          {{ t('$vuetify.auth.backButton') }}
         </v-btn>
         <v-spacer />
         <v-btn
@@ -147,7 +151,7 @@ onMounted(() => {
           rounded
           :loading="isSubmitting"
         >
-          {{ __('auth.register.registerButton') }}
+          {{ t('$vuetify.auth.register.registerButton') }}
         </v-btn>
       </template>
     </v-card>

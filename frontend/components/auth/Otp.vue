@@ -3,7 +3,10 @@ import { useForm } from "vee-validate";
 import { object, string } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
 import { ref, onMounted } from 'vue';
+import { useLocale } from "vuetify";
 
+const locale = useLocale();
+const { t } = locale
 const runtimeConfig = useRuntimeConfig()
 const requestFetch = useRequestFetch()
 const { login } = useSanctumAuth()
@@ -44,17 +47,15 @@ function startCooldown() {
 
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const credentials: LoginOtpCredentials = {
+    await login({
       type: props.type,
       phone: props.type == 'phone' ? parseInt(props.entry) : undefined,
       email: props.type == 'email' ? props.entry : undefined,
       otp: values.otp,
       otpID: otpID,
-    }
-
-    await login(credentials)
+    })
   } catch (e) {
-    displayError(e)
+    displayError(e, locale)
   }
 })
 
@@ -100,7 +101,7 @@ onMounted(() => {
 
         <v-toolbar-title
           class="text-h6"
-          :text="__('auth.login.title')"
+          :text="t('$vuetify.auth.login.title')"
         />
       </v-toolbar>
       <v-card-text>
@@ -125,7 +126,7 @@ onMounted(() => {
           </v-chip>
         </div>
 
-        {{ props.type == 'email' ? __('auth.login.descriptionOtpEmail') : __('auth.login.descriptionOtpPhone') }}
+        {{ props.type == 'email' ? t('$vuetify.auth.login.descriptionOtpEmail') : t('$vuetify.auth.login.descriptionOtpPhone') }}
         <v-locale-provider :rtl="false">
           <v-otp-input
             v-model="otp"
@@ -133,19 +134,20 @@ onMounted(() => {
             :error="otpAttrs['error-messages']?.length"
             focus-all
             variant="outlined"
+            density="comfortable"
             label="کد یکبار مصرف"
           />
         </v-locale-provider>
 
         <div class="text-caption">
-          {{ __('auth.register.codeNotReceived') }}
+          {{ t('$vuetify.auth.register.codeNotReceived') }}
           <v-btn
             variant="tonal"
             size="small"
             :disabled="cooldown > 0"
             @click="requestOTP"
           >
-            {{ __('auth.register.resendCode') }}
+            {{ t('$vuetify.auth.register.resendCode') }}
             <span v-if="cooldown > 0">
               ({{ cooldown }})
             </span>
@@ -159,7 +161,7 @@ onMounted(() => {
           color="secondary"
           @click="emit('back')"
         >
-          {{ __('auth.backButton') }}
+          {{ t('$vuetify.auth.backButton') }}
         </v-btn>
         <v-spacer />
         <v-btn
@@ -167,7 +169,7 @@ onMounted(() => {
           rounded
           :loading="isSubmitting"
         >
-          {{ __('auth.login.loginButton') }}
+          {{ t('$vuetify.auth.login.loginButton') }}
         </v-btn>
       </template>
     </v-card>

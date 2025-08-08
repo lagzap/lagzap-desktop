@@ -8,7 +8,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       await store.stopNDIS()
     }
     if (store.serviceReady) {
-      await store.stopService()
+      await store.disconnect()
     }
   })
   nuxtApp.hook('sanctum:refresh', async () => {

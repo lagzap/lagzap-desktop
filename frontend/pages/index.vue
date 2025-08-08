@@ -1,38 +1,19 @@
 <script setup lang="ts">
-import { StartOptimizing, FetchData } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import type { NodeOptimizeResult } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import Container from "~/components/layout/Container.vue";
+import { useLocale } from "vuetify";
 
-const store = useStore()
-const tests = ref<Record<string, NodeOptimizeResult>>({});
-
-async function loadRegions() {
-  const regions = await FetchData();
-  console.log(regions);
-}
-async function loadTests() {
-  await StartOptimizing()
-}
+const { t } = useLocale();
 </script>
 
 <template>
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title>Overview</v-app-bar-title>
-
-        <v-spacer />
-        <v-btn @click="loadRegions">
-          Load Regions
-        </v-btn>
-        <v-btn @click="loadTests">
-          Load Tests
-        </v-btn>
+        <v-app-bar-title>{{ t('$vuetify.navigation.overview') }}</v-app-bar-title>
       </template>
 
       <v-card-text>
-        <pre>{{ tests }}</pre>
-        <pre>{{ store.nodes }}</pre>
+        Nothing yet
       </v-card-text>
     </Container>
   </div>
