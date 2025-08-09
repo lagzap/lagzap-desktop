@@ -23,9 +23,9 @@ const dialog = defineModel<boolean>({
       <template #actions>
         <v-spacer />
         <v-btn
-          color="primary"
+          variant="tonal"
+          color="secondary"
           rounded
-          variant="elevated"
           @click="$emit('register')"
         >
           {{ t('$vuetify.auth.registerDialog.createAccountButton') }}

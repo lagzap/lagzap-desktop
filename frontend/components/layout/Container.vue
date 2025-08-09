@@ -53,7 +53,7 @@ onMounted(() => {
           />
         </div>
         <div v-else class="v-toolbar__content">
-          <v-btn :icon="locale.isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'" @click="searchMode = false" />
+          <v-btn :icon="locale.isRtl.value ? 'mdi-arrow-right' : 'mdi-arrow-left'" @click="searchMode = false" />
           <v-autocomplete
             autofocus
             class="mx-4"

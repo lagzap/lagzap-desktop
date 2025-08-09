@@ -18,6 +18,10 @@ func (s *Service) DeviceHash() string {
 	return device.DeviceHash()
 }
 
+func (s *Service) Credentials() adapter.CredentialsPayload {
+	return *s.coordinator.GetCredentials()
+}
+
 func (s *Service) FetchData() error {
 	if !s.IsReady() {
 		return E.New("coordinator_not_ready")

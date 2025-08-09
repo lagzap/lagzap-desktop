@@ -37,22 +37,22 @@ const areas = computed(() => {
 </script>
 
 <template>
-  <v-card-text v-if="profile">
-    <v-chip-group v-model="mode" color="primary" class="mb-3" filter mandatory>
+  <v-card-text>
+    <v-chip-group v-model="mode" color="accent" class="mb-3" filter mandatory>
       <v-chip rounded size="large" value="global">
-        <span>{{ t("$vuetify.server.automatic") }}</span>
+        <span>{{ t("$vuetify.title.profile.server.automatic") }}</span>
       </v-chip>
       <v-chip rounded size="large" value="ai" disabled>
-        <span>{{ t("$vuetify.server.byAI") }}</span>
+        <span>{{ t("$vuetify.title.profile.server.byAI") }}</span>
       </v-chip>
       <v-chip rounded size="large" value="region">
-        <span>{{ t("$vuetify.server.byRegion") }}</span>
+        <span>{{ t("$vuetify.title.profile.server.byRegion") }}</span>
       </v-chip>
       <v-chip rounded size="large" value="country">
-        <span>{{ t("$vuetify.server.byCountry") }}</span>
+        <span>{{ t("$vuetify.title.profile.server.byCountry") }}</span>
       </v-chip>
       <v-chip rounded size="large" value="city">
-        <span>{{ t("$vuetify.server.byCity") }}</span>
+        <span>{{ t("$vuetify.title.profile.server.byCity") }}</span>
       </v-chip>
     </v-chip-group>
 
@@ -64,19 +64,19 @@ const areas = computed(() => {
 
         <template v-slot:headline>
           <div class="text-h4 my-2">
-            {{ t("$vuetify.server.global") }}
+            {{ t("$vuetify.title.profile.server.global") }}
           </div>
         </template>
 
         <template v-slot:title>
           <div class="text-h6">
-            {{ t("$vuetify.server.automaticServerSelectionEnabled") }}
+            {{ t("$vuetify.title.profile.server.automaticServerSelectionEnabled") }}
           </div>
         </template>
 
         <template v-slot:text>
           <div class="text-medium-emphasis text-caption">
-            {{ t("$vuetify.server.routingSystemDescription") }}
+            {{ t("$vuetify.title.profile.server.routingSystemDescription") }}
           </div>
         </template>
       </v-empty-state>
@@ -222,8 +222,5 @@ const areas = computed(() => {
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>
-  </v-card-text>
-  <v-card-text v-else>
-    <v-empty-state title="Profile could not be found" />
   </v-card-text>
 </template>

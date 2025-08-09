@@ -38,7 +38,7 @@ onMounted(() => {
               'title-id-profile-profile-connections',
             ].includes(route.name as string)
           "
-          icon="mdi-arrow-left"
+          :icon="locale.isRtl.value ? 'mdi-arrow-right' : 'mdi-arrow-left'"
           @click="router.back()"
         />
         <v-avatar
@@ -55,6 +55,7 @@ onMounted(() => {
           :style="{
             cursor: route.name != 'title-id' ? 'pointer' : 'default',
           }"
+          class="text-subtitle-1"
           @click="
             router.push(
               profile

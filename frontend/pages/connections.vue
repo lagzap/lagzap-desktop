@@ -7,11 +7,12 @@ import { useLocale, type DataTableHeader } from "vuetify";
 
 const store = useStore();
 const locale = useLocale();
+const { t } = locale;
 const { connections } = useMonitoringStore();
 const items = computed(
   () =>
     connections.value
-      .filter(c => c.profile_id != '')
+      ?.filter((c) => c.profile_id != "")
       .sort((a, b) =>
         a.download_speed + a.upload_speed > b.download_speed + b.upload_speed
           ? -1
@@ -22,26 +23,26 @@ const items = computed(
 
 const headers = ref<DataTableHeader[]>([
   {
-    title: "Title",
+    title: t("$vuetify.connections.title"),
     key: "title",
     sortable: false,
     nowrap: true,
     width: "100%",
   },
   {
-    title: "Game Server",
+    title: t("$vuetify.connections.gameServer"),
     key: "server",
     sortable: false,
     nowrap: true,
   },
   {
-    title: "LagZap Server",
+    title: t("$vuetify.connections.lagzapServer"),
     key: "destination",
     sortable: false,
     nowrap: true,
   },
   {
-    title: "Latency",
+    title: t("$vuetify.connections.latency"),
     key: "latency",
     align: "center",
     sortable: false,
@@ -49,14 +50,14 @@ const headers = ref<DataTableHeader[]>([
     minWidth: "100px",
   },
   {
-    title: "Upload",
+    title: t("$vuetify.connections.upload"),
     key: "upload_speed",
     sortable: false,
     nowrap: true,
     minWidth: "130px",
   },
   {
-    title: "Download",
+    title: t("$vuetify.connections.download"),
     key: "download_speed",
     sortable: true,
     nowrap: true,
@@ -74,7 +75,9 @@ const sortBy = ref<VDataTable["sortBy"]>([
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title> Connections </v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">
+          {{ t("$vuetify.connections.connections") }}
+        </v-app-bar-title>
       </template>
       <v-data-table-virtual
         :headers
@@ -93,7 +96,10 @@ const sortBy = ref<VDataTable["sortBy"]>([
         class="bg-transparent h-100"
       >
         <template #item.title="{ item }">
-          {{ store.profiles.find((p) => p.id === item.profile_id)?.name?.en ?? "-" }}
+          {{
+            store.profiles.find((p) => p.id === item.profile_id)?.name?.en ??
+            "-"
+          }}
         </template>
         <template #item.server="{ item }">
           <CountryFlag
@@ -156,7 +162,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
             </span>
           </v-chip>
         </template>
-        <template #group-header="{ item, columns, toggleGroup }">
+        <template #group-header="{ item, toggleGroup }">
           <tr v-ripple class="cursor-pointer bg" @click="toggleGroup(item)">
             <td>
               <v-avatar
@@ -167,7 +173,10 @@ const sortBy = ref<VDataTable["sortBy"]>([
               />
             </td>
             <td>
-              {{ store.titles.find((t) => t.id === item.items[0].raw.title_id)?.name?.en ?? "-" }}
+              {{
+                store.titles.find((t) => t.id === item.items[0].raw.title_id)
+                  ?.name?.en ?? "-"
+              }}
             </td>
             <td>
               <div class="d-flex align-center">

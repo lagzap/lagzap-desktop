@@ -60,19 +60,6 @@ export default {
         interfaces: 'Interfaces',
         interfacesHint: 'The interface that LagZap uses to route traffic through'
     },
-    server: {
-        selectServer: 'Select Server',
-        automatic: 'Automatic',
-        byAI: 'By AI',
-        byRegion: 'By Region',
-        byCountry: 'By Country',
-        byCity: 'By City',
-        automaticServer: 'Automatic Server',
-        automaticSelection: 'Automatic selection',
-        global: 'Global',
-        automaticServerSelectionEnabled: 'Automatic server selection enabled',
-        routingSystemDescription: 'LagZap routing system will efficiently routes your data through the most stable connection to the best possible server based on your location and lowest latency.'
-    },
     status: {
         active: 'Active',
         inactive: 'Inactive',
@@ -114,7 +101,7 @@ export default {
         login: {
             title: 'Sign In',
             loginButton: 'Sign In',
-            otpLogin: 'Get one-time password',
+            otpLogin: 'Get OTP',
             descriptionOtpEmail: 'Enter the code sent to your email to continue:',
             descriptionOtpPhone: 'Enter the code sent to your phone to continue:',
         },
@@ -158,4 +145,62 @@ export default {
         continue: 'Continue',
         retry: 'Retry'
     },
+    title: {
+        connections: 'Connections',
+        locations: 'Change Region',
+        advancedOptions: 'Advanced Options',
+        profile: {
+            routeSettings: 'Route Settings',
+            routeDescription: 'Options to configure your routing preferences',
+            tcpRoutes: 'TCP Routes',
+            udpRoutes: 'UDP Routes',
+            networkAdapters: 'Network Adapters',
+            networkAdaptersHint: 'Select the network adapter to use for routing',
+            networkAdaptersPlaceholder: 'Leave empty for automatic selection',
+            networkAdapter: 'Network Adapter',
+            multiInternet: 'Multi Internet',
+            allowLocalRoutes: 'Allow Local Routes',
+            allowLocalRoutesHint: 'Causes traffic to be routed through servers in your country or state/province',
+            server: {
+                server: 'Server',
+                selectServer: 'Select Server',
+                automatic: 'Automatic',
+                byAI: 'By AI',
+                byRegion: 'By Region',
+                byCountry: 'By Country',
+                byCity: 'By City',
+                automaticServer: 'Automatic Server',
+                automaticSelection: 'Automatic selection',
+                global: 'Global',
+                automaticServerSelectionEnabled: 'Automatic server selection enabled',
+                routingSystemDescription: 'LagZap routing system will efficiently routes your data through the most stable connection to the best possible server based on your location and lowest latency.',
+                connections: 'Connections',
+                connectionsSubtitle: 'Active connections count: {0}'
+            },
+        },
+        active: 'فعال',
+        inactive: 'غیرفعال',
+        serviceStopped: 'سرویس در اجرا نیست'
+    },
+    connections: {
+        connections: 'Connections',
+        title: 'Title',
+        network: 'Network',
+        gameServer: 'Game Server',
+        lagzapServer: 'LagZap Server',
+        latency: 'Latency',
+        upload: 'Upload',
+        download: 'Download',
+    },
+    settings: {
+        title: 'Settings',
+    },
+    profile: {
+        title: 'Profile',
+        logout: 'Logout',
+        deleteAccount: 'Delete Account',
+        deleteAccountConfirmation: 'Are you sure you want to delete your account? This action cannot be undone.',
+        deletePermanent: 'Delete Permanently',
+    },
+    ms: 'ms',
 }

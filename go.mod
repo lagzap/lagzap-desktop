@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/lagzap/lagzap v0.1.0-beta.8
-	github.com/lagzap/zap v0.1.0-beta
+	github.com/lagzap/zap v0.1.0-beta.2
 	github.com/wailsapp/wails/v3 v3.0.0-00010101000000-000000000000
 	golang.org/x/sys v0.33.0
 	google.golang.org/protobuf v1.36.6

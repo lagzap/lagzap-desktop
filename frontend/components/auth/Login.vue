@@ -71,7 +71,8 @@ async function requestOTP() {
           </v-avatar>
           <v-chip
             rounded
-            color="primary"
+            color="secondary"
+            variant="tonal"
             size="large"
             @click="emit('back')"
           >
@@ -98,6 +99,7 @@ async function requestOTP() {
         <v-btn
           rounded
           color="secondary"
+          variant="text"
           @click="requestOTP"
         >
           {{ t('$vuetify.auth.login.otpLogin') }}
@@ -105,6 +107,8 @@ async function requestOTP() {
         <v-spacer />
         <v-btn
           type="submit"
+          color="secondary"
+          variant="tonal"
           rounded
           :loading="isSubmitting"
         >

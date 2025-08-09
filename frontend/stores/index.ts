@@ -16,7 +16,6 @@ import {
   Status,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
-  RoutingMode,
   type NodeOptimizeResult,
   type Profile,
   type ProfileState,
@@ -37,11 +36,11 @@ export const useStore = defineStore("index", () => {
   const locale = useLocale();
   // State
   const status = ref<ConnectionStatus>(ConnectionStatus.StatusConnected);
-  const abilities = ref<string[]>(["admin"]);
+  const abilities = ref<string[]>([]);
   const displayLimit = ref<number>(10);
   const loading = ref<boolean>(false);
   const driverInstalled = ref<boolean | null>(null);
-  const statusMessage = ref<string>("Initializing");
+  const statusMessage = ref<string>(locale.t('$vuetify.service.initializing'));
   const error = ref<boolean>(false);
   const optimizeProgress = ref<OptimizeProgress | null>(null);
   const serviceReady = ref<boolean>(false);
@@ -57,7 +56,7 @@ export const useStore = defineStore("index", () => {
   const profileStates = ref<Record<string, ProfileState>>({});
   const loadingTitleStates = ref<string[]>([]);
   const loadingProfileStates = ref<string[]>([]);
-  const echo = ref<Record<string, NodeOptimizeResult>>({});
+  const optimizeResult = ref<Record<string, NodeOptimizeResult>>({});
 
   // Getters
   const isReady = computed(() => serviceReady.value);
@@ -112,7 +111,7 @@ export const useStore = defineStore("index", () => {
 
     try {
       statusMessage.value = locale.t("$vuetify.service.preparing");
-      await checkService();
+      await check();
       if (!serviceReady.value) {
         await connect();
       }
@@ -143,29 +142,28 @@ export const useStore = defineStore("index", () => {
 
   // Setup event listeners
   onMounted(async () => {
-    await checkService();
-    Events.On("connection_status", ({ data }) => (status.value = data[0]));
-    Events.On("service-started", async () => await checkService());
-    Events.On("service-stopped", async () => await checkService());
+    await check();
+    Events.On("status", ({ data }) => (status.value = data[0]));
+    Events.On("service-started", async () => await check());
+    Events.On("service-stopped", async () => await check());
     Events.On("titles", ({ data }) => upsertTitles(data[0]));
-    Events.On("delete_title", ({ data }) => deleteTitle(data[0]));
+    Events.On("title-delete", ({ data }) => deleteTitle(data[0]));
     Events.On("profiles", ({ data }) => upsertProfiles(data[0]));
-    Events.On("delete_profile", ({ data }) => deleteProfile(data[0]));
+    Events.On("profile-delete", ({ data }) => deleteProfile(data[0]));
     Events.On("title_states", ({ data }) => upsertTitleStates(data[0]));
     Events.On("profile_states", ({ data }) => upsertProfileStates(data[0]));
-    Events.On("delete_profile", ({ data }) => deleteProfile(data[0]));
     Events.On("regions", ({ data }) => upsertRegions(data[0]));
-    Events.On("delete_region", ({ data }) => deleteRegion(data[0]));
+    Events.On("region-delete", ({ data }) => deleteRegion(data[0]));
     Events.On("nodes", ({ data }) => upsertNodes(data[0]));
-    Events.On("delete_node", ({ data }) => deleteNode(data[0]));
-    Events.On("echo_progress", async ({ data }) => {
+    Events.On("node-delete", ({ data }) => deleteNode(data[0]));
+    Events.On("optimize-progress", async ({ data }) => {
       optimizeProgress.value = data[0];
       status.value = await Status();
     });
-    Events.On("echo_results", ({ data }) => {
+    Events.On("optimize-results", ({ data }) => {
       const results = data[0];
       Object.entries(results).forEach(([key, value]) => {
-        echo.value[key] = value as NodeOptimizeResult;
+        optimizeResult.value[key] = value as NodeOptimizeResult;
       });
     });
   });
@@ -245,7 +243,7 @@ export const useStore = defineStore("index", () => {
         (id) => id !== profileId
       );
     }
-  }, 500);
+  }, 1000);
   const visitTitle = async (id: string) => {
     if (titleStates.value[id]) {
       titleStates.value[id].visited_at = Date.now();
@@ -340,7 +338,7 @@ export const useStore = defineStore("index", () => {
   };
   const deleteNode = (id: string) => {
     delete nodes.value[id];
-    delete echo.value[id];
+    delete optimizeResult.value[id];
   };
   const findTitleByRuleTag = (rule_tag: string): Title | undefined => {
     const profileEntry = profiles.value.find(
@@ -352,13 +350,13 @@ export const useStore = defineStore("index", () => {
   const findProfileByRuleTag = (rule_tag: string): Profile | undefined => {
     return profiles.value.find((profile) => profile.rule_id === rule_tag);
   };
-  const checkService = async () => {
+  const check = async () => {
     serviceReady.value = await IsRunning();
     ndisRunning.value = await IsNDISRunning();
     status.value = await Status();
   };
   const connect = async () => {
-    await checkService();
+    await check();
     if (serviceReady.value) {
       loading.value = false;
       return;
@@ -380,14 +378,14 @@ export const useStore = defineStore("index", () => {
       console.error(e);
       throw e;
     } finally {
-      await checkService();
+      await check();
     }
   };
   const disconnect = async () => {
     loading.value = true;
     error.value = false;
     statusMessage.value = locale.t("$vuetify.service.disconnecting");
-    await checkService();
+    await check();
     if (!serviceReady.value) {
       loading.value = false;
       return;
@@ -400,7 +398,7 @@ export const useStore = defineStore("index", () => {
       error.value = true;
       statusMessage.value = locale.t("$vuetify.service.connetionFailed");
     } finally {
-      await checkService();
+      await check();
       loading.value = false;
     }
   };
@@ -434,12 +432,12 @@ export const useStore = defineStore("index", () => {
     await StartOptimizing();
   };
   const updateEcho = async () => {
-    echo.value = await GetOptimizeResults();
+    optimizeResult.value = await GetOptimizeResults();
   };
   const pingNode = async (tag: string) => {
     const result = await TestSpecificNode(tag);
     const [nodeResult] = result;
-    echo.value[tag] = nodeResult;
+    optimizeResult.value[tag] = nodeResult;
     return nodeResult;
   };
 
@@ -468,7 +466,7 @@ export const useStore = defineStore("index", () => {
     nodes,
     titleStates,
     profileStates,
-    echo,
+    echo: optimizeResult,
 
     // Getters
     isReady,
@@ -502,7 +500,7 @@ export const useStore = defineStore("index", () => {
     deleteNode,
     findTitleByRuleTag,
     findProfileByRuleTag,
-    checkService,
+    checkService: check,
     connect,
     disconnect,
     checkNDIS,

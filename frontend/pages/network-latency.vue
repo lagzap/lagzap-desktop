@@ -93,7 +93,7 @@ async function pingTag(tag: string) {
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title>{{ t('$vuetify.navigation.networkLatency') }}</v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">{{ t('$vuetify.navigation.networkLatency') }}</v-app-bar-title>
       </template>
       <v-card-text>
         <v-chip-group v-model="filterMode" color="primary" class="mb-3" filter mandatory show-arrows>
@@ -152,7 +152,7 @@ async function pingTag(tag: string) {
                         </v-avatar>
                       </template>
                       <template #title>
-                        {{ store.localized(nodes[0].city) }}
+                        <span class="text-subtitle-1" style="line-height: 2.5;">{{ store.localized(nodes[0].city) }}</span>
                       </template>
                       <template #append>
                         <Ping v-if="getLowestPingForArea(nodes) !== null" :tag="getLowestPingForArea(nodes).tag" />

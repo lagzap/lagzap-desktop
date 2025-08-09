@@ -18,41 +18,41 @@ const profile = computed(() =>
 );
 const headers = ref<DataTableHeader[]>([
   {
-    title: "Network",
+    title: t('$vuetify.connections.network'),
     key: "network",
     align: "start",
     sortable: false,
     nowrap: true,
   },
   {
-    title: "Game Server",
+    title: t('$vuetify.connections.gameServer'),
     key: "server",
     align: "start",
     sortable: false,
     nowrap: true,
   },
   {
-    title: "LagZap Server",
+    title: t('$vuetify.connections.lagzapServer'),
     key: "destination",
     sortable: false,
     nowrap: true,
   },
   {
-    title: "Latency",
+    title: t('$vuetify.connections.latency'),
     key: "latency",
     sortable: false,
     nowrap: true,
     minWidth: "100px",
   },
   {
-    title: "Upload",
+    title: t('$vuetify.connections.upload'),
     key: "upload_speed",
     sortable: false,
     nowrap: true,
     minWidth: "130px",
   },
   {
-    title: "Download",
+    title: t('$vuetify.connections.download'),
     key: "download_speed",
     sortable: true,
     nowrap: true,
@@ -83,7 +83,6 @@ onMounted(() => {
 
 <template>
   <v-data-table-virtual
-    v-if="profile"
     :headers="headers"
     :items="connections?.filter((c) => c.profile_id == profile.id) ?? []"
     :sort-by="sortBy"
@@ -147,7 +146,7 @@ onMounted(() => {
       <div class="d-flex align-center flex-nowrap">
         <v-icon color="green"> mdi-signal-cellular-2 </v-icon>
         <span class="text-green ms-1">
-          {{ item.node_optimize?.min_latency ?? -1 }}ms
+          {{ item.node_optimize?.min_latency ?? -1 }}{{ t('$vuetify.ms') }}
         </span>
       </div>
     </template>
@@ -155,7 +154,4 @@ onMounted(() => {
       <v-btn variant="text" color="error" size="small" icon="mdi-cancel" />
     </template>
   </v-data-table-virtual>
-  <v-card-text v-else>
-    <v-empty-state title="Profile could not be found" />
-  </v-card-text>
 </template>

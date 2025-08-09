@@ -6,7 +6,7 @@ import Container from "~/components/layout/Container.vue";
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title>Gaming Consoles</v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">Gaming Consoles</v-app-bar-title>
       </template>
       <v-card-text>
         <v-card

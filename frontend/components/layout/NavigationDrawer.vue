@@ -90,6 +90,7 @@ onActivated(async () => {
                   text="Settings"
                   variant="plain"
                   size="small"
+                  color="secondary"
                   :to="{ name: 'settings' }"
                 />
               </template>

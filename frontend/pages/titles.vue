@@ -12,7 +12,7 @@ const titles = computed(() => store.getTitles);
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">
           {{ t('$vuetify.navigation.titles') }}
         </v-app-bar-title>
       </template>
@@ -46,7 +46,7 @@ const titles = computed(() => store.getTitles);
                   >
                     <template #append>
                       <v-tooltip
-                        :text="store.isTitleActive(item.raw.id) ? (store.ndisRunning ? 'Active' : 'Service is not running') : 'Inactive'">
+                        :text="store.isTitleActive(item.raw.id) ? (store.ndisRunning ? t('$vuetify.title.active') : t('$vuetify.title.serviceStopped')) : t('$vuetify.title.inactive')">
                         <template #activator="{ props }">
                           <v-btn
                             v-bind="props"

@@ -34,7 +34,7 @@ const getLogLevelColor = (level: string) => {
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title>{{ t('$vuetify.navigation.connections') }}</v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">{{ t('$vuetify.navigation.connections') }}</v-app-bar-title>
       </template>
       <v-toolbar class="bg-transparent px-3">
         <v-text-field

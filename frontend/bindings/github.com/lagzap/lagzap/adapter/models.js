@@ -31,6 +31,62 @@ export const ConnectionStatus = {
     StatusReconnecting: 2,
 };
 
+export class CredentialsPayload {
+    /**
+     * Creates a new CredentialsPayload instance.
+     * @param {Partial<CredentialsPayload>} [$$source = {}] - The source object to create the CredentialsPayload.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["user_id"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["session_id"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["udp_connections"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["started_at"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["expires_at"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CredentialsPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {CredentialsPayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CredentialsPayload(/** @type {Partial<CredentialsPayload>} */($$parsedSource));
+    }
+}
+
 export class HopMetric {
     /**
      * Creates a new HopMetric instance.

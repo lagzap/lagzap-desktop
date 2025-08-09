@@ -8,7 +8,7 @@ const content = ref('')
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">
           Help & Support
         </v-app-bar-title>
       </template>

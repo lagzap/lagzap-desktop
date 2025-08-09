@@ -100,6 +100,7 @@ export default defineNuxtPlugin(async (app) => {
           0.4,
           {},
           {
+            primary: '#ffc107',
             background: "#0a0905",
           }
         ),
@@ -109,6 +110,7 @@ export default defineNuxtPlugin(async (app) => {
           0.9,
           {},
           {
+            primary: '#ffc107',
             background: "#fff8f4"
           }
         ),

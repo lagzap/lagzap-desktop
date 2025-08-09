@@ -77,6 +77,8 @@ const onSubmit = handleSubmit(async (values) => {
         <v-spacer />
         <v-btn
           type="submit"
+          color="secondary"
+          variant="tonal"
           rounded
           :loading="isSubmitting"
         >
