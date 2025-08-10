@@ -16,7 +16,8 @@ tasks:
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}
     vars:
-      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,with_gvisor -trimpath -buildvcs=false -ldflags="-w -s"{{else}}-tags with_gvisor -buildvcs=false -gcflags=all="-l"{{end}}'
+      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags ,with_gvisor,with_dhcp,with_coordinator -trimpath -buildvcs=false -ldflags="-w -s"{{else}}-tags with_gvisor,with_dhcp,with_coordinator -buildvcs=false -gcflags=all="-l"{{end}}'
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       
     env:
       GOOS: linux

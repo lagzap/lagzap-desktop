@@ -44,6 +44,7 @@ func main() {
 		LogLevel:    slog.Level(log.LevelError),
 		Name:        "LagZap",
 		Description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience",
+		Linux: application.LinuxOptions{},
 		Windows: application.WindowsOptions{
 			WebviewBrowserPath: webviewBrowserPath,
 		},
@@ -90,10 +91,8 @@ func main() {
 			}
 		},
 	})
+	service.New(ctx, app)
 
-	app.Event.OnApplicationEvent(events.Windows.ApplicationStarted, func(e *application.ApplicationEvent) {
-		service.New(ctx, app)
-	})
 	app.Event.OnApplicationEvent(events.Windows.SystemThemeChanged, func(event *application.ApplicationEvent) {
 		if event.Context().IsDarkMode() {
 			app.Event.Emit("theme", "dark")
@@ -119,7 +118,6 @@ func main() {
 		ZoomControlEnabled:         false,
 		EnableDragAndDrop:          false,
 		DefaultContextMenuDisabled: true,
-		Frameless:                  true,
 		DevToolsEnabled:            true,
 		BackgroundColour:           application.NewRGBA(10, 9, 5, 255),
 		Windows: application.WindowsWindow{
@@ -128,6 +126,7 @@ func main() {
 			Theme:                   application.SystemDefault,
 			GeneralAutofillEnabled:  false,
 			PasswordAutosaveEnabled: false,
+
 
 			CustomTheme: application.ThemeSettings{
 				DarkModeActive: &application.WindowTheme{
@@ -153,6 +152,9 @@ func main() {
 			},
 
 			// ProxyAddr: proxyAddr,
+		},
+		Linux: application.LinuxWindow{
+			WebviewGpuPolicy: application.WebviewGpuPolicyAlways,
 		},
 		OpenInspectorOnStartup: true,
 		URL: "/start-service/",
