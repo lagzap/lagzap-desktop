@@ -44,7 +44,7 @@ func main() {
 		LogLevel:    slog.Level(log.LevelError),
 		Name:        "LagZap",
 		Description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience",
-		Linux: application.LinuxOptions{},
+		Linux:       application.LinuxOptions{},
 		Windows: application.WindowsOptions{
 			WebviewBrowserPath: webviewBrowserPath,
 		},
@@ -109,24 +109,22 @@ func main() {
 	// }
 
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:                       "main",
-		Title:                      "LagZap",
-		Width:                      1000,
-		Height:                     800,
-		MinWidth:                   320,
-		MinHeight:                  640,
-		ZoomControlEnabled:         false,
-		EnableDragAndDrop:          false,
-		DefaultContextMenuDisabled: true,
-		DevToolsEnabled:            true,
-		BackgroundColour:           application.NewRGBA(10, 9, 5, 255),
+		Name:               "main",
+		Title:              "LagZap",
+		Width:              1000,
+		Height:             800,
+		MinWidth:           320,
+		MinHeight:          640,
+		ZoomControlEnabled: false,
+		EnableDragAndDrop:  false,
+		Frameless:          true,
+		BackgroundColour:   application.NewRGBA(10, 9, 5, 255),
 		Windows: application.WindowsWindow{
 			DisableIcon:             true,
 			BackdropType:            application.Mica,
 			Theme:                   application.SystemDefault,
 			GeneralAutofillEnabled:  false,
 			PasswordAutosaveEnabled: false,
-
 
 			CustomTheme: application.ThemeSettings{
 				DarkModeActive: &application.WindowTheme{
@@ -153,11 +151,12 @@ func main() {
 
 			// ProxyAddr: proxyAddr,
 		},
+
 		Linux: application.LinuxWindow{
 			WebviewGpuPolicy: application.WebviewGpuPolicyAlways,
 		},
 		OpenInspectorOnStartup: true,
-		URL: "/start-service/",
+		URL:                    "/start-service/",
 	})
 	window.OnWindowEvent(events.Windows.WindowClosing, func(e *application.WindowEvent) {
 		window.Hide()

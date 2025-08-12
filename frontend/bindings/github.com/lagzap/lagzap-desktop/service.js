@@ -300,10 +300,12 @@ export function StartOptimizing() {
 /**
  * @param {string} hostname
  * @param {string} accessToken
+ * @param {string} logLevel
+ * @param {string} dns
  * @returns {Promise<void> & { cancel(): void }}
  */
-export function StartService(hostname, accessToken) {
-    let $resultPromise = /** @type {any} */($Call.ByID(679122770, hostname, accessToken));
+export function StartService(hostname, accessToken, logLevel, dns) {
+    let $resultPromise = /** @type {any} */($Call.ByID(679122770, hostname, accessToken, logLevel, dns));
     return $resultPromise;
 }
 
@@ -333,14 +335,12 @@ export function StopService() {
 
 /**
  * @param {string} nodeId
- * @returns {Promise<[adapter$0.NodeOptimizeResult | null, { [_: string]: adapter$0.NodeOptimizeResult | null }]> & { cancel(): void }}
+ * @returns {Promise<{ [_: string]: adapter$0.NodeOptimizeResult | null }> & { cancel(): void }}
  */
 export function TestSpecificNode(nodeId) {
     let $resultPromise = /** @type {any} */($Call.ByID(5819569, nodeId));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        $result[0] = $$createType15($result[0]);
-        $result[1] = $$createType16($result[1]);
-        return $result;
+        return $$createType16($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;

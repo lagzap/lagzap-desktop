@@ -1,6 +1,8 @@
 import { Events } from "@wailsio/runtime";
 import type { Log, Connection } from "~/types/monitoring";
 
+const MAX_LOGS = 500;
+
 let connectionsStore: ReturnType<typeof createMonitoringStore> | null = null;
 
 function createMonitoringStore() {
@@ -10,6 +12,9 @@ function createMonitoringStore() {
 
   Events.On("log", ({ data }: any) => {
     logs.value.unshift(data[0] as Log);
+    if (logs.value.length > MAX_LOGS) {
+      logs.value = logs.value.slice(0, MAX_LOGS);
+    }
   });
   Events.On("connections", ({ data }: any) => {
     connections.value = data[0] as Connection[];
@@ -18,6 +23,7 @@ function createMonitoringStore() {
     closedConnections.value = data[0] as Connection[];
   });
 
+  console.log('meow')
   return { logs, connections, closedConnections };
 }
 

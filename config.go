@@ -6,10 +6,10 @@ import (
 	"github.com/lagzap/lagzap/option"
 )
 
-func (c *Service) generateConfig(hostname, accessToken string) option.Options {
+func (c *Service) generateConfig(hostname, accessToken, logLevel, dns string) option.Options {
 	return option.Options{
 		Log: &option.LogOptions{
-			Level:        "trace",
+			Level:        logLevel,
 			Timestamp:    true,
 			DisableColor: false,
 		},
@@ -30,31 +30,37 @@ func (c *Service) generateConfig(hostname, accessToken string) option.Options {
 		},
 		DNS: &option.DNSOptions{
 			RawDNSOptions: option.RawDNSOptions{
-				Rules: []option.DNSRule{},
 				Servers: []option.DNSServerOptions{
 					{
 						Type: C.DNSTypeLocal,
 						Tag:  "local",
 					},
-					{
-						Type: C.DNSTypeDHCP,
-						Tag:  "dhcp",
-					},
+					// {
+					// 	Type: C.DNSTypeDHCP,
+					// 	Tag:  "dhcp",
+					// 	Options: &option.DHCPDNSServerOptions{
+					// 		LocalDNSServerOptions: option.LocalDNSServerOptions{
+					// 			DialerOptions: option.DialerOptions{
+					// 				Detour: "zap",
+					// 			},
+					// 		},
+					// 	},
+					// },
 					{
 						Type: C.DNSTypeFakeIP,
 						Tag:  "fake-ip",
 					},
 					{
 						Type: C.DNSTypeUDP,
-						Tag:  "udp",
+						Tag:  "remote",
 						Options: &option.RemoteDNSServerOptions{
 							LocalDNSServerOptions: option.LocalDNSServerOptions{
 								DialerOptions: option.DialerOptions{
-									ReuseAddr: true,
+									Detour: "zap",
 								},
 							},
 							DNSServerAddressOptions: option.DNSServerAddressOptions{
-								Server:     "1.1.1.1",
+								Server:     dns,
 								ServerPort: 53,
 							},
 						},
@@ -107,20 +113,8 @@ func (c *Service) generateConfig(hostname, accessToken string) option.Options {
 							Action: C.RuleActionTypeHijackDNS,
 						},
 						RawDefaultRule: option.RawDefaultRule{
-							Inbound:  []string{"ndis"},
-							Protocol: []string{"dns"},
-						},
-					},
-				},
-				{
-					Tag:  "003-resolve",
-					Type: C.RuleTypeDefault,
-					DefaultOptions: option.DefaultRule{
-						RuleAction: option.RuleAction{
-							Action: C.RuleActionTypeResolve,
-						},
-						RawDefaultRule: option.RawDefaultRule{
 							Inbound: []string{"ndis"},
+							Port:    []uint16{53, 853},
 						},
 					},
 				},

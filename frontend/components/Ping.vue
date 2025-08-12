@@ -64,8 +64,8 @@ function getScoreIcon(score: number | null): string {
 </script>
 
 <template>
-  <span :class="getScoreColorClass(echo?.score || null)" class="d-flex align-center gap-1">
-    <span class="me-1">{{ echo && echo.min_latency ? `${Math.max(0, echo.min_latency - 3)}ms` : "timeout" }}</span>
-    <v-icon :icon="getScoreIcon(echo?.score || null)" size="small" />
+  <span :class="getScoreColorClass(echo?.routes?.[0]?.score || null)" class="d-flex align-center gap-1">
+    <span class="me-1">{{echo?.routes?.[0].min_latency ? `${Math.max(0, echo?.routes?.[0].min_latency)}ms` : "timeout" }}</span>
+    <v-icon :icon="getScoreIcon(echo?.routes?.[0]?.score || null)" size="small" />
   </span>
 </template>

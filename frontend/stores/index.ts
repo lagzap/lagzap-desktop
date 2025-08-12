@@ -36,11 +36,11 @@ export const useStore = defineStore("index", () => {
   const locale = useLocale();
   // State
   const status = ref<ConnectionStatus>(ConnectionStatus.StatusConnected);
-  const abilities = ref<string[]>([]);
+  const abilities = ref<string[]>(["admin"]);
   const displayLimit = ref<number>(10);
   const loading = ref<boolean>(false);
   const driverInstalled = ref<boolean | null>(null);
-  const statusMessage = ref<string>(locale.t('$vuetify.service.initializing'));
+  const statusMessage = ref<string>(locale.t("$vuetify.service.initializing"));
   const error = ref<boolean>(false);
   const optimizeProgress = ref<OptimizeProgress | null>(null);
   const serviceReady = ref<boolean>(false);
@@ -125,14 +125,8 @@ export const useStore = defineStore("index", () => {
         callback();
       }
     } catch (err) {
-      if (err.message.includes("initialize ndiapi")) {
-        driverInstalled.value = false;
-        statusMessage.value = locale.t(
-          "$vuetify.service.driverMustBeInstalled"
-        );
-      } else {
-        statusMessage.value = locale.t("$vuetify.service.couldNotStartService");
-      }
+      console.dir(err)
+      
       error.value = true;
       throw err;
     } finally {
@@ -157,10 +151,17 @@ export const useStore = defineStore("index", () => {
     Events.On("nodes", ({ data }) => upsertNodes(data[0]));
     Events.On("node-delete", ({ data }) => deleteNode(data[0]));
     Events.On("optimize-progress", async ({ data }) => {
+      console.log(data);
       optimizeProgress.value = data[0];
       status.value = await Status();
     });
+    Events.On("optimize-result", ({ data }) => {
+      console.log(data);
+      const result = data as NodeOptimizeResult;
+      optimizeResult.value[result.tag] = result;
+    });
     Events.On("optimize-results", ({ data }) => {
+      console.log(data);
       const results = data[0];
       Object.entries(results).forEach(([key, value]) => {
         optimizeResult.value[key] = value as NodeOptimizeResult;
@@ -364,8 +365,15 @@ export const useStore = defineStore("index", () => {
     statusMessage.value = locale.t("$vuetify.service.connecting");
 
     try {
+      const { user } = useSanctumAuth<DataResponse>();
+      const { endpoint, log_level, dns_server } = user.value;
       const accessToken = (await getToken("lz.access_token")) ?? "";
-      const a = await StartService("dev.lagzap-network.ir", accessToken);
+      await StartService(
+        endpoint,
+        accessToken,
+        log_level,
+        dns_server
+      );
       ndisRunning.value = await IsNDISRunning();
       const wasNdisRunning = ndisRunning.value;
       await checkNDIS();
@@ -374,7 +382,14 @@ export const useStore = defineStore("index", () => {
       }
     } catch (e) {
       error.value = true;
-      statusMessage.value = e.getMessage();
+      if (e.message.includes("initialize ndiapi")) {
+        driverInstalled.value = false;
+        statusMessage.value = locale.t(
+          "$vuetify.service.driverMustBeInstalled"
+        );
+      } else {
+        statusMessage.value = e.getMessage();
+      }
       console.error(e);
       throw e;
     } finally {
@@ -436,9 +451,7 @@ export const useStore = defineStore("index", () => {
   };
   const pingNode = async (tag: string) => {
     const result = await TestSpecificNode(tag);
-    const [nodeResult] = result;
-    optimizeResult.value[tag] = nodeResult;
-    return nodeResult;
+    return result;
   };
 
   const localized = (item: Record<string, string>) => {

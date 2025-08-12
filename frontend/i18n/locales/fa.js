@@ -167,6 +167,7 @@ export default {
             routeDescription: 'گزینه‌هایی برای پیکربندی ترجیحات مسیریابی شما',
             tcpRoutes: 'مسیرهای TCP',
             udpRoutes: 'مسیرهای UDP',
+            geofence: 'حصار جغرافیایی',
             networkAdapters: 'آداپتورهای شبکه',
             networkAdaptersHint: 'آداپتور شبکه‌ای را که می‌خواهید برای مسیریابی استفاده کنید انتخاب کنید',
             networkAdaptersPlaceholder: 'برای انتخاب خودکار خالی بگذارید',

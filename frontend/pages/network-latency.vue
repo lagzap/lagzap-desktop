@@ -5,22 +5,25 @@ import MiddleEast from "~/components/icons/regions/middle-east.vue";
 import Europe from "~/components/icons/regions/europe.vue";
 import country from "country-list-js";
 import Ping from "~/components/Ping.vue";
-import type { Node, NodeOptimizeResult } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import type {
+  Node,
+  NodeOptimizeResult,
+} from "~/bindings/github.com/lagzap/lagzap/adapter";
 import { useLocale } from "vuetify";
 
-const locale = useLocale()
-const { t } = locale
+const locale = useLocale();
+const { t } = locale;
 const store = useStore();
 const regions = computed(() => store.regions);
-const filterMode = ref('all');
+const filterMode = ref("all");
 
 const echo = computed(() => store.echo || {});
 
 function getLowestPingForArea(nodes: Node[]): NodeOptimizeResult | null {
   const pings = nodes
-    .map(node => echo.value[node.id])
-    .filter(ping => ping && ping.min_latency > 0)
-    .sort((a, b) => a.min_latency - b.min_latency);
+    .map((node) => echo.value[node.id])
+    .filter((ping) => ping && ping.routes?.[0]?.min_latency > 0)
+    .sort((a, b) => a.routes?.[0]?.min_latency - b.routes?.[0]?.min_latency);
   if (pings.length === 0) return null;
   return pings[0];
 }
@@ -42,7 +45,7 @@ const areas = computed(() => {
       return acc;
     }, {} as Record<string, Node[]>);
 
-  if (filterMode.value !== 'all') {
+  if (filterMode.value !== "all") {
     const filteredAreas: Record<string, Node[]> = {};
     Object.entries(allNodes).forEach(([area, nodes]) => {
       if (nodes[0]?.region === filterMode.value) {
@@ -56,7 +59,7 @@ const areas = computed(() => {
 });
 
 const areasByRegion = computed(() => {
-  if (filterMode.value !== 'all') {
+  if (filterMode.value !== "all") {
     return { [filterMode.value]: areas.value };
   }
 
@@ -81,11 +84,11 @@ const areasByRegion = computed(() => {
 
 onMounted(async () => {
   await store.updateEcho();
-})
+});
 
 async function pingTag(tag: string) {
-  const latency = await store.pingNode(tag)
-  console.log(latency)
+  const latency = await store.pingNode(tag);
+  console.log(latency);
 }
 </script>
 
@@ -93,18 +96,27 @@ async function pingTag(tag: string) {
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title class="text-subtitle-1">{{ t('$vuetify.navigation.networkLatency') }}</v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">{{
+          t("$vuetify.navigation.networkLatency")
+        }}</v-app-bar-title>
       </template>
       <v-card-text>
-        <v-chip-group v-model="filterMode" color="primary" class="mb-3" filter mandatory show-arrows>
+        <v-chip-group
+          v-model="filterMode"
+          color="primary"
+          class="mb-3"
+          filter
+          mandatory
+          show-arrows
+        >
           <v-chip rounded size="large" value="all">
-            <span>{{ t('$vuetify.network.allRegions') }}</span>
+            <span>{{ t("$vuetify.network.allRegions") }}</span>
           </v-chip>
-          <v-chip 
+          <v-chip
             v-for="region in regions"
             :key="region.tag"
-            rounded 
-            size="large" 
+            rounded
+            size="large"
             :value="region.tag"
             :disabled="region.active === false"
           >
@@ -126,10 +138,19 @@ async function pingTag(tag: string) {
 
         <v-row dense>
           <template v-if="filterMode === 'all'">
-            <template v-for="[regionTag, regionAreas] in Object.entries(areasByRegion)" :key="regionTag">
+            <template
+              v-for="[regionTag, regionAreas] in Object.entries(areasByRegion)"
+              :key="regionTag"
+            >
               <v-col cols="12" class="py-0">
                 <v-list-subheader>
-                  {{ store.localized(Object.values(regions).find((r: any) => r.tag === regionTag)?.name) }}
+                  {{
+                    store.localized(
+                      Object.values(regions).find(
+                        (r: any) => r.tag === regionTag
+                      )?.name
+                    )
+                  }}
                 </v-list-subheader>
               </v-col>
               <v-col
@@ -141,7 +162,11 @@ async function pingTag(tag: string) {
                 lg="3"
                 xl="2"
               >
-                <v-menu open-on-hover :offset="10" :close-on-content-click="false">
+                <v-menu
+                  open-on-hover
+                  :offset="10"
+                  :close-on-content-click="false"
+                >
                   <template #activator="{ props }">
                     <v-card v-bind="props">
                       <template #prepend>
@@ -152,10 +177,17 @@ async function pingTag(tag: string) {
                         </v-avatar>
                       </template>
                       <template #title>
-                        <span class="text-subtitle-1" style="line-height: 2.5;">{{ store.localized(nodes[0].city) }}</span>
+                        <span
+                          class="text-subtitle-1"
+                          style="line-height: 2.5"
+                          >{{ store.localized(nodes[0].city) }}</span
+                        >
                       </template>
                       <template #append>
-                        <Ping v-if="getLowestPingForArea(nodes) !== null" :tag="getLowestPingForArea(nodes).tag" />
+                        <Ping
+                          v-if="getLowestPingForArea(nodes) !== null"
+                          :tag="getLowestPingForArea(nodes).tag"
+                        />
                       </template>
                     </v-card>
                   </template>
@@ -166,7 +198,10 @@ async function pingTag(tag: string) {
                       :value="node.id"
                       @click="pingTag(node.id)"
                     >
-                      <v-list-item-title>{{ store.localized(node.city) }} {{ i + 1 }}</v-list-item-title>
+                      <v-list-item-title
+                        >{{ store.localized(node.city) }}
+                        {{ i + 1 }}</v-list-item-title
+                      >
                       <template #append>
                         <Ping :tag="node.id" />
                       </template>
@@ -200,7 +235,10 @@ async function pingTag(tag: string) {
                       {{ store.localized(nodes[0].city) }}
                     </template>
                     <template #append>
-                      <Ping v-if="getLowestPingForArea(nodes) !== null" :tag="getLowestPingForArea(nodes).tag" />
+                      <Ping
+                        v-if="getLowestPingForArea(nodes) !== null"
+                        :tag="getLowestPingForArea(nodes).tag"
+                      />
                     </template>
                   </v-card>
                 </template>
@@ -231,7 +269,7 @@ async function pingTag(tag: string) {
             position: 'fixed',
             bottom: '16px',
             [locale.isRtl.value ? 'left' : 'right']: '16px',
-            zIndex: 10000
+            zIndex: 10000,
           }"
           :loading="store.optimizing"
           @click="store.optimize()"
