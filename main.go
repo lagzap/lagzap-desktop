@@ -44,6 +44,7 @@ func main() {
 		LogLevel:    slog.Level(log.LevelError),
 		Name:        "LagZap",
 		Description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience",
+		Linux:       application.LinuxOptions{},
 		Windows: application.WindowsOptions{
 			WebviewBrowserPath: webviewBrowserPath,
 		},
@@ -90,10 +91,8 @@ func main() {
 			}
 		},
 	})
+	service.New(ctx, app)
 
-	app.Event.OnApplicationEvent(events.Windows.ApplicationStarted, func(e *application.ApplicationEvent) {
-		service.New(ctx, app)
-	})
 	app.Event.OnApplicationEvent(events.Windows.SystemThemeChanged, func(event *application.ApplicationEvent) {
 		if event.Context().IsDarkMode() {
 			app.Event.Emit("theme", "dark")
@@ -110,17 +109,16 @@ func main() {
 	// }
 
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:                       "main",
-		Title:                      "LagZap",
-		Width:                      1000,
-		Height:                     800,
-		MinWidth:                   320,
-		MinHeight:                  640,
-		ZoomControlEnabled:         false,
-		EnableDragAndDrop:          false,
-		DefaultContextMenuDisabled: true,
-		Frameless:                  true,
-		BackgroundColour:           application.NewRGBA(10, 9, 5, 255),
+		Name:               "main",
+		Title:              "LagZap",
+		Width:              1000,
+		Height:             800,
+		MinWidth:           320,
+		MinHeight:          640,
+		ZoomControlEnabled: false,
+		EnableDragAndDrop:  false,
+		Frameless:          true,
+		BackgroundColour:   application.NewRGBA(10, 9, 5, 255),
 		Windows: application.WindowsWindow{
 			DisableIcon:             true,
 			BackdropType:            application.Mica,
@@ -153,6 +151,11 @@ func main() {
 
 			// ProxyAddr: proxyAddr,
 		},
+
+		Linux: application.LinuxWindow{
+			WebviewGpuPolicy: application.WebviewGpuPolicyAlways,
+		},
+		OpenInspectorOnStartup: true,
 		URL:                    "/start-service/",
 	})
 	window.OnWindowEvent(events.Windows.WindowClosing, func(e *application.WindowEvent) {

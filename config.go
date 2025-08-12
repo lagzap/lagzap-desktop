@@ -2,6 +2,7 @@ package main
 
 import (
 	C "github.com/lagzap/lagzap/constant"
+	"github.com/lagzap/lagzap/constant/goos"
 	"github.com/lagzap/lagzap/option"
 )
 
@@ -13,7 +14,7 @@ func (c *Service) generateConfig(hostname, accessToken, logLevel, dns string) op
 			DisableColor: false,
 		},
 		Lagzap: &option.LagzapOptions{
-			EnableNdis: true,
+			EnableNdis: goos.IsWindows == 1,
 			Optimizer: &option.OptimizerOptions{
 				Enabled: true,
 			},
