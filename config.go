@@ -1,12 +1,29 @@
 package main
 
 import (
+	"net/netip"
+
 	C "github.com/lagzap/lagzap/constant"
 	"github.com/lagzap/lagzap/constant/goos"
 	"github.com/lagzap/lagzap/option"
+	"github.com/lagzap/zap/common/json/badjson"
+	"github.com/lagzap/zap/common/json/badoption"
 )
 
 func (c *Service) generateConfig() option.Options {
+	predefinedDNS := &badjson.TypedMap[string, badoption.Listable[netip.Addr]]{}
+	predefinedDNS.Put("dns.google", []netip.Addr{
+		netip.MustParseAddr("8.8.8.8"),
+		netip.MustParseAddr("8.8.4.4"),
+		netip.MustParseAddr("2001:4860:4860::8844"),
+		netip.MustParseAddr("2001:4860:4860::8888"),
+	})
+	predefinedDNS.Put("dns.google.com", []netip.Addr{
+		netip.MustParseAddr("8.8.8.8"),
+		netip.MustParseAddr("8.8.4.4"),
+		netip.MustParseAddr("2001:4860:4860::8844"),
+		netip.MustParseAddr("2001:4860:4860::8888"),
+	})
 	return option.Options{
 		Log: &option.LogOptions{
 			Level:        "info",
@@ -20,18 +37,54 @@ func (c *Service) generateConfig() option.Options {
 		},
 		DNS: &option.DNSOptions{
 			RawDNSOptions: option.RawDNSOptions{
+				Rules: []option.DNSRule{
+					{
+						Tag:  "dns_google",
+						Type: C.RuleTypeDefault,
+						DefaultOptions: option.DefaultDNSRule{
+							RawDefaultDNSRule: option.RawDefaultDNSRule{
+								Domain: []string{
+									"dns.google",
+									"dns.google.com",
+								},
+							},
+							DNSRuleAction: option.DNSRuleAction{
+								Action: "route",
+								RouteOptions: option.DNSRouteActionOptions{
+									Server: "predefined",
+								},
+							},
+						},
+					},
+				},
 				Servers: []option.DNSServerOptions{
 					{
 						Type: C.DNSTypeLocal,
 						Tag:  "local",
 					},
 					{
-						Type: C.DNSTypeDHCP,
-						Tag:  "dhcp",
-						Options: &option.DHCPDNSServerOptions{
-							LocalDNSServerOptions: option.LocalDNSServerOptions{
-								DialerOptions: option.DialerOptions{
-									Detour: "zap",
+						Type: C.DNSTypeHosts,
+						Tag:  "predefined",
+						Options: &option.HostsDNSServerOptions{
+							Predefined: predefinedDNS,
+						},
+					},
+					{
+						Type: C.DNSTypeTLS,
+						Tag:  "remote",
+						Options: &option.RemoteTLSDNSServerOptions{
+							RemoteDNSServerOptions: option.RemoteDNSServerOptions{
+								DNSServerAddressOptions: option.DNSServerAddressOptions{
+									Server: "8.8.8.8",
+									ServerPort: 53,
+								},
+								LocalDNSServerOptions: option.LocalDNSServerOptions{
+									DialerOptions: option.DialerOptions{
+										Detour: "zap",
+										DomainResolver: &option.DomainResolveOptions{
+											Server: "predefined",
+										},
+									},
 								},
 							},
 						},
