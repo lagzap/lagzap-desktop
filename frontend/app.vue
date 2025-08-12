@@ -2,52 +2,49 @@
 import { useDisplay, useTheme, useLocale } from "vuetify";
 import { Events, System, Window } from "@wailsio/runtime";
 import { useMessagesStore } from "~/stores/messages";
-import { StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 const store = useStore();
 const messages = useMessagesStore();
-window.addEventListener('auxclick', (e) => {
-  if (e.button === 1) { // Middle click
-    e.preventDefault();
-    e.stopImmediatePropagation();
-  }
-}, true);
+window.addEventListener(
+  "auxclick",
+  (e) => {
+    if (e.button === 1) {
+      // Middle click
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+  },
+  true
+);
 
 const theme = useTheme();
 const locale = useLocale();
 const { mobile } = useDisplay();
-
 const { settings, loadSettings, isLoaded } = useSettings(locale, theme);
-
-onMounted(async () => {
-  await loadSettings();
-});
-
-watch(isLoaded, (loaded) => {
-  if (loaded && (!settings.value.theme || settings.value.theme === 'system')) {
-    System.IsDarkMode().then((systemTheme) => {
-      theme.change(systemTheme ? 'dark' : 'light');
-    });
-  }
-});
-
-Events.On("theme", ({ data }) => {
-  if (!settings.value.theme || settings.value.theme === 'system') {
-    theme.change(data[0]);
-  }
-});
 
 const isMaximized = ref<boolean>(false);
 const loaded = ref(false);
+
 onMounted(async () => {
+  await loadSettings();
   setTimeout(() => {
     loaded.value = true;
   }, 300);
   isMaximized.value = await Window.IsMaximised();
 });
 
-onUnmounted(async () => {
-  await StopService();
+watch(isLoaded, (loaded) => {
+  if (loaded && (!settings.value.theme || settings.value.theme === "system")) {
+    System.IsDarkMode().then((systemTheme) => {
+      theme.change(systemTheme ? "dark" : "light");
+    });
+  }
+});
+
+Events.On("theme", ({ data }) => {
+  if (!settings.value.theme || settings.value.theme === "system") {
+    theme.change(data[0]);
+  }
 });
 
 async function minimize() {
@@ -59,20 +56,6 @@ async function toggleMaximise() {
 }
 async function close() {
   await Window.Hide();
-}
-
-const quitDialog = ref(false);
-const quiting = ref(false);
-async function quit() {
-  quiting.value = true;
-  try {
-    await store.stopNDIS();
-    await store.disconnect();
-  } catch (e) {
-    displayError(e);
-  } finally {
-    await Window.Close();
-  }
 }
 </script>
 

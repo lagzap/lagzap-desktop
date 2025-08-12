@@ -34,6 +34,17 @@ Unicode true
 ####
 !include "wails_tools.nsh"
 
+# Architecture detection and default handling
+!ifndef ARCH
+    !ifdef ARG_WAILS_AMD64_BINARY
+        !define ARCH "amd64"
+    !else ifdef ARG_WAILS_ARM64_BINARY
+        !define ARCH "arm64"
+    !else
+        !define ARCH "amd64"  # Default to amd64 if no binary specified
+    !endif
+!endif
+
 # The version information for this two must consist of 4 parts
 VIProductVersion "${INFO_PRODUCTVERSION}.0"
 VIFileVersion    "${INFO_PRODUCTVERSION}.0"
@@ -82,15 +93,41 @@ FunctionEnd
 Section
     !insertmacro wails.setShellContext
 
+    !insertmacro wails.webview2runtime
+
     SetOutPath $INSTDIR
 
     !insertmacro wails.files
+
+    ; ------------------------------------------------------------
+    ; Install kernel driver (copy proper arch files and run netcfg)
+    ; ------------------------------------------------------------
+    SetOutPath "$INSTDIR\driver"
+    ; Bundle driver files for the installer arch
+    !if "${ARCH}" == "amd64"
+        File "..\driver\x64\lagzap_lwf.inf"
+        File "..\driver\x64\lagzap.cat"
+        File "..\driver\x64\lagzap.sys"
+    !endif
+    !if "${ARCH}" == "arm64"
+        File "..\driver\arm64\lagzap_lwf.inf"
+        File "..\driver\arm64\lagzap.cat"
+        File "..\driver\arm64\lagzap.sys"
+    !endif
+    !if "${ARCH}" == "x86"
+        ; fallback for 32-bit builds
+        File "..\driver\x86\lagzap_lwf.inf"
+        File "..\driver\x86\lagzap.cat"
+        File "..\driver\x86\lagzap.sys"
+    !endif
+
+    DetailPrint "installing lagzap driver"
+    ExecWait '"$WINDIR\System32\netcfg.exe" -v -l "$INSTDIR\driver\lagzap_lwf.inf" -c s -i nt_lagzap' $0
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
 
     !insertmacro wails.associateFiles
-    !insertmacro wails.associateCustomProtocols
 
     !insertmacro wails.writeUninstaller
 SectionEnd
@@ -100,13 +137,18 @@ Section "uninstall"
 
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
 
+    DetailPrint "Uninstalling network driver (lagzap)..."
+    ExecWait '"$WINDIR\System32\netcfg.exe" -u nt_lagzap' $0
+
+    ; Remove bundled driver files
+    RMDir /r "$INSTDIR\driver"
+
     RMDir /r $INSTDIR
 
     Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk"
     Delete "$DESKTOP\${INFO_PRODUCTNAME}.lnk"
 
     !insertmacro wails.unassociateFiles
-    !insertmacro wails.unassociateCustomProtocols
 
     !insertmacro wails.deleteUninstaller
 SectionEnd

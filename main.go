@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/lagzap/lagzap/log"
@@ -32,12 +32,6 @@ func main() {
 	ctx := context.Background()
 	service := &Service{}
 
-	path, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	webviewBrowserPath := path[:len(path)-len(filepath.Base(path))]
-
 	var window *application.WebviewWindow
 	var systray *application.SystemTray
 	app := application.New(application.Options{
@@ -45,9 +39,7 @@ func main() {
 		Name:        "LagZap",
 		Description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience",
 		Linux:       application.LinuxOptions{},
-		Windows: application.WindowsOptions{
-			WebviewBrowserPath: webviewBrowserPath,
-		},
+		Windows:     application.WindowsOptions{},
 		Services: []application.Service{
 			application.NewService(service),
 		},
@@ -102,11 +94,25 @@ func main() {
 			window.SetBackgroundColour(application.NewRGBA(255, 248, 244, 255))
 		}
 	})
-
-	// proxyAddr := ""
-	// if internal != nil && internal.ProxyAddr() != "" {
-	// 	proxyAddr = internal.ProxyAddr()
-	// }
+	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(event *application.ApplicationEvent) {
+		err := service.ReloadService()
+		if err != nil {
+			if strings.Contains(err.Error(), "driver is not installed") {
+				dialog := application.ErrorDialog()
+				dialog.SetTitle("LagZap driver is not installed!")
+				dialog.SetMessage("Please reinstall lagzap from the official website.")
+				dialog.Show()
+			} else {
+				dialog := application.ErrorDialog()
+				dialog.SetTitle("LagZap error occurred!")
+				dialog.SetMessage(err.Error())
+				dialog.Show()
+			}
+			service.Close()
+			app.Quit()
+			systray.Destroy()
+		}
+	})
 
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:               "main",
@@ -148,8 +154,6 @@ func main() {
 					TitleTextColour: func() *uint32 { v := uint32(0x00000000); return &v }(),
 				},
 			},
-
-			// ProxyAddr: proxyAddr,
 		},
 
 		Linux: application.LinuxWindow{
@@ -190,9 +194,5 @@ func main() {
 	systray.SetMenu(menu)
 
 	service.SetSystray(systray)
-	err = app.Run()
-	// systray.Run()
-	if err != nil {
-		log.Fatal(err)
-	}
+	app.Run()
 }

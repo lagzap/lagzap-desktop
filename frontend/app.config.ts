@@ -28,13 +28,10 @@ export default defineAppConfig({
 
     tokenStorage: {
       get: async () => {
-        const token = await getToken(tokenStorageKey) ?? undefined;
-        console.log(token, "token from indexedDB");
-        return token;
+        return await getToken(tokenStorageKey) ?? undefined;
       },
 
       set: async (app: NuxtApp, token?: string) => {
-        console.log(token, "token to indexedDB");
         if (!token) {
           await removeToken(tokenStorageKey);
           return;

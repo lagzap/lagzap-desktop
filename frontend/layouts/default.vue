@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useDisplay } from "vuetify";
-import { Events } from "@wailsio/runtime";
 import NavigationDrawer from "~/components/layout/NavigationDrawer.vue";
 
 const { mobile } = useDisplay();
@@ -8,8 +7,6 @@ const sidebar = ref(!mobile.value);
 provide("sidebar", sidebar);
 
 const store = useStore();
-
-const progress = ref(0);
 </script>
 
 <template>

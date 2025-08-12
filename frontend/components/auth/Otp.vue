@@ -64,7 +64,6 @@ async function requestOTP() {
   
   try {
     const data = await requestFetch<OtpResponse>("otp", {
-      baseURL: runtimeConfig.public.authBaseUrl,
       method: "POST",
       body: {
         ...props,

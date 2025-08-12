@@ -8,6 +8,13 @@ definePageMeta({
   },
 });
 
+const router = useRouter();
+
+const { isAuthenticated } = useSanctumAuth();
+if (isAuthenticated.value) {
+  router.push({ name: "start-service" });
+}
+
 const registerConfirmDialog = ref(false);
 
 const step = ref("check");

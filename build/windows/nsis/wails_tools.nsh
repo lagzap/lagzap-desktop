@@ -8,7 +8,7 @@
     !define INFO_PROJECTNAME "lagzap"
 !endif
 !ifndef INFO_COMPANYNAME
-    !define INFO_COMPANYNAME "lagzap"
+    !define INFO_COMPANYNAME "LagZap"
 !endif
 !ifndef INFO_PRODUCTNAME
     !define INFO_PRODUCTNAME "LagZap"
@@ -17,7 +17,7 @@
     !define INFO_PRODUCTVERSION "0.1.0"
 !endif
 !ifndef INFO_COPYRIGHT
-    !define INFO_COPYRIGHT "Copyright (c) 2025 LagZap"
+    !define INFO_COPYRIGHT "(c) 2025, LagZap"
 !endif
 !ifndef PRODUCT_EXECUTABLE
     !define PRODUCT_EXECUTABLE "${INFO_PROJECTNAME}.exe"
@@ -101,14 +101,12 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
     !ifdef SUPPORTS_AMD64
         ${if} ${IsNativeAMD64}
             File "/oname=${PRODUCT_EXECUTABLE}" "${ARG_WAILS_AMD64_BINARY}"
-            File /r "${ARG_WAILS_AMD64_BINARY}\..\*.*"
         ${EndIf}
     !endif
 
     !ifdef SUPPORTS_ARM64
         ${if} ${IsNativeARM64}
             File "/oname=${PRODUCT_EXECUTABLE}" "${ARG_WAILS_ARM64_BINARY}"
-            File /r "${ARG_WAILS_ARM64_BINARY}\..\*.*"
         ${EndIf}
     !endif
 !macroend
@@ -131,7 +129,9 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
 
 !macro wails.deleteUninstaller
     Delete "$INSTDIR\uninstall.exe"
-    Delete "$INSTDIR\Windows.Packet.Filter.exe"
+
+    SetRegView 64
+    DeleteRegKey HKLM "${UNINST_KEY}"
 !macroend
 
 !macro wails.setShellContext
@@ -142,6 +142,43 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
     ${EndIf}
 !macroend
 
+# Install webview2 by launching the bootstrapper
+# See https://docs.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#online-only-deployment
+!macro wails.webview2runtime
+    !ifndef WAILS_INSTALL_WEBVIEW_DETAILPRINT
+        !define WAILS_INSTALL_WEBVIEW_DETAILPRINT "Installing: WebView2 Runtime"
+    !endif
+
+    SetRegView 64
+	# If the admin key exists and is not empty then webview2 is already installed
+	ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" "pv"
+    ${If} $0 != ""
+        Goto ok
+    ${EndIf}
+
+    ${If} ${REQUEST_EXECUTION_LEVEL} == "user"
+        # If the installer is run in user level, check the user specific key exists and is not empty then webview2 is already installed
+	    ReadRegStr $0 HKCU "Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" "pv"
+        ${If} $0 != ""
+            Goto ok
+        ${EndIf}
+     ${EndIf}
+    
+	SetDetailsPrint both
+    DetailPrint "${WAILS_INSTALL_WEBVIEW_DETAILPRINT}"
+    SetDetailsPrint listonly
+    
+    InitPluginsDir
+    CreateDirectory "$pluginsdir\webview2bootstrapper"
+    SetOutPath "$pluginsdir\webview2bootstrapper"
+    File "MicrosoftEdgeWebview2Setup.exe"
+    ExecWait '"$pluginsdir\webview2bootstrapper\MicrosoftEdgeWebview2Setup.exe" /silent /install'
+    
+    SetDetailsPrint both
+    ok:
+!macroend
+
+# Copy of APP_ASSOCIATE and APP_UNASSOCIATE macros from here https://gist.github.com/nikku/281d0ef126dbc215dd58bfd5b3a5cd5b
 !macro APP_ASSOCIATE EXT FILECLASS DESCRIPTION ICON COMMANDTEXT COMMAND
   ; Backup the previously associated file class
   ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.${EXT}" ""
@@ -171,29 +208,5 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
 
 !macro wails.unassociateFiles
     ; Delete app associations
-    
-!macroend
-
-!macro CUSTOM_PROTOCOL_ASSOCIATE PROTOCOL DESCRIPTION ICON COMMAND
-  DeleteRegKey SHELL_CONTEXT "Software\Classes\${PROTOCOL}"
-  WriteRegStr SHELL_CONTEXT "Software\Classes\${PROTOCOL}" "" "${DESCRIPTION}"
-  WriteRegStr SHELL_CONTEXT "Software\Classes\${PROTOCOL}" "URL Protocol" ""
-  WriteRegStr SHELL_CONTEXT "Software\Classes\${PROTOCOL}\DefaultIcon" "" "${ICON}"
-  WriteRegStr SHELL_CONTEXT "Software\Classes\${PROTOCOL}\shell" "" ""
-  WriteRegStr SHELL_CONTEXT "Software\Classes\${PROTOCOL}\shell\open" "" ""
-  WriteRegStr SHELL_CONTEXT "Software\Classes\${PROTOCOL}\shell\open\command" "" "${COMMAND}"
-!macroend
-
-!macro CUSTOM_PROTOCOL_UNASSOCIATE PROTOCOL
-  DeleteRegKey SHELL_CONTEXT "Software\Classes\${PROTOCOL}"
-!macroend
-
-!macro wails.associateCustomProtocols
-    ; Create custom protocols associations
-    
-!macroend
-
-!macro wails.unassociateCustomProtocols
-    ; Delete app custom protocol associations
     
 !macroend

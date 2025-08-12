@@ -41,15 +41,15 @@ export const useSettings = (locale?: any, theme?: any) => {
       if (theme?.global?.name) {
         if (themeSetting === 'system') {
           const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-          theme.global.name.value = mediaQuery.matches ? 'dark' : 'light'
+          theme.change(mediaQuery.matches ? 'dark' : 'light')
           
           mediaQuery.addEventListener('change', (e) => {
             if (settings.value.theme === 'system') {
-              theme.global.name.value = e.matches ? 'dark' : 'light'
+              theme.change(e.matches ? 'dark' : 'light')
             }
           })
         } else {
-          theme.global.name.value = themeSetting
+          theme.change(themeSetting)
         }
       }
     } catch (error) {
@@ -76,8 +76,7 @@ export const useSettings = (locale?: any, theme?: any) => {
       const store = transaction.objectStore(STORE_NAME)
       
       return new Promise((resolve, reject) => {
-        const request = store.get('$vuetify.app-settings')
-        
+        const request = store.get('app-settings')
         request.onerror = () => reject(request.error)
         request.onsuccess = () => {
           const result = request.result
@@ -90,7 +89,6 @@ export const useSettings = (locale?: any, theme?: any) => {
             
             applyTheme(settings.value.theme || 'system')
           }
-          
           isLoaded.value = true
           resolve()
         }

@@ -31,7 +31,6 @@ email.value = user.value?.email ?? ''
 const onSubmit = handleSubmit(async (values) => {
   try {
     const data = await requestFetch<ProfileResponse>("profile/basic", {
-      baseURL: runtimeConfig.public.authBaseUrl,
       method: "POST",
       body: {
         ...values,

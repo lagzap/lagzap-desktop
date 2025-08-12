@@ -34,9 +34,6 @@ tasks:
     cmds:
       - '{{.BUILD_COMMAND}}'
     env:
-      AUTH_URL: '{{if eq .BUILD_TYPE "production"}}https://auth.lagzap.network{{else}}https://auth-beta.lagzap.network{{end}}'
-      COORDINATOR_URL: '{{if eq .BUILD_TYPE "production"}}wss://lagzap.network{{else}}wss://beta.lagzap.network{{end}}'
-      API_URL: '{{if eq .BUILD_TYPE "production"}}https://api.lagzap.network{{else}}https://api-beta.lagzap.network{{end}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
       NODE_ENV: 'production'
     vars:
@@ -71,9 +68,6 @@ tasks:
     summary: Runs the frontend in development mode
     dir: frontend
     env:
-      AUTH_URL: '{{.DEV_AUTH_URL | default "http://localhost:4000"}}'
-      API_URL: '{{.DEV_API_URL | default "http://localhost:4000"}}'
-      COORDINATOR_URL: '{{.DEV_COORDINATOR_URL | default "ws://localhost:4000"}}'
       BUILD_TYPE: 'local'
       NODE_ENV: 'development'
     deps:

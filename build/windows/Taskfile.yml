@@ -34,10 +34,10 @@ tasks:
       GOOS: windows
       CGO_ENABLED: 0
       GOARCH: '{{.ARCH | default ARCH}}'
-      BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+      PRODUCTION: '{{.PRODUCTION | default "false"}}'
 
   package:
-    summary: Packages a build of the application into a `.exe` bundle
+    summary: Packages a production build of the application into a `.exe` bundle
     cmds:
       - task: create:nsis:installer
 
@@ -55,29 +55,15 @@ tasks:
     deps:
       - task: build
         vars:
-          BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+          PRODUCTION: "true"
     cmds:
-      - |
-        if [ "{{.ARCH}}" = "amd64" ]; then
-          CAB_PATH="Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.x64.cab"
-          CAB_URL="https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/1b804d96-e8b8-4de8-be67-52a6bfff099a/Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.x64.cab"
-        else
-          CAB_PATH="Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.arm64.cab"
-          CAB_URL="https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/ecc86302-6899-4672-b4bb-129fcf38ce84/Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.arm64.cab"
-        fi
-        if [ ! -f "$CAB_PATH" ]; then
-          pwd
-          echo "Downloading WebView2 runtime..."
-          curl.exe -L "$CAB_URL" -o "$CAB_PATH"
-        fi
-        expand.exe "$CAB_PATH" -F:* .
-        xcopy /E /I /Y "Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.x64" "{{.ROOT_DIR}}\{{.BIN_DIR}}"
-        cmd.exe /C "rmdir /S /Q Microsoft.WebView2.FixedVersionRuntime.136.0.3240.50.x64"
-      - makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}\{{.BIN_DIR}}\{{.APP_NAME}}.exe" "{{.ROOT_DIR}}\build\windows\installer\project.nsi"
+      # Create the Microsoft WebView2 bootstrapper if it doesn't exist
+      - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"
+      - makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}\\{{.BIN_DIR}}\\{{.APP_NAME}}.exe" project.nsi
     vars:
       ARCH: '{{.ARCH | default ARCH}}'
       ARG_FLAG: '{{if eq .ARCH "amd64"}}AMD64{{else}}ARM64{{end}}'
 
   run:
     cmds:
-      - '{{.BIN_DIR}}\\{{.APP_NAME}}.exe'
+      - '{{.BIN_DIR}}/{{.APP_NAME}}.exe'

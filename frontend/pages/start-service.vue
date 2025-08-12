@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { InstallDriver } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import { useLocale } from "vuetify";
 
 const router = useRouter();
@@ -74,31 +73,12 @@ async function initApp() {
   } catch (e) {
     return;
   }
-  console.log(store.driverInstalled)
-  if (store.driverInstalled === false) {
-    installDriver();
-    return;
-  }
   if (store.isReady) {
     redirecting.value = true;
     router.replace({ name: "index" });
   }
 }
 
-async function installDriver() {
-  try {
-    store.loading = true;
-    store.statusMessage = t('$vuetify.startService.installingLagZapKernelDriver');
-    await InstallDriver();
-    store.statusMessage = t('$vuetify.startService.lagZapKernelDriverInstalledSuccessfully');
-    await initApp()
-  } catch (e) {
-    store.statusMessage = t('$vuetify.startService.failedToInstallDriver');
-    store.error = true;
-  } finally {
-    store.loading = false;
-  }
-}
 </script>
 
 <template>
@@ -120,10 +100,7 @@ async function installDriver() {
           {{ t("$vuetify.app_name") }}
         </span>
       </v-card-title>
-      <v-card-subtitle v-if="store.driverInstalled === false" class="text-info">
-        {{ t('$vuetify.status.driverMissing') }}
-      </v-card-subtitle>
-      <v-card-subtitle v-else-if="store.serviceReady && store.error && errorName != 'FetchError'" class="text-error">
+      <v-card-subtitle v-if="store.serviceReady && store.error && errorName != 'FetchError'" class="text-error">
         {{ t('$vuetify.status.coordinationFailed') }}
       </v-card-subtitle>
       <v-card-subtitle v-else-if="!store.isReady && store.error" class="text-error">
@@ -152,47 +129,8 @@ async function installDriver() {
         {{ t("$vuetify.startService.logout") }}
       </v-btn>
       <v-spacer />
-      <v-dialog v-if="store.driverInstalled === false" max-width="500">
-        <template v-slot:activator="{ props: activatorProps }">
-          <v-btn
-            v-bind="activatorProps"
-            color="success"
-            density="comfortable"
-            size="large"
-            class="ma-2"
-            :loading="store.loading"
-          >
-            {{ t("$vuetify.startService.installDriver") }}
-          </v-btn>
-        </template>
-
-        <template v-slot:default="{ isActive }">
-          <v-card :title="t('$vuetify.startService.installLagZapDriver')">
-            <v-card-text>
-              {{ t("$vuetify.startService.driverInstallationWarning") }}
-            </v-card-text>
-
-            <v-card-actions>
-              <v-spacer />
-              <v-btn
-                color="success"
-                density="comfortable"
-                size="large"
-                class="ma-2"
-                :loading="store.loading"
-                @click="
-                  isActive.value = false;
-                  installDriver();
-                "
-              >
-                {{ t("$vuetify.startService.continue") }}
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </template>
-      </v-dialog>
       <v-btn
-        v-else-if="!store.isReady && store.error"
+        v-if="!store.isReady && store.error"
         color="info"
         density="comfortable"
         size="large"

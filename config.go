@@ -6,27 +6,17 @@ import (
 	"github.com/lagzap/lagzap/option"
 )
 
-func (c *Service) generateConfig(hostname, accessToken, logLevel, dns string) option.Options {
+func (c *Service) generateConfig() option.Options {
 	return option.Options{
 		Log: &option.LogOptions{
-			Level:        logLevel,
+			Level:        "info",
 			Timestamp:    true,
 			DisableColor: false,
 		},
 		Lagzap: &option.LagzapOptions{
 			EnableNdis: goos.IsWindows == 1,
-			Optimizer: &option.OptimizerOptions{
-				Enabled: true,
-			},
-			Service: &option.CoordinatorOptions{
-				Enabled:     true,
-				Server:      hostname,
-				AccessToken: accessToken,
-			},
-			Debug: &option.DebugOptions{
-				// 		Listen: "127.0.0.1:1265",
-				// 		MemoryLimit: option.MemoryBytes(100 * 1024 * 1024), // 100 MB
-			},
+			Optimizer:  true,
+			Service:    true,
 		},
 		DNS: &option.DNSOptions{
 			RawDNSOptions: option.RawDNSOptions{
@@ -35,40 +25,26 @@ func (c *Service) generateConfig(hostname, accessToken, logLevel, dns string) op
 						Type: C.DNSTypeLocal,
 						Tag:  "local",
 					},
-					// {
-					// 	Type: C.DNSTypeDHCP,
-					// 	Tag:  "dhcp",
-					// 	Options: &option.DHCPDNSServerOptions{
-					// 		LocalDNSServerOptions: option.LocalDNSServerOptions{
-					// 			DialerOptions: option.DialerOptions{
-					// 				Detour: "zap",
-					// 			},
-					// 		},
-					// 	},
-					// },
 					{
-						Type: C.DNSTypeFakeIP,
-						Tag:  "fake-ip",
-					},
-					{
-						Type: C.DNSTypeUDP,
-						Tag:  "remote",
-						Options: &option.RemoteDNSServerOptions{
+						Type: C.DNSTypeDHCP,
+						Tag:  "dhcp",
+						Options: &option.DHCPDNSServerOptions{
 							LocalDNSServerOptions: option.LocalDNSServerOptions{
 								DialerOptions: option.DialerOptions{
 									Detour: "zap",
 								},
 							},
-							DNSServerAddressOptions: option.DNSServerAddressOptions{
-								Server:     dns,
-								ServerPort: 53,
-							},
 						},
+					},
+					{
+						Type: C.DNSTypeFakeIP,
+						Tag:  "fake-ip",
 					},
 				},
 				Final: "local",
 			},
 		},
+		Inbounds: []option.Inbound{},
 		Outbounds: []option.Outbound{
 			{
 				Type: C.TypeDirect,
@@ -118,27 +94,9 @@ func (c *Service) generateConfig(hostname, accessToken, logLevel, dns string) op
 						},
 					},
 				},
-				// {
-				// 	Tag:  "003-dns",
-				// 	Type: C.RuleTypeDefault,
-				// 	DefaultOptions: option.DefaultRule{
-				// 		RuleAction: option.RuleAction{
-				// 			Action: C.RuleActionTypeRoute,
-				// 			RouteOptions: option.RouteActionOptions{
-				// 				Outbound: "zap",
-				// 			},
-				// 		},
-				// 		RawDefaultRule: option.RawDefaultRule{
-				// 			Inbound: []string{"ndis"},
-				// 		},
-				// 	},
-				// },
 			},
-			Final: "direct",
-			GeoIP: &option.GeoIPOptions{
-				Enabled: true,
-			},
-			RuleSet:             []option.RuleSet{},
+			Final:               "direct",
+			GeoIP:               true,
 			FindProcess:         true,
 			AutoDetectInterface: true,
 		},

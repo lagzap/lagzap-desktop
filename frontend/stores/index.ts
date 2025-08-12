@@ -4,7 +4,7 @@ import {
   IsNDISRunning,
   IsRunning,
   StartNDIS,
-  StartService,
+  ReloadService,
   StopNDIS,
   StopService,
   ActionTitle,
@@ -14,6 +14,10 @@ import {
   FetchData,
   StartOptimizing,
   Status,
+  SetAccessToken,
+  SetEndpoints,
+  SetLogLevel,
+  Connect,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
   type NodeOptimizeResult,
@@ -39,7 +43,6 @@ export const useStore = defineStore("index", () => {
   const abilities = ref<string[]>(["admin"]);
   const displayLimit = ref<number>(10);
   const loading = ref<boolean>(false);
-  const driverInstalled = ref<boolean | null>(null);
   const statusMessage = ref<string>(locale.t("$vuetify.service.initializing"));
   const error = ref<boolean>(false);
   const optimizeProgress = ref<OptimizeProgress | null>(null);
@@ -112,10 +115,9 @@ export const useStore = defineStore("index", () => {
     try {
       statusMessage.value = locale.t("$vuetify.service.preparing");
       await check();
-      if (!serviceReady.value) {
+      if (!connected.value) {
         await connect();
       }
-      driverInstalled.value = true;
 
       statusMessage.value = locale.t("$vuetify.service.fetchingData");
       await FetchData();
@@ -151,17 +153,14 @@ export const useStore = defineStore("index", () => {
     Events.On("nodes", ({ data }) => upsertNodes(data[0]));
     Events.On("node-delete", ({ data }) => deleteNode(data[0]));
     Events.On("optimize-progress", async ({ data }) => {
-      console.log(data);
       optimizeProgress.value = data[0];
       status.value = await Status();
     });
     Events.On("optimize-result", ({ data }) => {
-      console.log(data);
       const result = data as NodeOptimizeResult;
       optimizeResult.value[result.tag] = result;
     });
     Events.On("optimize-results", ({ data }) => {
-      console.log(data);
       const results = data[0];
       Object.entries(results).forEach(([key, value]) => {
         optimizeResult.value[key] = value as NodeOptimizeResult;
@@ -358,38 +357,29 @@ export const useStore = defineStore("index", () => {
   };
   const connect = async () => {
     await check();
-    if (serviceReady.value) {
+    if (connected.value) {
       loading.value = false;
       return;
     }
     statusMessage.value = locale.t("$vuetify.service.connecting");
 
     try {
-      const { user } = useSanctumAuth<DataResponse>();
+      const { user, isAuthenticated } = useSanctumAuth<DataResponse>();
+      if (!isAuthenticated) {
+        console.log(user, isAuthenticated)
+        return
+      }
       const { endpoints, log_level, dns_servers } = user.value;
       const accessToken = (await getToken("lz.access_token")) ?? "";
-      await StartService(
-        endpoints[0],
-        accessToken,
-        log_level,
-        dns_servers[0]
-      );
-      ndisRunning.value = await IsNDISRunning();
-      const wasNdisRunning = ndisRunning.value;
-      await checkNDIS();
-      if (!ndisRunning.value && wasNdisRunning) {
-        await startNDIS();
-      }
+      await SetAccessToken(accessToken);
+      await SetEndpoints(endpoints);
+      await SetLogLevel(log_level);
+      await Connect();
+      await check();
     } catch (e) {
       error.value = true;
-      if (e.message.includes("initialize ndiapi")) {
-        driverInstalled.value = false;
-        statusMessage.value = locale.t(
-          "$vuetify.service.driverMustBeInstalled"
-        );
-      } else {
-        statusMessage.value = e.message;
-      }
+      statusMessage.value = e.message;
+  
       console.error(e);
       throw e;
     } finally {
@@ -465,7 +455,6 @@ export const useStore = defineStore("index", () => {
     abilities,
     displayLimit,
     loading,
-    driverInstalled,
     statusMessage,
     error,
     optimizing,

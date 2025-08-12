@@ -42,7 +42,6 @@ let otpID: number | undefined
 const onSubmit = handleSubmit(async (values) => {
   try {
     const data = await requestFetch<RegisterResponse>("register", {
-      baseURL: runtimeConfig.public.authBaseUrl,
       method: "POST",
       body: {
         ...props,
@@ -67,7 +66,6 @@ const onSubmit = handleSubmit(async (values) => {
 async function requestOTP() {
   try {
     const data = await requestFetch<OtpResponse>("otp", {
-      baseURL: runtimeConfig.public.authBaseUrl,
       method: "POST",
       body: props
     })

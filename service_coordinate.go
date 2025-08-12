@@ -3,9 +3,49 @@ package main
 import (
 	"github.com/lagzap/lagzap/adapter"
 	"github.com/lagzap/lagzap/common/device"
+	"github.com/lagzap/lagzap/log"
 	E "github.com/lagzap/zap/common/exceptions"
 	"google.golang.org/protobuf/proto"
 )
+
+func (s *Service) SetAccessToken(token string) {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetToken(token)
+}
+
+func (s *Service) SetEndpoints(hostnames []string) {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetEndpoints(hostnames)
+}
+
+func (s *Service) SetLogLevel(logLevel string) {
+	if s.coordinator == nil {
+		return
+	}
+	level, err := log.ParseLevel(logLevel)
+	if err != nil {
+		return
+	}
+	s.logFactory.SetLevel(level)
+}
+
+func (s *Service) Connect() {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.Connect()
+}
+
+func (s *Service) Disonnect() {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.Disconnect()
+}
 
 func (s *Service) Status() adapter.ConnectionStatus {
 	if s.coordinator == nil {

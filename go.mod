@@ -16,11 +16,7 @@ require (
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
-	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
-	github.com/bodgit/plumbing v1.3.0 // indirect
-	github.com/bodgit/sevenzip v1.6.1 // indirect
-	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/cloudflare/circl v1.6.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
@@ -38,7 +34,6 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/insomniacslk/dhcp v0.0.0-20250109001534-8abf58130905 // indirect
 	github.com/jaypipes/ghw v0.17.0 // indirect
 	github.com/jaypipes/pcidb v1.0.1 // indirect
@@ -46,8 +41,8 @@ require (
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/lagzap/echo v0.1.0-beta.20 // indirect
+	github.com/lagzap/geoip v0.0.0-20250812104557-419c62ae9c1c // indirect
 	github.com/lagzap/lagzap-tun v0.1.0-beta // indirect
 	github.com/lagzap/lagzaprd v1.0.0 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
@@ -61,7 +56,8 @@ require (
 	github.com/metacubex/tfo-go v0.0.0-20241006021335-daedaf0ca7aa // indirect
 	github.com/miekg/dns v1.1.67 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
-	github.com/oschwald/maxminddb-golang v1.12.0 // indirect
+	github.com/oschwald/geoip2-golang v1.11.0 // indirect
+	github.com/oschwald/maxminddb-golang v1.13.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
@@ -76,15 +72,12 @@ require (
 	github.com/samber/lo v1.49.1 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
-	github.com/spf13/afero v1.11.0 // indirect
 	github.com/streadway/amqp v1.1.0 // indirect
 	github.com/u-root/uio v0.0.0-20230220225925-ffce2a382923 // indirect
-	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/wailsapp/go-webview2 v1.0.21 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	go4.org v0.0.0-20200411211856-f5505b9728dd // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac // indirect

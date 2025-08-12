@@ -2,6 +2,11 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"strings"
+	"time"
 
 	"github.com/lagzap/lagzap"
 	"github.com/lagzap/lagzap/adapter"
@@ -26,6 +31,7 @@ type Service struct {
 	coordinator adapter.Coordinator
 	monitoring  *monitoring.Manager
 	logFactory  log.ObservableFactory
+	proxyServer *http.Server
 }
 
 const LAGZAP_DEFAULT_SESSION_ID = "00000000-0000-0000-0000-000000000000"
@@ -36,7 +42,7 @@ func (s *Service) New(ctx context.Context, app *application.App) {
 	s.app = app
 }
 
-func (s *Service) StartService(hostname, accessToken, logLevel, dns string) error {
+func (s *Service) ReloadService() error {
 	if s.lagzap != nil {
 		_ = s.StopNDIS()
 		_ = s.StopService()
@@ -44,7 +50,7 @@ func (s *Service) StartService(hostname, accessToken, logLevel, dns string) erro
 	ctx, cancel := context.WithCancel(s.ctx)
 	s.cancel = cancel
 
-	options := s.generateConfig(hostname, accessToken, logLevel, dns)
+	options := s.generateConfig()
 	instance, err := lagzap.New(lagzap.Options{
 		Context: ctx,
 		Options: options,
@@ -67,6 +73,7 @@ func (s *Service) StartService(hostname, accessToken, logLevel, dns string) erro
 	}
 	s.lagzap = instance
 	s.app.Event.Emit("service-started")
+	go s.startProxy("https://dev.lagzap.network")
 	go s.startMonitoring()
 
 	s.logFactory = instance.Logger()
@@ -77,6 +84,12 @@ func (s *Service) StartService(hostname, accessToken, logLevel, dns string) erro
 func (s *Service) StopService() error {
 	if s.lagzap == nil {
 		return nil
+	}
+	if s.proxyServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_ = s.proxyServer.Shutdown(ctx)
+		cancel()
+		s.proxyServer = nil
 	}
 	if s.cancel != nil {
 		s.cancel()
@@ -121,4 +134,68 @@ func (s *Service) SetWindow(window *application.WebviewWindow) {
 
 func (s *Service) SetSystray(systray *application.SystemTray) {
 	s.systray = systray
+}
+
+// startProxy launches an HTTP reverse proxy on localhost:963 to for the frontend API
+func (s *Service) startProxy(target string) {
+	// Restart if already running
+	if s.proxyServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_ = s.proxyServer.Shutdown(ctx)
+		cancel()
+		s.proxyServer = nil
+		time.Sleep(150 * time.Millisecond)
+	}
+	u, err := url.Parse(target)
+	if err != nil {
+		return
+	}
+	rp := httputil.NewSingleHostReverseProxy(u)
+	// Rewrite request to look like coming from target origin
+	orig := rp.Director
+	rp.Director = func(r *http.Request) {
+		if orig != nil {
+			orig(r)
+		}
+		r.Host = u.Host
+		r.Header.Set("Host", u.Host)
+		if o := r.Header.Get("Origin"); o != "" {
+			r.Header.Set("Origin", u.Scheme+"://"+u.Host)
+		}
+		if ref := r.Header.Get("Referer"); ref != "" {
+			if strings.HasPrefix(ref, "http://localhost:963") || strings.HasPrefix(ref, "http://127.0.0.1:963") {
+				r.Header.Set("Referer", u.Scheme+"://"+u.Host)
+			}
+		}
+		if r.Header.Get("User-Agent") == "" {
+			r.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36")
+		}
+		r.Header.Del("Accept-Encoding")
+		r.Header.Set("X-Forwarded-Host", "localhost:963")
+		r.Header.Set("X-Forwarded-Proto", "http")
+	}
+	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		http.Error(w, "Upstream error", http.StatusBadGateway)
+	}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rp.ServeHTTP(w, r)
+	})
+	srv := &http.Server{
+		Addr:              "127.0.0.1:963",
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	s.proxyServer = srv
+	go func() {
+		for {
+			err := srv.ListenAndServe()
+			if err == http.ErrServerClosed {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+			if s.proxyServer == nil {
+				break
+			}
+		}
+	}()
 }

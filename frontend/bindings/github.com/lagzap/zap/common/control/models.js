@@ -4,7 +4,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Create as $Create } from "@wailsio/runtime";
+import {Create as $Create} from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -45,14 +45,14 @@ export class Interface {
              * @member
              * @type {net$0.HardwareAddr}
              */
-            this["HardwareAddr"] = "";
+            this["HardwareAddr"] = (/** @type {net$0.HardwareAddr} */(""));
         }
         if (!("Flags" in $$source)) {
             /**
              * @member
              * @type {net$0.Flags}
              */
-            this["Flags"] = net$0.Flags.$zero;
+            this["Flags"] = (/** @type {net$0.Flags} */(0));
         }
         if (!("Addresses" in $$source)) {
             /**
