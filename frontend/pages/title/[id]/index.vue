@@ -73,22 +73,22 @@ onMounted(() => {
           <template #subtitle>
             <template v-if="profile.route_action == 'route'">
               <span v-if="profile.flags & ProfileFlag.GAME" class="text-sm">
-                TCP: <span class="text-green">{{ store.profileStates[profile.id].tcp_connections }}</span>
-                UDP: <span class="text-blue">{{ store.profileStates[profile.id].udp_connections }}</span>
+                TCP: <span class="text-green">{{ store.profileStates?.[profile.id].tcp_connections }}</span>
+                UDP: <span class="text-blue">{{ store.profileStates?.[profile.id].udp_connections }}</span>
               </span>
             </template>
             <span v-if="profile.route_action == 'direct'">
-              <span>{{ store.profileStates[profile.id].network_interfaces?.[0] ?? '-' }}</span>
+              <span>{{ store.profileStates?.[profile.id].network_interfaces?.[0] ?? '-' }}</span>
             </span>
             <span v-if="profile.route_action == 'block'">
               {{  }}
             </span>
 
             <span v-if="(profile.flags & ProfileFlag.ALLOW_REGION_SELECTION) != 0" class="text-sm">
-              <span v-if="store.profileStates[profile.id].mode == 0">{{ t('$vuetify.routingMode.global') }}</span>
-              <span v-if="store.profileStates[profile.id].mode == 1">{{ t('$vuetify.routingMode.regional') }}</span>
-              <span v-if="store.profileStates[profile.id].mode == 2">{{ t('$vuetify.routingMode.country') }}</span>
-              <span v-if="store.profileStates[profile.id].mode == 3">{{ t('$vuetify.routingMode.city') }}</span>
+              <span v-if="store.profileStates?.[profile.id].mode == 0">{{ t('$vuetify.routingMode.global') }}</span>
+              <span v-if="store.profileStates?.[profile.id].mode == 1">{{ t('$vuetify.routingMode.regional') }}</span>
+              <span v-if="store.profileStates?.[profile.id].mode == 2">{{ t('$vuetify.routingMode.country') }}</span>
+              <span v-if="store.profileStates?.[profile.id].mode == 3">{{ t('$vuetify.routingMode.city') }}</span>
             </span>
           </template>
           <template v-slot:prepend>
