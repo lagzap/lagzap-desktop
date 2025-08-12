@@ -4,11 +4,12 @@ declare module "*.vue" {
 }
 
 interface DataResponse {
-  user: User
-  endpoint: string
+  user: Subscriber
+  endpoints: string[]
   log_level: string
-  dns_server: string
+  dns_servers: string[]
   abilities?: string[]
+  client: ClientInfo
 }
 
 interface SessionResponse {
@@ -16,9 +17,24 @@ interface SessionResponse {
   proxy: string
 }
 
-interface User {
-  id: number
-  name: string
-  email: string
-  phone: number
+interface Subscriber {
+  id: string
+  name?: string
+  email?: string
+  phone?: number
+  status?: string
+}
+
+interface ClientInfo {
+  isp: string
+  ip: string
+  city: string
+  region: string
+  country: string
+  continent: string
+  currency: string
+  timezone: string
+  latitude: number
+  longitude: number
+  vpn: boolean
 }

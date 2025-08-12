@@ -366,13 +366,13 @@ export const useStore = defineStore("index", () => {
 
     try {
       const { user } = useSanctumAuth<DataResponse>();
-      const { endpoint, log_level, dns_server } = user.value;
+      const { endpoints, log_level, dns_servers } = user.value;
       const accessToken = (await getToken("lz.access_token")) ?? "";
       await StartService(
-        endpoint,
+        endpoints[0],
         accessToken,
         log_level,
-        dns_server
+        dns_servers[0]
       );
       ndisRunning.value = await IsNDISRunning();
       const wasNdisRunning = ndisRunning.value;
@@ -388,7 +388,7 @@ export const useStore = defineStore("index", () => {
           "$vuetify.service.driverMustBeInstalled"
         );
       } else {
-        statusMessage.value = e.getMessage();
+        statusMessage.value = e.message;
       }
       console.error(e);
       throw e;

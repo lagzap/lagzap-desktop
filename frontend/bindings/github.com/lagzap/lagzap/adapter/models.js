@@ -4,7 +4,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {Create as $Create} from "@wailsio/runtime";
+import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -42,35 +42,35 @@ export class CredentialsPayload {
              * @member
              * @type {string | undefined}
              */
-            this["user_id"] = "";
+            this["user_id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["session_id"] = "";
+            this["session_id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["udp_connections"] = 0;
+            this["udp_connections"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["started_at"] = "";
+            this["started_at"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["expires_at"] = null;
+            this["expires_at"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -98,28 +98,28 @@ export class Hop {
              * @member
              * @type {string | undefined}
              */
-            this["ip"] = "";
+            this["ip"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {HopStatus | undefined}
              */
-            this["status"] = (/** @type {HopStatus} */(0));
+            this["status"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["latency"] = 0;
+            this["latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["hop_index"] = 0;
+            this["hop_index"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -185,14 +185,14 @@ export class NetworkInterface {
              * @member
              * @type {net$0.HardwareAddr}
              */
-            this["HardwareAddr"] = (/** @type {net$0.HardwareAddr} */(""));
+            this["HardwareAddr"] = "";
         }
         if (!("Flags" in $$source)) {
             /**
              * @member
              * @type {net$0.Flags}
              */
-            this["Flags"] = (/** @type {net$0.Flags} */(0));
+            this["Flags"] = net$0.Flags.$zero;
         }
         if (!("Addresses" in $$source)) {
             /**
@@ -206,7 +206,7 @@ export class NetworkInterface {
              * @member
              * @type {constant$0.InterfaceType}
              */
-            this["Type"] = (/** @type {constant$0.InterfaceType} */(0));
+            this["Type"] = constant$0.InterfaceType.$zero;
         }
         if (!("DNSServers" in $$source)) {
             /**
@@ -267,105 +267,105 @@ export class Node {
              * @member
              * @type {string | undefined}
              */
-            this["id"] = "";
+            this["id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["name"] = "";
+            this["name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["region"] = "";
+            this["region"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["area"] = "";
+            this["area"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["country"] = "";
+            this["country"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {{ [_: string]: string } | undefined}
              */
-            this["city"] = {};
+            this["city"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["latitude"] = 0;
+            this["latitude"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["longitude"] = 0;
+            this["longitude"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["ipv4"] = "";
+            this["ipv4"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["ipv6"] = null;
+            this["ipv6"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["additional_ips"] = [];
+            this["additional_ips"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["allowed_plans"] = [];
+            this["allowed_plans"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {ServiceMode[] | undefined}
              */
-            this["available_modes"] = [];
+            this["available_modes"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["full_capacity"] = false;
+            this["full_capacity"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["public"] = false;
+            this["public"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -409,42 +409,42 @@ export class NodeOptimizeResult {
              * @member
              * @type {string | undefined}
              */
-            this["tag"] = "";
+            this["tag"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["target_addr"] = "";
+            this["target_addr"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {(NodeRoute | null)[] | undefined}
              */
-            this["routes"] = [];
+            this["routes"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["is_testing"] = false;
+            this["is_testing"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["last_test"] = 0;
+            this["last_test"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["error_message"] = "";
+            this["error_message"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -476,77 +476,77 @@ export class NodeRoute {
              * @member
              * @type {(Hop | null)[] | undefined}
              */
-            this["hops"] = [];
+            this["hops"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["packet_sent"] = 0;
+            this["packet_sent"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["packet_received"] = 0;
+            this["packet_received"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["packet_loss"] = 0;
+            this["packet_loss"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["avg_latency"] = 0;
+            this["avg_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["min_latency"] = 0;
+            this["min_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["max_latency"] = 0;
+            this["max_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["jitter"] = 0;
+            this["jitter"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["score"] = 0;
+            this["score"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["tcp_available"] = false;
+            this["tcp_available"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["udp_available"] = false;
+            this["udp_available"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -578,35 +578,35 @@ export class OptimizeProgress {
              * @member
              * @type {number | undefined}
              */
-            this["total_tests"] = 0;
+            this["total_tests"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["completed_tests"] = 0;
+            this["completed_tests"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["current_test"] = "";
+            this["current_test"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["is_complete"] = false;
+            this["is_complete"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["progress_percentage"] = 0;
+            this["progress_percentage"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -634,84 +634,84 @@ export class Profile {
              * @member
              * @type {string | undefined}
              */
-            this["id"] = "";
+            this["id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["flags"] = 0;
+            this["flags"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["title_id"] = "";
+            this["title_id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["rule_id"] = "";
+            this["rule_id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["order"] = 0;
+            this["order"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {{ [_: string]: string } | undefined}
              */
-            this["name"] = {};
+            this["name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {{ [_: string]: string } | undefined}
              */
-            this["description"] = {};
+            this["description"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["route_action"] = "";
+            this["route_action"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["dns_action"] = "";
+            this["dns_action"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["metadata"] = "";
+            this["metadata"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["created_at"] = "";
+            this["created_at"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["updated_at"] = "";
+            this["updated_at"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -751,84 +751,84 @@ export class ProfileState {
              * @member
              * @type {boolean | undefined}
              */
-            this["active"] = false;
+            this["active"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["titleId"] = "";
+            this["titleId"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["profileId"] = "";
+            this["profileId"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {RoutingMode | undefined}
              */
-            this["mode"] = (/** @type {RoutingMode} */(0));
+            this["mode"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["regions"] = [];
+            this["regions"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["countries"] = [];
+            this["countries"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["cities"] = [];
+            this["cities"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["tcp_connections"] = 0;
+            this["tcp_connections"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["udp_connections"] = 0;
+            this["udp_connections"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["network_interfaces"] = [];
+            this["network_interfaces"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["allow_local_routes"] = false;
+            this["allow_local_routes"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["default_interface"] = "";
+            this["default_interface"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -872,28 +872,28 @@ export class Region {
              * @member
              * @type {string | undefined}
              */
-            this["tag"] = "";
+            this["tag"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {{ [_: string]: string } | undefined}
              */
-            this["name"] = {};
+            this["name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["host"] = "";
+            this["host"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["active"] = false;
+            this["active"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -972,49 +972,49 @@ export class Title {
              * @member
              * @type {string | undefined}
              */
-            this["id"] = "";
+            this["id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["flags"] = 0;
+            this["flags"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["enabled"] = false;
+            this["enabled"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {{ [_: string]: string } | undefined}
              */
-            this["name"] = {};
+            this["name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["alias_name"] = null;
+            this["alias_name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["icon_url"] = null;
+            this["icon_url"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["poster_url"] = null;
+            this["poster_url"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -1046,21 +1046,21 @@ export class TitleState {
              * @member
              * @type {boolean | undefined}
              */
-            this["active"] = false;
+            this["active"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["titleId"] = "";
+            this["titleId"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["visited_at"] = 0;
+            this["visited_at"] = undefined;
         }
 
         Object.assign(this, $$source);
