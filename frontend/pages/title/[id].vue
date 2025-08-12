@@ -58,7 +58,7 @@ onMounted(() => {
           class="text-subtitle-1"
           @click="
             router.push(
-              profile
+              profile && profile.route_action != 'block'
                 ? {
                     name: 'title-id-profile-profile',
                     params: { id: title.id, profile: profile.id },

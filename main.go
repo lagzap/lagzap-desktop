@@ -120,7 +120,6 @@ func main() {
 		EnableDragAndDrop:          false,
 		DefaultContextMenuDisabled: true,
 		Frameless:                  true,
-		DevToolsEnabled:            true,
 		BackgroundColour:           application.NewRGBA(10, 9, 5, 255),
 		Windows: application.WindowsWindow{
 			DisableIcon:             true,
@@ -154,8 +153,7 @@ func main() {
 
 			// ProxyAddr: proxyAddr,
 		},
-		OpenInspectorOnStartup: true,
-		URL: "/start-service/",
+		URL:                    "/start-service/",
 	})
 	window.OnWindowEvent(events.Windows.WindowClosing, func(e *application.WindowEvent) {
 		window.Hide()

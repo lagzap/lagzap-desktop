@@ -154,6 +154,7 @@ export default {
             routeDescription: 'Options to configure your routing preferences',
             tcpRoutes: 'TCP Routes',
             udpRoutes: 'UDP Routes',
+            geofence: 'Geofence',
             networkAdapters: 'Network Adapters',
             networkAdaptersHint: 'Select the network adapter to use for routing',
             networkAdaptersPlaceholder: 'Leave empty for automatic selection',

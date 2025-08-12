@@ -36,7 +36,7 @@ func (s *Service) New(ctx context.Context, app *application.App) {
 	s.app = app
 }
 
-func (s *Service) StartService(hostname, accessToken string) error {
+func (s *Service) StartService(hostname, accessToken, logLevel, dns string) error {
 	if s.lagzap != nil {
 		_ = s.StopNDIS()
 		_ = s.StopService()
@@ -44,7 +44,7 @@ func (s *Service) StartService(hostname, accessToken string) error {
 	ctx, cancel := context.WithCancel(s.ctx)
 	s.cancel = cancel
 
-	options := s.generateConfig(hostname, accessToken)
+	options := s.generateConfig(hostname, accessToken, logLevel, dns)
 	instance, err := lagzap.New(lagzap.Options{
 		Context: ctx,
 		Options: options,

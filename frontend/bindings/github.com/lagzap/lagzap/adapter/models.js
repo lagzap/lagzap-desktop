@@ -87,10 +87,10 @@ export class CredentialsPayload {
     }
 }
 
-export class HopMetric {
+export class Hop {
     /**
-     * Creates a new HopMetric instance.
-     * @param {Partial<HopMetric>} [$$source = {}] - The source object to create the HopMetric.
+     * Creates a new Hop instance.
+     * @param {Partial<Hop>} [$$source = {}] - The source object to create the Hop.
      */
     constructor($$source = {}) {
         if (/** @type {any} */(false)) {
@@ -126,13 +126,13 @@ export class HopMetric {
     }
 
     /**
-     * Creates a new HopMetric instance from a string or object.
+     * Creates a new Hop instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {HopMetric}
+     * @returns {Hop}
      */
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new HopMetric(/** @type {Partial<HopMetric>} */($$parsedSource));
+        return new Hop(/** @type {Partial<Hop>} */($$parsedSource));
     }
 }
 
@@ -421,16 +421,9 @@ export class NodeOptimizeResult {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string[] | undefined}
+             * @type {(NodeRoute | null)[] | undefined}
              */
-            this["edge_addrs"] = [];
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {number | undefined}
-             */
-            this["last_test"] = 0;
+            this["routes"] = [];
         }
         if (/** @type {any} */(false)) {
             /**
@@ -442,9 +435,48 @@ export class NodeOptimizeResult {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {boolean | undefined}
+             * @type {number | undefined}
              */
-            this["is_available"] = false;
+            this["last_test"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["error_message"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NodeOptimizeResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {NodeOptimizeResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType7;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("routes" in $$parsedSource) {
+            $$parsedSource["routes"] = $$createField2_0($$parsedSource["routes"]);
+        }
+        return new NodeOptimizeResult(/** @type {Partial<NodeOptimizeResult>} */($$parsedSource));
+    }
+}
+
+export class NodeRoute {
+    /**
+     * Creates a new NodeRoute instance.
+     * @param {Partial<NodeRoute>} [$$source = {}] - The source object to create the NodeRoute.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(Hop | null)[] | undefined}
+             */
+            this["hops"] = [];
         }
         if (/** @type {any} */(false)) {
             /**
@@ -505,44 +537,33 @@ export class NodeOptimizeResult {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {(HopMetric | null)[] | undefined}
+             * @type {boolean | undefined}
              */
-            this["hop_metrics"] = [];
+            this["tcp_available"] = false;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string | undefined}
+             * @type {boolean | undefined}
              */
-            this["error_message"] = "";
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {TestType | undefined}
-             */
-            this["test_type"] = (/** @type {TestType} */(0));
+            this["udp_available"] = false;
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new NodeOptimizeResult instance from a string or object.
+     * Creates a new NodeRoute instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {NodeOptimizeResult}
+     * @returns {NodeRoute}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType2;
-        const $$createField14_0 = $$createType7;
+        const $$createField0_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("edge_addrs" in $$parsedSource) {
-            $$parsedSource["edge_addrs"] = $$createField2_0($$parsedSource["edge_addrs"]);
+        if ("hops" in $$parsedSource) {
+            $$parsedSource["hops"] = $$createField0_0($$parsedSource["hops"]);
         }
-        if ("hop_metrics" in $$parsedSource) {
-            $$parsedSource["hop_metrics"] = $$createField14_0($$parsedSource["hop_metrics"]);
-        }
-        return new NodeOptimizeResult(/** @type {Partial<NodeOptimizeResult>} */($$parsedSource));
+        return new NodeRoute(/** @type {Partial<NodeRoute>} */($$parsedSource));
     }
 }
 
@@ -802,6 +823,13 @@ export class ProfileState {
              */
             this["allow_local_routes"] = false;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["default_interface"] = "";
+        }
 
         Object.assign(this, $$source);
     }
@@ -933,22 +961,6 @@ export const StartStage = {
     StartStateStarted: 3,
 };
 
-/**
- * @readonly
- * @enum {number}
- */
-export const TestType = {
-    /**
-     * The Go zero value for the underlying type of the enum.
-     */
-    $zero: 0,
-
-    TestType_TEST_TYPE_UNSPECIFIED: 0,
-    TestType_TEST_TYPE_DIRECT: 1,
-    TestType_TEST_TYPE_SINGLE_HOP: 2,
-    TestType_TEST_TYPE_MULTI_HOP: 3,
-};
-
 export class Title {
     /**
      * Creates a new Title instance.
@@ -1076,6 +1088,9 @@ const $$createType1 = $Create.Array($Create.Any);
 const $$createType2 = $Create.Array($Create.Any);
 const $$createType3 = $Create.Map($Create.Any, $Create.Any);
 const $$createType4 = $Create.Array($Create.Any);
-const $$createType5 = HopMetric.createFrom;
+const $$createType5 = NodeRoute.createFrom;
 const $$createType6 = $Create.Nullable($$createType5);
 const $$createType7 = $Create.Array($$createType6);
+const $$createType8 = Hop.createFrom;
+const $$createType9 = $Create.Nullable($$createType8);
+const $$createType10 = $Create.Array($$createType9);

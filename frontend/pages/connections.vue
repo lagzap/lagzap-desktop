@@ -103,8 +103,8 @@ const sortBy = ref<VDataTable["sortBy"]>([
         </template>
         <template #item.server="{ item }">
           <CountryFlag
-            v-if="store.nodes?.[item.node_id]?.country"
-            :country="store.nodes[item.node_id].country"
+            v-if="item.country_code"
+            :country="item.country_code"
             size="small"
           />
           {{ item.destination_ip }}

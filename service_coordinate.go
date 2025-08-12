@@ -151,9 +151,9 @@ func (s *Service) GetOptimizeProgress() *adapter.OptimizeProgress {
 	return s.coordinator.GetOptimizeProgress()
 }
 
-func (s *Service) TestSpecificNode(nodeId string) (*adapter.NodeOptimizeResult, map[string]*adapter.NodeOptimizeResult, error) {
+func (s *Service) TestSpecificNode(nodeId string) (map[string]*adapter.NodeOptimizeResult, error) {
 	if !s.IsReady() {
-		return nil, nil, E.New("coordinator_not_ready")
+		return nil, E.New("coordinator_not_ready")
 	}
 	return s.coordinator.OptimizeSpecificNode(nodeId)
 }

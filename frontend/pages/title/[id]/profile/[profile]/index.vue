@@ -30,12 +30,15 @@ onMounted(() => {
 
 <template>
   <div style="max-width: 900px">
+    <v-card-text v-if="profile.description">{{
+      store.localized(profile.description)
+    }}</v-card-text>
     <v-card-title>{{ t("$vuetify.title.profile.routeSettings") }}</v-card-title>
     <v-card-subtitle>{{
       t("$vuetify.title.profile.routeDescription")
     }}</v-card-subtitle>
     <v-card-text>
-      <v-row class="mb-5">
+      <v-row no-gutters class="mb-5">
         <v-col
           v-if="
             (profile.flags & ProfileFlag.GAME) !== 0 &&
@@ -43,6 +46,7 @@ onMounted(() => {
           "
           cols="12"
           md="6"
+          class="pe-1"
         >
           <div class="text-caption ms-1 mb-1">
             {{ t("$vuetify.title.profile.tcpRoutes") }}
@@ -54,7 +58,6 @@ onMounted(() => {
             :reverse="false"
             control-variant="hidden"
             :hideInput="false"
-            density="comfortable"
             variant="solo-filled"
             :min="1"
             :max="1"
@@ -64,11 +67,13 @@ onMounted(() => {
         </v-col>
         <v-col
           v-if="
-            (profile.flags & ProfileFlag.GAME) !== 0 &&
+            ((profile.flags & ProfileFlag.GAME) !== 0 ||
+              (profile.flags & ProfileFlag.COMMUNICATION) !== 0) &&
             profile.route_action == 'route'
           "
           cols="12"
           md="6"
+          class="ps-1"
         >
           <div class="text-caption ms-1 mb-1">
             {{ t("$vuetify.title.profile.udpRoutes") }}
@@ -80,7 +85,6 @@ onMounted(() => {
             :reverse="false"
             control-variant="stacked"
             :hideInput="false"
-            density="comfortable"
             variant="solo-filled"
             :min="1"
             :max="4"
@@ -89,16 +93,19 @@ onMounted(() => {
             @update:model-value="() => store.saveActionProfile(profile.id)"
           />
         </v-col>
-        <v-col v-if="profile.route_action != 'block'" cols="12">
+        <v-col
+          v-if="
+            ((profile.flags & ProfileFlag.GAME) !== 0 ||
+              (profile.flags & ProfileFlag.COMMUNICATION) !== 0) &&
+            profile.route_action == 'route'
+          "
+          cols="12"
+        >
           <v-select
             v-model:model-value="
               store.profileStates[profile.id].network_interfaces
             "
-            :label="
-              profile.route_action == 'route'
-                ? t('$vuetify.title.profile.multiInternet')
-                : t('$vuetify.title.profile.multiInternet')
-            "
+            :label="t('$vuetify.title.profile.multiInternet')"
             :hint="t('$vuetify.title.profile.networkAdaptersHint')"
             :placeholder="
               t('$vuetify.title.profile.networkAdaptersPlaceholder')
@@ -115,9 +122,36 @@ onMounted(() => {
             "
             item-value="Name"
             item-title="Name"
-            density="comfortable"
             variant="solo-filled"
-            :multiple="profile.route_action == 'route'"
+            multiple
+            :disabled="!store.connected"
+            :loading="store.loadingProfileStates.includes(profile.id)"
+            @update:model-value="() => store.saveActionProfile(profile.id)"
+          />
+        </v-col>
+        <v-col v-else-if="profile.route_action != 'block'" cols="12">
+          <v-select
+            v-model:model-value="
+              store.profileStates[profile.id].network_interfaces
+            "
+            :label="t('$vuetify.title.profile.networkAdapter')"
+            :hint="t('$vuetify.title.profile.networkAdaptersHint')"
+            :placeholder="
+              t('$vuetify.title.profile.networkAdaptersPlaceholder')
+            "
+            :items="
+              interfaces
+                .filter(
+                  (i) =>
+                    (i.Flags & 1) == 1 &&
+                    (i.Flags & 32) == 32 &&
+                    (i.Flags & 4) == 0
+                )
+                .sort((a, b) => a.Name.localeCompare(b.Name))
+            "
+            item-value="Name"
+            item-title="Name"
+            variant="solo-filled"
             :disabled="!store.connected"
             :loading="store.loadingProfileStates.includes(profile.id)"
             @update:model-value="() => store.saveActionProfile(profile.id)"
@@ -143,7 +177,7 @@ onMounted(() => {
         :title="t('$vuetify.title.profile.server.server')"
         :subtitle="t('$vuetify.title.profile.server.automaticServer')"
         :append-icon="
-          locale.isRtl.value ? 'mdi-chevron-right' : 'mdi-chevron-left'
+          locale.isRtl.value ? 'mdi-chevron-left' : 'mdi-chevron-right'
         "
         class="mt-5"
         :to="{
@@ -164,7 +198,7 @@ onMounted(() => {
         :subtitle="t('$vuetify.title.profile.server.connectionsSubtitle', [0])"
         class="mt-2"
         :append-icon="
-          locale.isRtl.value ? 'mdi-chevron-right' : 'mdi-chevron-left'
+          locale.isRtl.value ? 'mdi-chevron-left' : 'mdi-chevron-right'
         "
         :to="{
           name: 'title-id-profile-profile-connections',

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import Container from "~/components/layout/Container.vue";
 import { useLocale } from "vuetify";
+import { GetOptimizeResults } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 const { t } = useLocale();
+const optimizeResults = ref({});
+optimizeResults.value = await GetOptimizeResults()
 </script>
 
 <template>
@@ -13,7 +16,7 @@ const { t } = useLocale();
       </template>
 
       <v-card-text>
-        Nothing yet
+        <pre>{{ optimizeResults }}</pre>
       </v-card-text>
     </Container>
   </div>
