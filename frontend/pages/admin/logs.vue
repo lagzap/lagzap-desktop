@@ -5,8 +5,6 @@ import { useLocale } from "vuetify";
 const { t } = useLocale()
 const { logs } = useMonitoringStore();
 
-logs.value = logs.value.slice(0, 100)
-
 const search = ref<string>("");
 
 const filteredItems = computed(() => {

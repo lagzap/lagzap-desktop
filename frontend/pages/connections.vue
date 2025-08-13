@@ -28,6 +28,14 @@ const headers = ref<DataTableHeader[]>([
     sortable: false,
     nowrap: true,
     width: "100%",
+    fixed: true,
+  },
+  {
+    title: 'Host',
+    key: "host",
+    sortable: false,
+    nowrap: true,
+    width: "100%",
   },
   {
     title: t("$vuetify.connections.gameServer"),
@@ -38,6 +46,12 @@ const headers = ref<DataTableHeader[]>([
   {
     title: t("$vuetify.connections.lagzapServer"),
     key: "destination",
+    sortable: false,
+    nowrap: true,
+  },
+  {
+    title: 'LagZap IP',
+    key: "destination_ip",
     sortable: false,
     nowrap: true,
   },
@@ -85,7 +99,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
         :sort-by
         :group-by="[
           {
-            key: 'process',
+            key: 'title_id',
             order: 'desc',
           },
         ]"
@@ -108,6 +122,12 @@ const sortBy = ref<VDataTable["sortBy"]>([
             size="small"
           />
           {{ item.destination_ip }}
+        </template>
+        <template #item.host="{ item }">
+          {{ item.host }}
+        </template>
+        <template #item.destination_ip="{ item }">
+          {{ item.node_optimize?.target_addr }}
         </template>
         <template #item.destination="{ item }">
           <div class="d-flex align-center flex-nowrap">
@@ -143,9 +163,9 @@ const sortBy = ref<VDataTable["sortBy"]>([
         </template>
         <template #item.latency="{ item }">
           <div class="d-flex align-center flex-nowrap">
-            <v-icon color="green"> mdi-signal-cellular-2 </v-icon>
+            <Signal :latency="item.node_optimize?.routes[0].min_latency" />
             <span class="text-green ms-1">
-              {{ item.node_optimize?.min_latency ?? -1 }}ms
+              {{ item.node_optimize?.routes[0].min_latency ?? -1 }}ms
             </span>
           </div>
         </template>
@@ -179,13 +199,16 @@ const sortBy = ref<VDataTable["sortBy"]>([
               }}
             </td>
             <td>
+              {{ item.items[0].raw.host }}
+            </td>
+            <td>
               <div class="d-flex align-center">
                 <CountryFlag
                   :country="item.items[0].raw.country_code ?? 'XX'"
                   size="small"
                 />
                 <span class="ms-1">
-                  {{ item.items[0].raw.destination_ip }}
+                  {{ item.items[0].raw.destination_ip }}:{{ item.items[0].raw.destination_port }}
                 </span>
               </div>
             </td>
@@ -206,10 +229,13 @@ const sortBy = ref<VDataTable["sortBy"]>([
               </div>
             </td>
             <td>
+              {{ item.items[0].raw.node_optimize?.target_addr }}
+            </td>
+            <td>
               <div class="d-flex align-center flex-nowrap">
-                <v-icon color="green"> mdi-signal-cellular-2 </v-icon>
+                <Signal :latency="item.items[0].raw.node_optimize?.routes[0].min_latency" />
                 <span class="text-green ms-1">
-                  {{ item.items[0].raw.node_optimize?.min_latency ?? -1 }}ms
+                  {{ item.items[0].raw.node_optimize?.routes[0].min_latency ?? -1 }}ms
                 </span>
               </div>
             </td>

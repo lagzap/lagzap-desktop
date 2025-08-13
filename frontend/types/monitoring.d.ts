@@ -45,6 +45,34 @@ export interface NodeLatency {
   jitter: number;
 }
 
+export enum HopStatus {
+  UNKNOWN = 0,
+  SUCCESS = 1,
+  TIMEOUT = 2,
+  ERROR = 3
+}
+
+export interface Hop {
+  ip: string;
+  status: HopStatus;
+  latency: number;
+  hop_index: number;
+}
+
+export interface NodeRoute {
+  hops: Hop[];
+  packet_sent: number;
+  packet_received: number;
+  packet_loss: number;
+  avg_latency: number;
+  min_latency: number;
+  max_latency: number;
+  jitter: number;
+  score: number;
+  tcp_available: boolean;
+  udp_available: boolean;
+}
+
 export interface HopMetric {
   hop: number;
   ip: string;
@@ -61,19 +89,8 @@ export enum TestType {
 export interface NodeOptimizeResult {
   tag: string;
   target_addr: string;
-  edge_addrs: string[];
-  last_test: number;
+  routes: NodeRoute[];
   is_testing: boolean;
-  is_available: boolean;
-  packet_sent: number;
-  packet_received: number;
-  packet_loss: number;
-  avg_latency: number;
-  min_latency: number;
-  max_latency: number;
-  jitter: number;
-  score: number;
-  hop_metrics: HopMetric[];
+  last_test: number;
   error_message: string;
-  test_type: TestType;
 }

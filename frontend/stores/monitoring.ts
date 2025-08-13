@@ -1,7 +1,7 @@
 import { Events } from "@wailsio/runtime";
 import type { Log, Connection } from "~/types/monitoring";
 
-const MAX_LOGS = 500;
+const MAX_LOGS = 200;
 
 let connectionsStore: ReturnType<typeof createMonitoringStore> | null = null;
 
@@ -9,22 +9,29 @@ function createMonitoringStore() {
   let logs: Ref<Log[]> = ref([]);
   let connections: Ref<Connection[]> = ref([]);
   let closedConnections: Ref<Connection[]> = ref([]);
-
   Events.On("log", ({ data }: any) => {
-    logs.value.unshift(data[0] as Log);
-    if (logs.value.length > MAX_LOGS) {
-      logs.value = logs.value.slice(0, MAX_LOGS);
+    if (data && Array.isArray(data)) {
+      logs.value.unshift(data[0] as Log);
+      if (logs.value.length > MAX_LOGS) {
+        logs.value = logs.value.slice(0, MAX_LOGS);
+      }
     }
   });
   Events.On("connections", ({ data }: any) => {
-    connections.value = data[0] as Connection[];
+    if (data && Array.isArray(data)) {
+      connections.value = data[0] as Connection[];
+    }
   });
   Events.On("closed-connections", ({ data }: any) => {
-    closedConnections.value = data[0] as Connection[];
+    if (data && Array.isArray(data)) {
+      closedConnections.value = data[0] as Connection[];
+    }
   });
-
-  console.log('meow')
-  return { logs, connections, closedConnections };
+  return {
+    logs: computed(() => logs.value),
+    connections: computed(() => connections.value),
+    closedConnections: computed(() => closedConnections.value),
+  };
 }
 
 export function useMonitoringStore() {

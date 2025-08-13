@@ -26,7 +26,7 @@ func (c *Service) generateConfig() option.Options {
 	})
 	return option.Options{
 		Log: &option.LogOptions{
-			Level:        "info",
+			Level:        "trace",
 			Timestamp:    true,
 			DisableColor: false,
 		},
@@ -70,34 +70,50 @@ func (c *Service) generateConfig() option.Options {
 						},
 					},
 					{
-						Type: C.DNSTypeTLS,
+						Type: C.DNSTypeHTTPS,
 						Tag:  "remote",
-						Options: &option.RemoteTLSDNSServerOptions{
-							RemoteDNSServerOptions: option.RemoteDNSServerOptions{
-								DNSServerAddressOptions: option.DNSServerAddressOptions{
-									Server: "8.8.8.8",
-									ServerPort: 53,
-								},
-								LocalDNSServerOptions: option.LocalDNSServerOptions{
-									DialerOptions: option.DialerOptions{
-										Detour: "zap",
-										DomainResolver: &option.DomainResolveOptions{
-											Server: "predefined",
+						Options: &option.RemoteHTTPSDNSServerOptions{
+							Path:    "/dns-query",
+							Method:  "GET",
+							Headers: badoption.HTTPHeader{},
+							RemoteTLSDNSServerOptions: option.RemoteTLSDNSServerOptions{
+								RemoteDNSServerOptions: option.RemoteDNSServerOptions{
+									DNSServerAddressOptions: option.DNSServerAddressOptions{
+										Server:     "dns.lagzap.network",
+										ServerPort: 443,
+									},
+									LocalDNSServerOptions: option.LocalDNSServerOptions{
+										DialerOptions: option.DialerOptions{
+											DomainResolver: &option.DomainResolveOptions{
+												Server: "local",
+											},
 										},
+									},
+								},
+								OutboundTLSOptionsContainer: option.OutboundTLSOptionsContainer{
+									TLS: &option.OutboundTLSOptions{
+										Enabled:    true,
+										ServerName: "dns.lagzap.network",
 									},
 								},
 							},
 						},
 					},
-					{
-						Type: C.DNSTypeFakeIP,
-						Tag:  "fake-ip",
-					},
 				},
 				Final: "local",
 			},
 		},
-		Inbounds: []option.Inbound{},
+		Inbounds: []option.Inbound{
+			{
+				Type: C.TypeHTTP,
+				Tag:  "local",
+				Options: &option.HTTPInboundOptions{
+					ListenOptions: option.ListenOptions{
+						ListenPort: 9536,
+					},
+				},
+			},
+		},
 		Outbounds: []option.Outbound{
 			{
 				Type: C.TypeDirect,
@@ -142,8 +158,19 @@ func (c *Service) generateConfig() option.Options {
 							Action: C.RuleActionTypeHijackDNS,
 						},
 						RawDefaultRule: option.RawDefaultRule{
+							Port: []uint16{53},
+						},
+					},
+				},
+				{
+					Tag:  "003-resolved",
+					Type: C.RuleTypeDefault,
+					DefaultOptions: option.DefaultRule{
+						RuleAction: option.RuleAction{
+							Action: C.RuleActionTypeResolve,
+						},
+						RawDefaultRule: option.RawDefaultRule{
 							Inbound: []string{"ndis"},
-							Port:    []uint16{53, 853},
 						},
 					},
 				},

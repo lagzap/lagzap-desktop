@@ -100,4 +100,6 @@ replace github.com/lagzap/echo => ../../../echo
 
 replace github.com/lagzap/zap => ../../../zap
 
+replace github.com/lagzap/geoip => ../../../geoip
+
 replace github.com/wailsapp/wails/v3 => ../../../wails/v3

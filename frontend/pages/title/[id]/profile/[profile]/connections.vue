@@ -144,9 +144,9 @@ onMounted(() => {
     </template>
     <template #item.latency="{ item }">
       <div class="d-flex align-center flex-nowrap">
-        <v-icon color="green"> mdi-signal-cellular-2 </v-icon>
+        <Signal :latency="item.node_optimize?.routes[0].min_latency" />
         <span class="text-green ms-1">
-          {{ item.node_optimize?.min_latency ?? -1 }}{{ t('$vuetify.ms') }}
+          {{ item.node_optimize?.routes[0].min_latency ?? -1 }}{{ t('$vuetify.ms') }}
         </span>
       </div>
     </template>

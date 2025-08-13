@@ -73,7 +73,7 @@ func (s *Service) ReloadService() error {
 	}
 	s.lagzap = instance
 	s.app.Event.Emit("service-started")
-	go s.startProxy("https://dev.lagzap.network")
+	go s.startProxy("https://dev.lagzap-network.ir")
 	go s.startMonitoring()
 
 	s.logFactory = instance.Logger()

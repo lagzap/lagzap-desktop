@@ -11,7 +11,7 @@ tasks:
       - task: common:build:frontend
         vars:
           GARBLE_SEED: 'test'
-          BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+          BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
       - task: common:generate:icons
     cmds:
       - task: generate:syso
@@ -34,7 +34,7 @@ tasks:
       GOOS: windows
       CGO_ENABLED: 0
       GOARCH: '{{.ARCH | default ARCH}}'
-      PRODUCTION: '{{.PRODUCTION | default "false"}}'
+      BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
 
   package:
     summary: Packages a production build of the application into a `.exe` bundle
@@ -55,7 +55,7 @@ tasks:
     deps:
       - task: build
         vars:
-          PRODUCTION: "true"
+          BUILD_TYPE: "production"
     cmds:
       # Create the Microsoft WebView2 bootstrapper if it doesn't exist
       - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"
