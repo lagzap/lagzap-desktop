@@ -44,7 +44,7 @@ func (s *Service) New(ctx context.Context, app *application.App) {
 
 func (s *Service) ReloadService() error {
 	if s.lagzap != nil {
-		_ = s.StopNDIS()
+		_ = s.StopProxy()
 		_ = s.StopService()
 	}
 	ctx, cancel := context.WithCancel(s.ctx)

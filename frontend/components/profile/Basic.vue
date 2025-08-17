@@ -30,7 +30,7 @@ email.value = user.value?.email ?? ''
 
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const data = await requestFetch<ProfileResponse>("profile/basic", {
+    const data = await requestFetch<ProfileResponse>("http://localhost:963/profile/basic", {
       method: "POST",
       body: {
         ...values,

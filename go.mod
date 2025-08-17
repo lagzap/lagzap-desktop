@@ -41,7 +41,7 @@ require (
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/lagzap/echo v0.1.0-beta.20 // indirect
+	github.com/lagzap/echo v1.0.1 // indirect
 	github.com/lagzap/geoip v0.0.0-20250812104557-419c62ae9c1c // indirect
 	github.com/lagzap/lagzap-tun v0.1.0-beta // indirect
 	github.com/lagzap/lagzaprd v1.0.0 // indirect
@@ -72,7 +72,6 @@ require (
 	github.com/samber/lo v1.49.1 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
-	github.com/streadway/amqp v1.1.0 // indirect
 	github.com/u-root/uio v0.0.0-20230220225925-ffce2a382923 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/wailsapp/go-webview2 v1.0.21 // indirect
@@ -99,6 +98,8 @@ replace github.com/lagzap/lagzap => ../../
 replace github.com/lagzap/echo => ../../../echo
 
 replace github.com/lagzap/zap => ../../../zap
+
+replace github.com/lagzap/lagzap-tun => ../../../lagzap-tun
 
 replace github.com/lagzap/geoip => ../../../geoip
 

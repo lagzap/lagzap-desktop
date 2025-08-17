@@ -3,6 +3,7 @@ import Container from "~/components/layout/Container.vue";
 import { useLocale } from "vuetify";
 
 const { t } = useLocale();
+const store = useStore()
 </script>
 
 <template>
@@ -14,6 +15,9 @@ const { t } = useLocale();
 
       <v-card-text>
         Overview
+        <pre>
+          {{ store.routes }}
+        </pre>
       </v-card-text>
     </Container>
   </div>

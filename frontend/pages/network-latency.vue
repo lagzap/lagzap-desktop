@@ -7,7 +7,7 @@ import country from "country-list-js";
 import Ping from "~/components/Ping.vue";
 import type {
   Node,
-  NodeOptimizeResult,
+  RelayRoute,
 } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import { useLocale } from "vuetify";
 
@@ -17,9 +17,9 @@ const store = useStore();
 const regions = computed(() => store.regions);
 const filterMode = ref("all");
 
-const echo = computed(() => store.echo || {});
+const echo = computed(() => store.routes || {});
 
-function getLowestPingForArea(nodes: Node[]): NodeOptimizeResult | null {
+function getLowestPingForArea(nodes: Node[]): RelayRoute | null {
   const pings = nodes
     .map((node) => echo.value[node.id])
     .filter((ping) => ping && ping.routes?.[0]?.min_latency > 0)

@@ -41,7 +41,7 @@ let otpID: number | undefined
 
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const data = await requestFetch<RegisterResponse>("register", {
+    const data = await requestFetch<RegisterResponse>("http://localhost:963/register", {
       method: "POST",
       body: {
         ...props,

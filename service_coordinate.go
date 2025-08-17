@@ -40,7 +40,7 @@ func (s *Service) Connect() {
 	s.coordinator.Connect()
 }
 
-func (s *Service) Disonnect() {
+func (s *Service) Disconnect() {
 	if s.coordinator == nil {
 		return
 	}
@@ -88,6 +88,10 @@ func (s *Service) FetchData() error {
 		return err
 	}
 	err = s.coordinator.RequestRules()
+	if err != nil {
+		return err
+	}
+	err = s.coordinator.RequestRoutes()
 	if err != nil {
 		return err
 	}
@@ -174,24 +178,32 @@ func (s *Service) StartOptimizing() {
 	if !s.IsReady() {
 		return
 	}
-	s.coordinator.StartOptimizing()
+	s.coordinator.StartOptimizing(true)
 }
 
-func (s *Service) GetOptimizeResults() map[string]*adapter.NodeOptimizeResult {
+func (s *Service) GetRoutes() map[string]*adapter.RelayRoute {
 	if !s.IsReady() {
 		return nil
 	}
-	return s.coordinator.GetOptimizeResults()
+	return s.coordinator.GetRelayRoutes()
 }
 
-func (s *Service) GetOptimizeProgress() *adapter.OptimizeProgress {
+func (s *Service) GetRoutes2() []*adapter.Route {
 	if !s.IsReady() {
 		return nil
 	}
-	return s.coordinator.GetOptimizeProgress()
+	rr, _ := s.coordinator.GetRoutes()
+	return rr
 }
 
-func (s *Service) TestSpecificNode(nodeId string) (map[string]*adapter.NodeOptimizeResult, error) {
+func (s *Service) GetOptimizeProgress() *adapter.Optimize {
+	if !s.IsReady() {
+		return nil
+	}
+	return s.coordinator.GetOptimize()
+}
+
+func (s *Service) TestSpecificNode(nodeId string) (map[string]*adapter.RelayRoute, error) {
 	if !s.IsReady() {
 		return nil, E.New("coordinator_not_ready")
 	}

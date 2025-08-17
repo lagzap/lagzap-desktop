@@ -21,12 +21,12 @@ const model = defineModel<boolean>({
 
 onActivated(async () => {
   Events.On("service-started", async () => {
-    await store.startNDIS();
+    await store.startProxy();
   });
 
   console.log(store.serviceReady);
   if (store.serviceReady) {
-    await store.startNDIS();
+    await store.startProxy();
   }
 });
 </script>

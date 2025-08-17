@@ -63,7 +63,7 @@ async function requestOTP() {
   if (cooldown.value > 0) return // Prevent multiple requests during cooldown
   
   try {
-    const data = await requestFetch<OtpResponse>("otp", {
+    const data = await requestFetch<OtpResponse>("http://localhost:963/otp", {
       method: "POST",
       body: {
         ...props,

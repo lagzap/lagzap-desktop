@@ -153,6 +153,21 @@ export const HopStatus = {
     HopStatus_HOP_STATUS_NON_ZAP: 4,
 };
 
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const IPVersion = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    IPVersion_IP_NONE: 0,
+    IPVersion_IPV4: 4,
+    IPVersion_IPV6: 6,
+};
+
 export class NetworkInterface {
     /**
      * Creates a new NetworkInterface instance.
@@ -349,9 +364,9 @@ export class Node {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {ServiceMode[] | undefined}
+             * @type {number | undefined}
              */
-            this["available_modes"] = [];
+            this["available_modes"] = 0;
         }
         if (/** @type {any} */(false)) {
             /**
@@ -380,7 +395,6 @@ export class Node {
         const $$createField5_0 = $$createType3;
         const $$createField10_0 = $$createType2;
         const $$createField11_0 = $$createType2;
-        const $$createField12_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("city" in $$parsedSource) {
             $$parsedSource["city"] = $$createField5_0($$parsedSource["city"]);
@@ -391,77 +405,7 @@ export class Node {
         if ("allowed_plans" in $$parsedSource) {
             $$parsedSource["allowed_plans"] = $$createField11_0($$parsedSource["allowed_plans"]);
         }
-        if ("available_modes" in $$parsedSource) {
-            $$parsedSource["available_modes"] = $$createField12_0($$parsedSource["available_modes"]);
-        }
         return new Node(/** @type {Partial<Node>} */($$parsedSource));
-    }
-}
-
-export class NodeOptimizeResult {
-    /**
-     * Creates a new NodeOptimizeResult instance.
-     * @param {Partial<NodeOptimizeResult>} [$$source = {}] - The source object to create the NodeOptimizeResult.
-     */
-    constructor($$source = {}) {
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
-            this["tag"] = "";
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
-            this["target_addr"] = "";
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {(NodeRoute | null)[] | undefined}
-             */
-            this["routes"] = [];
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {boolean | undefined}
-             */
-            this["is_testing"] = false;
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {number | undefined}
-             */
-            this["last_test"] = 0;
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
-            this["error_message"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new NodeOptimizeResult instance from a string or object.
-     * @param {any} [$$source = {}]
-     * @returns {NodeOptimizeResult}
-     */
-    static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType7;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("routes" in $$parsedSource) {
-            $$parsedSource["routes"] = $$createField2_0($$parsedSource["routes"]);
-        }
-        return new NodeOptimizeResult(/** @type {Partial<NodeOptimizeResult>} */($$parsedSource));
     }
 }
 
@@ -548,6 +492,13 @@ export class NodeRoute {
              */
             this["udp_available"] = false;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["icmp_available"] = false;
+        }
 
         Object.assign(this, $$source);
     }
@@ -558,7 +509,7 @@ export class NodeRoute {
      * @returns {NodeRoute}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType10;
+        const $$createField0_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("hops" in $$parsedSource) {
             $$parsedSource["hops"] = $$createField0_0($$parsedSource["hops"]);
@@ -567,10 +518,10 @@ export class NodeRoute {
     }
 }
 
-export class OptimizeProgress {
+export class Optimize {
     /**
-     * Creates a new OptimizeProgress instance.
-     * @param {Partial<OptimizeProgress>} [$$source = {}] - The source object to create the OptimizeProgress.
+     * Creates a new Optimize instance.
+     * @param {Partial<Optimize>} [$$source = {}] - The source object to create the Optimize.
      */
     constructor($$source = {}) {
         if (/** @type {any} */(false)) {
@@ -590,13 +541,6 @@ export class OptimizeProgress {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string | undefined}
-             */
-            this["current_test"] = "";
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
              * @type {boolean | undefined}
              */
             this["is_complete"] = false;
@@ -606,20 +550,20 @@ export class OptimizeProgress {
              * @member
              * @type {number | undefined}
              */
-            this["progress_percentage"] = 0;
+            this["progress"] = 0;
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new OptimizeProgress instance from a string or object.
+     * Creates a new Optimize instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {OptimizeProgress}
+     * @returns {Optimize}
      */
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new OptimizeProgress(/** @type {Partial<OptimizeProgress>} */($$parsedSource));
+        return new Optimize(/** @type {Partial<Optimize>} */($$parsedSource));
     }
 }
 
@@ -914,6 +858,143 @@ export class Region {
     }
 }
 
+export class RelayRoute {
+    /**
+     * Creates a new RelayRoute instance.
+     * @param {Partial<RelayRoute>} [$$source = {}] - The source object to create the RelayRoute.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["tag"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["addr"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(NodeRoute | null)[] | undefined}
+             */
+            this["routes"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RelayRoute instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {RelayRoute}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("routes" in $$parsedSource) {
+            $$parsedSource["routes"] = $$createField2_0($$parsedSource["routes"]);
+        }
+        return new RelayRoute(/** @type {Partial<RelayRoute>} */($$parsedSource));
+    }
+}
+
+export class Route {
+    /**
+     * Creates a new Route instance.
+     * @param {Partial<Route>} [$$source = {}] - The source object to create the Route.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["node_id"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["edge_id"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {IPVersion | undefined}
+             */
+            this["ip_version"] = (/** @type {IPVersion} */(0));
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["avg_latency"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["min_latency"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["max_latency"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["packet_loss"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["tcp"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["udp"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["icmp"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Route instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Route}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Route(/** @type {Partial<Route>} */($$parsedSource));
+    }
+}
+
 /**
  * @readonly
  * @enum {number}
@@ -928,21 +1009,6 @@ export const RoutingMode = {
     RoutingMode_ROUTING_MODE_REGIONAL: 1,
     RoutingMode_ROUTING_MODE_COUNTRY: 2,
     RoutingMode_ROUTING_MODE_CITY: 3,
-};
-
-/**
- * @readonly
- * @enum {number}
- */
-export const ServiceMode = {
-    /**
-     * The Go zero value for the underlying type of the enum.
-     */
-    $zero: 0,
-
-    ServiceMode_RELAY: 0,
-    ServiceMode_EDGE: 1,
-    ServiceMode_CONTENT_DELIVERY: 2,
 };
 
 /**
@@ -1087,10 +1153,9 @@ var $$createType0 = /** @type {(...args: any[]) => any} */(function $$initCreate
 const $$createType1 = $Create.Array($Create.Any);
 const $$createType2 = $Create.Array($Create.Any);
 const $$createType3 = $Create.Map($Create.Any, $Create.Any);
-const $$createType4 = $Create.Array($Create.Any);
-const $$createType5 = NodeRoute.createFrom;
-const $$createType6 = $Create.Nullable($$createType5);
-const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = Hop.createFrom;
-const $$createType9 = $Create.Nullable($$createType8);
-const $$createType10 = $Create.Array($$createType9);
+const $$createType4 = Hop.createFrom;
+const $$createType5 = $Create.Nullable($$createType4);
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = NodeRoute.createFrom;
+const $$createType8 = $Create.Nullable($$createType7);
+const $$createType9 = $Create.Array($$createType8);

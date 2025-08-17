@@ -46,7 +46,7 @@ async function start () {
     console.error(e);
     errorName.value = e.name;
     if (store.isReady) {
-      store.stopNDIS();
+      store.stopProxy();
       store.disconnect();
     }
     if (e.status == 401) {

@@ -81,8 +81,8 @@ export function DeviceHash() {
 /**
  * @returns {Promise<void> & { cancel(): void }}
  */
-export function Disonnect() {
-    let $resultPromise = /** @type {any} */($Call.ByID(3906958012));
+export function Disconnect() {
+    let $resultPromise = /** @type {any} */($Call.ByID(4177228667));
     return $resultPromise;
 }
 
@@ -121,7 +121,7 @@ export function GetNodes() {
 }
 
 /**
- * @returns {Promise<adapter$0.OptimizeProgress | null> & { cancel(): void }}
+ * @returns {Promise<adapter$0.Optimize | null> & { cancel(): void }}
  */
 export function GetOptimizeProgress() {
     let $resultPromise = /** @type {any} */($Call.ByID(200422283));
@@ -133,24 +133,12 @@ export function GetOptimizeProgress() {
 }
 
 /**
- * @returns {Promise<{ [_: string]: adapter$0.NodeOptimizeResult | null }> & { cancel(): void }}
- */
-export function GetOptimizeResults() {
-    let $resultPromise = /** @type {any} */($Call.ByID(2696120310));
-    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType16($result);
-    }));
-    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
-    return $typingPromise;
-}
-
-/**
  * @returns {Promise<{ [_: string]: adapter$0.ProfileState | null }> & { cancel(): void }}
  */
 export function GetProfileStates() {
     let $resultPromise = /** @type {any} */($Call.ByID(3829360106));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType17($result);
+        return $$createType14($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
@@ -162,7 +150,7 @@ export function GetProfileStates() {
 export function GetProfiles() {
     let $resultPromise = /** @type {any} */($Call.ByID(1281462161));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType20($result);
+        return $$createType17($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
@@ -174,7 +162,31 @@ export function GetProfiles() {
 export function GetRegions() {
     let $resultPromise = /** @type {any} */($Call.ByID(3658744404));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType20($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
+}
+
+/**
+ * @returns {Promise<{ [_: string]: adapter$0.RelayRoute | null }> & { cancel(): void }}
+ */
+export function GetRoutes() {
+    let $resultPromise = /** @type {any} */($Call.ByID(3754855629));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType23($result);
+    }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
+}
+
+/**
+ * @returns {Promise<(adapter$0.Route | null)[]> & { cancel(): void }}
+ */
+export function GetRoutes2() {
+    let $resultPromise = /** @type {any} */($Call.ByID(1361573229));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
+        return $$createType26($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
@@ -186,7 +198,7 @@ export function GetRegions() {
 export function GetTitleStates() {
     let $resultPromise = /** @type {any} */($Call.ByID(2788903497));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType24($result);
+        return $$createType27($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
@@ -198,19 +210,10 @@ export function GetTitleStates() {
 export function GetTitles() {
     let $resultPromise = /** @type {any} */($Call.ByID(94823092));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType27($result);
+        return $$createType30($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
-}
-
-/**
- * InstallDriver installs the driver using netcfg.exe.
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function InstallDriver() {
-    let $resultPromise = /** @type {any} */($Call.ByID(3859988686));
-    return $resultPromise;
 }
 
 /**
@@ -224,8 +227,8 @@ export function IsConnected() {
 /**
  * @returns {Promise<boolean> & { cancel(): void }}
  */
-export function IsNDISRunning() {
-    let $resultPromise = /** @type {any} */($Call.ByID(2499758594));
+export function IsProxyRunning() {
+    let $resultPromise = /** @type {any} */($Call.ByID(3606374042));
     return $resultPromise;
 }
 
@@ -335,16 +338,16 @@ export function Start(stage) {
 /**
  * @returns {Promise<void> & { cancel(): void }}
  */
-export function StartNDIS() {
-    let $resultPromise = /** @type {any} */($Call.ByID(3347669349));
+export function StartOptimizing() {
+    let $resultPromise = /** @type {any} */($Call.ByID(1400408683));
     return $resultPromise;
 }
 
 /**
  * @returns {Promise<void> & { cancel(): void }}
  */
-export function StartOptimizing() {
-    let $resultPromise = /** @type {any} */($Call.ByID(1400408683));
+export function StartProxy() {
+    let $resultPromise = /** @type {any} */($Call.ByID(218733177));
     return $resultPromise;
 }
 
@@ -359,8 +362,8 @@ export function Status() {
 /**
  * @returns {Promise<void> & { cancel(): void }}
  */
-export function StopNDIS() {
-    let $resultPromise = /** @type {any} */($Call.ByID(855277539));
+export function StopProxy() {
+    let $resultPromise = /** @type {any} */($Call.ByID(1533444971));
     return $resultPromise;
 }
 
@@ -374,24 +377,15 @@ export function StopService() {
 
 /**
  * @param {string} nodeId
- * @returns {Promise<{ [_: string]: adapter$0.NodeOptimizeResult | null }> & { cancel(): void }}
+ * @returns {Promise<{ [_: string]: adapter$0.RelayRoute | null }> & { cancel(): void }}
  */
 export function TestSpecificNode(nodeId) {
     let $resultPromise = /** @type {any} */($Call.ByID(5819569, nodeId));
     let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
-        return $$createType16($result);
+        return $$createType23($result);
     }));
     $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
     return $typingPromise;
-}
-
-/**
- * UninstallDriver uninstalls the driver using netcfg.exe.
- * @returns {Promise<void> & { cancel(): void }}
- */
-export function UninstallDriver() {
-    let $resultPromise = /** @type {any} */($Call.ByID(741453515));
-    return $resultPromise;
 }
 
 // Private type creation functions
@@ -407,19 +401,22 @@ const $$createType8 = $Create.Array($$createType7);
 const $$createType9 = adapter$0.Node.createFrom;
 const $$createType10 = $Create.Nullable($$createType9);
 const $$createType11 = $Create.Map($Create.Any, $$createType10);
-const $$createType12 = adapter$0.OptimizeProgress.createFrom;
+const $$createType12 = adapter$0.Optimize.createFrom;
 const $$createType13 = $Create.Nullable($$createType12);
-const $$createType14 = adapter$0.NodeOptimizeResult.createFrom;
-const $$createType15 = $Create.Nullable($$createType14);
-const $$createType16 = $Create.Map($Create.Any, $$createType15);
-const $$createType17 = $Create.Map($Create.Any, $$createType1);
-const $$createType18 = adapter$0.Profile.createFrom;
+const $$createType14 = $Create.Map($Create.Any, $$createType1);
+const $$createType15 = adapter$0.Profile.createFrom;
+const $$createType16 = $Create.Nullable($$createType15);
+const $$createType17 = $Create.Map($Create.Any, $$createType16);
+const $$createType18 = adapter$0.Region.createFrom;
 const $$createType19 = $Create.Nullable($$createType18);
 const $$createType20 = $Create.Map($Create.Any, $$createType19);
-const $$createType21 = adapter$0.Region.createFrom;
+const $$createType21 = adapter$0.RelayRoute.createFrom;
 const $$createType22 = $Create.Nullable($$createType21);
 const $$createType23 = $Create.Map($Create.Any, $$createType22);
-const $$createType24 = $Create.Map($Create.Any, $$createType3);
-const $$createType25 = adapter$0.Title.createFrom;
-const $$createType26 = $Create.Nullable($$createType25);
-const $$createType27 = $Create.Map($Create.Any, $$createType26);
+const $$createType24 = adapter$0.Route.createFrom;
+const $$createType25 = $Create.Nullable($$createType24);
+const $$createType26 = $Create.Array($$createType25);
+const $$createType27 = $Create.Map($Create.Any, $$createType3);
+const $$createType28 = adapter$0.Title.createFrom;
+const $$createType29 = $Create.Nullable($$createType28);
+const $$createType30 = $Create.Map($Create.Any, $$createType29);

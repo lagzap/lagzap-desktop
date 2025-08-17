@@ -1,14 +1,12 @@
 import { defineStore } from "pinia";
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import {
-  IsNDISRunning,
+  IsProxyRunning,
   IsRunning,
-  StartNDIS,
-  ReloadService,
-  StopNDIS,
-  StopService,
+  StartProxy,
+  StopProxy,
   ActionTitle,
-  GetOptimizeResults,
+  GetRoutes,
   TestSpecificNode,
   ActionProfile,
   FetchData,
@@ -18,16 +16,17 @@ import {
   SetEndpoints,
   SetLogLevel,
   Connect,
+  Disconnect,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
-  type NodeOptimizeResult,
+  type RelayRoute,
   type Profile,
   type ProfileState,
   type Region,
   type Title,
   type TitleState,
   type Node,
-  OptimizeProgress,
+  Optimize,
 } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import { Events } from "@wailsio/runtime";
 import { displayError } from "~/composables/alert";
@@ -45,7 +44,7 @@ export const useStore = defineStore("index", () => {
   const loading = ref<boolean>(false);
   const statusMessage = ref<string>(locale.t("$vuetify.service.initializing"));
   const error = ref<boolean>(false);
-  const optimizeProgress = ref<OptimizeProgress | null>(null);
+  const optimizeProgress = ref<Optimize | null>(null);
   const serviceReady = ref<boolean>(false);
   const ndisRunning = ref<boolean>(false);
 
@@ -59,7 +58,7 @@ export const useStore = defineStore("index", () => {
   const profileStates = ref<Record<string, ProfileState>>({});
   const loadingTitleStates = ref<string[]>([]);
   const loadingProfileStates = ref<string[]>([]);
-  const optimizeResult = ref<Record<string, NodeOptimizeResult>>({});
+  const routes = ref<Record<string, RelayRoute>>({});
 
   // Getters
   const isReady = computed(() => serviceReady.value);
@@ -127,8 +126,8 @@ export const useStore = defineStore("index", () => {
         callback();
       }
     } catch (err) {
-      console.dir(err)
-      
+      console.dir(err);
+
       error.value = true;
       throw err;
     } finally {
@@ -152,19 +151,19 @@ export const useStore = defineStore("index", () => {
     Events.On("region-delete", ({ data }) => deleteRegion(data[0]));
     Events.On("nodes", ({ data }) => upsertNodes(data[0]));
     Events.On("node-delete", ({ data }) => deleteNode(data[0]));
-    Events.On("optimize-progress", async ({ data }) => {
+    Events.On("relay-route", ({ data }) => {
+      console.log("relay-route", data[0]);
+      const result = data[0] as RelayRoute;
+      routes.value[result.tag] = result;
+    });
+    Events.On("relay-routes", ({ data }) => {
+      console.log("relay-routes", data[0]);
+      const result = data[0] as Record<string, RelayRoute>;
+      routes.value = result;
+    });
+    Events.On("optimize", async ({ data }) => {
+      console.log("optimize", data[0]);
       optimizeProgress.value = data[0];
-      status.value = await Status();
-    });
-    Events.On("optimize-result", ({ data }) => {
-      const result = data as NodeOptimizeResult;
-      optimizeResult.value[result.tag] = result;
-    });
-    Events.On("optimize-results", ({ data }) => {
-      const results = data[0];
-      Object.entries(results).forEach(([key, value]) => {
-        optimizeResult.value[key] = value as NodeOptimizeResult;
-      });
     });
   });
 
@@ -338,7 +337,7 @@ export const useStore = defineStore("index", () => {
   };
   const deleteNode = (id: string) => {
     delete nodes.value[id];
-    delete optimizeResult.value[id];
+    delete routes.value[id];
   };
   const findTitleByRuleTag = (rule_tag: string): Title | undefined => {
     const profileEntry = profiles.value.find(
@@ -352,7 +351,7 @@ export const useStore = defineStore("index", () => {
   };
   const check = async () => {
     serviceReady.value = await IsRunning();
-    ndisRunning.value = await IsNDISRunning();
+    ndisRunning.value = await IsProxyRunning();
     status.value = await Status();
   };
   const connect = async () => {
@@ -366,8 +365,8 @@ export const useStore = defineStore("index", () => {
     try {
       const { user, isAuthenticated } = useSanctumAuth<DataResponse>();
       if (!isAuthenticated) {
-        console.log(user, isAuthenticated)
-        return
+        console.log(user, isAuthenticated);
+        return;
       }
       const { endpoints, log_level, dns_servers } = user.value;
       const accessToken = (await getToken("lz.access_token")) ?? "";
@@ -379,7 +378,7 @@ export const useStore = defineStore("index", () => {
     } catch (e) {
       error.value = true;
       statusMessage.value = e.message;
-  
+
       console.error(e);
       throw e;
     } finally {
@@ -397,7 +396,7 @@ export const useStore = defineStore("index", () => {
     }
 
     try {
-      await StopService();
+      await Disconnect();
       statusMessage.value = locale.t("$vuetify.service.disconnected");
     } catch (e) {
       error.value = true;
@@ -410,25 +409,25 @@ export const useStore = defineStore("index", () => {
 
   // NDIS
   const checkNDIS = async () => {
-    ndisRunning.value = await IsNDISRunning();
+    ndisRunning.value = await IsProxyRunning();
   };
-  const startNDIS = async () => {
-    const isRunning = await IsNDISRunning();
-    if (isRunning) await StopNDIS();
+  const startProxy = async () => {
+    const isRunning = await IsProxyRunning();
+    if (isRunning) await StopProxy();
 
-    await StartNDIS();
-    ndisRunning.value = await IsNDISRunning();
+    await StartProxy();
+    ndisRunning.value = await IsProxyRunning();
   };
-  const stopNDIS = async () => {
-    await StopNDIS();
-    ndisRunning.value = await IsNDISRunning();
+  const stopProxy = async () => {
+    await StopProxy();
+    ndisRunning.value = await IsProxyRunning();
   };
   const toggleNDIS = async () => {
-    ndisRunning.value = await IsNDISRunning();
+    ndisRunning.value = await IsProxyRunning();
     if (ndisRunning.value) {
-      await stopNDIS();
+      await stopProxy();
     } else {
-      await startNDIS();
+      await startProxy();
     }
   };
 
@@ -437,7 +436,7 @@ export const useStore = defineStore("index", () => {
     await StartOptimizing();
   };
   const updateEcho = async () => {
-    optimizeResult.value = await GetOptimizeResults();
+    routes.value = await GetRoutes();
   };
   const pingNode = async (tag: string) => {
     const result = await TestSpecificNode(tag);
@@ -468,7 +467,7 @@ export const useStore = defineStore("index", () => {
     nodes,
     titleStates,
     profileStates,
-    echo: optimizeResult,
+    routes,
 
     // Getters
     isReady,
@@ -502,12 +501,12 @@ export const useStore = defineStore("index", () => {
     deleteNode,
     findTitleByRuleTag,
     findProfileByRuleTag,
-    checkService: check,
+    check,
     connect,
     disconnect,
     checkNDIS,
-    startNDIS,
-    stopNDIS,
+    startProxy,
+    stopProxy,
     toggleNDIS,
     optimize,
     updateEcho,

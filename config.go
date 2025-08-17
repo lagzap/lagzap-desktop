@@ -32,7 +32,6 @@ func (c *Service) generateConfig() option.Options {
 		},
 		Lagzap: &option.LagzapOptions{
 			EnableNdis: goos.IsWindows == 1,
-			Optimizer:  true,
 			Service:    true,
 		},
 		DNS: &option.DNSOptions{
@@ -113,6 +112,18 @@ func (c *Service) generateConfig() option.Options {
 					},
 				},
 			},
+			// {
+			// 	Type: C.TypeTun,
+			// 	Tag:  "tun",
+			// 	Options: &option.TunInboundOptions{
+			// 		InterfaceName: "LagZap Share",
+			// 		Stack: "gvisor",
+			// 		Address: []netip.Prefix{netip.MustParsePrefix("192.168.4.0/24")},
+			// 		MTU: 1500,
+			// 		AutoRoute: false,
+			// 		StrictRoute: false,
+			// 	},
+			// },
 		},
 		Outbounds: []option.Outbound{
 			{

@@ -5,10 +5,10 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook("sanctum:logout", async () => {
     const store = useStore();
     if (store.ndisRunning) {
-      await store.stopNDIS();
+      await store.stopProxy();
     }
     if (store.serviceReady) {
-      await store.disconnect();
+      // await store.disconnect();
     }
   });
   nuxtApp.hook("sanctum:refresh", async () => {

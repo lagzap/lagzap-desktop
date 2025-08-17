@@ -24,7 +24,7 @@ const [entry, entryAttrs] = defineField("entry", vuetifyConfig);
 
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const data = await requestFetch<CheckResponse>("/check", {
+    const data = await requestFetch<CheckResponse>("http://localhost:963/check", {
       method: "POST",
       body: values
     })

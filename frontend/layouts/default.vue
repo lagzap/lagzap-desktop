@@ -38,15 +38,15 @@ const store = useStore();
         <template v-slot:append>
           <v-scale-transition leave-absolute>
             <v-progress-circular
-              v-if="store.optimizeProgress.progress_percentage <= 100"
+              v-if="store.optimizeProgress.progress <= 100"
               color="primary"
               size="24"
               width="2"
               class="ms-3"
-              :model-value="store.optimizeProgress.progress_percentage"
+              :model-value="store.optimizeProgress.progress"
             />
             <v-icon
-              v-else-if="store.optimizeProgress.progress_percentage === 100"
+              v-else-if="store.optimizeProgress.progress === 100"
               color="green"
             >
               mdi-check-circle
