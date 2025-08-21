@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Container from "~/components/layout/Container.vue";
 import { useLocale } from "vuetify";
+import { GetTitles } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 const locale = useLocale();
 const { t } = locale

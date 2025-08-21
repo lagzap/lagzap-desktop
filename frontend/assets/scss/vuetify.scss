@@ -53,8 +53,11 @@
   }
 }
 
+button,
+.draggable-none,
 .v-input,
 .v-btn,
+.v-avatar,
 .v-card {
   --wails-draggable: none !important;
 }
@@ -81,4 +84,12 @@
 
 .v-application.v-locale--is-rtl .v-btn__content {
   letter-spacing: normal !important;
+}
+
+.v-number-input__control {
+  .v-btn--disabled.v-btn--variant-elevated, .v-btn--disabled.v-btn--variant-flat {
+    .v-btn__overlay {
+      background: transparent !important;
+    }
+  }
 }

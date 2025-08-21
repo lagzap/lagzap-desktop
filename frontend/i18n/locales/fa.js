@@ -26,7 +26,10 @@ export default {
         cannot_register_phone_number: 'امکان ثبت نام با این شماره همراه وجود ندارد!',
         cannot_register_email: 'امکان ثبت نام با این ایمیل وجود ندارد!',
         register_successful: 'شما با موفقیت ثبت نام شدید!',
-        rate_limit_exceeded: 'به دلیل درخواست‌های زیاد موقتاً مسدود شده‌اید.'
+        rate_limit_exceeded: 'به دلیل درخواست‌های زیاد موقتاً مسدود شده‌اید.',
+        email_otp_sent: 'یک ایمیل با کد یکبار مصرف به آدرس ایمیل شما ارسال شده است.',
+        phone_otp_sent: 'یک پیامک با کد یکبار مصرف به شماره همراه شما ارسال شده است.',
+        register_successful: 'شما با موفقیت ثبت نام شدید!',
     },
     navigation: {
         overview: 'نمایه کلی',
@@ -47,9 +50,15 @@ export default {
         email: 'ایمیل',
         nameHint: 'نام مستعار، تگ گیمر یا نام کامل شما',
         phoneHint: 'می‌توانید شماره همراه خود را برای ورود به LagZap وارد نمایید',
-        emailHint: 'برای دریافت بروزرسانی‌ها یا ورود به LagZap استفاده خواهد شد'
+        emailHint: 'برای دریافت بروزرسانی‌ها یا ورود به LagZap استفاده خواهد شد',
+        title: 'پروفایل',
+        logout: 'خروج',
+        deleteAccount: 'حذف حساب کاربری',
+        deleteAccountConfirmation: 'آیا مطمئن هستید که می‌خواهید حساب کاربری خود را حذف کنید؟ این عمل غیرقابل بازگشت است.',
+        deletePermanent: 'حذف دائمی',
     },
     settings: {
+        title: 'تنظیمات',
         generalSettings: 'تنظیمات عمومی',
         networkAdapter: 'آداپتور شبکه',
         language: 'زبان',
@@ -58,7 +67,27 @@ export default {
         lightTheme: 'روشن',
         darkTheme: 'تیره',
         interfaces: 'رابط‌ها',
-        interfacesHint: 'رابطی که LagZap برای هدایت ترافیک استفاده می‌کند'
+        interfacesHint: 'رابطی که LagZap برای هدایت ترافیک استفاده می‌کند',
+        leaveInterfaceEmptyAutomatic: 'انتخاب خودکار ({0})',
+        multiInternet: 'چند اینترنتی',
+        multiInternetHint: 'شما همچنین می‌توانید این مورد را برای هر برنامه به‌طور جداگانه مشخص کنید',
+        networkAdapterDescription: 'آداپتور شبکه‌ای که LagZap برای اتصال به اینترنت استفاده می‌کند',
+        multiInternetDescription: 'تنظیمات چند اینترنتی به شما این امکان را می‌دهد که از چندین اینترنت به‌طور همزمان برای بازی‌های پشتیبانی‌شده استفاده کنید',
+        route: {
+            routeSettings: 'تنظیمات مسیریابی',
+            accuracy: {
+                label: 'دقت',
+                veryLow: 'بسیار کم',
+                low: 'کم',
+                medium: 'متوسط',
+                high: 'زیاد',
+            },
+            routeOptimizationAccuracy: 'چقدر تجزیه و تحلیل شبکه و اینترنت باید عمیق باشد',
+            optimizeProtocol: 'روش بهینه‌سازی مسیریابی',
+            networkProtocol: 'پروتکل شبکه',
+            ipVersion: 'نسخه آی‌پی',
+            realTimeOptimization: 'بهینه‌سازی به صورت خودکار در پس زمینه انجام شود'
+        }
     },
     server: {
         selectServer: 'انتخاب سرور',
@@ -143,7 +172,7 @@ export default {
         driverMustBeInstalled: 'درایور LagZap باید برای عملکرد صحیح برنامه نصب شود. لطفاً درایور را نصب کنید.',
         couldNotStartService: 'امکان شروع سرویس وجود ندارد!',
         disconnecting: 'قطع اتصال',
-        serviceStopped: 'سرویس متوقف شد',
+        disconnected: 'سرویس متوقف شد',
         connectionFailed: 'اتصال و راه اندازی سرویس ناموفق بود!'
     },
     startService: {
@@ -188,8 +217,6 @@ export default {
                 global: 'جهانی',
                 automaticServerSelectionEnabled: 'انتخاب خودکار سرور فعال است',
                 routingSystemDescription: 'سیستم مسیریابی LagZap به طور کارآمد داده‌های شما را از طریق پایدارترین اتصال به بهترین سرور ممکن بر اساس موقعیت مکانی و کمترین تأخیر مسیریابی می‌کند.',
-                connections: 'اتصالات',
-                connectionsSubtitle: 'تعداد اتصالات فعال: {0}'
             },
         },
         active: 'فعال',
@@ -197,21 +224,17 @@ export default {
         serviceStopped: 'سرویس در اجرا نیست'
     },
     connections: {
+        connectionsSubtitle: 'اتصالات فعال: {0}',
         connections: 'اتصالات',
+        profile: 'پروفایل',
         title: 'عنوان',
+        host:' هاست',
         network: 'شبکه',
         gameServer: 'سرور بازی',
         lagzapServer: 'سرور LagZap',
         latency: 'تاخیر',
         upload: 'بارگذاری',
         download: 'دانلود',
-    },
-    profile: {
-        title: 'پروفایل',
-        logout: 'خروج',
-        deleteAccount: 'حذف حساب کاربری',
-        deleteAccountConfirmation: 'آیا مطمئن هستید که می‌خواهید حساب کاربری خود را حذف کنید؟ این عمل غیرقابل بازگشت است.',
-        deletePermanent: 'حذف دائمی',
     },
     ms: 'م.ث',
 }

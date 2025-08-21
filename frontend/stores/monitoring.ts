@@ -1,14 +1,13 @@
 import { Events } from "@wailsio/runtime";
 import type { Log, Connection } from "~/types/monitoring";
 
-const MAX_LOGS = 200;
+const MAX_LOGS = 100;
 
 let connectionsStore: ReturnType<typeof createMonitoringStore> | null = null;
 
 function createMonitoringStore() {
   let logs: Ref<Log[]> = ref([]);
   let connections: Ref<Connection[]> = ref([]);
-  let closedConnections: Ref<Connection[]> = ref([]);
   Events.On("log", ({ data }: any) => {
     if (data && Array.isArray(data)) {
       logs.value.unshift(data[0] as Log);
@@ -22,15 +21,9 @@ function createMonitoringStore() {
       connections.value = data[0] as Connection[];
     }
   });
-  Events.On("closed-connections", ({ data }: any) => {
-    if (data && Array.isArray(data)) {
-      closedConnections.value = data[0] as Connection[];
-    }
-  });
   return {
     logs: computed(() => logs.value),
     connections: computed(() => connections.value),
-    closedConnections: computed(() => closedConnections.value),
   };
 }
 

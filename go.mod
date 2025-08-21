@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/lagzap/lagzap v0.1.0-beta.8
-	github.com/lagzap/zap v0.1.0-beta.2
+	github.com/lagzap/zap v0.1.0-beta.5
 	github.com/wailsapp/wails/v3 v3.0.0-00010101000000-000000000000
 	golang.org/x/sys v0.33.0
 	google.golang.org/protobuf v1.36.6
@@ -43,7 +43,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/lagzap/echo v1.0.1 // indirect
 	github.com/lagzap/geoip v0.0.0-20250812104557-419c62ae9c1c // indirect
-	github.com/lagzap/lagzap-tun v0.1.0-beta // indirect
+	github.com/lagzap/lagzap-tun v0.1.0-beta.2 // indirect
 	github.com/lagzap/lagzaprd v1.0.0 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
 	github.com/leaanthony/u v1.1.1 // indirect

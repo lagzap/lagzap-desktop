@@ -37,6 +37,7 @@ onMounted(async () => {
 
 async function start () {
   try {
+    store.error = false;
     store.loading = true;
     store.statusMessage = t("$vuetify.startService.loggingIntoOnlineService");
     if (!isAuthenticated.value) {
@@ -44,6 +45,7 @@ async function start () {
     }
   } catch (e) {
     console.error(e);
+    store.error = true;
     errorName.value = e.name;
     if (store.isReady) {
       store.stopProxy();
@@ -103,24 +105,24 @@ async function initApp() {
       <v-card-subtitle v-if="store.serviceReady && store.error && errorName != 'FetchError'" class="text-error">
         {{ t('$vuetify.status.coordinationFailed') }}
       </v-card-subtitle>
-      <v-card-subtitle v-else-if="!store.isReady && store.error" class="text-error">
+      <v-card-subtitle v-else-if="store.error && !isAuthenticated" class="text-error">
         {{ t('$vuetify.status.connectionFailed') }}
       </v-card-subtitle>
-
-      <v-card-text
+      <v-card-subtitle
+        v-else
         class="text-center"
         :class="{
           'text-danger': store.error,
-          'text-success': !store.error && store.isReady,
+          'text-success': !store.error && isAuthenticated,
         }"
       >
         {{ store.statusMessage }}
-      </v-card-text>
+      </v-card-subtitle>
     </div>
 
     <template #actions>
       <v-btn
-        v-if="!store.isReady && store.error && isAuthenticated"
+        v-if="store.error && isAuthenticated"
         color="warning"
         density="comfortable"
         size="large"
@@ -130,7 +132,7 @@ async function initApp() {
       </v-btn>
       <v-spacer />
       <v-btn
-        v-if="!store.isReady && store.error"
+        v-if="store.error"
         color="info"
         density="comfortable"
         size="large"

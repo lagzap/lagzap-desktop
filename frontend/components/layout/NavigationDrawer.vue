@@ -72,7 +72,7 @@ onActivated(async () => {
           rounded="xl"
         >
           <template #prepend>
-            <v-avatar :variant="store.status == ConnectionStatus.StatusReconnecting ? 'text' : 'tonal'">
+            <v-avatar :variant="(user.name || user.email)?.length ? (store.status == ConnectionStatus.StatusReconnecting ? 'text' : 'tonal') : 'text'">
               <v-progress-circular v-if="store.status == ConnectionStatus.StatusReconnecting" indeterminate />
               <span v-else-if="(user.name || user.email)?.length" class="text-xl text-uppercase">{{
                 (user.name || user.email)[0]

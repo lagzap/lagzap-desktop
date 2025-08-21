@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/lagzap/lagzap"
+	"github.com/lagzap/lagzap-desktop/constant"
 	"github.com/lagzap/lagzap/adapter"
-	"github.com/lagzap/lagzap/coordinator"
-	"github.com/lagzap/lagzap/coordinator/monitoring"
+	"github.com/lagzap/lagzap/common/device"
+	C "github.com/lagzap/lagzap/constant"
 	"github.com/lagzap/lagzap/include"
 	"github.com/lagzap/lagzap/log"
 	"github.com/lagzap/zap/common/control"
@@ -29,7 +30,6 @@ type Service struct {
 	systray     *application.SystemTray
 	lagzap      *lagzap.LagZap
 	coordinator adapter.Coordinator
-	monitoring  *monitoring.Manager
 	logFactory  log.ObservableFactory
 	proxyServer *http.Server
 }
@@ -68,9 +68,6 @@ func (s *Service) ReloadService() error {
 	s.coordinator.Listen(func(event string, data any) {
 		s.app.Event.Emit(event, data)
 	})
-	if coordinator, ok := s.coordinator.(*coordinator.Coordinator); ok {
-		s.monitoring = coordinator.TrafficManager()
-	}
 	s.lagzap = instance
 	s.app.Event.Emit("service-started")
 	go s.startProxy("https://dev.lagzap-network.ir")
@@ -136,7 +133,7 @@ func (s *Service) SetSystray(systray *application.SystemTray) {
 	s.systray = systray
 }
 
-// startProxy launches an HTTP reverse proxy on localhost:963 to for the frontend API
+// startProxy launches an HTTP reverse proxy on 127.0.0.100:9639 to for the frontend API
 func (s *Service) startProxy(target string) {
 	// Restart if already running
 	if s.proxyServer != nil {
@@ -163,25 +160,30 @@ func (s *Service) startProxy(target string) {
 			r.Header.Set("Origin", u.Scheme+"://"+u.Host)
 		}
 		if ref := r.Header.Get("Referer"); ref != "" {
-			if strings.HasPrefix(ref, "http://localhost:963") || strings.HasPrefix(ref, "http://127.0.0.1:963") {
+			if strings.HasPrefix(ref, "http://127.0.0.100:9639") {
 				r.Header.Set("Referer", u.Scheme+"://"+u.Host)
 			}
 		}
-		if r.Header.Get("User-Agent") == "" {
-			r.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36")
-		}
+		r.Header.Set("User-Agent", constant.UserAgent)
 		r.Header.Del("Accept-Encoding")
-		r.Header.Set("X-Forwarded-Host", "localhost:963")
+		r.Header.Set("X-Forwarded-Host", "127.0.0.100:9639")
 		r.Header.Set("X-Forwarded-Proto", "http")
+		r.Header.Set("X-Version-Core", C.Version)
+		r.Header.Set("X-Version-Client", constant.Version)
+		r.Header.Set("X-Client-ID", device.DeviceHash())
 	}
 	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		http.Error(w, "Upstream error", http.StatusBadGateway)
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Wails-Window-ID") == "" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 		rp.ServeHTTP(w, r)
 	})
 	srv := &http.Server{
-		Addr:              "127.0.0.1:963",
+		Addr:              "127.0.0.100:9639",
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -190,7 +192,7 @@ func (s *Service) startProxy(target string) {
 		for {
 			err := srv.ListenAndServe()
 			if err == http.ErrServerClosed {
-				break
+				panic("local proxy server closed")
 			}
 			time.Sleep(500 * time.Millisecond)
 			if s.proxyServer == nil {

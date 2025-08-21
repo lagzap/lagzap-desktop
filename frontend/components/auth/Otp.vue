@@ -7,8 +7,6 @@ import { useLocale } from "vuetify";
 
 const locale = useLocale();
 const { t } = locale
-const runtimeConfig = useRuntimeConfig()
-const requestFetch = useRequestFetch()
 const { login } = useSanctumAuth()
 const emit = defineEmits(['back'])
 
@@ -63,7 +61,8 @@ async function requestOTP() {
   if (cooldown.value > 0) return // Prevent multiple requests during cooldown
   
   try {
-    const data = await requestFetch<OtpResponse>("http://localhost:963/otp", {
+    console.log('asd', props, otpID)
+    const { data } = await useSanctumFetch<OtpResponse>("/otp", {
       method: "POST",
       body: {
         ...props,
@@ -71,10 +70,10 @@ async function requestOTP() {
       }
     })
 
-    otpID =  data?.otpID
+    otpID =  data?.value?.otpID
 
     startCooldown()
-    displayAlert(data.message, "info", 1000)
+    displayAlert(data?.value?.message, "info", 1000)
   } catch (e) {
     displayError(e)
   }
@@ -141,8 +140,9 @@ onMounted(() => {
         <div class="text-caption">
           {{ t('$vuetify.auth.register.codeNotReceived') }}
           <v-btn
-            variant="tonal"
             size="small"
+            variant="tonal"
+            color="accent"
             :disabled="cooldown > 0"
             @click="requestOTP"
           >

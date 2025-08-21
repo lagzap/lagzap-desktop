@@ -4,19 +4,13 @@ import Container from "~/components/layout/Container.vue";
 import CountryFlag from "vue-country-flag-next";
 import { useLocale, type DataTableHeader } from "vuetify";
 
-const { t } = useLocale()
-const { connections, closedConnections } = useMonitoringStore();
-const items = computed(() =>
-  (showClosed.value
-    ? (closedConnections.value?.sort((a, b) => (a.start > b.start ? -1 : 1)) ??
-      [])
-    : connections.value?.sort((a, b) => (a.start > b.start ? -1 : 1)) ?? []
-  )
+const { t } = useLocale();
+const { connections } = useMonitoringStore();
+const items = computed(
+  () => connections.value?.sort((a, b) => (a.start > b.start ? -1 : 1)) ?? []
 );
 
 const search = ref<string>("");
-const showClosed = ref<boolean>(false);
-const hidden = ref<string[]>([]);
 const headers = computed<DataTableHeader[]>(() => {
   return [
     {
@@ -25,7 +19,6 @@ const headers = computed<DataTableHeader[]>(() => {
       align: "start" as const,
       nowrap: true,
       width: "auto",
-      minWidth: "250px"
     },
     {
       title: "Network",
@@ -75,7 +68,7 @@ const headers = computed<DataTableHeader[]>(() => {
       nowrap: true,
       width: "0%",
     },
-  ]
+  ];
 });
 </script>
 
@@ -83,7 +76,9 @@ const headers = computed<DataTableHeader[]>(() => {
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title class="text-subtitle-1">{{ t('$vuetify.navigation.connections') }}</v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">{{
+          t("$vuetify.navigation.connections")
+        }}</v-app-bar-title>
       </template>
       <v-toolbar class="bg-transparent px-3">
         <v-text-field
@@ -97,35 +92,6 @@ const headers = computed<DataTableHeader[]>(() => {
           single-line
           style="width: 200px"
         />
-        <v-spacer />
-        <v-dialog max-width="500">
-          <template v-slot:activator="{ props: activatorProps }">
-            <v-btn
-              v-bind="activatorProps"
-              color="surface-variant"
-              text="Hidden"
-              variant="flat"
-            />
-          </template>
-
-          <template v-slot:default="{ isActive }">
-            <v-card :title="t('$vuetify.network.hiddenProcesses')">
-              <v-list>
-                <v-list-item
-                  v-for="(processName, i) in hidden"
-                  :key="i"
-                  :title="processName"
-                  @click="hidden = hidden.filter((h) => h != processName); isActive.value = false"
-                />
-              </v-list>
-            </v-card>
-          </template>
-        </v-dialog>
-        <v-switch
-          v-model:model-value="showClosed"
-          :label="t('$vuetify.common.closed')"
-          hide-details
-        />
       </v-toolbar>
       <v-data-table-virtual
         :search
@@ -135,6 +101,7 @@ const headers = computed<DataTableHeader[]>(() => {
         multi-sort
         fixed-header
         hide-default-footer
+        :height="$vuetify.display.height - 120"
         class="bg-transparent"
       >
         <template v-slot:item.process="{ item }">
@@ -147,8 +114,10 @@ const headers = computed<DataTableHeader[]>(() => {
           </v-tooltip>
         </template>
         <template v-slot:item.network="{ item }">
-          <span v-if="item.network == 'tcp'" class="text-green">{{ t('$vuetify.network.tcp') }}</span>
-          <span v-else class="text-blue">{{ t('$vuetify.network.udp') }}</span>
+          <span v-if="item.network == 'tcp'" class="text-green">{{
+            t("$vuetify.network.tcp")
+          }}</span>
+          <span v-else class="text-blue">{{ t("$vuetify.network.udp") }}</span>
         </template>
         <template v-slot:item.source="{ item }">
           <span>{{ item.source_ip }}:{{ item.source_port }}</span>
@@ -160,17 +129,25 @@ const headers = computed<DataTableHeader[]>(() => {
               :country="item.country_code"
               size="small"
             />
-            <span class="ms-1">{{ item.destination_ip }}:{{ item.destination_port }}</span>
+            <span class="ms-1"
+              >{{ item.destination_ip }}:{{ item.destination_port }}</span
+            >
           </div>
         </template>
         <template v-slot:item.download_speed="{ item }">
           <div class="d-flex align-center flex-nowrap">
-            <span>{{ useHumanSpeed((item.upload_speed || 0) + (item.download_speed || 0)) }}</span>
+            <span>{{
+              useHumanSpeed(
+                (item.upload_speed || 0) + (item.download_speed || 0)
+              )
+            }}</span>
           </div>
         </template>
         <template v-slot:item.download="{ item }">
           <div class="d-flex align-center flex-nowrap">
-            <span>{{ useHumanSize((item.upload || 0) + (item.download || 0)) }}</span>
+            <span>{{
+              useHumanSize((item.upload || 0) + (item.download || 0))
+            }}</span>
           </div>
         </template>
         <template v-slot:item.start="{ item }">

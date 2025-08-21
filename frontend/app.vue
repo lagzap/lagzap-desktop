@@ -115,5 +115,5 @@ async function close() {
     </v-btn>
   </div>
 
-  <v-snackbar-queue v-model="messages.queue" />
+  <v-snackbar-queue v-model="messages.queue" :timeout="1000" />
 </template>

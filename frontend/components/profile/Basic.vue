@@ -30,7 +30,7 @@ email.value = user.value?.email ?? ''
 
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const data = await requestFetch<ProfileResponse>("http://localhost:963/profile/basic", {
+    const data = await requestFetch<ProfileResponse>("http://127.0.0.100:9639/profile/basic", {
       method: "POST",
       body: {
         ...values,
@@ -50,7 +50,7 @@ const onSubmit = handleSubmit(async (values) => {
       :title="t('$vuetify.profile.basicInformation')"
       class="mt-3 bg-transparent"
       flat
-      max-width="400"
+      max-width="500"
     >
       <v-card-text class="pb-0 pt-3">
         <v-text-field

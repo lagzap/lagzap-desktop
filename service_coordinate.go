@@ -87,10 +87,6 @@ func (s *Service) FetchData() error {
 	if err != nil {
 		return err
 	}
-	err = s.coordinator.RequestRules()
-	if err != nil {
-		return err
-	}
 	err = s.coordinator.RequestRoutes()
 	if err != nil {
 		return err

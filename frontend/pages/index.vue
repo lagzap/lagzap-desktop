@@ -15,9 +15,7 @@ const store = useStore()
 
       <v-card-text>
         Overview
-        <pre>
-          {{ store.routes }}
-        </pre>
+        <pre>{{ store.routes }}</pre>
       </v-card-text>
     </Container>
   </div>

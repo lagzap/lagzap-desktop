@@ -1,6 +1,7 @@
 export const useMessagesStore = defineStore("messages", () => {
   const queue = ref([]);
   function add(message) {
+    queue.value = []
     queue.value.push(message);
   }
 

@@ -1,3 +1,5 @@
+import type { RelayRoute } from "~/bindings/github.com/lagzap/lagzap/adapter";
+
 export interface Log {
   time: any;
   type: string;
@@ -23,7 +25,7 @@ export interface Connection {
   destination_port: string;
   country_code: string;
   host: string;
-  process: ProcessInfo;
+  process: string;
   upload: number;
   download: number;
   upload_speed: number;
@@ -33,7 +35,7 @@ export interface Connection {
   title_id: string | null;
   profile_id: string | null;
   node_id: string | null;
-  node_optimize: NodeOptimizeResult | null;
+  relay_route: RelayRoute | null;
 }
 
 export interface NodeLatency {
@@ -49,7 +51,7 @@ export enum HopStatus {
   UNKNOWN = 0,
   SUCCESS = 1,
   TIMEOUT = 2,
-  ERROR = 3
+  ERROR = 3,
 }
 
 export interface Hop {
@@ -83,7 +85,7 @@ export interface HopMetric {
 export enum TestType {
   PING = 0,
   HTTP = 1,
-  TRACEROUTE = 2
+  TRACEROUTE = 2,
 }
 
 export interface NodeOptimizeResult {

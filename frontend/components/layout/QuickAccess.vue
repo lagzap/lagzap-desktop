@@ -19,7 +19,7 @@ const recentTitles = computed(() => store.getRecentTitles);
       lines="one"
     >
       <template #prepend>
-        <v-avatar :size="32" :image="title.icon_url" />
+        <v-avatar :size="32" :image="title.icon_url" class="rounded-lg" />
       </template>
 
       <template #append>

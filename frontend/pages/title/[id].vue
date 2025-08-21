@@ -33,9 +33,11 @@ onMounted(() => {
         <v-btn
           v-if="
             [
+              'title-id-connections',
               'title-id-profile-profile',
               'title-id-profile-profile-server',
               'title-id-profile-profile-connections',
+              'title-id-profile-profile-geofence',
             ].includes(route.name as string)
           "
           :icon="locale.isRtl.value ? 'mdi-arrow-right' : 'mdi-arrow-left'"
@@ -52,9 +54,6 @@ onMounted(() => {
           <v-img :src="title?.icon_url" />
         </v-avatar>
         <v-app-bar-title
-          :style="{
-            cursor: route.name != 'title-id' ? 'pointer' : 'default',
-          }"
           class="text-subtitle-1"
           @click="
             router.push(
@@ -67,11 +66,11 @@ onMounted(() => {
             )
           "
         >
-          {{
+          <span>{{
             profile
               ? store.localized(profile.name)
               : store.localized(title?.name)
-          }}
+          }}</span>
         </v-app-bar-title>
       </template>
 

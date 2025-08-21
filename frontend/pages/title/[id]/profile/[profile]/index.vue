@@ -9,11 +9,15 @@ const { t } = locale;
 const store = useStore();
 const route = useRoute();
 
+const { connections } = useMonitoringStore();
 const title = computed(() =>
   store.titles.find((t) => t.id === (route.params.id as string))
 );
 const profile = computed(() =>
   store.profiles.find((p) => p.id === (route.params.profile as string))
+);
+const activeConnections = computed(
+  () => connections.value?.filter((c) => c.profile_id == profile.value.id) ?? []
 );
 
 const [defaultInterface, interfaces] = await GetInterfaces();
@@ -38,68 +42,55 @@ onMounted(() => {
       t("$vuetify.title.profile.routeDescription")
     }}</v-card-subtitle>
     <v-card-text>
-      <v-row no-gutters class="mb-5">
-        <v-col
+      <v-row dense class="mb-5">
+        <template
           v-if="
-            (profile.flags & ProfileFlag.GAME) !== 0 &&
+            (profile.flags & ProfileFlag.MULTIPATH) !== 0 &&
             profile.route_action == 'route'
           "
-          cols="12"
-          md="6"
-          class="pe-1"
         >
-          <div class="text-caption ms-1 mb-1">
-            {{ t("$vuetify.title.profile.tcpRoutes") }}
-          </div>
-          <v-number-input
-            v-model:model-value="
-              store.profileStates[profile.id].tcp_connections
-            "
-            :reverse="false"
-            control-variant="hidden"
-            :hideInput="false"
-            variant="solo-filled"
-            :min="1"
-            :max="1"
-            :disabled="!store.connected"
-            @update:model-value="() => store.saveActionProfile(profile.id)"
-          />
-        </v-col>
+          <v-col v-if="false" cols="auto">
+            <v-number-input
+              v-model:model-value="
+                store.profileStates[profile.id].tcp_connections
+              "
+              :label="t('$vuetify.title.profile.tcpRoutes')"
+              variant="outlined"
+              control-variant="split"
+              min-width="175"
+              max-width="175"
+              inset
+              :min="1"
+              :max="1"
+              :disabled="!store.connected"
+              @update:model-value="() => store.saveActionProfile(profile.id)"
+            />
+          </v-col>
+          <v-col cols="auto">
+            <v-number-input
+              v-model:model-value="
+                store.profileStates[profile.id].udp_connections
+              "
+              :label="t('$vuetify.title.profile.udpRoutes')"
+              variant="outlined"
+              control-variant="split"
+              min-width="175"
+              max-width="175"
+              inset
+              :min="1"
+              :max="4"
+              :disabled="!store.connected"
+              :loading="store.loadingProfileStates.includes(profile.id)"
+              @update:model-value="() => store.saveActionProfile(profile.id)"
+            />
+          </v-col>
+        </template>
         <v-col
           v-if="
-            ((profile.flags & ProfileFlag.GAME) !== 0 ||
-              (profile.flags & ProfileFlag.COMMUNICATION) !== 0) &&
+            (profile.flags & ProfileFlag.GAME_PACKET) !== 0 &&
             profile.route_action == 'route'
           "
-          cols="12"
-          md="6"
-          class="ps-1"
-        >
-          <div class="text-caption ms-1 mb-1">
-            {{ t("$vuetify.title.profile.udpRoutes") }}
-          </div>
-          <v-number-input
-            v-model:model-value="
-              store.profileStates[profile.id].udp_connections
-            "
-            :reverse="false"
-            control-variant="stacked"
-            :hideInput="false"
-            variant="solo-filled"
-            :min="1"
-            :max="4"
-            :disabled="!store.connected"
-            :loading="store.loadingProfileStates.includes(profile.id)"
-            @update:model-value="() => store.saveActionProfile(profile.id)"
-          />
-        </v-col>
-        <v-col
-          v-if="
-            ((profile.flags & ProfileFlag.GAME) !== 0 ||
-              (profile.flags & ProfileFlag.COMMUNICATION) !== 0) &&
-            profile.route_action == 'route'
-          "
-          cols="12"
+          cols
         >
           <v-select
             v-model:model-value="
@@ -122,17 +113,18 @@ onMounted(() => {
             "
             item-value="Name"
             item-title="Name"
-            variant="solo-filled"
+            variant="outlined"
             multiple
+            min-width="175"
             :disabled="!store.connected"
             :loading="store.loadingProfileStates.includes(profile.id)"
             @update:model-value="() => store.saveActionProfile(profile.id)"
           />
         </v-col>
-        <v-col v-else-if="profile.route_action != 'block'" cols="12">
+        <v-col v-else-if="profile.route_action != 'block'">
           <v-select
             v-model:model-value="
-              store.profileStates[profile.id].network_interfaces
+              store.profileStates[profile.id].default_interface
             "
             :label="t('$vuetify.title.profile.networkAdapter')"
             :hint="t('$vuetify.title.profile.networkAdaptersHint')"
@@ -151,13 +143,13 @@ onMounted(() => {
             "
             item-value="Name"
             item-title="Name"
-            variant="solo-filled"
+            variant="outlined"
             :disabled="!store.connected"
             :loading="store.loadingProfileStates.includes(profile.id)"
             @update:model-value="() => store.saveActionProfile(profile.id)"
           />
         </v-col>
-        <v-col v-if="profile.route_action == 'route'" cols="12">
+        <v-col v-if="profile.route_action == 'route' && false" cols="12">
           <v-checkbox
             v-model:model-value="
               store.profileStates[profile.id].allow_local_routes
@@ -194,8 +186,12 @@ onMounted(() => {
       </v-card>
       <v-card
         prepend-icon="mdi-network-outline"
-        :title="t('$vuetify.title.profile.server.connections')"
-        :subtitle="t('$vuetify.title.profile.server.connectionsSubtitle', [0])"
+        :title="t('$vuetify.connections.connections')"
+        :subtitle="
+          t('$vuetify.connections.connectionsSubtitle', [
+            activeConnections.length,
+          ])
+        "
         class="mt-2"
         :append-icon="
           locale.isRtl.value ? 'mdi-chevron-left' : 'mdi-chevron-right'

@@ -26,7 +26,10 @@ export default {
         cannot_register_phone_number: 'Could not register with this phone number!',
         cannot_register_email: 'Could not register with this email!',
         register_successful: 'You have been registered successfully!',
-        rate_limit_exceeded: 'You have been banned temporarily due to many requests.'
+        rate_limit_exceeded: 'You have been banned temporarily due to many requests.',
+        email_otp_sent: 'An email with OTP has been sent to your email address.',
+        phone_otp_sent: 'An SMS with OTP has been sent to your phone number.',
+        register_successful: 'You have been registered successfully!',
     },
     navigation: {
         overview: 'Overview',
@@ -47,9 +50,15 @@ export default {
         email: 'Email',
         nameHint: 'Your nickname, gamer tag or your full name',
         phoneHint: 'You may enter your phone number to enter LagZap',
-        emailHint: 'Will be used to email updates or entering LagZap'
+        emailHint: 'Will be used to email updates or entering LagZap',
+        title: 'Profile',
+        logout: 'Logout',
+        deleteAccount: 'Delete Account',
+        deleteAccountConfirmation: 'Are you sure you want to delete your account? This action cannot be undone.',
+        deletePermanent: 'Delete Permanently',
     },
     settings: {
+        title: 'Settings',
         generalSettings: 'General Settings',
         networkAdapter: 'Network Adapter',
         language: 'Language',
@@ -58,7 +67,27 @@ export default {
         lightTheme: 'Light',
         darkTheme: 'Dark',
         interfaces: 'Interfaces',
-        interfacesHint: 'The interface that LagZap uses to route traffic through'
+        interfacesHint: 'The interface that LagZap uses to route traffic through',
+        leaveInterfaceEmptyAutomatic: 'Automatic selection ({0})',
+        multiInternet: 'Multi Internet',
+        multiInternetHint: 'You can also specify this for each application individually.',
+        networkAdapterDescription: 'The network adapter that LagZap uses to connect to the internet',
+        multiInternetDescription: 'The multi internet settings allow you to use multiple internet simultaneously for supported games.',
+        route: {
+            routeSettings: 'Route Options',
+            accuracy: {
+                label: 'Accuracy',
+                veryLow: 'Very Low',
+                low: 'Low',
+                medium: 'Medium',
+                high: 'High',
+            },
+            routeOptimizationAccuracy: 'How deep analysis should be performed',
+            optimizeProtocol: 'Route optimization protocol',
+            networkProtocol: 'Network Protocol',
+            ipVersion: 'IP Version',
+            realTimeOptimization: 'Real-time optimization'
+        }
     },
     status: {
         active: 'Active',
@@ -130,7 +159,7 @@ export default {
         driverMustBeInstalled: 'The LagZap driver must be installed for the application to function properly. Please install the driver.',
         couldNotStartService: 'Could not start the service!',
         disconnecting: 'Disconnecting...',
-        serviceStopped: 'Disconnected',
+        disconnected: 'Disconnected',
         connetionFailed: 'Service has failed to stop!'
     },
     startService: {
@@ -175,8 +204,6 @@ export default {
                 global: 'Global',
                 automaticServerSelectionEnabled: 'Automatic server selection enabled',
                 routingSystemDescription: 'LagZap routing system will efficiently routes your data through the most stable connection to the best possible server based on your location and lowest latency.',
-                connections: 'Connections',
-                connectionsSubtitle: 'Active connections count: {0}'
             },
         },
         active: 'فعال',
@@ -184,24 +211,17 @@ export default {
         serviceStopped: 'سرویس در اجرا نیست'
     },
     connections: {
+        connectionsSubtitle: 'Active connections: {0}',
         connections: 'Connections',
+        profile: 'Profile',
         title: 'Title',
+        host:' Host',
         network: 'Network',
         gameServer: 'Game Server',
         lagzapServer: 'LagZap Server',
         latency: 'Latency',
         upload: 'Upload',
         download: 'Download',
-    },
-    settings: {
-        title: 'Settings',
-    },
-    profile: {
-        title: 'Profile',
-        logout: 'Logout',
-        deleteAccount: 'Delete Account',
-        deleteAccountConfirmation: 'Are you sure you want to delete your account? This action cannot be undone.',
-        deletePermanent: 'Delete Permanently',
     },
     ms: 'ms',
 }

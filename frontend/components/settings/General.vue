@@ -27,7 +27,7 @@ const handleThemeChange = (theme: 'system' | 'light' | 'dark') => {
     :title="t('$vuetify.settings.generalSettings')"
     flat
     class="mt-3 bg-transparent"
-    max-width="400"
+    max-width="500"
   >
     <v-card-text class="pb-0 pt-3">
       <v-select

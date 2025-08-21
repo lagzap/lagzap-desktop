@@ -35,11 +35,7 @@ func (s *Service) startLogging() {
 }
 
 func (s *Service) startMonitoring() {
-	if s.monitoring == nil {
-		return
-	}
-	s.app.Event.Emit("connections", s.monitoring.Connections())
-	s.app.Event.Emit("closed-connections", s.monitoring.ClosedConnections())
+	s.app.Event.Emit("connections", s.coordinator.Connections())
 
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
@@ -51,8 +47,7 @@ func (s *Service) startMonitoring() {
 			if s.lagzap == nil {
 				return
 			}
-			s.app.Event.Emit("connections", s.monitoring.Connections())
-			s.app.Event.Emit("closed-connections", s.monitoring.ClosedConnections())
+			s.app.Event.Emit("connections", s.coordinator.Connections())
 		}
 	}
 }

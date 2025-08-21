@@ -18,41 +18,34 @@ const profile = computed(() =>
 );
 const headers = ref<DataTableHeader[]>([
   {
-    title: t('$vuetify.connections.network'),
+    title: t("$vuetify.connections.network"),
     key: "network",
     align: "start",
     sortable: false,
     nowrap: true,
   },
   {
-    title: t('$vuetify.connections.gameServer'),
+    title: t("$vuetify.connections.gameServer"),
     key: "server",
     align: "start",
     sortable: false,
     nowrap: true,
   },
   {
-    title: t('$vuetify.connections.lagzapServer'),
+    title: t("$vuetify.connections.lagzapServer"),
     key: "destination",
     sortable: false,
     nowrap: true,
   },
   {
-    title: t('$vuetify.connections.latency'),
+    title: t("$vuetify.connections.latency"),
     key: "latency",
     sortable: false,
     nowrap: true,
     minWidth: "100px",
   },
   {
-    title: t('$vuetify.connections.upload'),
-    key: "upload_speed",
-    sortable: false,
-    nowrap: true,
-    minWidth: "130px",
-  },
-  {
-    title: t('$vuetify.connections.download'),
+    title: t("$vuetify.connections.download"),
     key: "download_speed",
     sortable: true,
     nowrap: true,
@@ -86,6 +79,7 @@ onMounted(() => {
     :headers="headers"
     :items="connections?.filter((c) => c.profile_id == profile.id) ?? []"
     :sort-by="sortBy"
+    :height="$vuetify.display.height - 120"
     density="comfortable"
     mobile-breakpoint="xs"
     hide-default-footer
@@ -105,8 +99,8 @@ onMounted(() => {
     </template>
     <template #item.server="{ item }">
       <CountryFlag
-        v-if="store.nodes?.[item.node_id]?.country"
-        :country="store.nodes[item.node_id].country"
+        v-if="item.country_code"
+        :country="item.country_code"
         size="small"
       />
       {{ item.destination_ip }}
@@ -127,26 +121,26 @@ onMounted(() => {
       </div>
     </template>
     <template #item.upload_speed="{ item }">
-      <div class="d-flex align-center flex-nowrap">
-        <v-icon> mdi-arrow-up </v-icon>
-        <span>
-          {{ useHumanSpeed(item.upload_speed || 0) }}
-        </span>
-      </div>
+      <div class="d-flex align-center flex-nowrap"></div>
     </template>
     <template #item.download_speed="{ item }">
       <div class="d-flex align-center flex-nowrap">
-        <v-icon> mdi-arrow-down </v-icon>
-        <span>
+        <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
+        <span class="text-no-wrap me-2">
+          {{ useHumanSpeed(item.upload_speed || 0) }}
+        </span>
+        <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
+        <span class="text-no-wrap">
           {{ useHumanSpeed(item.download_speed || 0) }}
         </span>
       </div>
     </template>
     <template #item.latency="{ item }">
       <div class="d-flex align-center flex-nowrap">
-        <Signal :latency="item.node_optimize?.routes[0].min_latency" />
+        <Signal :latency="item.relay_route?.routes[0].min_latency" />
         <span class="text-green ms-1">
-          {{ item.node_optimize?.routes[0].min_latency ?? -1 }}{{ t('$vuetify.ms') }}
+          {{ item.relay_route?.routes[0].min_latency ?? -1
+          }}{{ t("$vuetify.ms") }}
         </span>
       </div>
     </template>

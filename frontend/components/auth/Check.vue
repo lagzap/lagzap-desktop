@@ -1,45 +1,42 @@
 <script lang="ts" setup>
 import { ref } from "vue";
 import { useForm } from "vee-validate";
-import { object, string } from 'zod';
-import { toTypedSchema } from '@vee-validate/zod';
+import { object, string } from "zod";
+import { toTypedSchema } from "@vee-validate/zod";
 import { useLocale } from "vuetify";
 
 const locale = useLocale();
 const { t } = locale;
-const runtimeConfig = useRuntimeConfig()
-const requestFetch = useRequestFetch()
-const emit = defineEmits(['login', 'register'])
+const emit = defineEmits(["login", "register"]);
 
-const type = ref<AuthBy>()
+const type = ref<AuthBy>();
 
 const { defineField, handleSubmit, isSubmitting } = useForm<EntryForm>({
   validationSchema: toTypedSchema(
     object({
-      entry: string().min(1, t('$vuetify.validation.required'))
+      entry: string().min(1, t("$vuetify.validation.required")),
     })
-  )
+  ),
 });
 const [entry, entryAttrs] = defineField("entry", vuetifyConfig);
 
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const data = await requestFetch<CheckResponse>("http://localhost:963/check", {
+    const { data } = await useSanctumFetch<CheckResponse>("/check", {
       method: "POST",
-      body: values
-    })
+      body: values,
+    });
 
-    type.value = data?.type
-    if (data?.exists) {
-      emit('login', type.value, entry.value)
+    type.value = data?.value?.type;
+    if (data?.value?.exists) {
+      emit("login", type.value, entry.value);
     } else {
-      emit('register', type.value, entry.value)
+      emit("register", type.value, entry.value);
     }
   } catch (e) {
-    displayError(e, locale)
+    displayError(e, locale);
   }
-})
-
+});
 </script>
 
 <template>
@@ -51,11 +48,11 @@ const onSubmit = handleSubmit(async (values) => {
         </v-avatar>
         <v-card-title>
           <span class="lagzap-name">
-            {{ t('$vuetify.app_name') }}
+            {{ t("$vuetify.app_name") }}
           </span>
         </v-card-title>
         <v-card-subtitle>
-          {{ t('$vuetify.auth.description') }}
+          {{ t("$vuetify.auth.description") }}
         </v-card-subtitle>
       </div>
 
@@ -81,7 +78,7 @@ const onSubmit = handleSubmit(async (values) => {
           rounded
           :loading="isSubmitting"
         >
-          {{ t('$vuetify.auth.continueButton') }}
+          {{ t("$vuetify.auth.continueButton") }}
         </v-btn>
       </template>
     </v-card>

@@ -77,7 +77,7 @@ async function requestOTP() {
       :title="t('$vuetify.profile.updatePassword')"
       class="mt-3 bg-transparent"
       flat
-      max-width="400"
+      max-width="500"
     >
       <v-card-text class="pb-0 pt-3">
         <v-text-field

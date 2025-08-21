@@ -9,8 +9,12 @@ const store = useStore();
 const route = useRoute();
 const router = useRouter();
 
+const { connections } = useMonitoringStore();
 const title = computed(() =>
   store.titles.find((t) => t.id === (route.params.id as string))
+);
+const activeConnections = computed(
+  () => connections.value?.filter((c) => c.title_id == title.value.id) ?? []
 );
 
 const toggleProfile = async (profile: any) => {
@@ -22,30 +26,44 @@ const toggleProfile = async (profile: any) => {
     await store.activateProfile(profile.id);
   }
 };
-
-onMounted(() => {
-  nextTick(() => {
-    if (!title.value) {
-      return;
-    }
-    store.visitTitle(title.value.id);
-  });
-});
 </script>
 
 <template>
   <v-card-text>
-    <v-row v-if="title">
+    <v-card
+      prepend-icon="mdi-network-outline"
+      :title="t('$vuetify.connections.connections')"
+      :subtitle="
+        t('$vuetify.connections.connectionsSubtitle', [
+          activeConnections.length,
+        ])
+      "
+      class="mt-2 mb-2"
+      :append-icon="
+        locale.isRtl.value ? 'mdi-chevron-left' : 'mdi-chevron-right'
+      "
+      :to="{
+        name: 'title-id-connections',
+        params: {
+          id: title?.id,
+        },
+      }"
+    />
+    <v-row v-if="title" dense>
       <v-col
-        v-for="profile in store.profiles.filter((p) => p.title_id === title.id).sort((a, b) => a.order - b.order)"
+        v-for="profile in store.profiles
+          .filter((p) => p.title_id === title.id)
+          .sort((a, b) => a.order - b.order)"
         :key="profile.id"
         cols="12"
         xl="4"
         lg="6"
       >
-        <v-card 
+        <v-card
           :title="store.localized(profile.name)"
-          :append-icon="locale.isRtl.value ? 'mdi-chevron-left' : 'mdi-chevron-right'"
+          :append-icon="
+            locale.isRtl.value ? 'mdi-chevron-left' : 'mdi-chevron-right'
+          "
           height="100%"
           @click="
             router.push(
@@ -72,23 +90,52 @@ onMounted(() => {
           </template>
           <template v-if="store.profileStates[profile.id]" #subtitle>
             <template v-if="profile.route_action == 'route'">
-              <span v-if="profile.flags & ProfileFlag.GAME" class="text-sm">
-                TCP: <span class="text-green">{{ store.profileStates?.[profile.id].tcp_connections }}</span>
-                UDP: <span class="text-blue">{{ store.profileStates?.[profile.id].udp_connections }}</span>
+              <span
+                v-if="profile.flags & ProfileFlag.MULTIPATH"
+                class="text-sm"
+              >
+                <span>
+                  TCP:
+                  <span class="text-green">{{
+                    store.profileStates?.[profile.id].tcp_connections
+                  }}</span>
+                </span>
+                <span>
+                  UDP:
+                  <span class="text-blue">{{
+                    store.profileStates?.[profile.id].udp_connections
+                  }}</span>
+                </span>
               </span>
             </template>
             <span v-if="profile.route_action == 'direct'">
-              <span>{{ store.profileStates?.[profile.id].network_interfaces?.[0] ?? '-' }}</span>
+              <span>{{
+                store.profileStates?.[profile.id].network_interfaces?.[0] ?? "-"
+              }}</span>
             </span>
             <span v-if="profile.route_action == 'block'">
-              {{ t('$vuetify.title.profile.geofence') }}
+              {{ t("$vuetify.title.profile.geofence") }}
             </span>
 
-            <span v-if="(profile.flags & ProfileFlag.ALLOW_REGION_SELECTION) != 0 && profile.route_action == 'route'" class="text-sm">
-              <span v-if="store.profileStates[profile.id].mode == 0">{{ t('$vuetify.routingMode.global') }}</span>
-              <span v-if="store.profileStates[profile.id].mode == 1">{{ t('$vuetify.routingMode.regional') }}</span>
-              <span v-if="store.profileStates[profile.id].mode == 2">{{ t('$vuetify.routingMode.country') }}</span>
-              <span v-if="store.profileStates[profile.id].mode == 3">{{ t('$vuetify.routingMode.city') }}</span>
+            <span
+              v-if="
+                (profile.flags & ProfileFlag.ALLOW_REGION_SELECTION) != 0 &&
+                profile.route_action == 'route'
+              "
+              class="text-sm"
+            >
+              <span v-if="store.profileStates[profile.id].mode == 0">{{
+                t("$vuetify.routingMode.global")
+              }}</span>
+              <span v-if="store.profileStates[profile.id].mode == 1">{{
+                t("$vuetify.routingMode.regional")
+              }}</span>
+              <span v-if="store.profileStates[profile.id].mode == 2">{{
+                t("$vuetify.routingMode.country")
+              }}</span>
+              <span v-if="store.profileStates[profile.id].mode == 3">{{
+                t("$vuetify.routingMode.city")
+              }}</span>
             </span>
           </template>
           <template v-slot:prepend>
@@ -131,7 +178,12 @@ onMounted(() => {
             <v-tooltip v-if="profile.route_action == 'route'" location="bottom">
               <template #activator="{ props }">
                 <v-btn
-                  variant="plain"
+                  :variant="
+                    activeConnections.filter((x) => x.profile_id == profile.id)
+                      .length
+                      ? 'text'
+                      : 'plain'
+                  "
                   color="secondary"
                   density="comfortable"
                   icon="mdi-network-outline"
@@ -146,7 +198,12 @@ onMounted(() => {
                   @click.stop
                 />
               </template>
-              <span>{{ t("$vuetify.title.connections") }}</span>
+              <span>{{
+                t("$vuetify.connections.connectionsSubtitle", [
+                  activeConnections.filter((x) => x.profile_id == profile.id)
+                    .length,
+                ])
+              }}</span>
             </v-tooltip>
             <v-tooltip location="bottom">
               <template #activator="{ props }">

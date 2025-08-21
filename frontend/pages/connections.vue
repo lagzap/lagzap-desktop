@@ -31,13 +31,6 @@ const headers = ref<DataTableHeader[]>([
     fixed: true,
   },
   {
-    title: 'Host',
-    key: "host",
-    sortable: false,
-    nowrap: true,
-    width: "100%",
-  },
-  {
     title: t("$vuetify.connections.gameServer"),
     key: "server",
     sortable: false,
@@ -50,25 +43,12 @@ const headers = ref<DataTableHeader[]>([
     nowrap: true,
   },
   {
-    title: 'LagZap IP',
-    key: "destination_ip",
-    sortable: false,
-    nowrap: true,
-  },
-  {
     title: t("$vuetify.connections.latency"),
     key: "latency",
     align: "center",
     sortable: false,
     nowrap: true,
     minWidth: "100px",
-  },
-  {
-    title: t("$vuetify.connections.upload"),
-    key: "upload_speed",
-    sortable: false,
-    nowrap: true,
-    minWidth: "130px",
   },
   {
     title: t("$vuetify.connections.download"),
@@ -105,6 +85,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
         ]"
         density="comfortable"
         :mobile="false"
+        :height="$vuetify.display.height - 120"
         fixed-header
         hide-default-footer
         class="bg-transparent h-100"
@@ -127,12 +108,12 @@ const sortBy = ref<VDataTable["sortBy"]>([
           {{ item.host }}
         </template>
         <template #item.destination_ip="{ item }">
-          {{ item.node_optimize?.target_addr }}
+          {{ item.relay_route?.addr }}
         </template>
         <template #item.destination="{ item }">
           <div class="d-flex align-center flex-nowrap">
             <CountryFlag
-              v-if="store.nodes?.[item.node_id]?.country"
+              v-if="store.nodes?.[item.node_id]?.country !== null"
               :country="store.nodes[item.node_id].country"
               size="small"
             />
@@ -145,28 +126,21 @@ const sortBy = ref<VDataTable["sortBy"]>([
             </span>
           </div>
         </template>
-        <template #item.upload_speed="{ item }">
-          <div class="d-flex align-center flex-nowrap">
-            <v-icon> mdi-arrow-up </v-icon>
-            <span>
-              {{ useHumanSpeed(item.upload_speed || 0) }}
-            </span>
-          </div>
-        </template>
         <template #item.download_speed="{ item }">
           <div class="d-flex align-center flex-nowrap">
-            <v-icon> mdi-arrow-down </v-icon>
-            <span>
+            <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
+            <span class="text-no-wrap me-2">
+              {{ useHumanSpeed(item.upload_speed || 0) }}
+            </span>
+            <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
+            <span class="text-no-wrap">
               {{ useHumanSpeed(item.download_speed || 0) }}
             </span>
           </div>
         </template>
         <template #item.latency="{ item }">
           <div class="d-flex align-center flex-nowrap">
-            <Signal :latency="item.node_optimize?.routes[0].min_latency" />
-            <span class="text-green ms-1">
-              {{ item.node_optimize?.routes[0].min_latency ?? -1 }}ms
-            </span>
+            <Ping :tag="item.relay_route?.tag" />
           </div>
         </template>
         <template #header.data-table-group />
@@ -199,16 +173,15 @@ const sortBy = ref<VDataTable["sortBy"]>([
               }}
             </td>
             <td>
-              {{ item.items[0].raw.host }}
-            </td>
-            <td>
               <div class="d-flex align-center">
                 <CountryFlag
                   :country="item.items[0].raw.country_code ?? 'XX'"
                   size="small"
                 />
                 <span class="ms-1">
-                  {{ item.items[0].raw.destination_ip }}:{{ item.items[0].raw.destination_port }}
+                  {{ item.items[0].raw.destination_ip }}:{{
+                    item.items[0].raw.destination_port
+                  }}
                 </span>
               </div>
             </td>
@@ -229,29 +202,19 @@ const sortBy = ref<VDataTable["sortBy"]>([
               </div>
             </td>
             <td>
-              {{ item.items[0].raw.node_optimize?.target_addr }}
-            </td>
-            <td>
               <div class="d-flex align-center flex-nowrap">
-                <Signal :latency="item.items[0].raw.node_optimize?.routes[0].min_latency" />
-                <span class="text-green ms-1">
-                  {{ item.items[0].raw.node_optimize?.routes[0].min_latency ?? -1 }}ms
-                </span>
+                <Ping :tag="item.items[0].raw.relay_route?.tag" />
               </div>
             </td>
             <td>
               <div class="d-flex align-center flex-nowrap">
-                <v-icon> mdi-arrow-up </v-icon>
-                <span class="text-no-wrap">{{
+                <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
+                <span class="text-no-wrap me-2">{{
                   useHumanSpeed(
                     sum(item.items.map((x) => x.raw.upload_speed || 0))
                   )
                 }}</span>
-              </div>
-            </td>
-            <td>
-              <div class="d-flex align-center flex-nowrap">
-                <v-icon> mdi-arrow-down </v-icon>
+                <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
                 <span class="text-no-wrap">{{
                   useHumanSpeed(
                     sum(item.items.map((x) => x.raw.download_speed || 0))
@@ -262,9 +225,6 @@ const sortBy = ref<VDataTable["sortBy"]>([
           </tr>
         </template>
       </v-data-table-virtual>
-      <pre>
-        {{ items }}
-      </pre>
     </Container>
   </div>
 </template>

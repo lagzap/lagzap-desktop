@@ -17,6 +17,7 @@ import {
   SetLogLevel,
   Connect,
   Disconnect,
+  GetTitleStates,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
   type RelayRoute,
@@ -39,7 +40,7 @@ export const useStore = defineStore("index", () => {
   const locale = useLocale();
   // State
   const status = ref<ConnectionStatus>(ConnectionStatus.StatusConnected);
-  const abilities = ref<string[]>(["admin"]);
+  const abilities = ref<string[]>([]);
   const displayLimit = ref<number>(10);
   const loading = ref<boolean>(false);
   const statusMessage = ref<string>(locale.t("$vuetify.service.initializing"));
@@ -151,11 +152,6 @@ export const useStore = defineStore("index", () => {
     Events.On("region-delete", ({ data }) => deleteRegion(data[0]));
     Events.On("nodes", ({ data }) => upsertNodes(data[0]));
     Events.On("node-delete", ({ data }) => deleteNode(data[0]));
-    Events.On("relay-route", ({ data }) => {
-      console.log("relay-route", data[0]);
-      const result = data[0] as RelayRoute;
-      routes.value[result.tag] = result;
-    });
     Events.On("relay-routes", ({ data }) => {
       console.log("relay-routes", data[0]);
       const result = data[0] as Record<string, RelayRoute>;
@@ -194,21 +190,24 @@ export const useStore = defineStore("index", () => {
     );
   };
   const activateTitle = async (id: string) => {
-    if (titleStates.value[id]) {
-      titleStates.value[id].active = true;
+    if (!titleStates.value[id]) {
+      titleStates.value = await GetTitleStates()
     }
+    titleStates.value[id].active = true;
     saveTitleState(id);
   };
   const deactivateTitle = async (id: string) => {
-    if (titleStates.value[id]) {
-      titleStates.value[id].active = false;
+    if (!titleStates.value[id]) {
+      titleStates.value = await GetTitleStates()
     }
+    titleStates.value[id].active = false;
     saveTitleState(id);
   };
   const saveTitleState = debounce(async (id: string) => {
     try {
       loadingTitleStates.value.push(id);
       const updatedState = await ActionTitle(titleStates.value[id]);
+      console.log(updatedState)
       titleStates.value[id] = updatedState;
     } catch (e) {
       displayError(e, locale);
@@ -259,6 +258,7 @@ export const useStore = defineStore("index", () => {
 
     try {
       const updatedState = await ActionTitle(titleStates.value[id]);
+      console.log("visit", updatedState)
       titleStates.value[id] = updatedState;
     } catch (e) {
       displayError(e, locale);
@@ -266,6 +266,7 @@ export const useStore = defineStore("index", () => {
   };
 
   const upsertTitles = (titlesArray: Title[]) => {
+    console.log(titlesArray)
     for (const title of titlesArray) {
       const existingIndex = titles.value.findIndex((t) => t.id === title.id);
       if (existingIndex !== -1) {
@@ -341,13 +342,13 @@ export const useStore = defineStore("index", () => {
   };
   const findTitleByRuleTag = (rule_tag: string): Title | undefined => {
     const profileEntry = profiles.value.find(
-      (profile) => profile.rule_id === rule_tag
+      (profile) => profile.id === rule_tag
     );
     if (!profileEntry) return undefined;
     return titles.value.find((title) => title.id === profileEntry.title_id);
   };
   const findProfileByRuleTag = (rule_tag: string): Profile | undefined => {
-    return profiles.value.find((profile) => profile.rule_id === rule_tag);
+    return profiles.value.find((profile) => profile.id === rule_tag);
   };
   const check = async () => {
     serviceReady.value = await IsRunning();
@@ -368,7 +369,8 @@ export const useStore = defineStore("index", () => {
         console.log(user, isAuthenticated);
         return;
       }
-      const { endpoints, log_level, dns_servers } = user.value;
+      const { endpoints, log_level } = user.value;
+      abilities.value = user.value.abilities || [];
       const accessToken = (await getToken("lz.access_token")) ?? "";
       await SetAccessToken(accessToken);
       await SetEndpoints(endpoints);

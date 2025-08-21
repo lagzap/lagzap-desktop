@@ -24,11 +24,12 @@ tasks:
         platforms: [linux, darwin]
     vars:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+      CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
       BUILD_FLAGS: >-
         {{if eq .BUILD_TYPE "production"}}
-        -tags production,with_gvisor,with_dhcp,with_coordinator -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -w -s -H windowsgui"
+        -tags production,with_gvisor,with_dhcp,with_coordinator -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui"
         {{else}}
-        -tags with_gvisor,with_dhcp,with_coordinator -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}'" -gcflags=all="-l"
+        -tags with_gvisor,with_dhcp,with_coordinator -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}'" -gcflags=all="-l"
         {{end}}
     env:
       GOOS: windows

@@ -1,3 +1,4 @@
+import { timeout } from "es-toolkit";
 import type { LocaleInstance } from "vuetify";
 import { useMessagesStore } from "~/stores/messages";
 
@@ -13,8 +14,9 @@ export const displayAlert = (
 export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined = undefined) => {
   error = error.value ?? error.response?._data ?? error._data ?? error
   let message = error.data?.message ?? error.message ?? error.cause?.message ?? 'An error occurred'
-  if (error.code && locale !== undefined) {
-    return locale.t(`$vuetify.server_errors.${error.message}`.trim())
+  let code = error.data?.code ?? error.code ?? error.cause?.code ?? 0
+  if (code && locale !== undefined) {
+    return locale.t(`$vuetify.server_errors.${code}`.trim())
   }
   switch (error.statusCode) {
     case 401:
@@ -46,6 +48,9 @@ export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined
       if (message.includes('<no response>')) {
         message = 'Network error. Please check your connection.'
       }
+      if (message.includes('FetchError')) {
+        message = 'Network error. Please check your connection.'
+      }
       break
   }
 
@@ -55,5 +60,5 @@ export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined
 export const displayError = (error: any, locale: (LocaleInstance) | undefined = undefined) => {
   const message = getErrorMessage(error, locale);
   const messagesStore = useMessagesStore();
-  messagesStore.add({ text: message, color: 'error' });
+  messagesStore.add({ text: message, color: 'error', timeout: 1000 });
 };

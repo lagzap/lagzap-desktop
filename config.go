@@ -26,7 +26,7 @@ func (c *Service) generateConfig() option.Options {
 	})
 	return option.Options{
 		Log: &option.LogOptions{
-			Level:        "trace",
+			Level:        "error",
 			Timestamp:    true,
 			DisableColor: false,
 		},
@@ -99,19 +99,19 @@ func (c *Service) generateConfig() option.Options {
 						},
 					},
 				},
-				Final: "local",
+				Final: "remote",
 			},
 		},
 		Inbounds: []option.Inbound{
-			{
-				Type: C.TypeHTTP,
-				Tag:  "local",
-				Options: &option.HTTPInboundOptions{
-					ListenOptions: option.ListenOptions{
-						ListenPort: 9536,
-					},
-				},
-			},
+			// {
+			// 	Type: C.TypeHTTP,
+			// 	Tag:  "local",
+			// 	Options: &option.HTTPInboundOptions{
+			// 		ListenOptions: option.ListenOptions{
+			// 			ListenPort: 9536,
+			// 		},
+			// 	},
+			// },
 			// {
 			// 	Type: C.TypeTun,
 			// 	Tag:  "tun",
@@ -119,6 +119,21 @@ func (c *Service) generateConfig() option.Options {
 			// 		InterfaceName: "LagZap Share",
 			// 		Stack: "gvisor",
 			// 		Address: []netip.Prefix{netip.MustParsePrefix("192.168.4.0/24")},
+			// 		MTU: 1500,
+			// 		AutoRoute: true,
+			// 		StrictRoute: false,
+			// 	},
+			// },
+			// {
+			// 	Type: C.TypeTun,
+			// 	Tag:  "tun2",
+			// 	Options: &option.TunInboundOptions{
+			// 		InterfaceName: "LagZap Adapter",
+			// 		Stack: "gvisor",
+			// 		Address: []netip.Prefix{
+			// 			netip.MustParsePrefix("192.168.5.0/32"),
+			// 			netip.MustParsePrefix("fc00::/7"),
+			// 		},
 			// 		MTU: 1500,
 			// 		AutoRoute: false,
 			// 		StrictRoute: false,
@@ -152,7 +167,6 @@ func (c *Service) generateConfig() option.Options {
 									"http",
 									"tls",
 									"dns",
-									"dtls",
 								},
 							},
 						},
@@ -162,19 +176,7 @@ func (c *Service) generateConfig() option.Options {
 					},
 				},
 				{
-					Tag:  "002-hijack-dns",
-					Type: C.RuleTypeDefault,
-					DefaultOptions: option.DefaultRule{
-						RuleAction: option.RuleAction{
-							Action: C.RuleActionTypeHijackDNS,
-						},
-						RawDefaultRule: option.RawDefaultRule{
-							Port: []uint16{53},
-						},
-					},
-				},
-				{
-					Tag:  "003-resolved",
+					Tag:  "002-resolved",
 					Type: C.RuleTypeDefault,
 					DefaultOptions: option.DefaultRule{
 						RuleAction: option.RuleAction{
@@ -185,8 +187,38 @@ func (c *Service) generateConfig() option.Options {
 						},
 					},
 				},
+				{
+					Tag:  "003-hijack-dns",
+					Type: C.RuleTypeLogical,
+					LogicalOptions: option.LogicalRule{
+						RuleAction: option.RuleAction{
+							Action: C.RuleActionTypeHijackDNS,
+						},
+						RawLogicalRule: option.RawLogicalRule{
+							Mode: C.LogicalTypeOr,
+							Rules: []option.Rule{
+								{
+									Type: C.RuleTypeDefault,
+									DefaultOptions: option.DefaultRule{
+										RawDefaultRule: option.RawDefaultRule{
+											Protocol: []string{"dns"},
+										},
+									},
+								},
+								{
+									Type: C.RuleTypeDefault,
+									DefaultOptions: option.DefaultRule{
+										RawDefaultRule: option.RawDefaultRule{
+											Port:    []uint16{53},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
 			},
-			Final:               "direct",
+			Final: "direct",
 			GeoIP:               true,
 			FindProcess:         true,
 			AutoDetectInterface: true,

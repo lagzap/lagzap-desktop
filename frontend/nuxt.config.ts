@@ -41,13 +41,13 @@ export default defineNuxtConfig({
   sanctum: {
     mode: "token",
     userStateKey: 'lagzap.user.identity',
-    baseUrl: 'http://localhost:963',
+    baseUrl: 'http://127.0.0.100:9639',
     redirectIfAuthenticated: true,
     redirectIfUnauthenticated: true,
     endpoints: {
       login: "/token",
       logout: "/token/revoke",
-      user: `http://localhost:963/data`,
+      user: `/data`,
     },
     client: {
       retry: -1,

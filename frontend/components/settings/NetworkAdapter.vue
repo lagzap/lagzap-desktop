@@ -4,7 +4,7 @@ import { useLocale } from "vuetify";
 
 const { t } = useLocale();
 const [defaultInterface, interfaces] = await GetInterfaces()
-const selected = ref<string>(defaultInterface.Name)
+const selected = ref<string | null>(null)
 </script>
 
 <template>
@@ -12,18 +12,39 @@ const selected = ref<string>(defaultInterface.Name)
     :title="t('$vuetify.settings.networkAdapter')"
     flat
     class="mt-3 bg-transparent"
+    max-width="500"
   >
-    <v-card-text class="pb-0 pt-3">
+    <v-card-text>
+      <v-card-subtitle class="px-0 my-3 text-wrap">
+        {{ t('$vuetify.settings.networkAdapterDescription') }}
+      </v-card-subtitle>
       <v-select
         v-model="selected"
         :label="t('$vuetify.settings.interfaces')"
         :hint="t('$vuetify.settings.interfacesHint')"
-        max-width="350"
         :items="interfaces.filter(i => (i.Flags & 1) == 1 && (i.Flags & 32) == 32 && ((i.Flags & 4) == 0)).sort((a, b) => a.Name.localeCompare(b.Name))"
         item-value="Name"
         item-title="Name"
         density="comfortable"
         variant="outlined"
+        :placeholder="t('$vuetify.settings.leaveInterfaceEmptyAutomatic', [defaultInterface.Name])"
+        clearable
+      />
+
+      <v-card-subtitle class="px-0 my-3 text-wrap">
+        {{ t('$vuetify.settings.multiInternetDescription') }}
+      </v-card-subtitle>
+      <v-select
+        :label="t('$vuetify.settings.multiInternet')"
+        :hint="t('$vuetify.settings.multiInternetHint')"
+        :items="interfaces.filter(i => (i.Flags & 1) == 1 && (i.Flags & 32) == 32 && ((i.Flags & 4) == 0)).sort((a, b) => a.Name.localeCompare(b.Name))"
+        item-value="Name"
+        item-title="Name"
+        density="comfortable"
+        variant="outlined"
+        multiple
+        chips
+        clearable
       />
     </v-card-text>
   </v-card>

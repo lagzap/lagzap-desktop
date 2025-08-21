@@ -597,13 +597,6 @@ export class Profile {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string | undefined}
-             */
-            this["rule_id"] = "";
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
              * @type {number | undefined}
              */
             this["order"] = 0;
@@ -627,14 +620,14 @@ export class Profile {
              * @member
              * @type {string | undefined}
              */
-            this["route_action"] = "";
+            this["rule"] = "";
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["dns_action"] = "";
+            this["route_action"] = "";
         }
         if (/** @type {any} */(false)) {
             /**
@@ -667,18 +660,22 @@ export class Profile {
      * @returns {Profile}
      */
     static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType3;
         const $$createField5_0 = $$createType3;
-        const $$createField6_0 = $$createType3;
-        const $$createField9_0 = $Create.ByteSlice;
+        const $$createField6_0 = $Create.ByteSlice;
+        const $$createField8_0 = $Create.ByteSlice;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
-            $$parsedSource["name"] = $$createField5_0($$parsedSource["name"]);
+            $$parsedSource["name"] = $$createField4_0($$parsedSource["name"]);
         }
         if ("description" in $$parsedSource) {
-            $$parsedSource["description"] = $$createField6_0($$parsedSource["description"]);
+            $$parsedSource["description"] = $$createField5_0($$parsedSource["description"]);
+        }
+        if ("rule" in $$parsedSource) {
+            $$parsedSource["rule"] = $$createField6_0($$parsedSource["rule"]);
         }
         if ("metadata" in $$parsedSource) {
-            $$parsedSource["metadata"] = $$createField9_0($$parsedSource["metadata"]);
+            $$parsedSource["metadata"] = $$createField8_0($$parsedSource["metadata"]);
         }
         return new Profile(/** @type {Partial<Profile>} */($$parsedSource));
     }
