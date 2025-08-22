@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NuxtPage } from "#components";
 import { useDisplay } from "vuetify";
 import NavigationDrawer from "~/components/layout/NavigationDrawer.vue";
 
@@ -13,7 +14,14 @@ const store = useStore();
   <v-app full-height>
     <NavigationDrawer v-model="sidebar" />
 
-    <slot />
+    <NuxtPage
+      :transition="{
+        name: 'zoom-transition',
+        mode: 'in-out',
+        type: 'transition',
+        persisted: true,
+      }"
+    />
 
     <v-dialog
       :model-value="store.optimizing"
@@ -26,7 +34,9 @@ const store = useStore();
         v-show="store.optimizing"
         density="compact"
         title="Optimizing"
-        :subtitle="`${store.optimizeProgress.completed_tests || 0} / ${store.optimizeProgress.total_tests || 0}`"
+        :subtitle="`${store.optimizeProgress.completed_tests || 0} / ${
+          store.optimizeProgress.total_tests || 0
+        }`"
         variant="elevated"
       >
         <template v-slot:prepend>

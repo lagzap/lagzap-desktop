@@ -194,7 +194,10 @@ export default {
             server: {
                 server: 'Server',
                 selectServer: 'Select Server',
-                automatic: 'Automatic',
+                automatic: 'Global',
+                selectAll: 'Select All',
+                noCountriesSelected: 'No countries selected. Automatic selection will be used instead!',
+                noCitiesSelected: 'No cities selected. Automatic selection will be used instead!',
                 byAI: 'By AI',
                 byRegion: 'By Region',
                 byCountry: 'By Country',
@@ -203,7 +206,7 @@ export default {
                 automaticSelection: 'Automatic selection',
                 global: 'Global',
                 automaticServerSelectionEnabled: 'Automatic server selection enabled',
-                routingSystemDescription: 'LagZap routing system will efficiently routes your data through the most stable connection to the best possible server based on your location and lowest latency.',
+                routingSystemDescription: 'LagZap routing system will efficiently routes your data through the most stable connection to the best possible server based on your location and lowest latency.'
             },
         },
         active: 'فعال',

@@ -80,76 +80,79 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-data-table
-    :headers="headers"
-    :items="connections?.filter((c) => c.title_id == title.id) ?? []"
-    :sort-by="sortBy"
-    density="comfortable"
-    mobile-breakpoint="xs"
-    hide-default-footer
-    class="bg-transparent"
-  >
-    <template #item.title="{ item }">
-      {{
-        store.localized(
-          store.profiles.find((p) => p.id === item.profile_id)?.name
-        )
-      }}
-    </template>
-    <template #item.network="{ item }">
-      <v-chip
-        :color="item.network == 'tcp' ? 'green' : 'blue'"
-        variant="tonal"
-        size="small"
-        rounded
-      >
-        <span class="text-uppercase">
-          {{ item.network }}
-        </span>
-      </v-chip>
-    </template>
-    <template #item.server="{ item }">
-      <CountryFlag
-        v-if="item.country_code"
-        :country="item.country_code"
-        size="small"
-      />
-      {{ item.destination_ip }}
-    </template>
-    <template #item.destination="{ item }">
-      <div class="d-flex align-center flex-nowrap">
+  <div>
+    <v-data-table-virtual
+      :headers="headers"
+      :items="connections?.filter((c) => c.title_id == title.id) ?? []"
+      :sort-by="sortBy"
+      density="comfortable"
+      mobile-breakpoint="xs"
+      hide-default-footer
+      class="bg-transparent"
+    >
+      <template #item.title="{ item }">
+        {{
+          store.localized(
+            store.profiles.find((p) => p.id === item.profile_id)?.name
+          )
+        }}
+      </template>
+      <template #item.network="{ item }">
+        <v-chip
+          :color="item.network == 'tcp' ? 'green' : 'blue'"
+          variant="tonal"
+          size="small"
+          rounded
+        >
+          <span class="text-uppercase">
+            {{ item.network }}
+          </span>
+        </v-chip>
+      </template>
+      <template #item.server="{ item }">
         <CountryFlag
-          v-if="store.nodes?.[item.node_id]?.country"
-          :country="store.nodes[item.node_id].country"
+          v-if="item.country_code"
+          :country="item.country_code"
           size="small"
         />
-        <span class="ms-1">
-          {{
-            store.nodes?.[item.node_id]?.city?.[locale.current.value ?? "en"] ??
-            "-"
-          }}
-        </span>
-      </div>
-    </template>
-    <template #item.download_speed="{ item }">
-      <div class="d-flex align-center flex-nowrap">
-        <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
-        <span class="text-no-wrap me-2">
-          {{ useHumanSpeed(item.upload_speed || 0) }}
-        </span>
-        <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
-        <span class="text-no-wrap">
-          {{ useHumanSpeed(item.download_speed || 0) }}
-        </span>
-      </div>
-    </template>
-    <template #item.latency="{ item }">
-      <div class="d-flex align-center flex-nowrap">
-        <Ping :tag="item.relay_route?.tag" />
-      </div>
-    </template>
-    <template #item.action="{ item }">
-      <v-btn variant="text" color="error" size="small" icon="mdi-cancel" />
-    </template>
-  </v-data-table>
+        {{ item.destination_ip }}
+      </template>
+      <template #item.destination="{ item }">
+        <div class="d-flex align-center flex-nowrap">
+          <CountryFlag
+            v-if="store.nodes?.[item.node_id]?.country"
+            :country="store.nodes[item.node_id].country"
+            size="small"
+          />
+          <span class="ms-1">
+            {{
+              store.nodes?.[item.node_id]?.city?.[
+                locale.current.value ?? "en"
+              ] ?? "-"
+            }}
+          </span>
+        </div>
+      </template>
+      <template #item.download_speed="{ item }">
+        <div class="d-flex align-center flex-nowrap">
+          <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
+          <span class="text-no-wrap me-2">
+            {{ useHumanSpeed(item.upload_speed || 0) }}
+          </span>
+          <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
+          <span class="text-no-wrap">
+            {{ useHumanSpeed(item.download_speed || 0) }}
+          </span>
+        </div>
+      </template>
+      <template #item.latency="{ item }">
+        <div class="d-flex align-center flex-nowrap">
+          <Ping :tag="item.relay_route?.tag" />
+        </div>
+      </template>
+      <template #item.action="{ item }">
+        <v-btn variant="text" color="error" size="small" icon="mdi-cancel" />
+      </template>
+    </v-data-table-virtual>
+  </div>
 </template>

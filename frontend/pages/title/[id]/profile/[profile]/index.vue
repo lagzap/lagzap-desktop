@@ -43,48 +43,6 @@ onMounted(() => {
     }}</v-card-subtitle>
     <v-card-text>
       <v-row dense class="mb-5">
-        <template
-          v-if="
-            (profile.flags & ProfileFlag.MULTIPATH) !== 0 &&
-            profile.route_action == 'route'
-          "
-        >
-          <v-col v-if="false" cols="auto">
-            <v-number-input
-              v-model:model-value="
-                store.profileStates[profile.id].tcp_connections
-              "
-              :label="t('$vuetify.title.profile.tcpRoutes')"
-              variant="outlined"
-              control-variant="split"
-              min-width="175"
-              max-width="175"
-              inset
-              :min="1"
-              :max="1"
-              :disabled="!store.connected"
-              @update:model-value="() => store.saveActionProfile(profile.id)"
-            />
-          </v-col>
-          <v-col cols="auto">
-            <v-number-input
-              v-model:model-value="
-                store.profileStates[profile.id].udp_connections
-              "
-              :label="t('$vuetify.title.profile.udpRoutes')"
-              variant="outlined"
-              control-variant="split"
-              min-width="175"
-              max-width="175"
-              inset
-              :min="1"
-              :max="4"
-              :disabled="!store.connected"
-              :loading="store.loadingProfileStates.includes(profile.id)"
-              @update:model-value="() => store.saveActionProfile(profile.id)"
-            />
-          </v-col>
-        </template>
         <v-col
           v-if="
             (profile.flags & ProfileFlag.GAME_PACKET) !== 0 &&
@@ -149,6 +107,50 @@ onMounted(() => {
             @update:model-value="() => store.saveActionProfile(profile.id)"
           />
         </v-col>
+
+        <template
+          v-if="
+            (profile.flags & ProfileFlag.MULTIPATH) !== 0 &&
+            profile.route_action == 'route'
+          "
+        >
+          <v-col v-if="false" cols="auto">
+            <v-number-input
+              v-model:model-value="
+                store.profileStates[profile.id].tcp_connections
+              "
+              :label="t('$vuetify.title.profile.tcpRoutes')"
+              variant="outlined"
+              control-variant="split"
+              min-width="175"
+              max-width="175"
+              inset
+              :min="1"
+              :max="1"
+              :disabled="!store.connected"
+              @update:model-value="() => store.saveActionProfile(profile.id)"
+            />
+          </v-col>
+          <v-col cols="auto">
+            <v-number-input
+              v-model:model-value="
+                store.profileStates[profile.id].udp_connections
+              "
+              :label="t('$vuetify.title.profile.udpRoutes')"
+              variant="outlined"
+              control-variant="split"
+              min-width="175"
+              max-width="175"
+              inset
+              :min="1"
+              :max="4"
+              :disabled="!store.connected"
+              :loading="store.loadingProfileStates.includes(profile.id)"
+              @update:model-value="() => store.saveActionProfile(profile.id)"
+            />
+          </v-col>
+        </template>
+
         <v-col v-if="profile.route_action == 'route' && false" cols="12">
           <v-checkbox
             v-model:model-value="
@@ -164,7 +166,7 @@ onMounted(() => {
       </v-row>
 
       <v-card
-        v-if="(profile.flags & ProfileFlag.ALLOW_REGION_SELECTION) !== 0"
+        v-if="(profile.flags & ProfileFlag.ALLOW_REGION_SELECTION) != 0"
         prepend-icon="mdi-map-marker-radius"
         :title="t('$vuetify.title.profile.server.server')"
         :subtitle="t('$vuetify.title.profile.server.automaticServer')"

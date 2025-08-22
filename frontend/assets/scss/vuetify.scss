@@ -93,3 +93,7 @@ button,
     }
   }
 }
+
+.v-card--variant-outlined {
+  border: thin solid rgb(var(--v-theme-surface-bright), 0.3) !important;
+}

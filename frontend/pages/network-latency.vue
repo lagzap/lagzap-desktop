@@ -10,6 +10,7 @@ import type {
   RelayRoute,
 } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import { useLocale } from "vuetify";
+import { flatMap } from "es-toolkit";
 
 const locale = useLocale();
 const { t } = locale;
@@ -19,13 +20,44 @@ const filterMode = ref("all");
 
 const echo = computed(() => store.routes || {});
 
+// FIXME: lowest ping, consider ipv4/ipv6 and tcp/udp
 function getLowestPingForArea(nodes: Node[]): RelayRoute | null {
-  const pings = nodes
-    .map((node) => echo.value[node.id])
-    .filter((ping) => ping && ping.routes?.[0]?.min_latency > 0)
-    .sort((a, b) => a.routes?.[0]?.min_latency - b.routes?.[0]?.min_latency);
-  if (pings.length === 0) return null;
-  return pings[0];
+  let bestRoute: RelayRoute | null = null;
+  let lowestLatency = Infinity;
+  if (!nodes || nodes.length === 0) return null;
+
+  const variants = ["ipv4-udp", "ipv4-tcp", "ipv6-udp", "ipv6-tcp"];
+
+  for (const node of nodes) {
+    for (const v of variants) {
+      const key = `${node.id}-${v}`;
+      const routeData: RelayRoute | undefined = (store.routes || {})[key];
+      if (!routeData || !Array.isArray(routeData.routes) || routeData.routes.length === 0) continue;
+
+      for (const route of routeData.routes) {
+        const l = route?.min_latency;
+        if (typeof l === "number" && !Number.isNaN(l) && l > 0 && l < lowestLatency) {
+          lowestLatency = l;
+          bestRoute = routeData;
+        }
+      }
+    }
+  }
+
+  return bestRoute;
+}
+
+function firstNodeIdForArea(nodes: Node[]): string {
+  return nodes && nodes.length > 0 ? nodes[0].id : "";
+}
+
+function getLowestPingForRegion(regionTag: string): RelayRoute | null {
+  // flatten all areas in the region and find the best ping
+  const regionAreas = areasByRegion.value[regionTag] || {};
+  const nodes: Node[] = [];
+  Object.values(regionAreas).forEach((arr) => nodes.push(...arr));
+  if (nodes.length === 0) return null;
+  return getLowestPingForArea(nodes);
 }
 
 const areas = computed(() => {
@@ -81,24 +113,17 @@ const areasByRegion = computed(() => {
 
   return sortedRegionGroups;
 });
-
-onMounted(async () => {
-  await store.updateEcho();
-});
-
-async function pingTag(tag: string) {
-  const latency = await store.pingNode(tag);
-  console.log(latency);
-}
 </script>
 
 <template>
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title class="text-subtitle-1">{{
-          t("$vuetify.navigation.networkLatency")
-        }}</v-app-bar-title>
+        <v-tabs fixed-tabs>
+          <v-tab :to="{ name: 'network-latency' }" text="Latency Grid"/>
+          <v-tab :to="{ name: 'map' }" text="Network Map"/>
+        </v-tabs>
+        <v-spacer />
       </template>
       <v-card-text>
         <v-chip-group
@@ -133,6 +158,14 @@ async function pingTag(tag: string) {
               </v-avatar>
             </template>
             <span>{{ store.localized(region.name) }}</span>
+            <template #append>
+              <div class="ms-2">
+                <Ping
+                  v-if="getLowestPingForRegion(region.tag) !== null"
+                  :tag="getLowestPingForRegion(region.tag).tag"
+                />
+              </div>
+            </template>
           </v-chip>
         </v-chip-group>
 
@@ -177,17 +210,16 @@ async function pingTag(tag: string) {
                         </v-avatar>
                       </template>
                       <template #title>
-                        <span
-                          class="text-subtitle-1"
-                          style="line-height: 2.5"
-                          >{{ store.localized(nodes[0].city) }}</span
-                        >
+                        <span class="text-subtitle-1" style="line-height: 2.5">
+                          {{ store.localized(nodes[0].city) }}
+                        </span>
                       </template>
                       <template #append>
                         <Ping
                           v-if="getLowestPingForArea(nodes) !== null"
                           :tag="getLowestPingForArea(nodes).tag"
                         />
+                        <Ping v-else :tag="firstNodeIdForArea(nodes)" />
                       </template>
                     </v-card>
                   </template>
@@ -196,12 +228,11 @@ async function pingTag(tag: string) {
                       v-for="(node, i) in nodes"
                       :key="i"
                       :value="node.id"
-                      @click="pingTag(node.id)"
                     >
-                      <v-list-item-title
-                        >{{ store.localized(node.city) }}
-                        {{ i + 1 }}</v-list-item-title
-                      >
+                      <v-list-item-title>
+                        {{ store.localized(node.city) }}
+                        {{ i + 1 }}
+                      </v-list-item-title>
                       <template #append>
                         <Ping :tag="node.id" />
                       </template>
@@ -221,7 +252,11 @@ async function pingTag(tag: string) {
               lg="3"
               xl="2"
             >
-              <v-menu open-on-hover location="center">
+              <v-menu
+                open-on-hover
+                :offset="10"
+                :close-on-content-click="false"
+              >
                 <template #activator="{ props }">
                   <v-card v-bind="props">
                     <template #prepend>
@@ -232,13 +267,16 @@ async function pingTag(tag: string) {
                       </v-avatar>
                     </template>
                     <template #title>
-                      {{ store.localized(nodes[0].city) }}
+                      <span class="text-subtitle-1" style="line-height: 2.5">
+                        {{ store.localized(nodes[0].city) }}
+                      </span>
                     </template>
                     <template #append>
                       <Ping
                         v-if="getLowestPingForArea(nodes) !== null"
                         :tag="getLowestPingForArea(nodes).tag"
                       />
+                      <Ping v-else :tag="firstNodeIdForArea(nodes)" />
                     </template>
                   </v-card>
                 </template>
@@ -247,7 +285,6 @@ async function pingTag(tag: string) {
                     v-for="(node, i) in nodes"
                     :key="i"
                     :value="node.id"
-                    @click="pingTag(node.id)"
                   >
                     <v-list-item-title>{{ node.name }}</v-list-item-title>
                     <template #append>
