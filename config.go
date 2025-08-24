@@ -171,7 +171,7 @@ func (c *Service) generateConfig() option.Options {
 							},
 						},
 						RawDefaultRule: option.RawDefaultRule{
-							Inbound: []string{"ndis"},
+							Inbound: []string{"ndis", "tun"},
 						},
 					},
 				},
@@ -183,7 +183,7 @@ func (c *Service) generateConfig() option.Options {
 							Action: C.RuleActionTypeResolve,
 						},
 						RawDefaultRule: option.RawDefaultRule{
-							Inbound: []string{"ndis"},
+							Inbound: []string{"ndis", "tun"},
 						},
 					},
 				},

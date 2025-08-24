@@ -14,10 +14,10 @@ vars:
     sh: go env GOHOSTOS
   GOHOSTARCH:
     sh: go env GOHOSTARCH
-  VERSION:
-    sh: CGO_ENABLED=0 GOOS={{.GOHOSTOS}} GOARCH={{.GOHOSTARCH}} go run ../../cmd/internal/read_tag
+  VERSION: v0.1.0-alpha.1
+    # sh: CGO_ENABLED=0 GOOS={{.GOHOSTOS}} GOARCH={{.GOHOSTARCH}} go run ../../cmd/internal/read_tag/main.go
   CORE_VERSION:
-    sh: cd ../.. && CGO_ENABLED=0 GOOS={{.GOHOSTOS}} GOARCH={{.GOHOSTARCH}} go run ./cmd/internal/read_tag
+    sh: cd ./../.. && CGO_ENABLED=0 GOOS={{.GOHOSTOS}} GOARCH={{.GOHOSTARCH}} go run ./cmd/internal/read_tag/main.go
 
 tasks:
   build:

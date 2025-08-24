@@ -1,4 +1,4 @@
-//go:build windows
+//go:build !windows
 
 package main
 
@@ -16,25 +16,25 @@ func (s *Service) StartProxy() error {
 	return s.lagzap.Inbound().Create(
 		s.ctx,
 		s.lagzap.Router(),
-		s.lagzap.Logger().NewLogger(F.ToString("[ndis] winpkfilter [in]")),
-		"ndis",
-		"ndis",
-		&option.NDISInboundOptions{},
+		s.lagzap.Logger().NewLogger(F.ToString("[tun] winpkfilter [in]")),
+		"tun",
+		"tun",
+		&option.TunInboundOptions{},
 	)
 }
 
 func (s *Service) StopProxy() error {
 	if s.lagzap == nil {
-		return E.New("ndis not found")
+		return E.New("tun not found")
 	}
-	return s.lagzap.Inbound().Remove("ndis")
+	return s.lagzap.Inbound().Remove("tun")
 }
 
 func (s *Service) IsProxyRunning() (running bool) {
 	if s.lagzap == nil {
 		running = false
 	} else {
-		_, running = s.lagzap.Inbound().Get("ndis")
+		_, running = s.lagzap.Inbound().Get("tun")
 	}
 	return
 }

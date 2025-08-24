@@ -176,8 +176,21 @@ func (s *Service) startProxy(target string) {
 		http.Error(w, "Upstream error", http.StatusBadGateway)
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Add CORS headers for localhost
+		w.Header().Set("Access-Control-Allow-Origin", "wails://localhost:9245")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Wails-Window-ID")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		// Handle preflight OPTIONS requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		if r.Header.Get("X-Wails-Window-ID") == "" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			http.Error(w, "", http.StatusForbidden)
 			return
 		}
 		rp.ServeHTTP(w, r)
