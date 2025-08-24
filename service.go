@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -145,6 +147,7 @@ func (s *Service) startProxy(target string) {
 	}
 	u, err := url.Parse(target)
 	if err != nil {
+		fmt.Printf("proxy: invalid target URL %q: %v\n", target, err)
 		return
 	}
 	rp := httputil.NewSingleHostReverseProxy(u)
@@ -159,58 +162,83 @@ func (s *Service) startProxy(target string) {
 		if o := r.Header.Get("Origin"); o != "" {
 			r.Header.Set("Origin", u.Scheme+"://"+u.Host)
 		}
+		// Always normalize Referer to target origin to avoid upstream CSRF/CORS checks on localhost refs
 		if ref := r.Header.Get("Referer"); ref != "" {
-			if strings.HasPrefix(ref, "http://127.0.0.100:9639") {
-				r.Header.Set("Referer", u.Scheme+"://"+u.Host)
-			}
+			r.Header.Set("Referer", u.Scheme+"://"+u.Host)
 		}
 		r.Header.Set("User-Agent", constant.UserAgent)
 		r.Header.Del("Accept-Encoding")
-		r.Header.Set("X-Forwarded-Host", "127.0.0.100:9639")
-		r.Header.Set("X-Forwarded-Proto", "http")
+		// Preserve the original requested host instead of a hardcoded value
+		r.Header.Set("X-Forwarded-Host", r.Host)
+		r.Header.Set("X-Forwarded-Proto", u.Scheme)
 		r.Header.Set("X-Version-Core", C.Version)
 		r.Header.Set("X-Version-Client", constant.Version)
 		r.Header.Set("X-Client-ID", device.DeviceHash())
 	}
 	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		fmt.Printf("proxy: upstream error: %s %s -> %v\n", r.Method, r.URL.String(), err)
 		http.Error(w, "Upstream error", http.StatusBadGateway)
 	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Add CORS headers for localhost
-		w.Header().Set("Access-Control-Allow-Origin", "wails://localhost:9245")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Wails-Window-ID")
-		w.Header().Set("Access-Control-Max-Age", "86400")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-
-		// Handle preflight OPTIONS requests
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
+	rp.ModifyResponse = func(res *http.Response) error {
+		if res.StatusCode >= 400 {
+			fmt.Printf("proxy: upstream response %d for %s %s\n", res.StatusCode, res.Request.Method, res.Request.URL.String())
 		}
-
-		if r.Header.Get("X-Wails-Window-ID") == "" {
-			http.Error(w, "", http.StatusForbidden)
+		// Sanitize/override CORS on proxied responses to ensure a single origin value
+		origin := res.Request.Header.Get("Origin")
+		allowed := "wails://localhost:9245"
+		if strings.HasPrefix(origin, "wails://") || strings.HasPrefix(origin, "http://127.0.0.1") || strings.HasPrefix(origin, "http://127.0.0.100") || strings.HasPrefix(origin, "http://localhost") {
+			allowed = origin
+		}
+		h := res.Header
+		h.Del("Access-Control-Allow-Origin")
+		h.Del("Access-Control-Allow-Credentials")
+		h.Set("Access-Control-Allow-Origin", allowed)
+		h.Set("Access-Control-Allow-Credentials", "true")
+		h.Add("Vary", "Origin")
+		return nil
+	}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Preflight: respond here and do NOT hit upstream
+		origin := r.Header.Get("Origin")
+		allowed := "wails://localhost:9245"
+		if strings.HasPrefix(origin, "wails://") || strings.HasPrefix(origin, "http://127.0.0.1") || strings.HasPrefix(origin, "http://127.0.0.100") || strings.HasPrefix(origin, "http://localhost") {
+			allowed = origin
+		}
+		if r.Method == "OPTIONS" {
+			h := w.Header()
+			h.Set("Access-Control-Allow-Origin", allowed)
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			if acrh := r.Header.Get("Access-Control-Request-Headers"); acrh != "" {
+				h.Set("Access-Control-Allow-Headers", acrh)
+			} else {
+				h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Wails-Window-ID")
+			}
+			h.Set("Access-Control-Max-Age", "86400")
+			h.Set("Access-Control-Allow-Credentials", "true")
+			h.Add("Vary", "Origin")
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 		rp.ServeHTTP(w, r)
 	})
+	addr := "127.0.0.100:9639" // change if needed; see notes below
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		fmt.Printf("proxy: failed to bind %s: %v\n", addr, err)
+		return
+	}
+	fmt.Printf("proxy: listening on %s, proxying to %s\n", addr, u.String())
 	srv := &http.Server{
-		Addr:              "127.0.0.100:9639",
+		Addr:              addr,
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	s.proxyServer = srv
 	go func() {
-		for {
-			err := srv.ListenAndServe()
-			if err == http.ErrServerClosed {
-				panic("local proxy server closed")
-			}
-			time.Sleep(500 * time.Millisecond)
-			if s.proxyServer == nil {
-				break
-			}
+		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+			fmt.Printf("proxy: serve error: %v\n", err)
+		} else {
+			fmt.Printf("proxy: server closed: %v\n", err)
 		}
 	}()
 }
