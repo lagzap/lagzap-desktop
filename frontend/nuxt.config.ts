@@ -33,7 +33,6 @@ export default defineNuxtConfig({
     "@vee-validate/nuxt",
   ],
 
-
   nitro: {
     preset: 'static'
   },
