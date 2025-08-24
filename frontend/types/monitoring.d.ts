@@ -14,6 +14,18 @@ export interface ProcessInfo {
   UserId: number;
 }
 
+export interface PingPoint {
+  t: number;
+  latency: number;
+  ok: boolean;
+}
+
+export interface RoutePingSeries {
+  index: number;
+  label: string;
+  points: PingPoint[];
+}
+
 export interface Connection {
   id: string;
   group_id: string;
@@ -31,11 +43,20 @@ export interface Connection {
   upload_speed: number;
   download_speed: number;
   start: number;
+  end: number;
   rule: string;
   title_id: string | null;
   profile_id: string | null;
   node_id: string | null;
   relay_route: RelayRoute | null;
+  ping_packet_sent: number;
+  ping_packet_received: number;
+  ping_packet_loss: number;
+  ping_avg_latency: number;
+  ping_min_latency: number;
+  ping_max_latency: number;
+  ping_jitter: number;
+  ping_series: RoutePingSeries[];
 }
 
 export interface NodeLatency {

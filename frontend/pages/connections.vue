@@ -55,7 +55,7 @@ const headers = ref<DataTableHeader[]>([
     key: "download_speed",
     sortable: true,
     nowrap: true,
-    minWidth: "130px",
+    minWidth: "250px",
   },
 ]);
 
@@ -127,20 +127,32 @@ const sortBy = ref<VDataTable["sortBy"]>([
           </div>
         </template>
         <template #item.download_speed="{ item }">
-          <div class="d-flex align-center flex-nowrap">
-            <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
-            <span class="text-no-wrap me-2">
-              {{ useHumanSpeed(item.upload_speed || 0) }}
-            </span>
-            <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
-            <span class="text-no-wrap">
-              {{ useHumanSpeed(item.download_speed || 0) }}
-            </span>
+          <div class="d-flex flex-column">
+            <div class="d-flex align-center flex-nowrap">
+              <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
+              <span class="text-no-wrap me-2">
+                {{ useHumanSpeed(item.upload_speed || 0) }}
+              </span>
+              <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
+              <span class="text-no-wrap">
+                {{ useHumanSpeed(item.download_speed || 0) }}
+              </span>
+            </div>
+            <div class="d-flex align-center flex-nowrap">
+              <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
+              <span class="text-no-wrap me-2">
+                {{ useHumanSpeed(item.upload || 0) }}
+              </span>
+              <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
+              <span class="text-no-wrap">
+                {{ useHumanSpeed(item.download || 0) }}
+              </span>
+            </div>
           </div>
         </template>
         <template #item.latency="{ item }">
           <div class="d-flex align-center flex-nowrap">
-            <Ping :tag="item.relay_route?.tag" />
+            {{ item.ping_avg_latency }}
           </div>
         </template>
         <template #header.data-table-group />
