@@ -99,7 +99,7 @@ func (c *Service) generateConfig() option.Options {
 						},
 					},
 				},
-				Final: "remote",
+				Final: "local",
 			},
 		},
 		Inbounds: []option.Inbound{
