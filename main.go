@@ -25,10 +25,6 @@ type PanicDetails struct {
 }
 
 func main() {
-	if !isAdminUser() {
-		runAsAdministrator()
-		os.Exit(0)
-	}
 	ctx := context.Background()
 	service := &Service{}
 
@@ -159,8 +155,7 @@ func main() {
 		Linux: application.LinuxWindow{
 			WebviewGpuPolicy: application.WebviewGpuPolicyAlways,
 		},
-		OpenInspectorOnStartup: true,
-		URL:                    "/start-service/",
+		URL: "/start-service/",
 	})
 	quiting := false
 	window.OnWindowEvent(events.Windows.WindowClosing, func(e *application.WindowEvent) {
