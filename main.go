@@ -162,9 +162,12 @@ func main() {
 		OpenInspectorOnStartup: true,
 		URL:                    "/start-service/",
 	})
+	quiting := false
 	window.OnWindowEvent(events.Windows.WindowClosing, func(e *application.WindowEvent) {
-		window.Hide()
-		e.Cancel()
+		if !quiting {
+			window.Hide()
+			e.Cancel()
+		}
 	})
 	window.OnWindowEvent(events.Windows.WindowActive, func(e *application.WindowEvent) {
 		service.SetWindow(window)
@@ -183,7 +186,12 @@ func main() {
 		window.Focus()
 	})
 	menu.Add("Quit").OnClick(func(ctx *application.Context) {
+		quiting = true
+		service.StopService()
+		window.Close()
+		systray.Destroy()
 		app.Quit()
+		os.Exit(0)
 	})
 	systray.OnClick(func() {
 		window.Focus()
