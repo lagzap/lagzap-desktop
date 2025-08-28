@@ -113,7 +113,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
         <template #item.destination="{ item }">
           <div class="d-flex align-center flex-nowrap">
             <CountryFlag
-              v-if="store.nodes?.[item.node_id]?.country !== null"
+              v-if="store.nodes?.[item.node_id]?.country"
               :country="store.nodes[item.node_id].country"
               size="small"
             />

@@ -369,19 +369,19 @@ function toggleRegion(regionTag: string) {
         mandatory
         show-arrows
       >
-        <v-chip rounded size="large" value="global">
+        <v-chip rounded size="x-large" value="global">
           <span>{{ t("$vuetify.title.profile.server.automatic") }}</span>
         </v-chip>
-        <v-chip rounded size="large" value="ai" disabled>
+        <v-chip rounded size="x-large" value="ai" disabled>
           <span>{{ t("$vuetify.title.profile.server.byAI") }}</span>
         </v-chip>
-        <v-chip rounded size="large" value="region">
+        <v-chip rounded size="x-large" value="region">
           <span>{{ t("$vuetify.title.profile.server.byRegion") }}</span>
         </v-chip>
-        <v-chip rounded size="large" value="country">
+        <v-chip rounded size="x-large" value="country">
           <span>{{ t("$vuetify.title.profile.server.byCountry") }}</span>
         </v-chip>
-        <v-chip rounded size="large" value="city">
+        <v-chip rounded size="x-large" value="city">
           <span>{{ t("$vuetify.title.profile.server.byCity") }}</span>
         </v-chip>
       </v-chip-group>

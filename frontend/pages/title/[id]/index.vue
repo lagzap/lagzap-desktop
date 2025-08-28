@@ -68,7 +68,15 @@ const toggleProfile = async (profile: any) => {
             height="100%"
             @click="
               router.push(
-                profile.route_action != 'block'
+                profile.route_action == 'route'
+                  ? {
+                      name: 'title-id-profile-profile-server',
+                      params: {
+                        id: title.id,
+                        profile: profile.id,
+                      },
+                    }
+                  : profile.route_action != 'block'
                   ? {
                       name: 'title-id-profile-profile',
                       params: {

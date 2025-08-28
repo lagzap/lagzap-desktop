@@ -10,7 +10,6 @@ import type {
   RelayRoute,
 } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import { useLocale } from "vuetify";
-import { flatMap } from "es-toolkit";
 
 const locale = useLocale();
 const { t } = locale;
@@ -18,7 +17,15 @@ const store = useStore();
 const regions = computed(() => store.regions);
 const filterMode = ref("all");
 
-const echo = computed(() => store.routes || {});
+const showRouteDialog = ref(false)
+const selectedNode = ref<Node | null>(null)
+const selectedNodeRoutes = computed(() => {
+  return store.routes[`${selectedNode.value?.id}-ipv4-udp`] || null
+})
+function showRoutes(node: Node) {
+  selectedNode.value = node;
+  showRouteDialog.value = true;
+}
 
 // FIXME: lowest ping, consider ipv4/ipv6 and tcp/udp
 function getLowestPingForArea(nodes: Node[]): RelayRoute | null {
@@ -32,11 +39,21 @@ function getLowestPingForArea(nodes: Node[]): RelayRoute | null {
     for (const v of variants) {
       const key = `${node.id}-${v}`;
       const routeData: RelayRoute | undefined = (store.routes || {})[key];
-      if (!routeData || !Array.isArray(routeData.routes) || routeData.routes.length === 0) continue;
+      if (
+        !routeData ||
+        !Array.isArray(routeData.routes) ||
+        routeData.routes.length === 0
+      )
+        continue;
 
       for (const route of routeData.routes) {
         const l = route?.min_latency;
-        if (typeof l === "number" && !Number.isNaN(l) && l > 0 && l < lowestLatency) {
+        if (
+          typeof l === "number" &&
+          !Number.isNaN(l) &&
+          l > 0 &&
+          l < lowestLatency
+        ) {
           lowestLatency = l;
           bestRoute = routeData;
         }
@@ -120,8 +137,8 @@ const areasByRegion = computed(() => {
     <Container>
       <template #header>
         <v-tabs fixed-tabs>
-          <v-tab :to="{ name: 'network-latency' }" text="Latency Grid"/>
-          <v-tab :to="{ name: 'map' }" text="Network Map"/>
+          <v-tab :to="{ name: 'network-latency' }" text="Latency Grid" />
+          <v-tab :to="{ name: 'map' }" text="Network Map" />
         </v-tabs>
         <v-spacer />
       </template>
@@ -228,6 +245,7 @@ const areasByRegion = computed(() => {
                       v-for="(node, i) in nodes"
                       :key="i"
                       :value="node.id"
+                      @click="showRoutes(node)"
                     >
                       <v-list-item-title>
                         {{ store.localized(node.city) }}
@@ -315,5 +333,23 @@ const areasByRegion = computed(() => {
         </v-fab>
       </v-card-text>
     </Container>
+
+    <v-dialog v-model:model-value="showRouteDialog" max-width="500">
+      <template v-slot:default="{ isActive }">
+        <v-card title="Dialog">
+          <v-card-text>
+            <pre>
+              {{ selectedNodeRoutes }}
+            </pre>
+          </v-card-text>
+
+          <v-card-actions>
+            <v-spacer></v-spacer>
+
+            <v-btn text="Close Dialog" @click="isActive.value = false"></v-btn>
+          </v-card-actions>
+        </v-card>
+      </template>
+    </v-dialog>
   </div>
 </template>
