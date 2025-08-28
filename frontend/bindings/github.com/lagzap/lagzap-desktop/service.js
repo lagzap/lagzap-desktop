@@ -4,7 +4,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+import {Call as $Call, Create as $Create} from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -18,308 +18,374 @@ import * as application$0 from "../../wailsapp/wails/v3/pkg/application/models.j
 
 /**
  * @param {adapter$0.ProfileState | null} profileState
- * @returns {$CancellablePromise<adapter$0.ProfileState | null>}
+ * @returns {Promise<adapter$0.ProfileState | null> & { cancel(): void }}
  */
 export function ActionProfile(profileState) {
-    return $Call.ByID(155782560, profileState).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(155782560, profileState));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType1($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
  * @param {adapter$0.TitleState | null} titleState
- * @returns {$CancellablePromise<adapter$0.TitleState | null>}
+ * @returns {Promise<adapter$0.TitleState | null> & { cancel(): void }}
  */
 export function ActionTitle(titleState) {
-    return $Call.ByID(3369209383, titleState).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(3369209383, titleState));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType3($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function Close() {
-    return $Call.ByID(3215732723);
+    let $resultPromise = /** @type {any} */($Call.ByID(3215732723));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function Connect() {
-    return $Call.ByID(1624983241);
+    let $resultPromise = /** @type {any} */($Call.ByID(1624983241));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<adapter$0.CredentialsPayload>}
+ * @returns {Promise<adapter$0.CredentialsPayload> & { cancel(): void }}
  */
 export function Credentials() {
-    return $Call.ByID(2703855585).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(2703855585));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType4($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<string>}
+ * @returns {Promise<string> & { cancel(): void }}
  */
 export function DeviceHash() {
-    return $Call.ByID(4227702467);
+    let $resultPromise = /** @type {any} */($Call.ByID(4227702467));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function Disconnect() {
-    return $Call.ByID(4177228667);
+    let $resultPromise = /** @type {any} */($Call.ByID(4177228667));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function FetchData() {
-    return $Call.ByID(1261637403);
+    let $resultPromise = /** @type {any} */($Call.ByID(1261637403));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<[adapter$0.NetworkInterface | null, control$0.Interface[]]>}
+ * @returns {Promise<[adapter$0.NetworkInterface | null, control$0.Interface[]]> & { cancel(): void }}
  */
 export function GetInterfaces() {
-    return $Call.ByID(585328639).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(585328639));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         $result[0] = $$createType6($result[0]);
         $result[1] = $$createType8($result[1]);
         return $result;
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<{ [_: string]: adapter$0.Node | null }>}
+ * @returns {Promise<{ [_: string]: adapter$0.Node | null }> & { cancel(): void }}
  */
 export function GetNodes() {
-    return $Call.ByID(3650039068).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(3650039068));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType11($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<adapter$0.Optimize | null>}
+ * @returns {Promise<adapter$0.Optimize | null> & { cancel(): void }}
  */
 export function GetOptimizeProgress() {
-    return $Call.ByID(200422283).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(200422283));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType13($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<{ [_: string]: adapter$0.ProfileState | null }>}
+ * @returns {Promise<{ [_: string]: adapter$0.ProfileState | null }> & { cancel(): void }}
  */
 export function GetProfileStates() {
-    return $Call.ByID(3829360106).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(3829360106));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType14($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<{ [_: string]: adapter$0.Profile | null }>}
+ * @returns {Promise<{ [_: string]: adapter$0.Profile | null }> & { cancel(): void }}
  */
 export function GetProfiles() {
-    return $Call.ByID(1281462161).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(1281462161));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType17($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<{ [_: string]: adapter$0.Region | null }>}
+ * @returns {Promise<{ [_: string]: adapter$0.Region | null }> & { cancel(): void }}
  */
 export function GetRegions() {
-    return $Call.ByID(3658744404).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(3658744404));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType20($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<{ [_: string]: adapter$0.RelayRoute | null }>}
+ * @returns {Promise<{ [_: string]: adapter$0.RelayRoute | null }> & { cancel(): void }}
  */
 export function GetRoutes() {
-    return $Call.ByID(3754855629).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(3754855629));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType23($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<(adapter$0.Route | null)[]>}
+ * @returns {Promise<(adapter$0.Route | null)[]> & { cancel(): void }}
  */
 export function GetRoutes2() {
-    return $Call.ByID(1361573229).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(1361573229));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType26($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<{ [_: string]: adapter$0.TitleState | null }>}
+ * @returns {Promise<{ [_: string]: adapter$0.TitleState | null }> & { cancel(): void }}
  */
 export function GetTitleStates() {
-    return $Call.ByID(2788903497).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(2788903497));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType27($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<{ [_: string]: adapter$0.Title | null }>}
+ * @returns {Promise<{ [_: string]: adapter$0.Title | null }> & { cancel(): void }}
  */
 export function GetTitles() {
-    return $Call.ByID(94823092).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(94823092));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType30($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
- * @returns {$CancellablePromise<boolean>}
+ * @returns {Promise<boolean> & { cancel(): void }}
  */
 export function IsConnected() {
-    return $Call.ByID(739746928);
+    let $resultPromise = /** @type {any} */($Call.ByID(739746928));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<boolean>}
+ * @returns {Promise<boolean> & { cancel(): void }}
  */
 export function IsProxyRunning() {
-    return $Call.ByID(3606374042);
+    let $resultPromise = /** @type {any} */($Call.ByID(3606374042));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<boolean>}
+ * @returns {Promise<boolean> & { cancel(): void }}
  */
 export function IsReady() {
-    return $Call.ByID(898380692);
+    let $resultPromise = /** @type {any} */($Call.ByID(898380692));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<boolean>}
+ * @returns {Promise<boolean> & { cancel(): void }}
  */
 export function IsRunning() {
-    return $Call.ByID(3694497516);
+    let $resultPromise = /** @type {any} */($Call.ByID(3694497516));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<string>}
+ * @returns {Promise<string> & { cancel(): void }}
  */
 export function Name() {
-    return $Call.ByID(2762986294);
+    let $resultPromise = /** @type {any} */($Call.ByID(2762986294));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<boolean>}
+ * @returns {Promise<boolean> & { cancel(): void }}
  */
 export function NeedWIFIState() {
-    return $Call.ByID(1815350325);
+    let $resultPromise = /** @type {any} */($Call.ByID(1815350325));
+    return $resultPromise;
 }
 
 /**
  * @param {application$0.App | null} app
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function New(app) {
-    return $Call.ByID(1736568865, app);
+    let $resultPromise = /** @type {any} */($Call.ByID(1736568865, app));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function ReloadService() {
-    return $Call.ByID(4124270383);
+    let $resultPromise = /** @type {any} */($Call.ByID(4124270383));
+    return $resultPromise;
 }
 
 /**
  * @param {string} token
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function SetAccessToken(token) {
-    return $Call.ByID(2196676062, token);
+    let $resultPromise = /** @type {any} */($Call.ByID(2196676062, token));
+    return $resultPromise;
 }
 
 /**
  * @param {string[]} hostnames
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function SetEndpoints(hostnames) {
-    return $Call.ByID(2787700031, hostnames);
+    let $resultPromise = /** @type {any} */($Call.ByID(2787700031, hostnames));
+    return $resultPromise;
 }
 
 /**
  * @param {string} logLevel
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function SetLogLevel(logLevel) {
-    return $Call.ByID(1992797123, logLevel);
+    let $resultPromise = /** @type {any} */($Call.ByID(1992797123, logLevel));
+    return $resultPromise;
 }
 
 /**
  * @param {application$0.SystemTray | null} systray
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function SetSystray(systray) {
-    return $Call.ByID(3821694336, systray);
+    let $resultPromise = /** @type {any} */($Call.ByID(3821694336, systray));
+    return $resultPromise;
 }
 
 /**
  * @param {application$0.WebviewWindow | null} window
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function SetWindow(window) {
-    return $Call.ByID(769400459, window);
+    let $resultPromise = /** @type {any} */($Call.ByID(769400459, window));
+    return $resultPromise;
 }
 
 /**
  * @param {adapter$0.StartStage} stage
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function Start(stage) {
-    return $Call.ByID(1681485135, stage);
+    let $resultPromise = /** @type {any} */($Call.ByID(1681485135, stage));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function StartOptimizing() {
-    return $Call.ByID(1400408683);
+    let $resultPromise = /** @type {any} */($Call.ByID(1400408683));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function StartProxy() {
-    return $Call.ByID(218733177);
+    let $resultPromise = /** @type {any} */($Call.ByID(218733177));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<adapter$0.ConnectionStatus>}
+ * @returns {Promise<adapter$0.ConnectionStatus> & { cancel(): void }}
  */
 export function Status() {
-    return $Call.ByID(3414141343);
+    let $resultPromise = /** @type {any} */($Call.ByID(3414141343));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function StopProxy() {
-    return $Call.ByID(1533444971);
+    let $resultPromise = /** @type {any} */($Call.ByID(1533444971));
+    return $resultPromise;
 }
 
 /**
- * @returns {$CancellablePromise<void>}
+ * @returns {Promise<void> & { cancel(): void }}
  */
 export function StopService() {
-    return $Call.ByID(4248756628);
+    let $resultPromise = /** @type {any} */($Call.ByID(4248756628));
+    return $resultPromise;
 }
 
 /**
  * @param {string} nodeId
- * @returns {$CancellablePromise<{ [_: string]: adapter$0.RelayRoute | null }>}
+ * @returns {Promise<{ [_: string]: adapter$0.RelayRoute | null }> & { cancel(): void }}
  */
 export function TestSpecificNode(nodeId) {
-    return $Call.ByID(5819569, nodeId).then(/** @type {($result: any) => any} */(($result) => {
+    let $resultPromise = /** @type {any} */($Call.ByID(5819569, nodeId));
+    let $typingPromise = /** @type {any} */($resultPromise.then(($result) => {
         return $$createType23($result);
     }));
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 // Private type creation functions

@@ -121,6 +121,8 @@ export const useStore = defineStore("index", () => {
 
       statusMessage.value = locale.t("$vuetify.service.fetchingData");
       await FetchData();
+      statusMessage.value = `${optimizeProgress.value.completed_tests || 0} / ${optimizeProgress.value.total_tests || 0}`;
+      await StartOptimizing()
 
       statusMessage.value = locale.t("$vuetify.service.ready");
       if (callback !== undefined) {
