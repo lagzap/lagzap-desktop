@@ -11,9 +11,75 @@ const props = defineProps<{
   profile: Profile;
 }>();
 
+const MAX_ROUTES = 4;
+
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
+
+const normalizeRouteCounts = (
+  tcp: number,
+  udp: number,
+  changed: "tcp" | "udp"
+): { tcp: number; udp: number } => {
+  tcp = Math.max(0, Math.min(MAX_ROUTES, Math.round(tcp) || 0));
+  udp = Math.max(0, Math.min(MAX_ROUTES, Math.round(udp) || 0));
+
+  const excess = tcp + udp - MAX_ROUTES;
+  if (excess > 0) {
+    if (changed === "tcp") {
+      udp = Math.max(0, udp - excess);
+    } else {
+      tcp = Math.max(0, tcp - excess);
+    }
+  }
+
+  if (tcp + udp < 1) {
+    if (changed === "tcp") {
+      if (tcp === 0) {
+        udp = 1;
+      } else {
+        tcp = 1;
+      }
+    } else if (udp === 0) {
+      tcp = 1;
+    } else {
+      udp = 1;
+    }
+  }
+
+  return { tcp, udp };
+};
+
+const applyRouteCounts = (tcp: number, udp: number, changed: "tcp" | "udp") => {
+  const state = store.profileStates[props.profile.id];
+  if (!state) return;
+  const normalized = normalizeRouteCounts(tcp, udp, changed);
+  state.tcp_connections = normalized.tcp;
+  state.udp_connections = normalized.udp;
+};
+
+const tcpRoutes = computed({
+  get: () => store.profileStates[props.profile.id]?.tcp_connections ?? 0,
+  set: (value: number) => {
+    const udp = store.profileStates[props.profile.id]?.udp_connections ?? 0;
+    applyRouteCounts(value, udp, "tcp");
+  },
+});
+
+const udpRoutes = computed({
+  get: () => store.profileStates[props.profile.id]?.udp_connections ?? 0,
+  set: (value: number) => {
+    const tcp = store.profileStates[props.profile.id]?.tcp_connections ?? 0;
+    applyRouteCounts(tcp, value, "udp");
+  },
+});
+
+const tcpRoutesMin = computed(() => (udpRoutes.value === 0 ? 1 : 0));
+const udpRoutesMin = computed(() => (tcpRoutes.value === 0 ? 1 : 0));
+
+const totalRoutes = computed(() => tcpRoutes.value + udpRoutes.value);
+const showMultiPathRouteWarnings = computed(() => totalRoutes.value <= 1);
 
 watch(
   store.profileStates,
@@ -84,6 +150,14 @@ const closeDialog = () => {
 
 // Initialize unavailable interfaces tracking
 onMounted(() => {
+  const state = store.profileStates[props.profile.id];
+  if (state) {
+    applyRouteCounts(
+      state.tcp_connections ?? 0,
+      state.udp_connections ?? 0,
+      "udp"
+    );
+  }
   store.updateProfileUnavailableInterfaces(props.profile.id);
 });
 </script>
@@ -130,51 +204,36 @@ onMounted(() => {
           >
             <v-col>
               <v-number-input
-                :model-value="0"
+                :key="`tcp-${udpRoutes}`"
+                v-model:model-value="tcpRoutes"
                 :label="t('$vuetify.title.profile.tcpRoutes')"
                 variant="outlined"
                 density="comfortable"
                 control-variant="split"
                 inset
-                :min="0"
-                :max="1"
-                readonly
+                :min="tcpRoutesMin"
+                :max="MAX_ROUTES"
+                :disabled="!store.connected"
               />
             </v-col>
             <v-col>
               <v-number-input
-                v-model:model-value="
-                  store.profileStates[profile.id].udp_connections
-                "
+                :key="`udp-${tcpRoutes}`"
+                v-model:model-value="udpRoutes"
                 :label="t('$vuetify.title.profile.udpRoutes')"
                 variant="outlined"
                 density="comfortable"
                 control-variant="split"
                 inset
-                :min="1"
-                :max="4"
+                :min="udpRoutesMin"
+                :max="MAX_ROUTES"
                 :disabled="!store.connected"
               />
             </v-col>
             <v-col cols="12">
               <v-scale-transition>
                 <v-alert
-                  v-if="store.profileStates[profile.id].udp_connections <= 1"
-                  type="info"
-                  variant="tonal"
-                  density="compact"
-                  class="mb-2"
-                >
-                  <div class="text-body-2">
-                    {{
-                      t("$vuetify.title.profile.multiPathWarningRecommendation")
-                    }}
-                  </div>
-                </v-alert>
-              </v-scale-transition>
-              <v-scale-transition>
-                <v-alert
-                  v-if="store.profileStates[profile.id].udp_connections <= 1"
+                  v-if="showMultiPathRouteWarnings"
                   type="warning"
                   variant="tonal"
                   density="compact"
@@ -183,8 +242,13 @@ onMounted(() => {
                   <div class="text-subtitle-1 mb-1">
                     {{ t("$vuetify.title.profile.multiPathDisabled") }}
                   </div>
-                  <div class="text-body-2">
+                  <div class="text-body-2 mb-2">
                     {{ t("$vuetify.title.profile.multiPathWarning") }}
+                  </div>
+                  <div class="text-body-2">
+                    {{
+                      t("$vuetify.title.profile.multiPathWarningRecommendation")
+                    }}
                   </div>
                 </v-alert>
               </v-scale-transition>

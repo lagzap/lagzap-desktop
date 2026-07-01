@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/lagzap/lagzap/adapter"
 	"github.com/lagzap/lagzap/common/device"
 	"github.com/lagzap/lagzap/log"
@@ -15,11 +17,31 @@ func (s *Service) SetAccessToken(token string) {
 	s.coordinator.SetToken(token)
 }
 
+func (s *Service) SetSyncTransportMode(mode adapter.SyncTransportMode) {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetSyncTransportMode(mode)
+}
+
+func (s *Service) SetHTTPPolling(enabled bool) {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetHTTPPolling(enabled)
+}
+
 func (s *Service) SetEndpoints(hostnames []string) {
 	if s.coordinator == nil {
 		return
 	}
 	s.coordinator.SetEndpoints(hostnames)
+	if len(hostnames) == 0 || !s.IsRunning() {
+		return
+	}
+	if err := s.rediscoverLocalProxyUpstream(); err != nil {
+		fmt.Printf("localproxy: rediscover after SetEndpoints: %v\n", err)
+	}
 }
 
 func (s *Service) SetLogLevel(logLevel string) {

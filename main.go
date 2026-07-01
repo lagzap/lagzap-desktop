@@ -32,7 +32,7 @@ func main() {
 	var systray *application.SystemTray
 	app := application.New(application.Options{
 		LogLevel:    slog.Level(log.LevelError),
-		Name:        "LagZap",
+		Name:        "Cyrex",
 		Description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience",
 		Linux:       application.LinuxOptions{},
 		Windows:     application.WindowsOptions{},
@@ -63,7 +63,7 @@ func main() {
 			fmt.Printf("Stacktrace: %s\n", panicDetails.StackTrace)
 
 			dialog := application.InfoDialog()
-			dialog.SetTitle("LagZap crashed!")
+			dialog.SetTitle("Cyrex crashed!")
 			dialog.SetMessage("A crash has been occurred, please restart the application!")
 			dialog.Show()
 			file, err := os.OpenFile("panic.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
@@ -96,7 +96,7 @@ func main() {
 
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:               "main",
-		Title:              "LagZap",
+		Title:              "Cyrex",
 		Width:              1000,
 		Height:             800,
 		MinWidth:           320,
@@ -161,7 +161,7 @@ func main() {
 	lightIcon, _ := assets.ReadFile("assets/images/icons/light/warning.png")
 	darkIcon, _ := assets.ReadFile("assets/images/icons/dark/warning.png")
 	systray = app.SystemTray.New()
-	systray.SetLabel("LagZap")
+	systray.SetLabel("Cyrex")
 	systray.SetIcon(lightIcon)
 	systray.SetDarkModeIcon(darkIcon)
 

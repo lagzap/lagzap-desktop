@@ -144,14 +144,25 @@ func (s *Service) discoverAndStartLocalProxy() error {
 	if s.coordinator != nil {
 		hostnames, hostErr := localproxy.DiscoverCoordinatorHosts(s.ctx, s.dnsRouter, constant.Version)
 		if len(hostnames) > 0 {
-			s.coordinator.SetEndpoints(hostnames)
-			fmt.Printf("coordinator: endpoints from discovery: %v\n", hostnames)
-		}
-		if hostErr != nil {
-			fmt.Printf("coordinator: endpoint discovery note: %v\n", hostErr)
+			s.coordinator.AppendDiscoveredEndpoints(hostnames)
+			if hostErr != nil {
+				fmt.Printf("coordinator: using channel fallbacks %v (TXT: %v)\n", hostnames, hostErr)
+			} else {
+				fmt.Printf("coordinator: endpoints from discovery: %v\n", hostnames)
+			}
+		} else if hostErr != nil {
+			fmt.Printf("coordinator: endpoint discovery skipped: %v\n", hostErr)
 		}
 	}
-	target, err := localproxy.DiscoverUpstream(s.ctx, s.dnsRouter, constant.Version)
+	return s.rediscoverLocalProxyUpstream()
+}
+
+func (s *Service) rediscoverLocalProxyUpstream() error {
+	coordEndpoints := []string(nil)
+	if s.coordinator != nil {
+		coordEndpoints = s.coordinator.Endpoints()
+	}
+	target, err := localproxy.DiscoverUpstream(s.ctx, s.dnsRouter, constant.Version, coordEndpoints)
 	if err != nil {
 		fmt.Printf("localproxy: upstream discovery note: %v (using %s)\n", err, target)
 	} else {

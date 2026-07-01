@@ -30,23 +30,79 @@ func ChannelHost(version string) string {
 	}
 }
 
-func DiscoverUpstream(ctx context.Context, dns adapter.DNSRouter, version string) (string, error) {
+// channelFallbackHosts are known alternates when TXT discovery is unavailable.
+func channelFallbackHosts(version string) []string {
+	switch ChannelHost(version) {
+	case "dev.lagzap.network":
+		return []string{"dev.lagzap-network.ir"}
+	default:
+		return nil
+	}
+}
+
+func channelCoordinatorHostnames(version string) []string {
 	host := ChannelHost(version)
-	fallback := normalizeAPIBase(host)
-	if dns == nil {
-		return fallback, nil
+	out := make([]string, 0, 1+len(channelFallbackHosts(version)))
+	seen := make(map[string]struct{}, cap(out))
+	for _, h := range channelFallbackHosts(version) {
+		if h == "" {
+			continue
+		}
+		if _, ok := seen[h]; ok {
+			continue
+		}
+		seen[h] = struct{}{}
+		out = append(out, h)
 	}
-	endpoints, err := lookupTXTCDNs(ctx, dns, host)
-	if err != nil || len(endpoints) == 0 {
-		return fallback, err
+	if _, ok := seen[host]; !ok {
+		out = append(out, host)
 	}
-	deduped := dedupePreserveOrder(endpoints)
-	for _, ep := range deduped {
+	return out
+}
+
+func DiscoverUpstream(ctx context.Context, dns adapter.DNSRouter, version string, coordinatorHosts []string) (string, error) {
+	var txtEndpoints []string
+	var txtErr error
+	if dns != nil {
+		txtEndpoints, txtErr = lookupTXTCDNs(ctx, dns, ChannelHost(version))
+	}
+	candidates := upstreamCandidates(version, txtEndpoints, coordinatorHosts)
+	for _, ep := range candidates {
 		if probeURL(ctx, ep) {
-			return ep, nil
+			return ep, txtErr
 		}
 	}
-	return deduped[0], nil
+	if len(candidates) > 0 {
+		return candidates[0], txtErr
+	}
+	return normalizeAPIBase(ChannelHost(version)), txtErr
+}
+
+func upstreamCandidates(version string, txtEndpoints, coordinatorHosts []string) []string {
+	seen := make(map[string]struct{})
+	out := make([]string, 0, len(txtEndpoints)+len(coordinatorHosts)+1)
+	add := func(raw string) {
+		u := normalizeAPIBase(raw)
+		if u == "" {
+			return
+		}
+		if _, ok := seen[u]; ok {
+			return
+		}
+		seen[u] = struct{}{}
+		out = append(out, u)
+	}
+	for _, h := range coordinatorHosts {
+		add(h)
+	}
+	for _, h := range channelFallbackHosts(version) {
+		add(h)
+	}
+	for _, ep := range dedupePreserveOrder(txtEndpoints) {
+		add(ep)
+	}
+	add(ChannelHost(version))
+	return out
 }
 
 func DiscoverCoordinatorHosts(ctx context.Context, dns adapter.DNSRouter, version string) ([]string, error) {
@@ -55,8 +111,11 @@ func DiscoverCoordinatorHosts(ctx context.Context, dns adapter.DNSRouter, versio
 		return []string{host}, nil
 	}
 	endpoints, err := lookupTXTCDNs(ctx, dns, host)
-	if err != nil || len(endpoints) == 0 {
-		return []string{host}, err
+	if err != nil {
+		return channelCoordinatorHostnames(version), err
+	}
+	if len(endpoints) == 0 {
+		return []string{host}, nil
 	}
 	out := make([]string, 0, len(endpoints))
 	for _, ep := range dedupePreserveOrder(endpoints) {
@@ -71,9 +130,9 @@ func DiscoverCoordinatorHosts(ctx context.Context, dns adapter.DNSRouter, versio
 		out = append(out, h)
 	}
 	if len(out) == 0 {
-		return []string{host}, err
+		return []string{host}, nil
 	}
-	return dedupePreserveOrder(out), err
+	return dedupePreserveOrder(out), nil
 }
 
 func lookupTXTCDNs(ctx context.Context, dns adapter.DNSRouter, host string) ([]string, error) {

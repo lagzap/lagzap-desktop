@@ -91,7 +91,7 @@ function getLowestPingForRegion(regionTag: string): RelayRoute | null {
 const areas = computed(() => {
   const allNodes = Object.values(store.nodes)
     .slice()
-    // .filter(hasRelayFlag) // Only show nodes with RELAY flag
+    .filter(hasRelayFlag) // Only show nodes with RELAY flag
     .sort((a, b) => {
       const countryA = country.findByIso2(a.country)?.name || "";
       const countryB = country.findByIso2(b.country)?.name || "";
