@@ -8,7 +8,7 @@ tasks:
     summary: Builds the application for Windows
     deps:
       - task: common:go:mod:tidy
-      - task: common:build:frontend
+      # - task: common:build:frontend
         vars:
           GARBLE_SEED: 'test'
           BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
@@ -27,9 +27,9 @@ tasks:
       CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
       BUILD_FLAGS: >-
         {{if eq .BUILD_TYPE "production"}}
-        -tags production,with_gvisor,with_dhcp,with_coordinator -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui"
+        -tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui -checklinkname=0"
         {{else}}
-        -tags with_gvisor,with_dhcp,with_coordinator -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}'" -gcflags=all="-l"
+        -tags debuug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -checklinkname=0" -gcflags=all="-l"
         {{end}}
     env:
       GOOS: windows

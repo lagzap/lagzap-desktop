@@ -2,6 +2,7 @@
 import { useDisplay, useTheme, useLocale } from "vuetify";
 import { Events, System, Window } from "@wailsio/runtime";
 import { useMessagesStore } from "~/stores/messages";
+import OptimizeParticles from "~/components/OptimizeParticles.vue";
 
 const store = useStore();
 const messages = useMessagesStore();
@@ -45,6 +46,10 @@ Events.On("theme", ({ data }) => {
   if (!settings.value.theme || settings.value.theme === "system") {
     theme.change(data[0]);
   }
+});
+
+Events.On("WindowMaximised", async ({ data }) => {
+  isMaximized.value = await Window.IsMaximised();
 });
 
 async function minimize() {
@@ -116,4 +121,6 @@ async function close() {
   </div>
 
   <v-snackbar-queue v-model="messages.queue" :timeout="1000" />
+  
+  <OptimizeParticles />
 </template>

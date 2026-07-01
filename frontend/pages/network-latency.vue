@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import Container from "~/components/layout/Container.vue";
 import CountryFlag from "vue-country-flag-next";
-import MiddleEast from "~/components/icons/regions/middle-east.vue";
 import Europe from "~/components/icons/regions/europe.vue";
 import country from "country-list-js";
 import Ping from "~/components/Ping.vue";
-import type {
-  Node,
-  RelayRoute,
-} from "~/bindings/github.com/lagzap/lagzap/adapter";
 import { useLocale } from "vuetify";
+import { StartOptimizing } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import ContinentIcon from "~/components/icons/ContinentIcon.vue";
+import type { Node, RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
+import { NodeFlag } from "~/bindings/github.com/lagzap/zap/data";
 
 const locale = useLocale();
 const { t } = locale;
@@ -27,7 +26,10 @@ function showRoutes(node: Node) {
   showRouteDialog.value = true;
 }
 
-// FIXME: lowest ping, consider ipv4/ipv6 and tcp/udp
+function hasRelayFlag(node: Node): boolean {
+  return (node.flags & NodeFlag.NodeFlag_NODE_FLAG_RELAY) !== 0;
+}
+
 function getLowestPingForArea(nodes: Node[]): RelayRoute | null {
   let bestRoute: RelayRoute | null = null;
   let lowestLatency = Infinity;
@@ -36,6 +38,9 @@ function getLowestPingForArea(nodes: Node[]): RelayRoute | null {
   const variants = ["ipv4-udp", "ipv4-tcp", "ipv6-udp", "ipv6-tcp"];
 
   for (const node of nodes) {
+    // Only consider nodes with RELAY flag
+    if (!hasRelayFlag(node)) continue;
+    
     for (const v of variants) {
       const key = `${node.id}-${v}`;
       const routeData: RelayRoute | undefined = (store.routes || {})[key];
@@ -65,7 +70,8 @@ function getLowestPingForArea(nodes: Node[]): RelayRoute | null {
 }
 
 function firstNodeIdForArea(nodes: Node[]): string {
-  return nodes && nodes.length > 0 ? nodes[0].id : "";
+  const relayNodes = nodes.filter(hasRelayFlag);
+  return relayNodes && relayNodes.length > 0 ? relayNodes[0].id : "";
 }
 
 function getLowestPingForRegion(regionTag: string): RelayRoute | null {
@@ -74,12 +80,18 @@ function getLowestPingForRegion(regionTag: string): RelayRoute | null {
   const nodes: Node[] = [];
   Object.values(regionAreas).forEach((arr) => nodes.push(...arr));
   if (nodes.length === 0) return null;
-  return getLowestPingForArea(nodes);
+  
+  // Filter to only RELAY nodes
+  const relayNodes = nodes.filter(hasRelayFlag);
+  if (relayNodes.length === 0) return null;
+  
+  return getLowestPingForArea(relayNodes);
 }
 
 const areas = computed(() => {
   const allNodes = Object.values(store.nodes)
     .slice()
+    // .filter(hasRelayFlag) // Only show nodes with RELAY flag
     .sort((a, b) => {
       const countryA = country.findByIso2(a.country)?.name || "";
       const countryB = country.findByIso2(b.country)?.name || "";
@@ -130,6 +142,10 @@ const areasByRegion = computed(() => {
 
   return sortedRegionGroups;
 });
+
+async function optimize() {
+  await StartOptimizing();
+}
 </script>
 
 <template>
@@ -137,8 +153,8 @@ const areasByRegion = computed(() => {
     <Container>
       <template #header>
         <v-tabs fixed-tabs>
-          <v-tab :to="{ name: 'network-latency' }" text="Latency Grid" />
-          <v-tab :to="{ name: 'map' }" text="Network Map" />
+          <v-tab :to="{ name: 'network-latency' }" :text="t('$vuetify.networkLatency.latencyGrid')" />
+          <v-tab :to="{ name: 'network-map' }" :text="t('$vuetify.networkLatency.networkMap')" />
         </v-tabs>
         <v-spacer />
       </template>
@@ -164,14 +180,7 @@ const areasByRegion = computed(() => {
           >
             <template #prepend>
               <v-avatar size="24" class="me-2">
-                <Europe
-                  v-if="region.tag == 'eu'"
-                  src="~/assets/svgs/regions/europe.svg"
-                />
-                <MiddleEast
-                  v-else-if="region.tag == 'me'"
-                  src="~/assets/svgs/regions/middle-east.svg"
-                />
+                <ContinentIcon :tag="region.tag" />
               </v-avatar>
             </template>
             <span>{{ store.localized(region.name) }}</span>
@@ -186,7 +195,7 @@ const areasByRegion = computed(() => {
           </v-chip>
         </v-chip-group>
 
-        <v-row dense>
+        <v-row dense class="mb-16">
           <template v-if="filterMode === 'all'">
             <template
               v-for="[regionTag, regionAreas] in Object.entries(areasByRegion)"
@@ -252,7 +261,7 @@ const areasByRegion = computed(() => {
                         {{ i + 1 }}
                       </v-list-item-title>
                       <template #append>
-                        <Ping :tag="node.id" />
+                        <Ping v-if="hasRelayFlag(node)" :tag="node.id" />
                       </template>
                     </v-list-item>
                   </v-list>
@@ -306,7 +315,7 @@ const areasByRegion = computed(() => {
                   >
                     <v-list-item-title>{{ node.name }}</v-list-item-title>
                     <template #append>
-                      <Ping :tag="node.id" />
+                      <Ping v-if="hasRelayFlag(node)" :tag="node.id" />
                     </template>
                   </v-list-item>
                 </v-list>
@@ -314,23 +323,27 @@ const areasByRegion = computed(() => {
             </v-col>
           </template>
         </v-row>
-        <v-fab
-          icon
-          appear
-          size="x-large"
-          color="lime"
-          variant="elevated"
-          :style="{
-            position: 'fixed',
-            bottom: '16px',
-            [locale.isRtl.value ? 'left' : 'right']: '16px',
-            zIndex: 10000,
-          }"
-          :loading="store.optimizing"
-          @click="store.optimize()"
-        >
-          <v-icon>mdi-auto-fix</v-icon>
-        </v-fab>
+        <v-hover>
+          <template #default="{ isHovering, props }">
+            <v-fab
+              prepend-icon="mdi-fire"
+              appear
+              size="large"
+              color="primary"
+              variant="elevated"
+              v-bind="props"
+              :style="{
+                position: 'fixed',
+                bottom: '16px',
+                [locale.isRtl.value ? 'left' : 'right']: '16px',
+                zIndex: 10000,
+              }"
+              text="Optimize"
+              :loading="store.optimizing"
+              @click="optimize()"
+            />
+          </template>
+        </v-hover>
       </v-card-text>
     </Container>
 

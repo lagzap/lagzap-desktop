@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { min } from "es-toolkit/compat";
-import type { RelayRoute } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import type { RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
 
 const props = defineProps<{
   tag?: string;
@@ -45,38 +45,17 @@ function getScoreDescription(score: number | null): string {
     return "Poor";
   }
 }
-
-// Helper function to get score description
-function getScoreIcon(score: number | null): string {
-  if (score === null || score < 0) {
-    return "mdi-signal-off";
-  }
-
-  if (score >= 80) {
-    return "mdi-signal-cellular-3";
-  } else if (score >= 70) {
-    return "mdi-signal-cellular-2";
-  } else if (score >= 60) {
-    return "mdi-signal-cellular-1";
-  } else {
-    return "mdi-signal-cellular-outline";
-  }
-}
 </script>
 
 <template>
   <span
     :class="getScoreColorClass(relayRoute?.routes?.[0]?.score || null)"
-    class="d-flex align-center gap-1"
+    class="d-flex align-center gap-1 text-caption"
   >
-    <span class="me-1">{{
+    <span class="ms-1">{{
       relayRoute?.routes?.[0].min_latency
         ? `${Math.max(0, relayRoute?.routes?.[0].min_latency)}ms`
         : "timeout"
     }}</span>
-    <v-icon
-      :icon="getScoreIcon(relayRoute?.routes?.[0]?.score || null)"
-      size="small"
-    />
   </span>
 </template>

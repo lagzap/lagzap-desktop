@@ -30,7 +30,7 @@ tasks:
       - dist/*
     deps:
       - task: install:frontend:deps
-      - task: generate:bindings
+      # - task: generate:bindings
     cmds:
       - '{{.BUILD_COMMAND}}'
     env:

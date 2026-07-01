@@ -7,8 +7,6 @@ import { useLocale } from "vuetify";
 
 const locale = useLocale();
 const { t } = locale;
-const runtimeConfig = useRuntimeConfig();
-const requestFetch = useRequestFetch();
 const { login } = useSanctumAuth();
 
 const emit = defineEmits(["back"]);
@@ -55,7 +53,6 @@ const onSubmit = handleSubmit(async (values) => {
       },
     });
     if (error.value) {
-      console.log(error.value.data)
       displayError(error.value, locale);
       return;
     }
@@ -99,7 +96,7 @@ onMounted(() => {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card :title="t('$vuetify.auth.register.title')">
+    <v-card width="400" :title="t('$vuetify.auth.register.title')">
       <v-card-text>
         {{
           props.type == "email"

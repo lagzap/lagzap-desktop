@@ -35,7 +35,11 @@ func (s *Service) startLogging() {
 }
 
 func (s *Service) startMonitoring() {
-	s.app.Event.Emit("connections", s.coordinator.Connections())
+	connections := s.coordinator.Connections()
+	routes := s.coordinator.GetRouteMonitoringData()
+
+	s.app.Event.Emit("connections", connections)
+	s.app.Event.Emit("routes", routes)
 
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
@@ -47,7 +51,11 @@ func (s *Service) startMonitoring() {
 			if s.lagzap == nil {
 				return
 			}
-			s.app.Event.Emit("connections", s.coordinator.Connections())
+			connections := s.coordinator.Connections()
+			routes := s.coordinator.GetRouteMonitoringData()
+
+			s.app.Event.Emit("connections", connections)
+			s.app.Event.Emit("routes", routes)
 		}
 	}
 }

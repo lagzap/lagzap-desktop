@@ -3,20 +3,53 @@ import { useDisplay } from "vuetify";
 import LagzapLogo from "~/components/LagzapLogo.vue";
 import QuickAccess from "./QuickAccess.vue";
 import { Events } from "@wailsapp/runtime";
-import { ConnectionStatus } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { Application, Window } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
+import { ConnectionStatus } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import DiscordIcon from "~/components/icons/DiscordIcon.vue";
+import XIcon from "~/components/icons/XIcon.vue";
+import TelegramIcon from "~/components/icons/TelegramIcon.vue";
+import LatencyChip from "~/components/LatencyChip.vue";
 
 const { t } = useLocale();
 const data = useSanctumUser<DataResponse>();
+const { logout } = useSanctumAuth()
 const user = computed(() => data.value.user);
 const { mobile } = useDisplay();
 const store = useStore();
 
-const serviceReady = computed(() => store.serviceReady);
 const running = computed(() => store.ndisRunning);
 const model = defineModel<boolean>({
   required: false,
   default: false,
+});
+
+const showConnectedCheck = ref(false);
+let connectedTimer: NodeJS.Timeout | null = null;
+
+watch(() => store.connected, (newConnected, oldConnected) => {
+  if (newConnected && !oldConnected) {
+    showConnectedCheck.value = true;
+    if (connectedTimer) {
+      clearTimeout(connectedTimer);
+    }
+    connectedTimer = setTimeout(() => {
+      showConnectedCheck.value = false;
+    }, 1000);
+  } else if (!newConnected) {
+    showConnectedCheck.value = false;
+    if (connectedTimer) {
+      clearTimeout(connectedTimer);
+      connectedTimer = null;
+    }
+  }
+});
+
+onUnmounted(() => {
+  if (connectedTimer) {
+    clearTimeout(connectedTimer);
+  }
 });
 
 onActivated(async () => {
@@ -24,11 +57,23 @@ onActivated(async () => {
     await store.startProxy();
   });
 
-  console.log(store.serviceReady);
   if (store.serviceReady) {
     await store.startProxy();
   }
 });
+
+const quiting = ref(false)
+
+async function exit() {
+  quiting.value = true;
+  await StopService();
+  await Window.Close();
+  await Application.Quit();
+}
+
+async function checkForUpdates() {
+  //
+}
 </script>
 
 <template>
@@ -39,65 +84,149 @@ onActivated(async () => {
     :color="mobile ? 'background' : 'transparent'"
   >
     <template #prepend>
-      <v-list-item rounded="xl">
-        <template #title>
-          <span class="lagzap-name me-1">{{ t('$vuetify.app_name') }}</span>
-        </template>
-        <template #prepend>
-          <v-avatar>
-            <LagzapLogo />
-          </v-avatar>
-        </template>
-        <template #append>
-          <v-switch
-            :model-value="running"
-            inset
-            hide-details
-            density="comfortable"
-            :color="store.error ? 'red' : 'green'"
-            :disabled="!serviceReady"
-            :loading="store.loading"
-            @click.stop.prevent="store.toggleNDIS()"
-          />
-        </template>
-      </v-list-item>
-    </template>
+      <v-menu width="300">
+        <template v-slot:activator="{ props }">
+          <v-list-item rounded="xl" height="56">
+            <template #title>
+              <LogoName class="ms-3 me-1" />
+              <span v-if="false" class="lagzap-name ms-3 me-1">
+                Lag<span
+                  :class="
+                    running
+                      ? 'text-primary'
+                      : store.error
+                      ? 'text-red'
+                      : 'text-grey'
+                  "
+                  >Z</span
+                >ap
+              </span>
+            </template>
+            <template #prepend>
+              <span class="cursor-pointer" v-bind="props">
+                <v-avatar rounded="0" size="32">
+                  <CyrexLogo />
+                </v-avatar>
+                <v-icon icon="mdi-chevron-down" size="xs" />
+              </span>
+            </template>
 
-    <template #append>
-      <v-list v-if="user" nav density="compact">
-        <v-list-item
-          :to="{ name: 'profile' }"
-          :title="user.name ?? t('$vuetify.status.player1')"
-          :subtitle="store.connected ? t('$vuetify.status.unlimited') : store.status"
-          rounded="xl"
-        >
-          <template #prepend>
-            <v-avatar :variant="(user.name || user.email)?.length ? (store.status == ConnectionStatus.StatusReconnecting ? 'text' : 'tonal') : 'text'">
-              <v-progress-circular v-if="store.status == ConnectionStatus.StatusReconnecting" indeterminate />
-              <span v-else-if="(user.name || user.email)?.length" class="text-xl text-uppercase">{{
-                (user.name || user.email)[0]
-              }}</span>
-              <v-icon v-else icon="mdi-account-circle" size="x-large" />
-            </v-avatar>
-          </template>
+            <template #append>
+              <v-scale-transition leave-absolute>
+                <v-progress-circular
+                  v-if="!store.connected && store.status == ConnectionStatus.StatusReconnecting"
+                  indeterminate
+                  size="20"
+                  width="2"
+                  color="primary"
+                  class="me-2"
+                />
+                <v-icon
+                  v-else-if="showConnectedCheck"
+                  icon="mdi-check"
+                  color="green"
+                  size="20"
+                  class="me-2"
+                />
+                <v-icon
+                  v-else-if="!store.connected"
+                  icon="mdi-lan-disconnect"
+                  color="red"
+                  size="20"
+                  class="me-2"
+                />
+                <LatencyChip
+                  v-else
+                  :latency="store.latency"
+                />
+              </v-scale-transition>
+            </template>
+          </v-list-item>
+        </template>
+        <v-card>
+          <v-list>
+            <v-list-item
+              v-if="user"
+              :to="{ name: 'profile' }"
+              :title="user.name ?? t('$vuetify.status.player1')"
+              :subtitle="t('$vuetify.status.unlimited')"
+            >
+              <template #prepend>
+                <v-avatar
+                  :variant="
+                    (user.name || user.email)?.length
+                      ? 'tonal'
+                      : 'text'
+                  "
+                >
+                  <span
+                    v-if="(user.name || user.email)?.length"
+                    class="text-xl text-uppercase"
+                    >{{ (user.name || user.email)[0] }}</span
+                  >
+                  <v-icon v-else icon="mdi-account-circle" size="x-large" />
+                </v-avatar>
+              </template>
 
-          <template #append>
-            <v-tooltip text="Settings">
-              <template #activator="{ props }">
-                <v-btn
-                  v-bind="props"
-                  icon="mdi-cog"
-                  text="Settings"
-                  variant="plain"
-                  size="small"
-                  color="secondary"
-                  :to="{ name: 'settings' }"
+              <template #append>
+                <v-switch
+                  :model-value="running"
+                  inset
+                  hide-details
+                  density="comfortable"
+                  :color="store.error ? 'red' : 'green'"
+                  :disabled="!store.serviceReady"
+                  :loading="store.loading"
+                  @click.stop.prevent="store.toggleNDIS()"
                 />
               </template>
-            </v-tooltip>
-          </template>
-        </v-list-item>
-      </v-list>
+            </v-list-item>
+          </v-list>
+          <v-list density="compact">
+            <v-divider />
+
+            <v-list-item prepend-icon="mdi-cog" :to="{ name: 'settings' }">
+              <template #title>
+                <span class="text-caption">Settings</span>
+              </template>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-update" @click="checkForUpdates">
+              <template #title>
+                <span class="text-caption">Check Update</span>
+              </template>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-bug" @click="''">
+              <template #title>
+                <span class="text-caption">Bug / Feedback</span>
+              </template>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-account-question" @click="''">
+              <template #title>
+                <span class="text-caption">Help Center</span>
+              </template>
+            </v-list-item>
+            <v-divider />
+            
+            <v-list-item prepend-icon="mdi-logout" @click="logout">
+              <template #title>
+                <span class="text-caption">Logout</span>
+              </template>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-close" @click="exit" :disabled="quiting">
+              <template #title>
+                <span class="text-caption">Exit</span>
+              </template>
+            </v-list-item>
+            <v-divider />
+          </v-list>
+          <div class="d-flex justify-center align-center gap-2 mb-2">
+            <v-btn size="40" color="accent" variant="text" icon="mdi-instagram" />
+            <v-btn size="40" color="accent" variant="text" :icon="XIcon" />
+            <v-btn size="40" color="accent" variant="text" :icon="DiscordIcon" />
+            <v-btn size="40" color="accent" variant="text" :icon="TelegramIcon" />
+          </div>
+        </v-card>
+      </v-menu>
     </template>
 
     <v-list nav :lines="false" variant="text" color="tertiary">
@@ -116,6 +245,7 @@ onActivated(async () => {
         density="compact"
       />
       <v-list-item
+        v-if="false"
         :to="{ name: 'console' }"
         :title="t('$vuetify.navigation.gamingConsoles')"
         prepend-icon="mdi-controller"
@@ -153,11 +283,18 @@ onActivated(async () => {
       color="tertiary"
       :lines="false"
     >
-      <v-list-subheader>{{ t('$vuetify.navigation.admin') }}</v-list-subheader>
+      <v-list-subheader>{{ t("$vuetify.navigation.admin") }}</v-list-subheader>
       <v-list-item
         :to="{ name: 'admin-connections' }"
         :title="t('$vuetify.navigation.connections')"
         prepend-icon="mdi-network-outline"
+        rounded="xl"
+        density="compact"
+      />
+      <v-list-item
+        :to="{ name: 'admin-routes' }"
+        title="Route Monitoring"
+        prepend-icon="mdi-network-pos"
         rounded="xl"
         density="compact"
       />

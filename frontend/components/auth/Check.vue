@@ -41,15 +41,13 @@ const onSubmit = handleSubmit(async (values) => {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card>
+    <v-card width="400">
       <div class="d-flex flex-column align-center pt-4">
         <v-avatar size="96">
-          <LagzapLogo />
+          <Logo />
         </v-avatar>
         <v-card-title>
-          <span class="lagzap-name">
-            {{ t("$vuetify.app_name") }}
-          </span>
+          <LogoName />
         </v-card-title>
         <v-card-subtitle>
           {{ t("$vuetify.auth.description") }}

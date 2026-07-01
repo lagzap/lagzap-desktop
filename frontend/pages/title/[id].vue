@@ -2,8 +2,9 @@
 import Container from "~/components/layout/Container.vue";
 import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
+import ProfileCard from "~/components/title/ProfileCard.vue";
 
-const locale = useLocale();
+const { t } = useLocale();
 const store = useStore();
 const route = useRoute();
 const router = useRouter();
@@ -12,8 +13,10 @@ const data = useSanctumUser<DataResponse>();
 const title = computed(() =>
   store.titles.find((t) => t.id === (route.params.id as string))
 );
-const profile = computed(() =>
-  store.profiles.find((p) => p.id === (route.params.profile as string))
+const profiles = computed(() =>
+  store.profiles
+    .filter((p) => p.title_id === title.value.id)
+    .sort((a, b) => a.order - b.order)
 );
 
 onMounted(() => {
@@ -28,21 +31,8 @@ onMounted(() => {
 
 <template>
   <div>
-    <Container>
+    <Container v-if="title">
       <template #header>
-        <v-btn
-          v-if="
-            [
-              'title-id-connections',
-              'title-id-profile-profile',
-              'title-id-profile-profile-server',
-              'title-id-profile-profile-connections',
-              'title-id-profile-profile-geofence',
-            ].includes(route.name as string)
-          "
-          :icon="locale.isRtl.value ? 'mdi-arrow-right' : 'mdi-arrow-left'"
-          @click="router.back()"
-        />
         <v-avatar
           v-if="title?.icon_url"
           density="comfortable"
@@ -55,72 +45,53 @@ onMounted(() => {
         </v-avatar>
         <v-app-bar-title
           class="text-subtitle-1"
-          @click="
-            router.push(
-              profile && profile.route_action != 'block'
-                ? {
-                    name: 'title-id-profile-profile',
-                    params: { id: title.id, profile: profile.id },
-                  }
-                : { name: 'title-id', params: { id: title.id } }
-            )
-          "
+          @click="router.push({ name: 'title-id', params: { id: title.id } })"
         >
-          <span>{{
-            profile
-              ? store.localized(profile.name)
-              : store.localized(title?.name)
-          }}</span>
+          <span>{{ title ? store.localized(title.name) : "" }}</span>
         </v-app-bar-title>
-      </template>
 
-      <NuxtPage
-        :transition="{
-          name: 'slide-x-transition',
-          mode: 'in-out',
-          persisted: true,
-        }"
-      />
-      <template v-if="title && !profile" #outside>
-        <v-fab
-          v-if="store.isTitleActive(title.id)"
-          :active="route.name === 'title-id'"
-          icon
-          appear
-          size="x-large"
-          color="green"
-          variant="elevated"
-          :style="{
-            position: 'fixed',
-            bottom: '24px',
-            [locale.isRtl.value ? 'left' : 'right']: '24px',
-            zIndex: 10000,
-          }"
+        <v-spacer />
+        <v-switch
+          :model-value="store.isTitleActive(title.id)"
+          hide-details
           :disabled="!store.connected"
+          :color="store.isTitleActive(title.id) ? 'green' : 'secondary'"
           @click="store.toggleTitleState(title)"
         >
           <v-icon>mdi-pause</v-icon>
-        </v-fab>
-        <v-fab
-          v-else
-          :active="route.name === 'title-id'"
-          icon
-          appear
-          size="x-large"
-          color="secondary"
-          variant="elevated"
-          :style="{
-            position: 'fixed',
-            bottom: '24px',
-            [locale.isRtl.value ? 'left' : 'right']: '24px',
-            zIndex: 10000,
-          }"
-          :disabled="!store.connected"
-          @click="store.toggleTitleState(title)"
-        >
-          <v-icon>mdi-play</v-icon>
-        </v-fab>
+        </v-switch>
       </template>
+      <v-expand-transition>
+        <v-banner
+          v-if="title && !store.isTitleActive(title.id)"
+          color="primary"
+          lines="one"
+        >
+          <v-banner-text>
+            {{ t("$vuetify.title.isNotActive", [store.localized(title.name)]) }}
+          </v-banner-text>
+
+          <template #actions>
+            <v-btn
+              variant="tonal"
+              prepend-icon="mdi-check"
+              @click="store.toggleTitleState(title)"
+            >
+              {{ t("$vuetify.title.action") }}
+            </v-btn>
+          </template>
+        </v-banner>
+      </v-expand-transition>
+
+      <div v-if="title" class="d-flex flex-column" style="column-gap: 0.5rem">
+        <template v-for="profile in profiles" :key="profile.id">
+          <ProfileCard :profile="profile" />
+          <v-divider
+            v-if="profile.id !== profiles[profiles.length - 1].id"
+            class="mx-3"
+          />
+        </template>
+      </div>
     </Container>
   </div>
 </template>

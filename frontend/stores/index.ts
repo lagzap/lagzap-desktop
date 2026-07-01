@@ -5,12 +5,10 @@ import {
   IsRunning,
   StartProxy,
   StopProxy,
-  ActionTitle,
+  SaveTitleState,
   GetRoutes,
   TestSpecificNode,
-  ActionProfile,
-  FetchData,
-  StartOptimizing,
+  SaveProfileState,
   Status,
   SetAccessToken,
   SetEndpoints,
@@ -18,6 +16,10 @@ import {
   Connect,
   Disconnect,
   GetTitleStates,
+  ClearDNSCache,
+  VisitTitle,
+  GetInterfaces,
+  GetClientInfo,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
   type RelayRoute,
@@ -27,14 +29,21 @@ import {
   type Title,
   type TitleState,
   type Node,
+  type Latency,
   Optimize,
-} from "~/bindings/github.com/lagzap/lagzap/adapter";
+  ClientInfo,
+} from "~/bindings/github.com/lagzap/zap/data";
+
+interface MultiInterfaceLatency {
+  interfaces: Record<string, Latency>;
+  best_score: number;
+}
 import { Events } from "@wailsio/runtime";
 import { displayError } from "~/composables/alert";
 import { getToken } from "~/utils/indexedDB";
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/constants/status";
-import { debounce } from "es-toolkit";
+import type { Interface } from "~/bindings/github.com/lagzap/zap/common/control";
 
 export const useStore = defineStore("index", () => {
   const locale = useLocale();
@@ -48,8 +57,7 @@ export const useStore = defineStore("index", () => {
   const optimizeProgress = ref<Optimize | null>(null);
   const serviceReady = ref<boolean>(false);
   const ndisRunning = ref<boolean>(false);
-
-  const recentTitles = ref<Record<string, number>>({});
+  const latency = ref<MultiInterfaceLatency | null>(null);
 
   const titles = ref<Title[]>([]);
   const profiles = ref<Profile[]>([]);
@@ -57,9 +65,12 @@ export const useStore = defineStore("index", () => {
   const nodes = ref<Record<string, Node>>({});
   const titleStates = ref<Record<string, TitleState>>({});
   const profileStates = ref<Record<string, ProfileState>>({});
-  const loadingTitleStates = ref<string[]>([]);
-  const loadingProfileStates = ref<string[]>([]);
   const routes = ref<Record<string, RelayRoute>>({});
+  const clientInfo = ref<ClientInfo | null>(null);
+
+  const defaultInterface = ref<string | null>(null);
+  const interfaces = ref<Interface[]>([]);
+  const profileUnavailableInterfaces = ref<Record<string, string[]>>({});
 
   // Getters
   const isReady = computed(() => serviceReady.value);
@@ -75,13 +86,13 @@ export const useStore = defineStore("index", () => {
       .filter((title) => titleStates.value[title.id]?.active === true)
       .sort(
         (a, b) =>
-          (recentTitles.value[b.id] || 0) - (recentTitles.value[a.id] || 0)
+          (titleStates.value[b.id]?.visited_at || 0) - (titleStates.value[a.id]?.visited_at || 0)
       );
     const inactiveTitles = titles.value
       .filter((title) => titleStates.value[title.id]?.active !== true)
       .sort(
         (a, b) =>
-          (recentTitles.value[b.id] || 0) - (recentTitles.value[a.id] || 0)
+          (titleStates.value[b.id]?.visited_at || 0) - (titleStates.value[a.id]?.visited_at || 0)
       );
     return [...activeTitles, ...inactiveTitles];
   });
@@ -91,21 +102,19 @@ export const useStore = defineStore("index", () => {
       .filter((title) => titleStates.value[title.id]?.active === true)
       .sort(
         (a, b) =>
-          (recentTitles.value[b.id] || 0) - (recentTitles.value[a.id] || 0)
-      )
-      .slice(0, displayLimit.value);
+          (titleStates.value[b.id]?.visited_at || 0) - (titleStates.value[a.id]?.visited_at || 0)
+      );
+    
     const inactiveTitles = titles.value
       .filter((title) => titleStates.value[title.id]?.active !== true)
       .sort(
         (a, b) =>
-          (recentTitles.value[b.id] || 0) - (recentTitles.value[a.id] || 0)
+          (titleStates.value[b.id]?.visited_at || 0) - (titleStates.value[a.id]?.visited_at || 0)
       )
-      .slice(0, displayLimit.value);
+      .slice(0, 5);
 
     const titlesArray = [...activeTitles, ...inactiveTitles];
-    return displayLimit.value > 0
-      ? titlesArray.slice(0, displayLimit.value)
-      : titlesArray;
+    return titlesArray;
   });
 
   const initialize = async (callback?: () => void) => {
@@ -115,14 +124,19 @@ export const useStore = defineStore("index", () => {
     try {
       statusMessage.value = locale.t("$vuetify.service.preparing");
       await check();
+
+      await check();
       if (!connected.value) {
         await connect();
       }
 
-      statusMessage.value = locale.t("$vuetify.service.fetchingData");
-      await FetchData();
-      statusMessage.value = `${optimizeProgress.value.completed_tests || 0} / ${optimizeProgress.value.total_tests || 0}`;
-      await StartOptimizing()
+      if (optimizeProgress.value) {
+        statusMessage.value = `${optimizeProgress.value.completed_tests || 0} / ${optimizeProgress.value.total_tests || 0}`;
+      }
+      await nextTick();
+      await StartProxy();
+      await check();
+      await ClearDNSCache();
 
       statusMessage.value = locale.t("$vuetify.service.ready");
       if (callback !== undefined) {
@@ -150,20 +164,54 @@ export const useStore = defineStore("index", () => {
     Events.On("profile-delete", ({ data }) => deleteProfile(data[0]));
     Events.On("title_states", ({ data }) => upsertTitleStates(data[0]));
     Events.On("profile_states", ({ data }) => upsertProfileStates(data[0]));
+    Events.On("client_info", ({ data }) => {
+      clientInfo.value = data[0];
+    });
     Events.On("regions", ({ data }) => upsertRegions(data[0]));
     Events.On("region-delete", ({ data }) => deleteRegion(data[0]));
     Events.On("nodes", ({ data }) => upsertNodes(data[0]));
     Events.On("node-delete", ({ data }) => deleteNode(data[0]));
     Events.On("relay-routes", ({ data }) => {
-      console.log("relay-routes", data[0]);
       const result = data[0] as Record<string, RelayRoute>;
       routes.value = result;
     });
     Events.On("optimize", async ({ data }) => {
-      console.log("optimize", data[0]);
       optimizeProgress.value = data[0];
+      statusMessage.value = `${optimizeProgress.value.completed_tests || 0} / ${optimizeProgress.value.total_tests || 0}`;
     });
+    Events.On("latency", ({ data }) => {
+      latency.value = data[0];
+    });
+    Events.On("interfaces-updated", async ({ data }) => {
+      await updateInterfaces()
+    });
+
+    const { user, isAuthenticated } = useSanctumAuth<DataResponse>();
+    if (!isAuthenticated) {
+      return;
+    }
+    const { log_level } = user.value;
+    abilities.value = user.value.abilities || [];
+    SetLogLevel(log_level);
   });
+
+  onUnmounted(() => {
+    Events.OffAll();
+  })
+
+  const updateInterfaces = async () => {
+    const [newDefaultInterface, newInterfaces] = await GetInterfaces()
+    if (newDefaultInterface === null || newInterfaces === null) {
+      return;
+    }
+    defaultInterface.value = newDefaultInterface.Name;
+    interfaces.value = newInterfaces;
+    
+    // Update unavailable interfaces for all profiles
+    Object.keys(profileStates.value).forEach(profileId => {
+      updateProfileUnavailableInterfaces(profileId);
+    });
+  };
 
   const toggleTitleState = async (title: Title) => {
     if (isTitleActive(title.id)) {
@@ -205,70 +253,38 @@ export const useStore = defineStore("index", () => {
     titleStates.value[id].active = false;
     saveTitleState(id);
   };
-  const saveTitleState = debounce(async (id: string) => {
+  const saveTitleState = async (id: string) => {
     try {
-      loadingTitleStates.value.push(id);
-      const updatedState = await ActionTitle(titleStates.value[id]);
-      console.log(updatedState)
-      titleStates.value[id] = updatedState;
+      await SaveTitleState(titleStates.value[id]);
     } catch (e) {
       displayError(e, locale);
-    } finally {
-      loadingTitleStates.value = loadingTitleStates.value.filter(
-        (id) => id !== id
-      );
     }
-  }, 500);
+  };
   const activateProfile = async (profileId: string) => {
     if (profileStates.value[profileId]) {
       profileStates.value[profileId].active = true;
     }
-    await saveActionProfile(profileId);
+    await saveProfileState(profileId);
   };
   const deactivateProfile = async (profileId: string) => {
     if (profileStates.value[profileId]) {
       profileStates.value[profileId].active = false;
     }
-    await saveActionProfile(profileId);
+    await saveProfileState(profileId);
   };
-  const saveActionProfile = debounce(async (profileId: string) => {
+  const saveProfileState = async (profileId: string) => {
     try {
-      loadingProfileStates.value.push(profileId);
-      const updatedState = await ActionProfile(profileStates.value[profileId]);
-      profileStates.value[profileId] = updatedState;
+      await SaveProfileState(profileStates.value[profileId]);
     } catch (e) {
       displayError(e, locale);
-    } finally {
-      loadingProfileStates.value = loadingProfileStates.value.filter(
-        (id) => id !== profileId
-      );
     }
-  }, 1000);
+  };
   const visitTitle = async (id: string) => {
-    if (titleStates.value[id]) {
-      titleStates.value[id].visited_at = Date.now();
-      if (!titleStates.value[id].active) {
-        recentTitles.value[id] = Date.now();
-      }
-    } else {
-      titleStates.value[id] = {
-        active: false,
-        titleId: id,
-        visited_at: Date.now(),
-      };
-    }
-
-    try {
-      const updatedState = await ActionTitle(titleStates.value[id]);
-      console.log("visit", updatedState)
-      titleStates.value[id] = updatedState;
-    } catch (e) {
-      displayError(e, locale);
-    }
+    await VisitTitle(id);
+    titleStates.value[id].visited_at = Date.now();
   };
 
   const upsertTitles = (titlesArray: Title[]) => {
-    console.log(titlesArray)
     for (const title of titlesArray) {
       const existingIndex = titles.value.findIndex((t) => t.id === title.id);
       if (existingIndex !== -1) {
@@ -298,6 +314,7 @@ export const useStore = defineStore("index", () => {
   const upsertProfileStates = (states: Record<string, ProfileState>) => {
     for (const profileState of Object.values(states)) {
       profileStates.value[profileState.profileId] = profileState;
+      updateProfileUnavailableInterfaces(profileState.profileId);
     }
   };
   const upsertRegions = (newRegions: Region[]) => {
@@ -315,7 +332,6 @@ export const useStore = defineStore("index", () => {
     const titleIndex = titles.value.findIndex((title) => title.id === id);
     if (titleIndex !== -1) {
       titles.value.splice(titleIndex, 1);
-      delete recentTitles.value[id];
 
       const associatedProfileIndices = profiles.value
         .map((profile, index) => (profile.title_id === id ? index : -1))
@@ -356,19 +372,21 @@ export const useStore = defineStore("index", () => {
     serviceReady.value = await IsRunning();
     ndisRunning.value = await IsProxyRunning();
     status.value = await Status();
+    clientInfo.value = await GetClientInfo();
   };
   const connect = async () => {
+    statusMessage.value = locale.t("$vuetify.service.connecting");
+    await updateInterfaces();
     await check();
     if (connected.value) {
       loading.value = false;
       return;
     }
-    statusMessage.value = locale.t("$vuetify.service.connecting");
+    statusMessage.value = locale.t("$vuetify.service.fetchingData");
 
     try {
       const { user, isAuthenticated } = useSanctumAuth<DataResponse>();
       if (!isAuthenticated) {
-        console.log(user, isAuthenticated);
         return;
       }
       const { endpoints, log_level } = user.value;
@@ -436,9 +454,6 @@ export const useStore = defineStore("index", () => {
   };
 
   // network analysis
-  const optimize = async () => {
-    await StartOptimizing();
-  };
   const updateEcho = async () => {
     routes.value = await GetRoutes();
   };
@@ -451,7 +466,64 @@ export const useStore = defineStore("index", () => {
     return item[locale.current.value] || item["en"];
   };
 
+  // Helper functions for unavailable interfaces
+  const updateProfileUnavailableInterfaces = (profileId: string) => {
+    const profileState = profileStates.value[profileId];
+    if (!profileState) {
+      delete profileUnavailableInterfaces.value[profileId];
+      return;
+    }
+
+    const availableInterfaceNames = interfaces.value.map(iface => iface.Name);
+    const unavailableInterfaces: string[] = [];
+
+    // Check default_interface
+    if (profileState.default_interface && !availableInterfaceNames.includes(profileState.default_interface)) {
+      unavailableInterfaces.push(profileState.default_interface);
+    }
+
+    // Check network_interfaces
+    const selectedInterfaces = profileState.network_interfaces || [];
+    const unavailableNetworkInterfaces = selectedInterfaces.filter(
+      name => !availableInterfaceNames.includes(name)
+    );
+    unavailableInterfaces.push(...unavailableNetworkInterfaces);
+
+    if (unavailableInterfaces.length > 0) {
+      profileUnavailableInterfaces.value[profileId] = unavailableInterfaces;
+    } else {
+      delete profileUnavailableInterfaces.value[profileId];
+    }
+  };
+
+  const hasUnavailableInterfaces = (profileId: string): boolean => {
+    return profileUnavailableInterfaces.value[profileId]?.length > 0;
+  };
+
+  const getUnavailableInterfaces = (profileId: string): string[] => {
+    return profileUnavailableInterfaces.value[profileId] || [];
+  };
+
+  const hasTitleUnavailableInterfaces = (titleId: string): boolean => {
+    const titleProfiles = profiles.value.filter(profile => profile.title_id === titleId);
+    return titleProfiles.some(profile => hasUnavailableInterfaces(profile.id));
+  };
+
+  const getTitleUnavailableInterfaces = (titleId: string): string[] => {
+    const titleProfiles = profiles.value.filter(profile => profile.title_id === titleId);
+    const allUnavailableInterfaces: string[] = [];
+    
+    titleProfiles.forEach(profile => {
+      const unavailableInterfaces = getUnavailableInterfaces(profile.id);
+      allUnavailableInterfaces.push(...unavailableInterfaces);
+    });
+    
+    return [...new Set(allUnavailableInterfaces)]; // Remove duplicates
+  };
+
   return {
+    isLagZap: false,
+
     // State
     connected,
     status,
@@ -464,14 +536,20 @@ export const useStore = defineStore("index", () => {
     optimizeProgress,
     serviceReady,
     ndisRunning,
-    recentTitles,
     titles,
     profiles,
     regions,
     nodes,
     titleStates,
     profileStates,
+    clientInfo,
     routes,
+    latency,
+
+    defaultInterface,
+    interfaces,
+    updateInterfaces,
+    profileUnavailableInterfaces,
 
     // Getters
     isReady,
@@ -488,11 +566,9 @@ export const useStore = defineStore("index", () => {
     activateTitle,
     deactivateTitle,
     saveTitleState,
-    loadingTitleStates,
     activateProfile,
     deactivateProfile,
-    saveActionProfile,
-    loadingProfileStates,
+    saveProfileState,
     visitTitle,
     upsertTitles,
     upsertProfiles,
@@ -512,10 +588,16 @@ export const useStore = defineStore("index", () => {
     startProxy,
     stopProxy,
     toggleNDIS,
-    optimize,
     updateEcho,
     pingNode,
 
     localized,
+    
+    // Unavailable interfaces helpers
+    updateProfileUnavailableInterfaces,
+    hasUnavailableInterfaces,
+    getUnavailableInterfaces,
+    hasTitleUnavailableInterfaces,
+    getTitleUnavailableInterfaces,
   };
 });

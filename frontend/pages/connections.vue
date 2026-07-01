@@ -55,7 +55,14 @@ const headers = ref<DataTableHeader[]>([
     key: "download_speed",
     sortable: true,
     nowrap: true,
-    minWidth: "250px",
+    minWidth: "100px",
+  },
+  {
+    title: t("$vuetify.connections.upload"),
+    key: "upload_speed",
+    sortable: true,
+    nowrap: true,
+    minWidth: "100px",
   },
 ]);
 
@@ -91,21 +98,31 @@ const sortBy = ref<VDataTable["sortBy"]>([
         class="bg-transparent h-100"
       >
         <template #item.title="{ item }">
-          {{
-            store.profiles.find((p) => p.id === item.profile_id)?.name?.en ??
-            "-"
-          }}
+          <span class="text-caption">
+            {{
+              store.profiles.find((p) => p.id === item.profile_id)?.name?.en ??
+              "-"
+            }}
+          </span>
         </template>
         <template #item.server="{ item }">
-          <CountryFlag
-            v-if="item.country_code"
-            :country="item.country_code"
-            size="small"
-          />
-          {{ item.destination_ip }}
-        </template>
-        <template #item.host="{ item }">
-          {{ item.host }}
+          <v-tooltip>
+            <template #activator>
+              <div>
+                <CountryFlag
+                  v-if="item.country_code"
+                  :country="item.country_code"
+                  size="small"
+                />
+                <span class="text-caption ms-1">
+                  {{ item.destination_ip }}
+                </span>
+              </div>
+              <div>
+                {{ item.host }}
+              </div>
+            </template>
+          </v-tooltip>
         </template>
         <template #item.destination_ip="{ item }">
           {{ item.relay_route?.addr }}
@@ -127,33 +144,27 @@ const sortBy = ref<VDataTable["sortBy"]>([
           </div>
         </template>
         <template #item.download_speed="{ item }">
-          <div class="d-flex flex-column">
-            <div class="d-flex align-center flex-nowrap">
-              <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
-              <span class="text-no-wrap me-2">
-                {{ useHumanSpeed(item.upload_speed || 0) }}
-              </span>
-              <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
-              <span class="text-no-wrap">
-                {{ useHumanSpeed(item.download_speed || 0) }}
-              </span>
+          <div>
+            <div class="text-no-wrap text-caption">
+              {{ useHumanSpeed(item.download_speed || 0) }}
             </div>
-            <div class="d-flex align-center flex-nowrap">
-              <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
-              <span class="text-no-wrap me-2">
-                {{ useHumanSpeed(item.upload || 0) }}
-              </span>
-              <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
-              <span class="text-no-wrap">
-                {{ useHumanSpeed(item.download || 0) }}
-              </span>
+            <div class="text-no-wrap text-caption me-2">
+              {{ useHumanSize(item.download || 0) }}
+            </div>
+          </div>
+        </template>
+        <template #item.upload_speed="{ item }">
+          <div>
+            <div class="text-no-wrap text-caption">
+              {{ useHumanSpeed(item.upload_speed || 0) }}
+            </div>
+            <div class="text-no-wrap text-caption me-2">
+              {{ useHumanSize(item.upload || 0) }}
             </div>
           </div>
         </template>
         <template #item.latency="{ item }">
-          <div class="d-flex align-center flex-nowrap">
-            {{ item.ping_avg_latency }}
-          </div>
+          <div class="d-flex align-center flex-nowrap">-</div>
         </template>
         <template #header.data-table-group />
         <template #item.data-table-group="{ item }">
@@ -173,38 +184,39 @@ const sortBy = ref<VDataTable["sortBy"]>([
             <td>
               <v-avatar
                 :image="
-                  store.findTitleByRuleTag?.(item.items[0].raw.rule)?.icon_url
+                  store.findTitleByRuleTag?.(item.items[0].raw.profile_id)
+                    ?.icon_url
                 "
                 size="x-small"
               />
             </td>
-            <td>
+            <td class="text-no-wrap">
               {{
                 store.titles.find((t) => t.id === item.items[0].raw.title_id)
                   ?.name?.en ?? "-"
               }}
             </td>
-            <td>
+            <td class="text-no-wrap">
               <div class="d-flex align-center">
                 <CountryFlag
                   :country="item.items[0].raw.country_code ?? 'XX'"
                   size="small"
                 />
-                <span class="ms-1">
+                <span class="text-caption ms-1">
                   {{ item.items[0].raw.destination_ip }}:{{
                     item.items[0].raw.destination_port
                   }}
                 </span>
               </div>
             </td>
-            <td>
+            <td class="text-no-wrap">
               <div class="d-flex align-center">
                 <CountryFlag
                   v-if="store.nodes?.[item.items[0].raw.node_id]?.country"
                   :country="store.nodes[item.items[0].raw.node_id].country"
                   size="small"
                 />
-                <span class="ms-1">
+                <span class="text-caption ms-1">
                   {{
                     store.nodes?.[item.items[0].raw.node_id]?.city?.[
                       locale.current.value ?? "en"
@@ -213,26 +225,28 @@ const sortBy = ref<VDataTable["sortBy"]>([
                 </span>
               </div>
             </td>
-            <td>
+            <td class="text-no-wrap">
               <div class="d-flex align-center flex-nowrap">
                 <Ping :tag="item.items[0].raw.relay_route?.tag" />
               </div>
             </td>
-            <td>
-              <div class="d-flex align-center flex-nowrap">
-                <v-icon class="text-secondary"> mdi-arrow-up </v-icon>
-                <span class="text-no-wrap me-2">{{
-                  useHumanSpeed(
-                    sum(item.items.map((x) => x.raw.upload_speed || 0))
-                  )
-                }}</span>
-                <v-icon class="text-secondary"> mdi-arrow-down </v-icon>
-                <span class="text-no-wrap">{{
+            <td class="text-no-wrap">
+              <span class="text-caption text-no-wrap me-2">
+                {{
                   useHumanSpeed(
                     sum(item.items.map((x) => x.raw.download_speed || 0))
                   )
-                }}</span>
-              </div>
+                }}
+              </span>
+            </td>
+            <td class="text-no-wrap">
+              <span class="text-caption text-no-wrap">
+                {{
+                  useHumanSpeed(
+                    sum(item.items.map((x) => x.raw.upload_speed || 0))
+                  )
+                }}
+              </span>
             </td>
           </tr>
         </template>

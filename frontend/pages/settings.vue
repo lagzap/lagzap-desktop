@@ -4,6 +4,10 @@ import Container from "~/components/layout/Container.vue";
 import General from "~/components/settings/General.vue";
 import NetworkAdapter from "~/components/settings/NetworkAdapter.vue";
 import Routing from "~/components/settings/Routing.vue";
+import ClearDNSCache from "~/components/settings/ClearDNSCache.vue";
+import Version from "~/components/settings/Version.vue";
+import UninstallDriver from "~/components/settings/UninstallDriver.vue";
+import Other from "~/components/settings/Other.vue";
 
 const locale = useLocale();
 const { t } = locale
@@ -22,6 +26,16 @@ const { t } = locale
       <NetworkAdapter  />
       <v-divider class="mx-4" />
       <Routing  />
+      <v-divider class="mx-4" />
+      <ClearDNSCache  />
+      <v-divider class="mx-4" />
+      <Other  />
+      <v-divider class="mx-4" />
+      <UninstallDriver  />
+      <v-divider class="mx-4" />
+      <Version  />
+
+      <div class="mt-5" />
     </Container>
   </div>
 </template>

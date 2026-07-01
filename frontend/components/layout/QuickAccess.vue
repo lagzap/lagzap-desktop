@@ -23,19 +23,39 @@ const recentTitles = computed(() => store.getRecentTitles);
       </template>
 
       <template #append>
-        <v-tooltip :text="store.isTitleActive(title.id) ? (store.ndisRunning ? t('$vuetify.status.active') : t('$vuetify.status.serviceNotRunning')) : t('$vuetify.status.inactive')">
-          <template v-slot:activator="{ props }">
-            <v-btn
-              v-bind="props"
-              :color="store.isTitleActive(title.id) ? 'green' : 'secondary'"
-              :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
-              variant="text"
-              size="md"
-              :disabled="!store.connected"
-              @click.stop.prevent="store.toggleTitleState(title)"
-            />
-          </template>
-        </v-tooltip>
+        <div class="d-flex align-center">
+          <!-- Warning icon for unavailable interfaces -->
+          <v-tooltip 
+            v-if="store.hasTitleUnavailableInterfaces(title.id)"
+            :text="`${t('$vuetify.title.profile.unavailableInterfaces')}: ${store.getTitleUnavailableInterfaces(title.id).join(', ')}`"
+          >
+            <template v-slot:activator="{ props }">
+              <v-icon
+                v-bind="props"
+                color="warning"
+                size="small"
+                class="mr-1"
+              >
+                mdi-alert
+              </v-icon>
+            </template>
+          </v-tooltip>
+          
+          <!-- Status toggle button -->
+          <v-tooltip :text="store.isTitleActive(title.id) ? (store.ndisRunning ? t('$vuetify.status.active') : t('$vuetify.status.serviceNotRunning')) : t('$vuetify.status.inactive')">
+            <template v-slot:activator="{ props }">
+              <v-btn
+                v-bind="props"
+                :color="store.isTitleActive(title.id) ? 'green' : 'secondary'"
+                :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
+                variant="text"
+                size="md"
+                :disabled="!store.connected"
+                @click.stop.prevent="store.toggleTitleState(title)"
+              />
+            </template>
+          </v-tooltip>
+        </div>
       </template>
     </v-list-item>
   </v-list>

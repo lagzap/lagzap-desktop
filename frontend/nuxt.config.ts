@@ -15,6 +15,8 @@ export default defineNuxtConfig({
     },
   },
 
+  
+
   css: [
     "~/assets/fonts/style.css",
     "~/assets/config.scss",
@@ -37,6 +39,10 @@ export default defineNuxtConfig({
     preset: 'static'
   },
 
+  devServer: {
+    port: 9245,
+  },
+
   sanctum: {
     mode: "token",
     userStateKey: 'lagzap.user.identity',
@@ -50,7 +56,7 @@ export default defineNuxtConfig({
     },
     client: {
       retry: -1,
-      initialRequest: true,
+      initialRequest: false,
     },
     redirect: {
       keepRequestedRoute: false,

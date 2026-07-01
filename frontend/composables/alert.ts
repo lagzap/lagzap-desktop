@@ -19,6 +19,9 @@ export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined
     return locale.t(`$vuetify.server_errors.${code}`.trim())
   }
   switch (error.statusCode) {
+    case 400:
+      message = 'An error occurred. Code: 0x00011'
+      break
     case 401:
       message = 'An error occurred. Code: 0x00021'
       break
@@ -42,6 +45,9 @@ export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined
       break
     case 504:
       message = 'Service is unavailable at the moment, please try again later!'
+      break
+    case 521:
+      message = 'Server is down, please try again later!'
       break
     default:
       message = 'An error occurred. Code: 0x00000'

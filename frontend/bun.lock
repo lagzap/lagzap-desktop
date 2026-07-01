@@ -20,6 +20,7 @@
         "country-list-js": "^3.1.8",
         "echarts": "^6.0.0",
         "es-toolkit": "^1.39.8",
+        "fuse.js": "^7.1.0",
         "just-kebab-case": "^4.2.0",
         "node-addon-api": "^8.5.0",
         "nuxt": "^3.18.1",

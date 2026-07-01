@@ -3,18 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"strings"
-	"time"
 
 	"github.com/lagzap/lagzap"
 	"github.com/lagzap/lagzap-desktop/constant"
+	"github.com/lagzap/lagzap-desktop/localproxy"
 	"github.com/lagzap/lagzap/adapter"
-	"github.com/lagzap/lagzap/common/device"
-	C "github.com/lagzap/lagzap/constant"
 	"github.com/lagzap/lagzap/include"
 	"github.com/lagzap/lagzap/log"
 	"github.com/lagzap/zap/common/control"
@@ -26,18 +19,22 @@ import (
 type Service struct {
 	adapter.LifecycleService
 	ctx         context.Context
+	runtimeCtx  context.Context
 	cancel      context.CancelFunc
 	app         *application.App
 	window      *application.WebviewWindow
 	systray     *application.SystemTray
 	lagzap      *lagzap.LagZap
 	coordinator adapter.Coordinator
+	dnsRouter   adapter.DNSRouter
 	logFactory  log.ObservableFactory
-	proxyServer *http.Server
+	localProxy  *localproxy.Proxy
 }
 
-const LAGZAP_DEFAULT_SESSION_ID = "00000000-0000-0000-0000-000000000000"
-const LAGZAP_DEFAULT_SUBSCRIBER_ID = "00000000-0000-0000-0000-000000000000"
+const (
+	LAGZAP_DEFAULT_SESSION_ID    = "00000000-0000-0000-0000-000000000000"
+	LAGZAP_DEFAULT_SUBSCRIBER_ID = "00000000-0000-0000-0000-000000000000"
+)
 
 func (s *Service) New(ctx context.Context, app *application.App) {
 	s.ctx = lagzap.Context(ctx, include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry(), include.DNSTransportRegistry(), include.ServiceRegistry())
@@ -66,13 +63,19 @@ func (s *Service) ReloadService() error {
 		s.StopService()
 		return E.Cause(err, "start service")
 	}
-	s.coordinator = service.FromContext[adapter.Coordinator](s.ctx)
+	s.runtimeCtx = ctx
+	s.dnsRouter = service.FromContext[adapter.DNSRouter](ctx)
+	s.coordinator = service.FromContext[adapter.Coordinator](ctx)
 	s.coordinator.Listen(func(event string, data any) {
 		s.app.Event.Emit(event, data)
 	})
 	s.lagzap = instance
 	s.app.Event.Emit("service-started")
-	go s.startProxy("https://dev.lagzap-network.ir")
+
+	if err := s.discoverAndStartLocalProxy(); err != nil {
+		return E.Cause(err, "discover and start local proxy")
+	}
+	
 	go s.startMonitoring()
 
 	s.logFactory = instance.Logger()
@@ -84,11 +87,8 @@ func (s *Service) StopService() error {
 	if s.lagzap == nil {
 		return nil
 	}
-	if s.proxyServer != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		_ = s.proxyServer.Shutdown(ctx)
-		cancel()
-		s.proxyServer = nil
+	if s.localProxy != nil {
+		_ = s.localProxy.Stop()
 	}
 	if s.cancel != nil {
 		s.cancel()
@@ -96,19 +96,24 @@ func (s *Service) StopService() error {
 	err := s.lagzap.Close()
 	s.lagzap = nil
 	s.coordinator = nil
+	s.dnsRouter = nil
+	s.runtimeCtx = nil
 	s.app.Event.Emit("service-stopped")
 	return err
 }
 
-func (s *Service) GetInterfaces() (*adapter.NetworkInterface, []control.Interface) {
-	if s.lagzap == nil {
-		return nil, []control.Interface{}
+func (s *Service) FindAvailableInterfaces() {
+	if s.coordinator == nil {
+		return
 	}
-	networkManager := service.FromContext[adapter.NetworkManager](s.ctx)
+	s.coordinator.FindAvailableInterfaces()
+}
 
-	defaultInterface := networkManager.DefaultNetworkInterface()
-	interfaces := networkManager.InterfaceFinder().Interfaces()
-	return defaultInterface, interfaces
+func (s *Service) GetInterfaces() (*control.Interface, []*control.Interface) {
+	if s.coordinator == nil {
+		return nil, nil
+	}
+	return s.coordinator.GetDefaultInterface(), s.coordinator.GetAvailableInterfaces()
 }
 
 func (s *Service) NeedWIFIState() bool {
@@ -135,110 +140,45 @@ func (s *Service) SetSystray(systray *application.SystemTray) {
 	s.systray = systray
 }
 
-// startProxy launches an HTTP reverse proxy on 127.0.0.100:9639 to for the frontend API
-func (s *Service) startProxy(target string) {
-	// Restart if already running
-	if s.proxyServer != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		_ = s.proxyServer.Shutdown(ctx)
-		cancel()
-		s.proxyServer = nil
-		time.Sleep(150 * time.Millisecond)
+func (s *Service) discoverAndStartLocalProxy() error {
+	if s.coordinator != nil {
+		hostnames, hostErr := localproxy.DiscoverCoordinatorHosts(s.ctx, s.dnsRouter, constant.Version)
+		if len(hostnames) > 0 {
+			s.coordinator.SetEndpoints(hostnames)
+			fmt.Printf("coordinator: endpoints from discovery: %v\n", hostnames)
+		}
+		if hostErr != nil {
+			fmt.Printf("coordinator: endpoint discovery note: %v\n", hostErr)
+		}
 	}
-	u, err := url.Parse(target)
+	target, err := localproxy.DiscoverUpstream(s.ctx, s.dnsRouter, constant.Version)
 	if err != nil {
-		fmt.Printf("proxy: invalid target URL %q: %v\n", target, err)
-		return
+		fmt.Printf("localproxy: upstream discovery note: %v (using %s)\n", err, target)
+	} else {
+		fmt.Printf("localproxy: upstream %s (%s channel)\n", target, localproxy.ChannelHost(constant.Version))
 	}
-	rp := httputil.NewSingleHostReverseProxy(u)
-	// Rewrite request to look like coming from target origin
-	orig := rp.Director
-	rp.Director = func(r *http.Request) {
-		if orig != nil {
-			orig(r)
-		}
-		r.Host = u.Host
-		r.Header.Set("Host", u.Host)
-		if o := r.Header.Get("Origin"); o != "" {
-			r.Header.Set("Origin", u.Scheme+"://"+u.Host)
-		}
-		// Always normalize Referer to target origin to avoid upstream CSRF/CORS checks on localhost refs
-		if ref := r.Header.Get("Referer"); ref != "" {
-			r.Header.Set("Referer", u.Scheme+"://"+u.Host)
-		}
-		r.Header.Set("User-Agent", constant.UserAgent)
-		r.Header.Del("Accept-Encoding")
-		// Preserve the original requested host instead of a hardcoded value
-		r.Header.Set("X-Forwarded-Host", r.Host)
-		r.Header.Set("X-Forwarded-Proto", u.Scheme)
-		r.Header.Set("X-Version-Core", C.Version)
-		r.Header.Set("X-Version-Client", constant.Version)
-		r.Header.Set("X-Client-ID", device.DeviceHash())
+	return s.StartLocalProxy(target)
+}
+
+func (s *Service) StartLocalProxy(target string) error {
+	if s.localProxy == nil {
+		s.localProxy = localproxy.New()
 	}
-	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		fmt.Printf("proxy: upstream error: %s %s -> %v\n", r.Method, r.URL.String(), err)
-		http.Error(w, "Upstream error", http.StatusBadGateway)
+	proxyCtx := s.runtimeCtx
+	if proxyCtx == nil {
+		proxyCtx = s.ctx
 	}
-	rp.ModifyResponse = func(res *http.Response) error {
-		if res.StatusCode >= 400 {
-			fmt.Printf("proxy: upstream response %d for %s %s\n", res.StatusCode, res.Request.Method, res.Request.URL.String())
-		}
-		// Sanitize/override CORS on proxied responses to ensure a single origin value
-		origin := res.Request.Header.Get("Origin")
-		allowed := "wails://localhost:9245"
-		if strings.HasPrefix(origin, "wails://") || strings.HasPrefix(origin, "http://127.0.0.1") || strings.HasPrefix(origin, "http://127.0.0.100") || strings.HasPrefix(origin, "http://localhost") {
-			allowed = origin
-		}
-		h := res.Header
-		h.Del("Access-Control-Allow-Origin")
-		h.Del("Access-Control-Allow-Credentials")
-		h.Set("Access-Control-Allow-Origin", allowed)
-		h.Set("Access-Control-Allow-Credentials", "true")
-		h.Add("Vary", "Origin")
+	return s.localProxy.Start(localproxy.Config{
+		Target:    target,
+		Context:   proxyCtx,
+		DNS:       s.dnsRouter,
+		BindIface: localproxy.BindInterface(s.coordinator),
+	})
+}
+
+func (s *Service) StopLocalProxy() error {
+	if s.localProxy == nil {
 		return nil
 	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Preflight: respond here and do NOT hit upstream
-		origin := r.Header.Get("Origin")
-		allowed := "wails://localhost:9245"
-		if strings.HasPrefix(origin, "wails://") || strings.HasPrefix(origin, "http://127.0.0.1") || strings.HasPrefix(origin, "http://127.0.0.100") || strings.HasPrefix(origin, "http://localhost") {
-			allowed = origin
-		}
-		if r.Method == "OPTIONS" {
-			h := w.Header()
-			h.Set("Access-Control-Allow-Origin", allowed)
-			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			if acrh := r.Header.Get("Access-Control-Request-Headers"); acrh != "" {
-				h.Set("Access-Control-Allow-Headers", acrh)
-			} else {
-				h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Wails-Window-ID")
-			}
-			h.Set("Access-Control-Max-Age", "86400")
-			h.Set("Access-Control-Allow-Credentials", "true")
-			h.Add("Vary", "Origin")
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		rp.ServeHTTP(w, r)
-	})
-	addr := "127.0.0.100:9639" // change if needed; see notes below
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		fmt.Printf("proxy: failed to bind %s: %v\n", addr, err)
-		return
-	}
-	fmt.Printf("proxy: listening on %s, proxying to %s\n", addr, u.String())
-	srv := &http.Server{
-		Addr:              addr,
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-	s.proxyServer = srv
-	go func() {
-		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("proxy: serve error: %v\n", err)
-		} else {
-			fmt.Printf("proxy: server closed: %v\n", err)
-		}
-	}()
+	return s.localProxy.Stop()
 }

@@ -1,5 +1,5 @@
 export default {
-    app_name: 'LagZap',
+    app_name: 'Cyrex',
     loading: 'درحال بازگذاری',
     validation: {
         required: 'این فیلد نمیتواند خالی باشد',
@@ -32,14 +32,15 @@ export default {
         register_successful: 'شما با موفقیت ثبت نام شدید!',
     },
     navigation: {
-        overview: 'نمایه کلی',
+        overview: 'نمایه‌کلی',
         titles: 'برنامه و بازی',
-        gamingConsoles: 'کنسول های بازی',
-        networkLatency: 'تاخیر شبکه',
+        gamingConsoles: 'کنسول‌های بازی',
+        mobile: 'موبایل و سایر',
+        networkLatency: 'تاخیر‌شبکه',
         connections: 'اتصالات',
         monitoring: 'نظارت',
         logs: 'گزارشات',
-        quickAccess: 'دسترسی سریع',
+        quickAccess: 'دسترسی‌سریع',
         admin: 'مدیریت'
     },
     profile: {
@@ -87,7 +88,24 @@ export default {
             networkProtocol: 'پروتکل شبکه',
             ipVersion: 'نسخه آی‌پی',
             realTimeOptimization: 'بهینه‌سازی به صورت خودکار در پس زمینه انجام شود'
-        }
+        },
+        other: {
+            otherSettings: 'تنظیمات دیگر',
+            disableGPUAcceleration: 'غیرفعال کردن شتاب‌گر گرافیکی'
+        },
+        DNSCache: 'حافظه‌ی داخلی DNS',
+        clearDNSCacheButton: 'پاک‌کردن',
+        clearDNSCacheDescription: 'پاک کردن حافظه‌ی داخلی DNS از برنامه. پاک کردن حافظه‌ی داخلی DNS باعث می‌شود که DNS به صورت دوباره حل شود.',
+        version: 'نسخه',
+        versionDescription: 'نسخه فعلی برنامه {0}',
+        checkForUpdate: 'بررسی بروزرسانی',
+        uninstallDriver: 'حذف درایور',
+        uninstallDriverDescription: 'درایور شبکه LagZap را از سیستم خود حذف کنید.',
+        uninstallDriverButton: 'حذف درایور',
+        uninstallDriverDisclaimer: 'هشدار حذف درایور',
+        uninstallDriverWarning: 'حذف درایور LagZap باعث بسته شدن برنامه خواهد شد و برای استفاده مجدد از LagZap باید کامپیوتر خود را مجدداً راه‌اندازی کنید. آیا مطمئن هستید که می‌خواهید ادامه دهید؟',
+        uninstallDriverConfirm: 'بله، حذف کن',
+        uninstallDriverCancel: 'لغو'
     },
     server: {
         selectServer: 'انتخاب سرور',
@@ -168,7 +186,7 @@ export default {
         preparing: 'آماده‌سازی',
         connecting: 'برقراری اتصال',
         fetchingData: 'دریافت داده‌ها',
-        ready: 'LagZap آماده است!',
+        ready: 'Cyrex آماده است!',
         driverMustBeInstalled: 'درایور LagZap باید برای عملکرد صحیح برنامه نصب شود. لطفاً درایور را نصب کنید.',
         couldNotStartService: 'امکان شروع سرویس وجود ندارد!',
         disconnecting: 'قطع اتصال',
@@ -176,6 +194,7 @@ export default {
         connectionFailed: 'اتصال و راه اندازی سرویس ناموفق بود!'
     },
     startService: {
+        startingService: 'راه‌اندازی سرویس',
         loggingIntoOnlineService: 'ورود به سرویس آنلاین',
         installingLagZapKernelDriver: 'نصب درایور هسته LagZap',
         lagZapKernelDriverInstalledSuccessfully: 'درایور هسته LagZap با موفقیت نصب شد',
@@ -183,9 +202,15 @@ export default {
         logout: 'خروج',
         installDriver: 'نصب درایور',
         installLagZapDriver: 'نصب درایور LagZap',
-        driverInstallationWarning: 'نصب درایور باعث قطع شدن موقت شبکه شما برای چند ثانیه می‌شود. این برای نصب درایور ضروری است. لطفاً قبل از ادامه مطمئن شوید که تمام کارهای خود را ذخیره کرده‌اید.',
+        driverInfo: 'درایور شبکه LagZap برای دریافت ترافیک از طریق راه‌های پایدار استفاده می‌شود. برای استفاده از سرویس باید درایور را نصب کنید.',
         continue: 'ادامه',
-        retry: 'تلاش مجدد'
+        retry: 'تلاش مجدد',
+        advancedRoutingAnalysisInProgress: 'تجزیه و تحلیل مسیریابی پیشرفته در حال انجام است',
+        installDriverDisclaimer: 'هشدار نصب درایور',
+        installDriverWarning: 'نصب درایور LagZap باعث قطع شدن موقت اتصال اینترنت شما برای چند ثانیه خواهد شد. این برای نصب درایور ضروری است. لطفاً قبل از ادامه مطمئن شوید که تمام کارهای خود را ذخیره کرده‌اید. آیا می‌خواهید ادامه دهید؟',
+        installDriverConfirm: 'بله، نصب کن',
+        installDriverCancel: 'لغو',
+        failedToInstallDriverDescription: 'لطفا سیستم را مجدداً راه‌اندازی کنید. درصورت ناموفق بودن با پشتیبانی تماس بگیرید.',
     },
     title: {
         connections: 'اتصالات',
@@ -207,7 +232,7 @@ export default {
             server: {
                 server: 'سرور',
                 selectServer: 'انتخاب سرور',
-                automatic: 'جهانی',
+                automatic: 'خودکار',
                 selectAll: 'انتخاب همه',
                 noCountriesSelected: 'هیچ کشوری انتخاب نشده است. انتخاب خودکار استفاده خواهد شد!',
                 noCitiesSelected: 'هیچ شهری انتخاب نشده است. انتخاب خودکار استفاده خواهد شد!',
@@ -215,16 +240,29 @@ export default {
                 byRegion: 'بر اساس منطقه',
                 byCountry: 'بر اساس کشور',
                 byCity: 'بر اساس شهر',
+                direct: 'جداسازی ترافیک',
+                directWithoutServer: 'مستقیم (بدون هیچ سروری)',
                 automaticServer: 'سرور خودکار',
                 automaticSelection: 'انتخاب خودکار',
                 global: 'جهانی',
                 automaticServerSelectionEnabled: 'انتخاب خودکار سرور فعال است',
-                routingSystemDescription: 'سیستم مسیریابی LagZap به طور مؤثر داده‌های شما را از طریق پایدارترین اتصال به بهترین سرور ممکن بر اساس موقعیت شما و کمترین تأخیر هدایت می‌کند.'
-            }
+                routingSystemDescription: 'سیستم مسیریابی LagZap به طور مؤثر داده‌های شما را از طریق پایدارترین اتصال به بهترین سرور ممکن بر اساس موقعیت شما و کمترین تأخیر هدایت می‌کند.',
+                automatic: 'خودکار',
+                automaticServerSelection: 'انتخاب خودکار سرور',
+                noNodesSelected: 'هیچ گرهی یافت نشد که با "{0}" مطابقت داشته باشد',
+                searchNodes: 'جستجو...',
+            },
+            multiPathDisabled: 'پروتکل مسیریابی چند مسیری فعال نیست!',
+            multiPathWarning: 'تعداد اتصالات را به 2 یا بیشتر افزایش دهید تا پروتکل مسیریابی چند مسیری فعال شود. اتصال تکی باعث میشود پروتکل مسیریابی چند مسیری غیرفعال شود و این باعث تغییرات تأخیر میشود.',
+            multiPathWarningRecommendation: "اگر شما یک شبکه اینترنتی با سرعت پایین (به عنوان مثال ADSL+) دارید، استفاده از یک مسیر توصیه میشود. فعال کردن چند مسیر میتواند استفاده از پهنای‌باند را افزایش دهد و ممکن است عملکرد روی شبکه‌های با سرعت پایین کاهش یابد.",
+            unavailableInterface: 'این رابط‌ هم‌اکنون در دسترس نیست',
+            unavailableInterfaces: 'برخی رابط‌ها هم‌اکنون در دسترس نیستند'
         },
         active: 'فعال',
         inactive: 'غیرفعال',
-        serviceStopped: 'سرویس در اجرا نیست'
+        serviceStopped: 'سرویس در اجرا نیست',
+        isNotActive: '{0} توسط LagZap مسیرسابی و هدایت نمیشود، لطفاً آن را فعال کنید تا از آن استفاده کنید.',
+        action: 'فعال کردن'
     },
     connections: {
         connectionsSubtitle: 'اتصالات فعال: {0}',
@@ -240,4 +278,8 @@ export default {
         download: 'دانلود',
     },
     ms: 'م.ث',
+    networkLatency: {
+        latencyGrid: 'شبکه تاخیر',
+        networkMap: 'نقشه شبکه',
+    },
 }

@@ -1,5 +1,5 @@
 package constant
 
 const (
-	UserAgent = "LagZap-Desktop/1.0"
+	UserAgent = "Cyrex-Desktop/1.0"
 )

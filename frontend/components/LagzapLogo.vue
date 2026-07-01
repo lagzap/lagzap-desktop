@@ -3,7 +3,7 @@
 
 <template>
   <v-img
-    src="~/assets/svgs/logo.svg"
+    src="~/assets/svgs/lagzap.svg"
     alt="LagZap"
   />
 </template>

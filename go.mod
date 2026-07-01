@@ -1,13 +1,13 @@
 module github.com/lagzap/lagzap-desktop
 
-go 1.24.1
+go 1.24.7
 
 require (
 	github.com/lagzap/lagzap v0.1.0-beta.8
-	github.com/lagzap/zap v0.1.0-beta.5
+	github.com/lagzap/zap v0.5.0-rc.4
+	github.com/miekg/dns v1.1.67
 	github.com/wailsapp/wails/v3 v3.0.0-00010101000000-000000000000
-	golang.org/x/sys v0.33.0
-	google.golang.org/protobuf v1.36.6
+	golang.org/x/sys v0.35.0
 )
 
 require (
@@ -19,6 +19,8 @@ require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/cloudflare/circl v1.6.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
+	github.com/database64128/netx-go v0.1.1 // indirect
+	github.com/database64128/tfo-go/v2 v2.3.1 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
@@ -43,8 +45,8 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/lagzap/echo v1.0.1 // indirect
 	github.com/lagzap/geoip v0.0.0-20250812104557-419c62ae9c1c // indirect
-	github.com/lagzap/lagzap-tun v0.1.0-beta.2 // indirect
-	github.com/lagzap/lagzaprd v1.0.0 // indirect
+	github.com/lagzap/lagzap-tun v0.1.0-beta.4 // indirect
+	github.com/lagzap/lagzaprd v1.0.1 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
 	github.com/leaanthony/u v1.1.1 // indirect
 	github.com/lmittmann/tint v1.0.7 // indirect
@@ -53,8 +55,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
-	github.com/metacubex/tfo-go v0.0.0-20241006021335-daedaf0ca7aa // indirect
-	github.com/miekg/dns v1.1.67 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/oschwald/geoip2-golang v1.11.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.1 // indirect
@@ -87,6 +87,7 @@ require (
 	golang.org/x/time v0.7.0 // indirect
 	golang.org/x/tools v0.33.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -102,5 +103,7 @@ replace github.com/lagzap/zap => ../../../zap
 replace github.com/lagzap/lagzap-tun => ../../../lagzap-tun
 
 replace github.com/lagzap/geoip => ../../../geoip
+
+replace github.com/lagzap/lagzaprd => ../../../lagzaprd
 
 replace github.com/wailsapp/wails/v3 => ../../../wails/v3

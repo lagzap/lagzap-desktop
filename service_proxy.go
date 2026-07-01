@@ -4,6 +4,7 @@ package main
 
 import (
 	"net/netip"
+	"runtime"
 
 	"github.com/lagzap/lagzap/option"
 	E "github.com/lagzap/zap/common/exceptions"
@@ -14,6 +15,7 @@ func (s *Service) StartProxy() error {
 	if s.lagzap == nil {
 		return E.New("service is not running")
 	}
+	defer s.coordinator.ApplyAllTitleStates()
 
 	return s.lagzap.Inbound().Create(
 		s.ctx,
@@ -35,6 +37,7 @@ func (s *Service) StartProxy() error {
 }
 
 func (s *Service) StopProxy() error {
+	defer runtime.GC()
 	if s.lagzap == nil {
 		return E.New("tun not found")
 	}
@@ -47,5 +50,5 @@ func (s *Service) IsProxyRunning() (running bool) {
 	} else {
 		_, running = s.lagzap.Inbound().Get("tun")
 	}
-	return
+	return running
 }

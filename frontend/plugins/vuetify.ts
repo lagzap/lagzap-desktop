@@ -65,9 +65,10 @@ async function vuetifyThemeFromImage(
   return vuetifyThemeFromColor(color, dark, contrast, variables);
 }
 
-const primaryColor = 0xFFAB00;
+// const primaryColor = 0xFFAB00;
 
 export default defineNuxtPlugin(async (app) => {
+  const primaryColor = false ? 0xFFAB00 : 0xe6d785;
   const vuetify = createVuetify({
     components,
     directives,
@@ -100,8 +101,8 @@ export default defineNuxtPlugin(async (app) => {
           0.4,
           {},
           {
-            primary: '#ffc107',
-            background: "#0a0905",
+            primary: false ? '#ffc107' : '#e6d785',
+            background: "#121212",
           }
         ),
         light: vuetifyThemeFromColor(
@@ -110,7 +111,7 @@ export default defineNuxtPlugin(async (app) => {
           0.9,
           {},
           {
-            primary: '#ffc107',
+            primary: false ? '#ffc107' : '#e6d785',
             background: "#fff8f4"
           }
         ),

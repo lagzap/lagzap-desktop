@@ -61,7 +61,6 @@ async function requestOTP() {
   if (cooldown.value > 0) return // Prevent multiple requests during cooldown
   
   try {
-    console.log('asd', props, otpID)
     const { data } = await useSanctumFetch<OtpResponse>("/otp", {
       method: "POST",
       body: {
@@ -87,7 +86,7 @@ onMounted(() => {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card>
+    <v-card width="400">
       <v-toolbar color="transparent">
         <template #prepend>
           <v-btn
@@ -108,7 +107,7 @@ onMounted(() => {
             size="96"
             class="mb-3"
           >
-            <LagzapLogo />
+            <Logo />
           </v-avatar>
           <v-chip
             rounded

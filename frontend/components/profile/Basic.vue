@@ -6,10 +6,12 @@ import { useLocale } from "vuetify";
 
 const locale = useLocale();
 const { t } = locale
-const runtimeConfig = useRuntimeConfig()
+const store = useStore()
 const requestFetch = useRequestFetch()
 const data = useSanctumUser<DataResponse>();
 const user = computed(() => data.value.user)
+
+const clientInfo = computed(() => store.clientInfo)
 
 const { defineField, handleSubmit, isSubmitting } = useForm<ProfileBasicForm>({
   validationSchema: toTypedSchema(
@@ -53,6 +55,7 @@ const onSubmit = handleSubmit(async (values) => {
       max-width="500"
     >
       <v-card-text class="pb-0 pt-3">
+       a {{ clientInfo }}
         <v-text-field
           v-model="name"
           v-bind="nameAttrs"

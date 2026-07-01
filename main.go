@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/lagzap/lagzap/log"
@@ -25,6 +24,7 @@ type PanicDetails struct {
 }
 
 func main() {
+	setRealTimePriority()
 	ctx := context.Background()
 	service := &Service{}
 
@@ -84,30 +84,14 @@ func main() {
 	app.Event.OnApplicationEvent(events.Windows.SystemThemeChanged, func(event *application.ApplicationEvent) {
 		if event.Context().IsDarkMode() {
 			app.Event.Emit("theme", "dark")
-			window.SetBackgroundColour(application.NewRGBA(10, 9, 5, 255))
+			window.SetBackgroundColour(application.NewRGBA(18, 18, 18, 255))
 		} else {
 			app.Event.Emit("theme", "light")
 			window.SetBackgroundColour(application.NewRGBA(255, 248, 244, 255))
 		}
 	})
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(event *application.ApplicationEvent) {
-		err := service.ReloadService()
-		if err != nil {
-			if strings.Contains(err.Error(), "driver is not installed") {
-				dialog := application.ErrorDialog()
-				dialog.SetTitle("LagZap driver is not installed!")
-				dialog.SetMessage("Please reinstall lagzap from the official website.")
-				dialog.Show()
-			} else {
-				dialog := application.ErrorDialog()
-				dialog.SetTitle("LagZap error occurred!")
-				dialog.SetMessage(err.Error())
-				dialog.Show()
-			}
-			service.Close()
-			app.Quit()
-			systray.Destroy()
-		}
+		// go service.StartLocalProxy("https://dev.lagzap-network.ir")
 	})
 
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -120,7 +104,7 @@ func main() {
 		ZoomControlEnabled: false,
 		EnableDragAndDrop:  false,
 		Frameless:          true,
-		BackgroundColour:   application.NewRGBA(10, 9, 5, 255),
+		BackgroundColour:   application.NewRGBA(18, 18, 18, 255),
 		Windows: application.WindowsWindow{
 			DisableIcon:             true,
 			BackdropType:            application.Mica,
@@ -166,6 +150,12 @@ func main() {
 	})
 	window.OnWindowEvent(events.Windows.WindowActive, func(e *application.WindowEvent) {
 		service.SetWindow(window)
+	})
+	window.OnWindowEvent(events.Windows.WindowMaximise, func(e *application.WindowEvent) {
+		app.Event.Emit("WindowMaximised", true)
+	})
+	window.OnWindowEvent(events.Windows.WindowUnMaximise, func(e *application.WindowEvent) {
+		app.Event.Emit("WindowMaximised", false)
 	})
 
 	lightIcon, _ := assets.ReadFile("assets/images/icons/light/warning.png")

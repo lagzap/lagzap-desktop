@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useDisplay, useLocale } from "vuetify";
+import { useFuzzySearch } from "~/composables/useFuzzySearch";
 
 const locale = useLocale();
 const { t } = locale
@@ -11,12 +12,16 @@ const sidebar = inject<Ref<boolean>>("sidebar");
 const titles = computed(() => Object.values(store.titles))
 const searchMode = ref(false);
 
+// Use fuzzy search composable
+const { searchQuery, searchResults, handleSearch } = useFuzzySearch(titles, store);
+
 onMounted(() => {
   window.addEventListener("keydown", (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key === "f") {
+    // Use code for language-independent hotkeys
+    if ((event.ctrlKey || event.metaKey) && event.code === "KeyF") {
       event.preventDefault();
       searchMode.value = true;
-    } else if (event.key === "/") {
+    } else if (event.code === "Slash") {
       event.preventDefault();
       searchMode.value = true;
     }
@@ -55,8 +60,8 @@ onMounted(() => {
         <div v-else class="v-toolbar__content">
           <v-btn :icon="locale.isRtl.value ? 'mdi-arrow-right' : 'mdi-arrow-left'" @click="searchMode = false" />
           <v-autocomplete
+            v-model="searchQuery"
             autofocus
-            class="mx-4"
             variant="plain"
             density="compact"
             :placeholder="t('$vuetify.common.searchPlaceholder')"
@@ -64,17 +69,21 @@ onMounted(() => {
             single-line
             clearable
             menu-icon=""
-            :items="titles"
-            item-title="name"
+            :items="searchResults"
+            item-title="localizedName"
             item-value="id"
+            class="mx-4 auto-complete-style-fix"
+            :filter="() => true"
+            :custom-filter="() => true"
             @keyup.escape="searchMode = false"
             @update:model-value="(item) => router.push({ name: 'title-id', params: { id: item } })"
+            @update:search="(value) => handleSearch(value || '')"
           >
             <template v-slot:item="{ props, item }">
               <v-list-item
                 v-bind="props"
                 :prepend-avatar="item.raw.icon_url"
-                :title="store.localized(item.raw.name)"
+                :title="item.raw.localizedName"
               >
                 <template #append>
                   <v-tooltip :text="store.isTitleActive(item.raw.id) ? (store.ndisRunning ? 'Active' : 'Service is not running') : 'Inactive'">
@@ -116,3 +125,11 @@ onMounted(() => {
     <slot name="outside" />
   </v-main>
 </template>
+
+<style>
+.auto-complete-style-fix {
+  .v-field__input {
+    padding-top: 0;
+  }
+}
+</style>

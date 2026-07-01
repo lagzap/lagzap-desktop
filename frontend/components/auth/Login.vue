@@ -46,7 +46,7 @@ async function requestOTP() {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card>
+    <v-card width="400">
       <v-toolbar color="transparent">
         <template #prepend>
           <v-btn
@@ -67,7 +67,7 @@ async function requestOTP() {
             size="96"
             class="mb-3"
           >
-            <LagzapLogo />
+            <Logo />
           </v-avatar>
           <v-chip
             rounded

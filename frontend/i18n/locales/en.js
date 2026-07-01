@@ -1,5 +1,5 @@
 export default {
-    app_name: 'LagZap',
+    app_name: 'Cyrex',
     loading: 'Loading',
     validation: {
         required: 'This field cannot be empty',
@@ -35,6 +35,7 @@ export default {
         overview: 'Overview',
         titles: 'Apps & Games',
         gamingConsoles: 'Gaming Consoles',
+        mobile: 'Mobile & Other',
         networkLatency: 'Network Latency',
         connections: 'Connections',
         monitoring: 'Monitoring',
@@ -87,7 +88,24 @@ export default {
             networkProtocol: 'Network Protocol',
             ipVersion: 'IP Version',
             realTimeOptimization: 'Real-time optimization'
-        }
+        },
+        other: {
+            otherSettings: 'Other Settings',
+            disableGPUAcceleration: 'Disable GPU Acceleration'
+        },
+        DNSCache: 'DNS Cache',
+        clearDNSCacheButton: 'Clear Cache',
+        clearDNSCacheDescription: 'Clear the LagZap\'s internal DNS cache. Clearing the cache will cause the DNS to be resolved again.',
+        version: 'Version',
+        versionDescription: 'Current version of the app is {0}',
+        checkForUpdate: 'Check for Update',
+        uninstallDriver: 'Uninstall Driver',
+        uninstallDriverDescription: 'Remove the LagZap network driver from your system.',
+        uninstallDriverButton: 'Uninstall Driver',
+        uninstallDriverDisclaimer: 'Driver Uninstall Warning',
+        uninstallDriverWarning: 'Uninstalling the LagZap driver will close the application and you will need to restart your computer to use LagZap again. Are you sure you want to continue?',
+        uninstallDriverConfirm: 'Yes, Uninstall',
+        uninstallDriverCancel: 'Cancel'
     },
     status: {
         active: 'Active',
@@ -155,7 +173,7 @@ export default {
         preparing: 'Preparing service',
         connecting: 'Connecting...',
         fetchingData: 'Fetching data',
-        ready: 'LagZap is Ready!',
+        ready: 'Cyrex is Ready!',
         driverMustBeInstalled: 'The LagZap driver must be installed for the application to function properly. Please install the driver.',
         couldNotStartService: 'Could not start the service!',
         disconnecting: 'Disconnecting...',
@@ -163,6 +181,7 @@ export default {
         connetionFailed: 'Service has failed to stop!'
     },
     startService: {
+        startingService: 'Starting service',
         loggingIntoOnlineService: 'Logging into online service',
         installingLagZapKernelDriver: 'Installing LagZap kernel driver',
         lagZapKernelDriverInstalledSuccessfully: 'LagZap kernel driver installed successfully',
@@ -170,9 +189,15 @@ export default {
         logout: 'Logout',
         installDriver: 'Install Driver',
         installLagZapDriver: 'Install LagZap Driver',
-        driverInstallationWarning: 'Installing the driver causes your network to be interrupted for a few seconds. This is required to install the driver. Please make sure you have saved all your work before proceeding.',
+        driverInfo: 'LagZap driver is used to intercept and redirect your internet traffic to stable routes. It is required to install the driver to use the service.',
         continue: 'Continue',
-        retry: 'Retry'
+        retry: 'Retry',
+        advancedRoutingAnalysisInProgress: 'Advanced routing analysis in progress',
+        installDriverDisclaimer: 'Driver Installation Warning',
+        installDriverWarning: 'Installing the LagZap driver will temporarily interrupt your internet connection for a few seconds. This is required for the driver installation. Please make sure you have saved all your work before proceeding. Do you want to continue?',
+        installDriverConfirm: 'Yes, Install',
+        installDriverCancel: 'Cancel',
+        failedToInstallDriverDescription: 'Please restart the system. If the problem persists, please contact support.',
     },
     title: {
         connections: 'Connections',
@@ -202,16 +227,29 @@ export default {
                 byRegion: 'By Region',
                 byCountry: 'By Country',
                 byCity: 'By City',
+                direct: 'Split Tunnel',
+                directWithoutServer: 'Direct (without any server)',
                 automaticServer: 'Automatic Server',
                 automaticSelection: 'Automatic selection',
                 global: 'Global',
                 automaticServerSelectionEnabled: 'Automatic server selection enabled',
-                routingSystemDescription: 'LagZap routing system will efficiently routes your data through the most stable connection to the best possible server based on your location and lowest latency.'
+                routingSystemDescription: 'LagZap routing system will eficiently routes your data through the most stable connection to the best possible server based on your location and lowest latency.',
+                automatic: 'Automatic',
+                automaticServerSelection: 'Automatic server selection',
+                noNodesSelected: 'No nodes found matching "{0}"',
+                searchNodes: 'Search...',
             },
+            multiPathDisabled: 'Multi-path protocol has been disabled!',
+            multiPathWarning: 'Increase the number of connections to 2 or more to enable multi-path. Having single connection causes multi-path to be disabled and this leads to latency spikes.',
+            multiPathWarningRecommendation: "If you have a low-speed internet connection (e.g. ADSL+), using a single route is recommended. Enabling multiple routes can increase bandwidth usage and may reduce performance on slower networks.",
+            unavailableInterface: 'This interface is currently unavailable',
+            unavailableInterfaces: 'Some interfaces are currently unavailable'
         },
-        active: 'فعال',
-        inactive: 'غیرفعال',
-        serviceStopped: 'سرویس در اجرا نیست'
+        active: 'Active',
+        inactive: 'Inactive',
+        serviceStopped: 'Service is not running',
+        isNotActive: '{0} is not being proxied by LagZap, please activate it to use it.',
+        action: 'Activate'
     },
     connections: {
         connectionsSubtitle: 'Active connections: {0}',
@@ -227,4 +265,8 @@ export default {
         download: 'Download',
     },
     ms: 'ms',
+    networkLatency: {
+        latencyGrid: 'Network Latency',
+        networkMap: 'Latency Map',
+    },
 }

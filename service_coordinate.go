@@ -5,7 +5,7 @@ import (
 	"github.com/lagzap/lagzap/common/device"
 	"github.com/lagzap/lagzap/log"
 	E "github.com/lagzap/zap/common/exceptions"
-	"google.golang.org/protobuf/proto"
+	D "github.com/lagzap/zap/data"
 )
 
 func (s *Service) SetAccessToken(token string) {
@@ -33,11 +33,11 @@ func (s *Service) SetLogLevel(logLevel string) {
 	s.logFactory.SetLevel(level)
 }
 
-func (s *Service) Connect() {
+func (s *Service) Connect() error {
 	if s.coordinator == nil {
-		return
+		return E.New("coordinator_not_ready")
 	}
-	s.coordinator.Connect()
+	return s.coordinator.Connect()
 }
 
 func (s *Service) Disconnect() {
@@ -58,116 +58,95 @@ func (s *Service) DeviceHash() string {
 	return device.DeviceHash()
 }
 
-func (s *Service) Credentials() adapter.CredentialsPayload {
+func (s *Service) Credentials() D.CredentialsPayload {
 	return *s.coordinator.GetCredentials()
 }
 
-func (s *Service) FetchData() error {
+func (s *Service) SyncData() error {
 	if !s.IsReady() {
 		return E.New("coordinator_not_ready")
 	}
-	var err error
-	err = s.coordinator.RequestRegions()
-	if err != nil {
-		return err
-	}
-	err = s.coordinator.RequestTitles()
-	if err != nil {
-		return err
-	}
-	err = s.coordinator.RequestProfiles()
-	if err != nil {
-		return err
-	}
-	err = s.coordinator.RequestServerVersions()
-	if err != nil {
-		return err
-	}
-	err = s.coordinator.RequestNodes()
-	if err != nil {
-		return err
-	}
-	err = s.coordinator.RequestRoutes()
-	if err != nil {
-		return err
-	}
-	err = s.coordinator.RequestUserData()
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.coordinator.SyncData(false)
 }
 
-func (s *Service) GetRegions() map[string]*adapter.Region {
+func (s *Service) GetRegions() map[string]*D.Region {
 	if !s.IsReady() {
 		return nil
 	}
 	return s.coordinator.GetRegions()
 }
 
-func (s *Service) GetTitles() map[string]*adapter.Title {
+func (s *Service) GetTitles() map[string]*D.Title {
 	if !s.IsReady() {
 		return nil
 	}
 	return s.coordinator.GetTitles()
 }
 
-func (s *Service) GetProfiles() map[string]*adapter.Profile {
+func (s *Service) GetProfiles() map[string]*D.Profile {
 	if !s.IsReady() {
 		return nil
 	}
 	return s.coordinator.GetProfiles()
 }
 
-func (s *Service) GetTitleStates() map[string]*adapter.TitleState {
+func (s *Service) GetTitleStates() map[string]*D.TitleState {
 	if !s.IsReady() {
 		return nil
 	}
 	return s.coordinator.GetTitleStates()
 }
 
-func (s *Service) GetProfileStates() map[string]*adapter.ProfileState {
+func (s *Service) GetProfileStates() map[string]*D.ProfileState {
 	if !s.IsReady() {
 		return nil
 	}
 	return s.coordinator.GetProfileStates()
 }
 
-func (s *Service) GetNodes() map[string]*adapter.Node {
+func (s *Service) GetClientInfo() *D.ClientInfo {
+	if !s.IsReady() {
+		return nil
+	}
+	return s.coordinator.GetClientInfo()
+}
+
+func (s *Service) GetNodes() map[string]*D.Node {
 	if !s.IsReady() {
 		return nil
 	}
 	return s.coordinator.GetNodes()
 }
 
-func (s *Service) ActionTitle(titleState *adapter.TitleState) (*adapter.TitleState, error) {
+func (s *Service) VisitTitle(titleId string) {
 	if !s.IsReady() {
-		return nil, E.New("coordinator_not_ready")
+		return
 	}
-	message, err := s.coordinator.Action(adapter.ClientMessage_ACTION_TITLE, titleState)
-	if err != nil {
-		return nil, err
-	}
-	var payload adapter.TitleState
-	if err := proto.Unmarshal(message.Payload, &payload); err != nil {
-		return nil, err
-	}
-	return s.coordinator.ActionTitle(&payload)
+	s.coordinator.VisitTitle(titleId)
 }
 
-func (s *Service) ActionProfile(profileState *adapter.ProfileState) (*adapter.ProfileState, error) {
+func (s *Service) SaveTitleState(titleState *D.TitleState) error {
 	if !s.IsReady() {
-		return nil, E.New("coordinator_not_ready")
+		return E.New("coordinator_not_ready")
 	}
-	message, err := s.coordinator.Action(adapter.ClientMessage_ACTION_PROFILE, profileState)
+	err := s.coordinator.SaveTitleState(titleState)
 	if err != nil {
-		return nil, err
+		return E.Cause(err, "could not save title state in cloud")
 	}
-	var payload adapter.ProfileState
-	if err := proto.Unmarshal(message.Payload, &payload); err != nil {
-		return nil, err
+	if err := s.coordinator.ApplyTitleState(titleState); err != nil {
+		return E.Cause(err, "could not apply title state in cloud")
 	}
-	return s.coordinator.ActionProfile(&payload)
+	return nil
+}
+
+func (s *Service) SaveProfileState(profileState *D.ProfileState) error {
+	if !s.IsReady() {
+		return E.New("coordinator_not_ready")
+	}
+	if err := s.coordinator.SaveProfileState(profileState); err != nil {
+		return E.Cause(err, "could not save title state in cloud")
+	}
+	return s.coordinator.ApplyProfileState(profileState)
 }
 
 func (s *Service) StartOptimizing() {
@@ -177,14 +156,14 @@ func (s *Service) StartOptimizing() {
 	s.coordinator.StartOptimizing(true)
 }
 
-func (s *Service) GetRoutes() map[string]*adapter.RelayRoute {
+func (s *Service) GetRoutes() map[string]*D.RelayRoute {
 	if !s.IsReady() {
 		return nil
 	}
 	return s.coordinator.GetRelayRoutes()
 }
 
-func (s *Service) GetRoutes2() []*adapter.Route {
+func (s *Service) GetRoutes2() []*D.Route {
 	if !s.IsReady() {
 		return nil
 	}
@@ -192,16 +171,24 @@ func (s *Service) GetRoutes2() []*adapter.Route {
 	return rr
 }
 
-func (s *Service) GetOptimizeProgress() *adapter.Optimize {
+func (s *Service) GetOptimizeProgress() *D.Optimize {
 	if !s.IsReady() {
 		return nil
 	}
 	return s.coordinator.GetOptimize()
 }
 
-func (s *Service) TestSpecificNode(nodeId string) (map[string]*adapter.RelayRoute, error) {
+func (s *Service) TestSpecificNode(nodeId string) (map[string]*D.RelayRoute, error) {
 	if !s.IsReady() {
 		return nil, E.New("coordinator_not_ready")
 	}
 	return s.coordinator.OptimizeSpecificNode(nodeId)
+}
+
+func (s *Service) ClearDNSCache() {
+	s.coordinator.ClearDNSCache()
+}
+
+func (s *Service) GetLatency() *D.Latency {
+	return s.coordinator.GetLatency()
 }

@@ -3,6 +3,8 @@
 package main
 
 import (
+	"runtime"
+
 	"github.com/lagzap/lagzap/option"
 	E "github.com/lagzap/zap/common/exceptions"
 	F "github.com/lagzap/zap/common/format"
@@ -12,6 +14,7 @@ func (s *Service) StartProxy() error {
 	if s.lagzap == nil {
 		return E.New("service is not running")
 	}
+	defer s.coordinator.ApplyAllTitleStates()
 
 	return s.lagzap.Inbound().Create(
 		s.ctx,
@@ -19,11 +22,14 @@ func (s *Service) StartProxy() error {
 		s.lagzap.Logger().NewLogger(F.ToString("[ndis] winpkfilter [in]")),
 		"ndis",
 		"ndis",
-		&option.NDISInboundOptions{},
+		&option.NDISInboundOptions{
+			AutoRoute: false,
+		},
 	)
 }
 
 func (s *Service) StopProxy() error {
+	defer runtime.GC()
 	if s.lagzap == nil {
 		return E.New("ndis not found")
 	}
@@ -36,5 +42,5 @@ func (s *Service) IsProxyRunning() (running bool) {
 	} else {
 		_, running = s.lagzap.Inbound().Get("ndis")
 	}
-	return
+	return running
 }

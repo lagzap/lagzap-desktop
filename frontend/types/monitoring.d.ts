@@ -1,5 +1,3 @@
-import type { RelayRoute } from "~/bindings/github.com/lagzap/lagzap/adapter";
-
 export interface Log {
   time: any;
   type: string;
@@ -116,4 +114,38 @@ export interface NodeOptimizeResult {
   is_testing: boolean;
   last_test: number;
   error_message: string;
+}
+
+export interface RouteMonitoringData {
+  route_tag: string;
+  address: string;
+  node_routes: number;
+  connections: number;
+  last_update: string;
+  is_active: boolean;
+  status: string;
+  
+  // Node metadata
+  country: string;
+  region: string;
+  area: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  node_id: string;
+  node_name: string;
+  
+  // Route performance metrics
+  avg_latency: number;
+  min_latency: number;
+  max_latency: number;
+  packet_loss: number;
+  jitter: number;
+  score: number;
+}
+
+export interface RouteMonitoringStatus {
+  total_routes: number;
+  routes: RouteMonitoringData[];
+  timestamp: string;
 }

@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import Container from "~/components/layout/Container.vue";
 import { useLocale } from "vuetify";
-import { GetTitles } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import Container from "~/components/layout/Container.vue";
 
 const locale = useLocale();
-const { t } = locale
+const { t } = locale;
 const store = useStore();
 const titles = computed(() => store.getTitles);
 </script>
@@ -14,18 +13,12 @@ const titles = computed(() => store.getTitles);
     <Container>
       <template #header>
         <v-app-bar-title class="text-subtitle-1">
-          {{ t('$vuetify.navigation.titles') }}
+          {{ t("$vuetify.navigation.titles") }}
         </v-app-bar-title>
       </template>
 
-      <v-card
-        class="my-3 px-3 bg-transparent"
-        flat
-      >
-        <v-data-iterator
-          :items="titles"
-          :items-per-page="titles.length"
-        >
+      <v-card-text class="mb-16">
+        <v-data-iterator :items="titles" :items-per-page="titles.length">
           <template #default="{ items }">
             <v-row dense>
               <v-col
@@ -47,16 +40,33 @@ const titles = computed(() => store.getTitles);
                   >
                     <template #append>
                       <v-tooltip
-                        :text="store.isTitleActive(item.raw.id) ? (store.ndisRunning ? t('$vuetify.title.active') : t('$vuetify.title.serviceStopped')) : t('$vuetify.title.inactive')">
+                        :text="
+                          store.isTitleActive(item.raw.id)
+                            ? store.ndisRunning
+                              ? t('$vuetify.title.active')
+                              : t('$vuetify.title.serviceStopped')
+                            : t('$vuetify.title.inactive')
+                        "
+                      >
                         <template #activator="{ props }">
                           <v-btn
                             v-bind="props"
-                            :color="store.isTitleActive(item.raw.id) ? 'green' : 'secondary'"
-                            :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
+                            :color="
+                              store.isTitleActive(item.raw.id)
+                                ? 'green'
+                                : 'secondary'
+                            "
+                            :icon="
+                              store.ndisRunning
+                                ? 'mdi-circle-medium'
+                                : 'mdi-circle-small'
+                            "
                             variant="text"
                             size="md"
                             :disabled="!store.connected"
-                            @click.stop.prevent="store.toggleTitleState(item.raw)"
+                            @click.stop.prevent="
+                              store.toggleTitleState(item.raw)
+                            "
                           />
                         </template>
                       </v-tooltip>
@@ -67,27 +77,24 @@ const titles = computed(() => store.getTitles);
             </v-row>
           </template>
         </v-data-iterator>
-      </v-card>
+      </v-card-text>
 
       <template #outside>
         <v-fab
-          icon
           appear
-          size="x-large"
+          size="large"
           color="info"
           variant="elevated"
+          prepend-icon="mdi-plus"
           :style="{
             position: 'fixed',
             bottom: '24px',
             [locale.isRtl.value ? 'left' : 'right']: '24px',
-            zIndex: 10000
+            zIndex: 10000,
           }"
           :disabled="!store.connected"
-        >
-          <v-icon>
-            mdi-plus
-          </v-icon>
-        </v-fab>
+          text="Request Title"
+        />
       </template>
     </Container>
   </div>

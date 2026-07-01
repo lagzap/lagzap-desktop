@@ -3,16 +3,16 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "lagzap"
+name: "cyrex"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.1.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience"
-vendor: "LagZap"
-homepage: "https://www.lagzap.com"
+description: "A cutting-edge lag elimination software powered by LagZap protocol designed to deliver a seamless and smooth experience"
+vendor: "Cyrex"
+homepage: "https://www.cyrex.online"
 license: "private"
 release: "1"
 
