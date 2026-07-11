@@ -21,11 +21,12 @@ const dialog = defineModel<boolean>({
       :text="t('$vuetify.auth.registerDialog.description')"
     >
       <template #actions>
-        <v-spacer />
         <v-btn
           variant="tonal"
-          color="secondary"
+          color="primary"
+          block
           rounded
+          size="large"
           @click="$emit('register')"
         >
           {{ t('$vuetify.auth.registerDialog.createAccountButton') }}

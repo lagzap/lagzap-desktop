@@ -46,30 +46,32 @@ function onRegister(type: AuthBy, entry: string) {
 </script>
 
 <template>
-  <v-scale-transition leave-absolute>
-    <AuthCheck v-if="step == 'check'" @login="onLogin" @register="onRegister" />
-    <AuthLogin
-      v-else-if="step == 'login'"
-      :type="authType"
-      :entry="authEntry"
-      @back="step = 'check'"
-      @otp="onLogin"
-    />
-    <AuthOtp
-      v-else-if="step == 'otp'"
-      :type="authType"
-      :entry="authEntry"
-      @back="step = 'check'"
-    />
-    <AuthRegister
-      v-else-if="step == 'register'"
-      :type="authType"
-      :entry="authEntry"
-      @back="step = 'check'"
-    />
-  </v-scale-transition>
+  <v-card width="400" class="v-card--topborder">
+    <v-slide-x-reverse-transition leave-absolute>
+      <AuthCheck v-if="step == 'check'" @login="onLogin" @register="onRegister" />
+      <AuthLogin
+        v-else-if="step == 'login'"
+        :type="authType"
+        :entry="authEntry"
+        @back="step = 'check'"
+        @otp="onLogin"
+      />
+      <AuthOtp
+        v-else-if="step == 'otp'"
+        :type="authType"
+        :entry="authEntry"
+        @back="step = 'check'"
+      />
+      <AuthRegister
+        v-else-if="step == 'register'"
+        :type="authType"
+        :entry="authEntry"
+        @back="step = 'check'"
+      />
+    </v-slide-x-reverse-transition>
+  </v-card>
 
-  <DialogRegister
+  <DialogRegisterConfirm
     v-model="registerConfirmDialog"
     @register="
       registerConfirmDialog = false;

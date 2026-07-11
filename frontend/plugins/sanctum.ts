@@ -1,3 +1,6 @@
+import { clearAuthSession, redirectToAuth } from "~/composables/useAuthSession";
+import { isAuthHttpStatus } from "~/utils/httpError";
+
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook("sanctum:login", () => {
     console.log("Sanctum login hook triggered", nuxtApp);
@@ -20,7 +23,21 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook("sanctum:error:request", (context) => {
     console.log("Sanctum request error hook triggered", context, nuxtApp);
   });
-  nuxtApp.hook("sanctum:error", (response) => {
-    console.log("Sanctum error hook triggered", response, nuxtApp);
+  nuxtApp.hook("sanctum:error", async (response) => {
+    const status = response?.status;
+    if (!isAuthHttpStatus(status)) {
+      return;
+    }
+
+    await clearAuthSession();
+
+    const options = useSanctumConfig();
+    if (
+      import.meta.client
+      && options.redirectIfUnauthenticated
+      && status === 403
+    ) {
+      await redirectToAuth();
+    }
   });
 });
