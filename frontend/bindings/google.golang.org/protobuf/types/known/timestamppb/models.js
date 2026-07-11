@@ -4,7 +4,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {Create as $Create} from "@wailsio/runtime";
+import { Create as $Create } from "@wailsio/runtime";
 
 /**
  * A Timestamp represents a point in time independent of any time zone or local
@@ -111,7 +111,7 @@ export class Timestamp {
              * @member
              * @type {number | undefined}
              */
-            this["seconds"] = 0;
+            this["seconds"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
@@ -122,7 +122,7 @@ export class Timestamp {
              * @member
              * @type {number | undefined}
              */
-            this["nanos"] = 0;
+            this["nanos"] = undefined;
         }
 
         Object.assign(this, $$source);

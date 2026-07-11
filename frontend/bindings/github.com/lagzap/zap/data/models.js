@@ -4,7 +4,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {Create as $Create} from "@wailsio/runtime";
+import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -21,77 +21,77 @@ export class ClientInfo {
              * @member
              * @type {string | undefined}
              */
-            this["ISP"] = "";
+            this["ISP"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["IP"] = "";
+            this["IP"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["City"] = "";
+            this["City"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["Region"] = "";
+            this["Region"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["Country"] = "";
+            this["Country"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["Continent"] = "";
+            this["Continent"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["Currency"] = "";
+            this["Currency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["Timezone"] = "";
+            this["Timezone"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["Latitude"] = 0;
+            this["Latitude"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["Longitude"] = 0;
+            this["Longitude"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["VPN"] = false;
+            this["VPN"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -108,6 +108,171 @@ export class ClientInfo {
     }
 }
 
+export class ClientSettings {
+    /**
+     * Creates a new ClientSettings instance.
+     * @param {Partial<ClientSettings>} [$$source = {}] - The source object to create the ClientSettings.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["language"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["theme"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["allow_send_debug_info"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["allow_send_annonymos_data"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["launch_on_startup"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["launch_on_startup_minimize"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["active_on_start"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["default_interface"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["multi_internet_interfaces"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {OptimizeAccuracy | null | undefined}
+             */
+            this["route_accuracy"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {OptimizeSelection | null | undefined}
+             */
+            this["route_selection"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {OptimizeProtocol | null | undefined}
+             */
+            this["route_protocol"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {OptimizeIP | null | undefined}
+             */
+            this["route_ip"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["gpu_acceleration"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["realtime_optimization"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["allow_local_routes"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["enable_qos"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["tcp_routes"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["udp_routes"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["dualstack"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ClientSettings instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ClientSettings}
+     */
+    static createFrom($$source = {}) {
+        const $$createField8_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("multi_internet_interfaces" in $$parsedSource) {
+            $$parsedSource["multi_internet_interfaces"] = $$createField8_0($$parsedSource["multi_internet_interfaces"]);
+        }
+        return new ClientSettings(/** @type {Partial<ClientSettings>} */($$parsedSource));
+    }
+}
+
 export class CredentialsPayload {
     /**
      * Creates a new CredentialsPayload instance.
@@ -119,42 +284,42 @@ export class CredentialsPayload {
              * @member
              * @type {string | undefined}
              */
-            this["user_id"] = "";
+            this["user_id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["session_id"] = "";
+            this["session_id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["routes"] = 0;
+            this["routes"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["started_at"] = "";
+            this["started_at"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["expires_at"] = null;
+            this["expires_at"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {UpdatePayload | null | undefined}
              */
-            this["update"] = null;
+            this["update"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -166,7 +331,7 @@ export class CredentialsPayload {
      * @returns {CredentialsPayload}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType1;
+        const $$createField5_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("update" in $$parsedSource) {
             $$parsedSource["update"] = $$createField5_0($$parsedSource["update"]);
@@ -186,28 +351,28 @@ export class Hop {
              * @member
              * @type {string | undefined}
              */
-            this["ip"] = "";
+            this["ip"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {HopStatus | undefined}
              */
-            this["status"] = (/** @type {HopStatus} */(0));
+            this["status"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["latency"] = 0;
+            this["latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["hop_index"] = 0;
+            this["hop_index"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -267,70 +432,70 @@ export class Latency {
              * @member
              * @type {string | undefined}
              */
-            this["target_ip"] = "";
+            this["target_ip"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["packet_loss"] = 0;
+            this["packet_loss"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["total_pings"] = 0;
+            this["total_pings"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["failed_pings"] = 0;
+            this["failed_pings"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["avg_latency"] = 0;
+            this["avg_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["min_latency"] = 0;
+            this["min_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["max_latency"] = 0;
+            this["max_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["jitter"] = 0;
+            this["jitter"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["score"] = 0;
+            this["score"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {(PingPoint | null)[] | undefined}
              */
-            this["pings"] = [];
+            this["pings"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -342,7 +507,7 @@ export class Latency {
      * @returns {Latency}
      */
     static createFrom($$source = {}) {
-        const $$createField9_0 = $$createType4;
+        const $$createField9_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("pings" in $$parsedSource) {
             $$parsedSource["pings"] = $$createField9_0($$parsedSource["pings"]);
@@ -362,98 +527,98 @@ export class Node {
              * @member
              * @type {string | undefined}
              */
-            this["id"] = "";
+            this["id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["name"] = "";
+            this["name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["region"] = "";
+            this["region"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["area"] = "";
+            this["area"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["country"] = "";
+            this["country"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {{ [_: string]: string } | undefined}
+             * @type {{ [_ in string]?: string } | undefined}
              */
-            this["city"] = {};
+            this["city"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["latitude"] = 0;
+            this["latitude"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["longitude"] = 0;
+            this["longitude"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["ipv4"] = "";
+            this["ipv4"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["ipv6"] = null;
+            this["ipv6"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["additional_ips"] = [];
+            this["additional_ips"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["allowed_plans"] = [];
+            this["allowed_plans"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {NodeFlag | undefined}
              */
-            this["flags"] = (/** @type {NodeFlag} */(0));
+            this["flags"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["updated_at"] = "";
+            this["updated_at"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -465,9 +630,9 @@ export class Node {
      * @returns {Node}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType5;
-        const $$createField10_0 = $$createType6;
-        const $$createField11_0 = $$createType6;
+        const $$createField5_0 = $$createType6;
+        const $$createField10_0 = $$createType0;
+        const $$createField11_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("city" in $$parsedSource) {
             $$parsedSource["city"] = $$createField5_0($$parsedSource["city"]);
@@ -518,84 +683,84 @@ export class NodeRoute {
              * @member
              * @type {(Hop | null)[] | undefined}
              */
-            this["hops"] = [];
+            this["hops"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["packet_sent"] = 0;
+            this["packet_sent"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["packet_received"] = 0;
+            this["packet_received"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["packet_loss"] = 0;
+            this["packet_loss"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["avg_latency"] = 0;
+            this["avg_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["min_latency"] = 0;
+            this["min_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["max_latency"] = 0;
+            this["max_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["jitter"] = 0;
+            this["jitter"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["score"] = 0;
+            this["score"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["tcp_available"] = false;
+            this["tcp_available"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["udp_available"] = false;
+            this["udp_available"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["icmp_available"] = false;
+            this["icmp_available"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -627,28 +792,28 @@ export class Optimize {
              * @member
              * @type {number | undefined}
              */
-            this["total_tests"] = 0;
+            this["total_tests"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["completed_tests"] = 0;
+            this["completed_tests"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["is_complete"] = false;
+            this["is_complete"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["progress"] = 0;
+            this["progress"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -665,6 +830,70 @@ export class Optimize {
     }
 }
 
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const OptimizeAccuracy = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    OptimizeAccuracy_OPTIMIZE_ACCURACY_VERY_LOW: 0,
+    OptimizeAccuracy_OPTIMIZE_ACCURACY_LOW: 1,
+    OptimizeAccuracy_OPTIMIZE_ACCURACY_MEDIUM: 2,
+    OptimizeAccuracy_OPTIMIZE_ACCURACY_HIGH: 3,
+};
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const OptimizeIP = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    OptimizeIP_OPTIMIZE_PROTOCOL_DUALSTACK: 0,
+    OptimizeIP_OPTIMIZE_PROTOCOL_IPV4: 1,
+    OptimizeIP_OPTIMIZE_PROTOCOL_IPV6: 2,
+};
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const OptimizeProtocol = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    OptimizeProtocol_OPTIMIZE_PROTOCOL_TCP_UDP: 0,
+    OptimizeProtocol_OPTIMIZE_PROTOCOL_ICMP: 1,
+    OptimizeProtocol_OPTIMIZE_PROTOCOL_TCP: 2,
+    OptimizeProtocol_OPTIMIZE_PROTOCOL_UDP: 3,
+};
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const OptimizeSelection = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    OptimizeSelection_OPTIMIZE_SELECTION_GLOBAL: 0,
+    OptimizeSelection_OPTIMIZE_SELECTION_REGIONAL: 1,
+    OptimizeSelection_OPTIMIZE_SELECTION_COUNTRY: 2,
+    OptimizeSelection_OPTIMIZE_SELECTION_CITY: 3,
+    OptimizeSelection_OPTIMIZE_SELECTION_SPECIFIC: 4,
+};
+
 export class PingPoint {
     /**
      * Creates a new PingPoint instance.
@@ -676,21 +905,21 @@ export class PingPoint {
              * @member
              * @type {number | undefined}
              */
-            this["t"] = 0;
+            this["t"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["latency"] = 0;
+            this["latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["ok"] = false;
+            this["ok"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -718,77 +947,77 @@ export class Profile {
              * @member
              * @type {string | undefined}
              */
-            this["id"] = "";
+            this["id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["flags"] = 0;
+            this["flags"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["title_id"] = "";
+            this["title_id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["order"] = 0;
+            this["order"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {{ [_: string]: string } | undefined}
+             * @type {{ [_ in string]?: string } | undefined}
              */
-            this["name"] = {};
+            this["name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {{ [_: string]: string } | undefined}
+             * @type {{ [_ in string]?: string } | undefined}
              */
-            this["description"] = {};
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
-            this["rule"] = "";
+            this["description"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["route_action"] = "";
+            this["rule"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["metadata"] = "";
+            this["route_action"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["created_at"] = "";
+            this["metadata"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["updated_at"] = "";
+            this["created_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["updated_at"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -800,8 +1029,8 @@ export class Profile {
      * @returns {Profile}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType5;
-        const $$createField5_0 = $$createType5;
+        const $$createField4_0 = $$createType6;
+        const $$createField5_0 = $$createType6;
         const $$createField6_0 = $Create.ByteSlice;
         const $$createField8_0 = $Create.ByteSlice;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -832,91 +1061,91 @@ export class ProfileState {
              * @member
              * @type {boolean | undefined}
              */
-            this["active"] = false;
+            this["active"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["titleId"] = "";
+            this["titleId"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["profileId"] = "";
+            this["profileId"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {RoutingMode | undefined}
              */
-            this["mode"] = (/** @type {RoutingMode} */(0));
+            this["mode"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["regions"] = [];
+            this["regions"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["countries"] = [];
+            this["countries"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["cities"] = [];
+            this["cities"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["tcp_connections"] = 0;
+            this["tcp_connections"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["udp_connections"] = 0;
+            this["udp_connections"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["network_interfaces"] = [];
+            this["network_interfaces"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["allow_local_routes"] = false;
+            this["allow_local_routes"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["default_interface"] = "";
+            this["default_interface"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["node_id"] = null;
+            this["node_id"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -928,10 +1157,10 @@ export class ProfileState {
      * @returns {ProfileState}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType6;
-        const $$createField5_0 = $$createType6;
-        const $$createField6_0 = $$createType6;
-        const $$createField9_0 = $$createType6;
+        const $$createField4_0 = $$createType0;
+        const $$createField5_0 = $$createType0;
+        const $$createField6_0 = $$createType0;
+        const $$createField9_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("regions" in $$parsedSource) {
             $$parsedSource["regions"] = $$createField4_0($$parsedSource["regions"]);
@@ -960,35 +1189,35 @@ export class Region {
              * @member
              * @type {string | undefined}
              */
-            this["tag"] = "";
+            this["tag"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {{ [_: string]: string } | undefined}
+             * @type {{ [_ in string]?: string } | undefined}
              */
-            this["name"] = {};
+            this["name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["host"] = "";
+            this["host"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["active"] = false;
+            this["active"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["updated_at"] = "";
+            this["updated_at"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -1000,7 +1229,7 @@ export class Region {
      * @returns {Region}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType5;
+        const $$createField1_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
             $$parsedSource["name"] = $$createField1_0($$parsedSource["name"]);
@@ -1020,21 +1249,21 @@ export class RelayRoute {
              * @member
              * @type {string | undefined}
              */
-            this["tag"] = "";
+            this["tag"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["addr"] = "";
+            this["addr"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {(NodeRoute | null)[] | undefined}
              */
-            this["routes"] = [];
+            this["routes"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -1066,70 +1295,70 @@ export class Route {
              * @member
              * @type {string | undefined}
              */
-            this["node_id"] = "";
+            this["node_id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["edge_id"] = "";
+            this["edge_id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {IPVersion | undefined}
              */
-            this["ip_version"] = (/** @type {IPVersion} */(0));
+            this["ip_version"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["avg_latency"] = 0;
+            this["avg_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["min_latency"] = 0;
+            this["min_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["max_latency"] = 0;
+            this["max_latency"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["packet_loss"] = 0;
+            this["packet_loss"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["tcp"] = false;
+            this["tcp"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["udp"] = false;
+            this["udp"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["icmp"] = false;
+            this["icmp"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -1175,56 +1404,56 @@ export class Title {
              * @member
              * @type {string | undefined}
              */
-            this["id"] = "";
+            this["id"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["flags"] = 0;
+            this["flags"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {boolean | undefined}
              */
-            this["enabled"] = false;
+            this["enabled"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {{ [_: string]: string } | undefined}
+             * @type {{ [_ in string]?: string } | undefined}
              */
-            this["name"] = {};
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | null | undefined}
-             */
-            this["alias_name"] = null;
+            this["name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["icon_url"] = null;
+            this["alias_name"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | null | undefined}
              */
-            this["poster_url"] = null;
+            this["icon_url"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["poster_url"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["updated_at"] = "";
+            this["updated_at"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -1236,7 +1465,7 @@ export class Title {
      * @returns {Title}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType5;
+        const $$createField3_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
             $$parsedSource["name"] = $$createField3_0($$parsedSource["name"]);
@@ -1256,21 +1485,21 @@ export class TitleState {
              * @member
              * @type {boolean | undefined}
              */
-            this["active"] = false;
+            this["active"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string | undefined}
              */
-            this["titleId"] = "";
+            this["titleId"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {number | undefined}
              */
-            this["visited_at"] = 0;
+            this["visited_at"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -1298,14 +1527,14 @@ export class UpdatePayload {
              * @member
              * @type {timestamppb$0.Timestamp | null | undefined}
              */
-            this["last_update_at"] = null;
+            this["last_update_at"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
              * @type {string[] | undefined}
              */
-            this["current_ids"] = [];
+            this["current_ids"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -1318,7 +1547,7 @@ export class UpdatePayload {
      */
     static createFrom($$source = {}) {
         const $$createField0_0 = $$createType14;
-        const $$createField1_0 = $$createType6;
+        const $$createField1_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("last_update_at" in $$parsedSource) {
             $$parsedSource["last_update_at"] = $$createField0_0($$parsedSource["last_update_at"]);
@@ -1331,13 +1560,13 @@ export class UpdatePayload {
 }
 
 // Private type creation functions
-const $$createType0 = UpdatePayload.createFrom;
-const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = PingPoint.createFrom;
-const $$createType3 = $Create.Nullable($$createType2);
-const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = $Create.Map($Create.Any, $Create.Any);
-const $$createType6 = $Create.Array($Create.Any);
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = UpdatePayload.createFrom;
+const $$createType2 = $Create.Nullable($$createType1);
+const $$createType3 = PingPoint.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = $Create.Map($Create.Any, $Create.Any);
 const $$createType7 = Hop.createFrom;
 const $$createType8 = $Create.Nullable($$createType7);
 const $$createType9 = $Create.Array($$createType8);

@@ -4,7 +4,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {Create as $Create} from "@wailsio/runtime";
+import { Create as $Create } from "@wailsio/runtime";
 
 /**
  * @readonly
@@ -22,6 +22,65 @@ export const ConnectionStatus = {
 };
 
 /**
+ * LagFixStats is persisted lifetime counters for verified lag fixes.
+ */
+export class LagFixStats {
+    /**
+     * Creates a new LagFixStats instance.
+     * @param {Partial<LagFixStats>} [$$source = {}] - The source object to create the LagFixStats.
+     */
+    constructor($$source = {}) {
+        if (!("verified_count" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["verified_count"] = 0;
+        }
+        if (!("attempt_count" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["attempt_count"] = 0;
+        }
+        if (!("failed_count" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["failed_count"] = 0;
+        }
+        if (!("total_improvement_ms" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["total_improvement_ms"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["last_verified_at"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LagFixStats instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LagFixStats}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LagFixStats(/** @type {Partial<LagFixStats>} */($$parsedSource));
+    }
+}
+
+/**
  * @readonly
  * @enum {number}
  */
@@ -35,4 +94,19 @@ export const StartStage = {
     StartStateStart: 1,
     StartStatePostStart: 2,
     StartStateStarted: 3,
+};
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const SyncTransportMode = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    SyncTransportAuto: 0,
+    SyncTransportWebSocket: 1,
+    SyncTransportHTTP: 2,
 };
