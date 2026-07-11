@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Container from "~/components/layout/Container.vue";
-import MapChart from "~/components/MapChart.vue";
+import MapChart from "~/components/network/MapChart.vue";
 import { useLocale } from "vuetify";
 
 const selectedNode = ref<string | null>(null);

@@ -9,12 +9,12 @@ const { t } = useLocale();
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title class="text-subtitle-1">{{ t('$vuetify.navigation.overview') }}</v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">
+          {{ t("$vuetify.navigation.overview") }}
+        </v-app-bar-title>
       </template>
 
-      <v-card-text>
-        Soon
-      </v-card-text>
+      <NetworkOverview />
     </Container>
   </div>
 </template>

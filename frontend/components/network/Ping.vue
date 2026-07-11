@@ -8,9 +8,23 @@ const props = defineProps<{
 
 const store = useStore();
 
-const relayRoute = computed<RelayRoute | null>(() =>
-  store.routes ? (store.routes[`${props.tag}-ipv4-udp`] || store.routes[`${props.tag}-ipv4-tcp`]) : null
-);
+const relayRoute = computed<RelayRoute | null>(() => {
+  if (!props.tag || !store.routes) {
+    return null;
+  }
+
+  if (store.routes[props.tag]) {
+    return store.routes[props.tag];
+  }
+
+  return (
+    store.routes[`${props.tag}-ipv4-udp`] ||
+    store.routes[`${props.tag}-ipv4-tcp`] ||
+    store.routes[`${props.tag}-ipv6-udp`] ||
+    store.routes[`${props.tag}-ipv6-tcp`] ||
+    null
+  );
+});
 
 // Helper function to get color class based on gaming score
 function getScoreColorClass(score: number | null): string {
@@ -53,8 +67,8 @@ function getScoreDescription(score: number | null): string {
     class="d-flex align-center gap-1 text-caption"
   >
     <span class="ms-1">{{
-      relayRoute?.routes?.[0].min_latency
-        ? `${Math.max(0, relayRoute?.routes?.[0].min_latency)}ms`
+      relayRoute?.routes?.[0]?.min_latency
+        ? `${Math.max(0, relayRoute.routes[0].min_latency)}ms`
         : "timeout"
     }}</span>
   </span>

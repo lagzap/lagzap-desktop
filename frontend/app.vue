@@ -2,7 +2,7 @@
 import { useDisplay, useTheme, useLocale } from "vuetify";
 import { Events, System, Window } from "@wailsio/runtime";
 import { useMessagesStore } from "~/stores/messages";
-import OptimizeParticles from "~/components/OptimizeParticles.vue";
+import OptimizeParticles from "~/components/effects/OptimizeParticles.vue";
 
 const store = useStore();
 const messages = useMessagesStore();
@@ -44,7 +44,7 @@ watch(isLoaded, (loaded) => {
 
 Events.On("theme", ({ data }) => {
   if (!settings.value.theme || settings.value.theme === "system") {
-    theme.change(data[0]);
+    theme.change(data);
   }
 });
 
@@ -124,3 +124,11 @@ async function close() {
   
   <OptimizeParticles />
 </template>
+
+<style lang="scss">
+.v-application.v-layout.v-layout--full-height.v-theme--dark {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(230 215 133 / 0.03), transparent),
+    linear-gradient(180deg, #141414 0%, #0a0a0a 100%);
+}
+</style>

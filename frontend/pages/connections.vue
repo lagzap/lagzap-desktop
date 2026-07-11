@@ -95,7 +95,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
         :height="$vuetify.display.height - 120"
         fixed-header
         hide-default-footer
-        class="bg-transparent h-100"
+        class="bg-transparent h-100 mt-1"
       >
         <template #item.title="{ item }">
           <span class="text-caption">

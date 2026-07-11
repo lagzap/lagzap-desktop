@@ -96,62 +96,70 @@ onMounted(() => {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card width="400" :title="t('$vuetify.auth.register.title')">
-      <v-card-text>
-        {{
-          props.type == "email"
-            ? t("$vuetify.auth.register.descriptionEmail")
-            : t("$vuetify.auth.register.descriptionPhone")
-        }}
-        <v-locale-provider :rtl="false">
-          <v-otp-input
-            v-model="otp"
-            v-bind="otpAttrs"
-            :error="otpAttrs['error-messages']?.length"
-            focus-all
-            variant="outlined"
-            density="comfortable"
-            label="رمز یکبار مصرف"
-          />
-        </v-locale-provider>
-
-        <div class="text-caption">
-          {{ t("$vuetify.auth.register.codeNotReceived") }}
-          <v-btn variant="tonal" color="accent" size="small" @click="requestOTP">
-            {{ t("$vuetify.auth.register.resendCode") }}
-          </v-btn>
-        </div>
-      </v-card-text>
-      <v-card-text>
-        <v-text-field
-          v-model="password"
-          v-bind="passwordAttrs"
-          :label="t('$vuetify.auth.fields.password')"
-          autofocus
-          type="password"
-          variant="outlined"
-          density="comfortable"
+    <v-toolbar color="transparent">
+      <template #prepend>
+        <v-btn
+          :disabled="isSubmitting"
+          :icon="$vuetify.locale.isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
+          @click="emit('back')"
         />
-        <v-text-field
-          v-model="passwordConfirm"
-          v-bind="passwordConfirmAttrs"
-          :label="t('$vuetify.auth.fields.passwordConfirm')"
-          type="password"
-          variant="outlined"
-          density="comfortable"
-        />
-      </v-card-text>
-
-      <template #actions>
-        <v-btn rounded :loading="isSubmitting" @click="emit('back')">
-          {{ t("$vuetify.auth.backButton") }}
-        </v-btn>
-        <v-spacer />
-        <v-btn type="submit" color="primary" rounded :loading="isSubmitting">
-          {{ t("$vuetify.auth.register.registerButton") }}
-        </v-btn>
       </template>
-    </v-card>
+
+      <v-toolbar-title
+        class="text-h6"
+        :text="t('$vuetify.auth.register.title')"
+      />
+    </v-toolbar>
+    <v-card-text>
+      {{
+        props.type == "email"
+          ? t("$vuetify.auth.register.descriptionEmail")
+          : t("$vuetify.auth.register.descriptionPhone")
+      }}
+      <v-locale-provider :rtl="false">
+        <v-otp-input
+          v-model="otp"
+          v-bind="otpAttrs"
+          :error="otpAttrs['error-messages']?.length"
+          focus-all
+          variant="outlined"
+          density="comfortable"
+          label="رمز یکبار مصرف"
+        />
+      </v-locale-provider>
+
+      <div class="text-caption">
+        {{ t("$vuetify.auth.register.codeNotReceived") }}
+        <v-btn variant="tonal" color="accent" size="small" @click="requestOTP">
+          {{ t("$vuetify.auth.register.resendCode") }}
+        </v-btn>
+      </div>
+    </v-card-text>
+    <v-card-text>
+      <v-text-field
+        v-model="password"
+        v-bind="passwordAttrs"
+        :label="t('$vuetify.auth.fields.password')"
+        autofocus
+        type="password"
+        variant="outlined"
+        density="comfortable"
+      />
+      <v-text-field
+        v-model="passwordConfirm"
+        v-bind="passwordConfirmAttrs"
+        :label="t('$vuetify.auth.fields.passwordConfirm')"
+        type="password"
+        variant="outlined"
+        density="comfortable"
+      />
+    </v-card-text>
+
+    <v-card-actions>
+      <v-btn type="submit" color="primary" variant="tonal" rounded block size="large" :loading="isSubmitting">
+        {{ t("$vuetify.auth.register.registerButton") }}
+      </v-btn>
+    </v-card-actions>
   </v-form>
 
   <DialogOtp v-model="otpDialog" />

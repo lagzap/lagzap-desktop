@@ -46,75 +46,73 @@ async function requestOTP() {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card width="400">
-      <v-toolbar color="transparent">
-        <template #prepend>
-          <v-btn
-            :disabled="isSubmitting"
-            :icon="$vuetify.locale.isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
-            @click="emit('back')"
-          />
-        </template>
-
-        <v-toolbar-title
-          class="text-h6"
-          :text="t('$vuetify.auth.login.title')"
-        />
-      </v-toolbar>
-      <v-card-text>
-        <div class="d-flex flex-column align-center mb-5">
-          <v-avatar
-            size="96"
-            class="mb-3"
-          >
-            <Logo />
-          </v-avatar>
-          <v-chip
-            rounded
-            color="secondary"
-            variant="tonal"
-            size="large"
-            @click="emit('back')"
-          >
-            <v-icon
-              :icon="type == 'phone' ? 'mdi-phone' : 'mdi-email'"
-              start
-            />
-            {{ entry }}
-          </v-chip>
-        </div>
-
-        <v-text-field
-          v-model="password"
-          v-bind="passwordAttrs"
-          autofocus
-          type="password"
-          variant="outlined"
-          density="comfortable"
-          :label="t('$vuetify.auth.fields.password')"
-        />
-      </v-card-text>
-
-      <template #actions>
+    <v-toolbar color="transparent">
+      <template #prepend>
         <v-btn
-          rounded
-          color="secondary"
-          variant="text"
-          @click="requestOTP"
+          :disabled="isSubmitting"
+          :icon="$vuetify.locale.isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
+          @click="emit('back')"
+        />
+      </template>
+
+      <v-toolbar-title
+        class="text-h6"
+        :text="t('$vuetify.auth.login.title')"
+      />
+    </v-toolbar>
+    <v-card-text>
+      <div class="d-flex flex-column align-center mb-5">
+        <v-avatar
+          size="96"
+          class="mb-3"
         >
-          {{ t('$vuetify.auth.login.otpLogin') }}
-        </v-btn>
-        <v-spacer />
-        <v-btn
-          type="submit"
+          <Logo />
+        </v-avatar>
+        <v-chip
+          rounded
           color="secondary"
           variant="tonal"
-          rounded
-          :loading="isSubmitting"
+          size="large"
+          @click="emit('back')"
         >
-          {{ t('$vuetify.auth.login.loginButton') }}
-        </v-btn>
-      </template>
-    </v-card>
+          <v-icon
+            :icon="type == 'phone' ? 'mdi-phone' : 'mdi-email'"
+            start
+          />
+          {{ entry }}
+        </v-chip>
+      </div>
+
+      <v-text-field
+        v-model="password"
+        v-bind="passwordAttrs"
+        autofocus
+        type="password"
+        variant="outlined"
+        density="comfortable"
+        :label="t('$vuetify.auth.fields.password')"
+      />
+    </v-card-text>
+
+    <v-card-actions>
+      <v-btn
+        rounded
+        color="secondary"
+        variant="text"
+        @click="requestOTP"
+      >
+        {{ t('$vuetify.auth.login.otpLogin') }}
+      </v-btn>
+      <v-spacer />
+      <v-btn
+        type="submit"
+        color="secondary"
+        variant="tonal"
+        rounded
+        :loading="isSubmitting"
+      >
+        {{ t('$vuetify.auth.login.loginButton') }}
+      </v-btn>
+    </v-card-actions>
   </v-form>
 </template>

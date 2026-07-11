@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import Settings from '~/components/dialog/Settings.vue';
+import Language from '~/components/dialog/Language.vue';
+import Theme from '~/components/dialog/Theme.vue';
+
+const settingsDialog = ref(false);
+const languageDialog = ref(false);
+const themeDialog = ref(false);
 </script>
 
 <template>
@@ -9,6 +16,9 @@
       flat
       tile
     >
+      <Language v-model="languageDialog" />
+      <Theme v-model="themeDialog" />
+      <Settings v-model="settingsDialog" />
       <v-spacer />
     </v-app-bar>
 

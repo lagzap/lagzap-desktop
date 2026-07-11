@@ -21,7 +21,7 @@ const profiles = computed(() =>
 
 onMounted(() => {
   nextTick(() => {
-    if (!title.value || !store.connected) {
+    if (!title.value || !store.appReady) {
       return;
     }
     store.visitTitle(title.value.id);
@@ -54,7 +54,7 @@ onMounted(() => {
         <v-switch
           :model-value="store.isTitleActive(title.id)"
           hide-details
-          :disabled="!store.connected"
+          :disabled="!store.appReady"
           :color="store.isTitleActive(title.id) ? 'green' : 'secondary'"
           @click="store.toggleTitleState(title)"
         >

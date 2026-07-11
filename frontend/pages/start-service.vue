@@ -1,6 +1,10 @@
 <script lang="ts" setup>
+import { onMounted } from "vue";
 import { useLocale } from "vuetify";
-import { Connect, InstallDriver, IsDriverInstalled, ReloadService, UninstallDriver } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { Connect, InstallDriver, IsDriverInstalled, IsLocalProxyRunning, ReloadService, UninstallDriver } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { getHttpStatus, isAuthError } from "~/utils/httpError";
+import { getToken } from "~/utils/indexedDB";
+import { handleAuthFailure } from "~/composables/useAuthSession";
 
 const router = useRouter();
 const store = useStore();
@@ -60,6 +64,38 @@ async function retryInstallDriver() {
   }
 }
 
+const redirecting = ref(false);
+
+const showCancelStartup = computed(
+  () => store.loading && !store.error && !store.optimizing && !redirecting.value,
+);
+
+async function handleCancelStartup() {
+  await store.cancelStartup();
+}
+
+async function retryStartup() {
+  const wasCanceled = store.startupCanceled;
+  store.resetStartupCancel();
+  store.error = false;
+  if (wasCanceled || !isAuthenticated.value) {
+    await start();
+  } else {
+    await initApp();
+  }
+}
+
+async function waitForLocalProxy(timeoutMs = 8000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await IsLocalProxyRunning()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("local auth proxy not ready");
+}
+
 async function start() {
   const isDriverInstalled = await IsDriverInstalled();
   if (!isDriverInstalled) {
@@ -67,35 +103,63 @@ async function start() {
     return;
   }
 
+  store.resetStartupCancel();
+
   try {
     store.error = false;
     store.loading = true;
     store.statusMessage = t("$vuetify.startService.startingService");
     await ReloadService();
+    if (store.startupCanceled) {
+      return;
+    }
+    await waitForLocalProxy();
     store.statusMessage = t("$vuetify.startService.loggingIntoOnlineService");
+
+    const token = await getToken("lz.access_token");
+    if (!token) {
+      redirecting.value = true;
+      await handleAuthFailure();
+      return;
+    }
+
     if (!isAuthenticated.value) {
       await refreshIdentity();
     }
+    if (store.startupCanceled) {
+      return;
+    }
   } catch (e) {
+    if (store.startupCanceled) {
+      return;
+    }
+    if (isAuthError(e)) {
+      redirecting.value = true;
+      store.error = false;
+      await handleAuthFailure();
+      return;
+    }
     console.error(e);
     console.dir(e);
     store.error = true;
-    errorName.value = e.name;
-    errorStatusCode.value = e.response?.status ?? 0;
-    errorStatusText.value = e.response?.statusText ?? 'unknown';
+    errorName.value = (e as Error).name;
+    errorStatusCode.value = getHttpStatus(e) ?? 0;
+    errorStatusText.value = (e as { statusMessage?: string; response?: { statusText?: string } }).statusMessage
+      ?? (e as { response?: { statusText?: string } }).response?.statusText
+      ?? "unknown";
     if (store.isReady) {
-      store.stopProxy();
+      if (store.ndisRunning) {
+        store.stopProxy();
+      }
       store.disconnect();
     }
-    if (e.status == 401) {
-      router.replace({ name: "auth" });
-      redirecting.value = true;
-    } else {
-      store.error = true;
-      store.statusMessage = getErrorMessage(e);
-    }
+    store.statusMessage = getErrorMessage(e);
     return;
   } finally {
+    if (store.startupCanceled || redirecting.value) {
+      store.loading = false;
+      return;
+    }
     if (isAuthenticated.value) {
       await initApp();
     } else {
@@ -104,26 +168,46 @@ async function start() {
   }
 }
 
-const redirecting = ref(false);
 async function initApp() {
+  if (store.startupCanceled) {
+    store.loading = false;
+    return;
+  }
   try {
     await init();
   } catch (e) {
-    errorName.value = e.name;
-    if (e.status == 401) {
-      router.replace({ name: "auth" });
-    } else {
-      store.error = true;
-      store.statusMessage = getErrorMessage(e);
+    if (store.startupCanceled) {
+      return;
     }
+    if (isAuthError(e)) {
+      redirecting.value = true;
+      store.error = false;
+      await handleAuthFailure();
+      return;
+    }
+    errorName.value = (e as Error).name;
+    store.error = true;
+    store.statusMessage = getErrorMessage(e);
     return;
   } finally {
+    if (store.startupCanceled || redirecting.value) {
+      store.loading = false;
+      return;
+    }
+  }
+
+  if (store.startupCanceled) {
     store.loading = false;
+    return;
   }
 
   try {
     await store.initialize();
   } catch (e) {
+    return;
+  }
+  if (store.startupCanceled) {
+    store.loading = false;
     return;
   }
   if (store.isReady && isAuthenticated.value) {
@@ -136,8 +220,8 @@ async function initApp() {
 
 <template>
   <div>
-    <LagZapAnimatedLogo v-if="isLagZap" :loading="store.optimizing || !store.error" />
-    <CyrexAnimatedLogo v-else :loading="store.optimizing || !store.error" />
+    <LagZapAnimatedLogo v-if="isLagZap" :loading="store.optimizing || (!store.error && !store.startupCanceled)" />
+    <CyrexAnimatedLogo v-else :loading="store.optimizing || (!store.error && !store.startupCanceled)" />
     <div class="status-container text-center">
       <v-card-title>
         <LogoName />
@@ -173,18 +257,24 @@ async function initApp() {
         </v-card-subtitle>
         <v-card-subtitle v-else class="text-subtitle-1 text-center" :class="{
           'text-error': store.error,
-          'text-success': !store.error && store.serviceReady,
+          'text-warning': store.startupCanceled,
+          'text-success': !store.error && !store.startupCanceled && store.serviceReady,
         }">
           {{ store.statusMessage }}
         </v-card-subtitle>
 
-        <div class="d-flex justify-center mt-3" style="gap: 1rem">
+        <div v-if="showCancelStartup" class="d-flex justify-center mt-3">
+          <v-btn color="grey" density="comfortable" variant="tonal" @click="handleCancelStartup">
+            {{ t("$vuetify.startService.cancelStartup") }}
+          </v-btn>
+        </div>
+        <div v-else-if="store.error || store.startupCanceled" class="d-flex justify-center mt-3" style="gap: 1rem">
           <v-btn v-if="store.error && isAuthenticated" color="warning" density="comfortable" variant="tonal"
             @click="logout">
             {{ t("$vuetify.startService.logout") }}
           </v-btn>
-          <v-btn v-if="store.error" color="info" density="comfortable" variant="tonal" :loading="store.loading"
-            @click="isAuthenticated ? initApp() : start()">
+          <v-btn color="info" density="comfortable" variant="tonal" :loading="store.loading"
+            @click="retryStartup">
             {{ t("$vuetify.startService.retry") }}
           </v-btn>
         </div>

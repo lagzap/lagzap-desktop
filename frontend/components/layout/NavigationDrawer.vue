@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { useDisplay } from "vuetify";
-import LagzapLogo from "~/components/LagzapLogo.vue";
 import QuickAccess from "./QuickAccess.vue";
-import { Events } from "@wailsapp/runtime";
-import { Application, Window } from "@wailsio/runtime";
+import { Application, Events, Window } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import { StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import DiscordIcon from "~/components/icons/DiscordIcon.vue";
 import XIcon from "~/components/icons/XIcon.vue";
 import TelegramIcon from "~/components/icons/TelegramIcon.vue";
-import LatencyChip from "~/components/LatencyChip.vue";
+import LatencyChip from "~/components/network/LatencyChip.vue";
 
 const { t } = useLocale();
 const data = useSanctumUser<DataResponse>();
@@ -128,6 +126,15 @@ async function checkForUpdates() {
                   size="20"
                   class="me-2"
                 />
+                <v-chip
+                  v-else-if="!store.connected && store.appReady"
+                  size="x-small"
+                  color="orange"
+                  variant="tonal"
+                  class="me-2"
+                >
+                  {{ t("$vuetify.status.offline") }}
+                </v-chip>
                 <v-icon
                   v-else-if="!store.connected"
                   icon="mdi-lan-disconnect"

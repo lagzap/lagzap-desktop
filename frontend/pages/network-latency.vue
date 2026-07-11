@@ -3,7 +3,7 @@ import Container from "~/components/layout/Container.vue";
 import CountryFlag from "vue-country-flag-next";
 import Europe from "~/components/icons/regions/europe.vue";
 import country from "country-list-js";
-import Ping from "~/components/Ping.vue";
+import Ping from "~/components/network/Ping.vue";
 import { useLocale } from "vuetify";
 import { StartOptimizing } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import ContinentIcon from "~/components/icons/ContinentIcon.vue";
@@ -151,12 +151,17 @@ async function optimize() {
 <template>
   <div>
     <Container>
-      <template #header>
+      <template v-if="false" #header>
         <v-tabs fixed-tabs>
           <v-tab :to="{ name: 'network-latency' }" :text="t('$vuetify.networkLatency.latencyGrid')" />
           <v-tab :to="{ name: 'network-map' }" :text="t('$vuetify.networkLatency.networkMap')" />
         </v-tabs>
         <v-spacer />
+      </template>
+      <template #header v-else>
+        <v-app-bar-title class="text-subtitle-1">
+          {{ t('$vuetify.networkLatency.latencyGrid') }}
+        </v-app-bar-title>
       </template>
       <v-card-text>
         <v-chip-group

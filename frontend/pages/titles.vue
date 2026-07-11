@@ -63,7 +63,7 @@ const titles = computed(() => store.getTitles);
                             "
                             variant="text"
                             size="md"
-                            :disabled="!store.connected"
+                            :disabled="!store.appReady"
                             @click.stop.prevent="
                               store.toggleTitleState(item.raw)
                             "
@@ -92,7 +92,7 @@ const titles = computed(() => store.getTitles);
             [locale.isRtl.value ? 'left' : 'right']: '24px',
             zIndex: 10000,
           }"
-          :disabled="!store.connected"
+          :disabled="!store.appReady"
           text="Request Title"
         />
       </template>

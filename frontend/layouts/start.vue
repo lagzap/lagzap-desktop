@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { useLocale, useTheme } from 'vuetify'
+import Settings from '~/components/dialog/Settings.vue';
+import Language from '~/components/dialog/Language.vue';
+import Theme from '~/components/dialog/Theme.vue';
 
 const locale = useLocale()
 const theme = useTheme()
@@ -8,71 +11,29 @@ const {
   settings,
   isLoaded,
   setLanguage,
-  setTheme,
   getLanguages,
-  getThemes
 } = useSettings(locale, theme)
 
 const handleLanguageSelect = (language: string) => {
   setLanguage(language)
 }
 
-const handleThemeSelect = (themeValue: 'system' | 'light' | 'dark') => {
-  setTheme(themeValue)
-}
 
 const showLanguageSelection = computed(() => {
   return isLoaded.value && !settings.value.language
 })
+
+const languageDialog = ref(false)
+const themeDialog = ref(false)
+const settingsDialog = ref(false)
 </script>
 
 <template>
   <v-app>
     <v-app-bar v-if="!showLanguageSelection" density="comfortable" color="transparent" flat tile>
-      <v-menu>
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-translate" variant="text" />
-        </template>
-        <v-list>
-          <v-list-item v-for="item in getLanguages()" :key="item.value" :value="item.value"
-            @click="handleLanguageSelect(item.value)">
-            <v-list-item-title>{{ item.title }}</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
-
-      <v-menu>
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-theme-light-dark" variant="text" />
-        </template>
-        <v-list>
-          <v-list-item v-for="item in getThemes()" :key="item.value" :value="item.value"
-            @click="handleThemeSelect(item.value as ('system' | 'light' | 'dark'))">
-            <v-list-item-title>{{ item.title }}</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
-
-      <v-dialog max-width="500">
-        <template v-slot:activator="{ props: activatorProps }">
-          <v-btn v-bind="activatorProps" icon="mdi-wifi-cog" variant="text" />
-        </template>
-
-        <template v-slot:default="{ isActive }">
-          <v-card title="Dialog">
-            <v-card-text>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et
-              dolore magna aliqua.
-            </v-card-text>
-
-            <v-card-actions>
-              <v-spacer></v-spacer>
-
-              <v-btn text="Close Dialog" @click="isActive.value = false"></v-btn>
-            </v-card-actions>
-          </v-card>
-        </template>
-      </v-dialog>
+      <Language v-model="languageDialog" />
+      <Theme v-model="themeDialog" />
+      <Settings v-model="settingsDialog" />
 
       <v-spacer />
     </v-app-bar>

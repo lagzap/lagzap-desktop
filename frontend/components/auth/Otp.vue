@@ -86,90 +86,83 @@ onMounted(() => {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card width="400">
-      <v-toolbar color="transparent">
-        <template #prepend>
-          <v-btn
-            :disabled="isSubmitting"
-            :icon="$vuetify.locale.isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
-            @click="emit('back')"
-          />
-        </template>
-
-        <v-toolbar-title
-          class="text-h6"
-          :text="t('$vuetify.auth.login.title')"
-        />
-      </v-toolbar>
-      <v-card-text>
-        <div class="d-flex flex-column align-center mb-5">
-          <v-avatar
-            size="96"
-            class="mb-3"
-          >
-            <Logo />
-          </v-avatar>
-          <v-chip
-            rounded
-            color="primary"
-            size="large"
-            @click="emit('back')"
-          >
-            <v-icon
-              :icon="type == 'phone' ? 'mdi-phone' : 'mdi-email'"
-              start
-            />
-            {{ entry }}
-          </v-chip>
-        </div>
-
-        {{ props.type == 'email' ? t('$vuetify.auth.login.descriptionOtpEmail') : t('$vuetify.auth.login.descriptionOtpPhone') }}
-        <v-locale-provider :rtl="false">
-          <v-otp-input
-            v-model="otp"
-            v-bind="otpAttrs"
-            :error="otpAttrs['error-messages']?.length"
-            focus-all
-            variant="outlined"
-            density="comfortable"
-            label="کد یکبار مصرف"
-          />
-        </v-locale-provider>
-
-        <div class="text-caption">
-          {{ t('$vuetify.auth.register.codeNotReceived') }}
-          <v-btn
-            size="small"
-            variant="tonal"
-            color="accent"
-            :disabled="cooldown > 0"
-            @click="requestOTP"
-          >
-            {{ t('$vuetify.auth.register.resendCode') }}
-            <span v-if="cooldown > 0">
-              ({{ cooldown }})
-            </span>
-          </v-btn>
-        </div>
-      </v-card-text>
-
-      <template #actions>
+    <v-toolbar color="transparent">
+      <template #prepend>
         <v-btn
+          :disabled="isSubmitting"
+          :icon="$vuetify.locale.isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
+          @click="emit('back')"
+        />
+      </template>
+
+      <v-toolbar-title
+        class="text-h6"
+        :text="t('$vuetify.auth.login.title')"
+      />
+    </v-toolbar>
+    <v-card-text>
+      <div class="d-flex flex-column align-center mb-5">
+        <v-avatar
+          size="96"
+          class="mb-3"
+        >
+          <Logo />
+        </v-avatar>
+        <v-chip
           rounded
-          color="secondary"
+          color="primary"
+          size="large"
           @click="emit('back')"
         >
-          {{ t('$vuetify.auth.backButton') }}
-        </v-btn>
-        <v-spacer />
+          <v-icon
+            :icon="type == 'phone' ? 'mdi-phone' : 'mdi-email'"
+            start
+          />
+          {{ entry }}
+        </v-chip>
+      </div>
+
+      {{ props.type == 'email' ? t('$vuetify.auth.login.descriptionOtpEmail') : t('$vuetify.auth.login.descriptionOtpPhone') }}
+      <v-locale-provider :rtl="false">
+        <v-otp-input
+          v-model="otp"
+          v-bind="otpAttrs"
+          :error="otpAttrs['error-messages']?.length"
+          focus-all
+          variant="outlined"
+          density="comfortable"
+          label="کد یکبار مصرف"
+        />
+      </v-locale-provider>
+
+      <div class="text-caption">
+        {{ t('$vuetify.auth.register.codeNotReceived') }}
         <v-btn
-          type="submit"
-          rounded
-          :loading="isSubmitting"
+          size="small"
+          variant="text"
+          color="primary"
+          :disabled="cooldown > 0"
+          @click="requestOTP"
         >
-          {{ t('$vuetify.auth.login.loginButton') }}
+          {{ t('$vuetify.auth.register.resendCode') }}
+          <span v-if="cooldown > 0">
+            ({{ cooldown }})
+          </span>
         </v-btn>
-      </template>
-    </v-card>
+      </div>
+    </v-card-text>
+
+    <v-card-actions>
+      <v-btn
+        type="submit"
+        rounded
+        block
+        variant="tonal"
+        size="large"
+        :loading="isSubmitting"
+      >
+        {{ t('$vuetify.auth.login.loginButton') }}
+      </v-btn>
+    </v-card-actions>
   </v-form>
 </template>

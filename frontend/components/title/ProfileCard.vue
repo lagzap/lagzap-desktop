@@ -1,16 +1,24 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed } from "vue";
 import { useStore } from "@/stores";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
 import ProfileRouteSettings from "~/components/title/ProfileRouteSettings.vue";
 import ProfileRegionSelection from "~/components/title/ProfileRegionSelection.vue";
 import RouteDiagram from "~/components/title/RouteDiagram.vue";
-import { useLocale } from "vuetify";
+import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.vue";
+import ProfilePingUsage from "~/components/title/ProfilePingUsage.vue";
 import { ProfileFlag } from "~/constants/profile";
 
 const props = defineProps<{
   profile: Profile;
 }>();
+
+const showProfileSections = computed(
+  () =>
+    (props.profile.flags &
+      (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !==
+    0
+);
 
 const store = useStore();
 
@@ -93,7 +101,7 @@ const routeSettingsText = computed(() => {
         :model-value="store.isProfileActive(props.profile.id)"
         hide-details
         color="cyan"
-        :disabled="!store.connected"
+        :disabled="!store.appReady"
         @click.stop.prevent="toggleProfile(props.profile)"
       />
     </template>
@@ -107,14 +115,12 @@ const routeSettingsText = computed(() => {
       {{ store.localized(props.profile.description) }}
     </v-card-subtitle>
 
-    <v-card-text
-      v-if="
-        (profile.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) != 0
-      "
-    >
-      <v-card>
-        <RouteDiagram :profile="props.profile" />
-      </v-card>
+    <v-card-text v-if="showProfileSections" class="pt-0 profile-sections">
+      <RouteDiagram :profile="props.profile" class="mb-4" />
+
+      <ProfilePingUsage :profile-id="props.profile.id" class="mb-4" />
+
+      <ProfileConnectionsTable :profile-id="props.profile.id" :limit="5" />
     </v-card-text>
   </v-card>
 </template>

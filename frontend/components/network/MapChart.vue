@@ -475,7 +475,7 @@ async function initChart() {
   if (!chartRef.value) return;
   chart = echarts.init(chartRef.value as HTMLDivElement);
   try {
-    const url = new URL("../assets/world.json", import.meta.url).href;
+    const url = new URL("../../assets/world.json", import.meta.url).href;
     const resp = await fetch(url);
     if (resp.ok) {
       const geo = await resp.json();

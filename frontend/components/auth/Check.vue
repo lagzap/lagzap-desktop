@@ -8,6 +8,7 @@ import { useLocale } from "vuetify";
 const locale = useLocale();
 const { t } = locale;
 const emit = defineEmits(["login", "register"]);
+const client = useSanctumClient();
 
 const type = ref<AuthBy>();
 
@@ -20,15 +21,32 @@ const { defineField, handleSubmit, isSubmitting } = useForm<EntryForm>({
 });
 const [entry, entryAttrs] = defineField("entry", vuetifyConfig);
 
+function isCheckResponse(value: unknown): value is CheckResponse {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const result = value as CheckResponse;
+  return (
+    typeof result.exists === "boolean"
+    && (result.type === "email" || result.type === "phone")
+  );
+}
+
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const { data } = await useSanctumFetch<CheckResponse>("/check", {
+    const data = await client<CheckResponse>("/check", {
       method: "POST",
       body: values,
     });
 
-    type.value = data?.value?.type;
-    if (data?.value?.exists) {
+    if (!isCheckResponse(data)) {
+      displayAlert(t("$vuetify.auth.checkFailed"), "error");
+      return;
+    }
+
+    type.value = data.type;
+    if (data.exists) {
       emit("login", type.value, entry.value);
     } else {
       emit("register", type.value, entry.value);
@@ -41,44 +59,44 @@ const onSubmit = handleSubmit(async (values) => {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card width="400">
-      <div class="d-flex flex-column align-center pt-4">
-        <v-avatar size="96">
-          <Logo />
-        </v-avatar>
-        <v-card-title>
-          <LogoName />
-        </v-card-title>
-        <v-card-subtitle>
-          {{ t("$vuetify.auth.description") }}
-        </v-card-subtitle>
-      </div>
+    <div class="d-flex flex-column align-center pt-4">
+      <v-avatar size="96">
+        <Logo />
+      </v-avatar>
+      <v-card-title>
+        <LogoName />
+      </v-card-title>
+      <v-card-subtitle>
+        {{ t("$vuetify.auth.description") }}
+      </v-card-subtitle>
+    </div>
 
-      <v-card-text>
-        <v-locale-provider :rtl="false">
-          <v-text-field
-            v-model="entry"
-            v-bind="entryAttrs"
-            :label="t('$vuetify.auth.fields.entry')"
-            variant="outlined"
-            density="comfortable"
-            :readonly="isSubmitting"
-          />
-        </v-locale-provider>
-      </v-card-text>
+    <v-card-text>
+      <v-locale-provider :rtl="false">
+        <v-text-field
+          v-model="entry"
+          v-bind="entryAttrs"
+          :label="t('$vuetify.auth.fields.entry')"
+          variant="outlined"
+          density="comfortable"
+          :readonly="isSubmitting"
+          hide-details
+        />
+      </v-locale-provider>
+    </v-card-text>
 
-      <template #actions>
-        <v-spacer />
-        <v-btn
-          type="submit"
-          color="secondary"
-          variant="tonal"
-          rounded
-          :loading="isSubmitting"
-        >
-          {{ t("$vuetify.auth.continueButton") }}
-        </v-btn>
-      </template>
-    </v-card>
+    <v-card-actions>
+      <v-btn
+        type="submit"
+        color="primary"
+        variant="tonal"
+        rounded
+        block
+        size="large"
+        :loading="isSubmitting"
+      >
+        {{ t("$vuetify.auth.continueButton") }}
+      </v-btn>
+    </v-card-actions>
   </v-form>
 </template>

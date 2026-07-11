@@ -24,7 +24,7 @@ const [passwordConfirm, passwordConfirmAttrs] = defineField("passwordConfirm", v
 
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const { data, error } = await useSanctumFetch<ProfileResponse>("profile/password", {
+    const { data, error } = await useSanctumFetch<ProfileResponse>("/profile/password", {
       method: "POST",
       body: {
         ...values,
@@ -48,7 +48,7 @@ let otpID: number | undefined
 
 async function requestOTP() {
   try {
-    const { data, error } = await useSanctumFetch<OtpResponse>("otp", {
+    const { data, error } = await useSanctumFetch<OtpResponse>("/otp", {
       method: "POST",
       body: {
         type: 'email',

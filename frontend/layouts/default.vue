@@ -58,7 +58,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-app full-height>
+  <v-app>
     <NavigationDrawer v-model="sidebar" />
 
     <NuxtPage

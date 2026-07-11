@@ -50,7 +50,7 @@ const recentTitles = computed(() => store.getRecentTitles);
                 :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
                 variant="text"
                 size="md"
-                :disabled="!store.connected"
+                :disabled="!store.appReady"
                 @click.stop.prevent="store.toggleTitleState(title)"
               />
             </template>
