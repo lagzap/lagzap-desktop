@@ -20,14 +20,23 @@ export const openDatabase = (): Promise<IDBDatabase> => {
   });
 };
 
-export async function saveToken (key: string, token: string): Promise<void> {
+function waitForTransaction(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
+
+export async function saveToken(key: string, token: string): Promise<void> {
   const db = await openDatabase();
   const transaction = db.transaction(["tokens"], "readwrite");
   const store = transaction.objectStore("tokens");
   store.put({ key, token });
-};
+  await waitForTransaction(transaction);
+}
 
-export async function getToken (key: string): Promise<string | undefined> {
+export async function getToken(key: string): Promise<string | undefined> {
   const db = await openDatabase();
   const transaction = db.transaction(["tokens"], "readonly");
   const store = transaction.objectStore("tokens");
@@ -40,11 +49,12 @@ export async function getToken (key: string): Promise<string | undefined> {
       reject(request.error);
     };
   });
-};
+}
 
-export async function removeToken (key: string): Promise<void> {
+export async function removeToken(key: string): Promise<void> {
   const db = await openDatabase();
   const transaction = db.transaction(["tokens"], "readwrite");
   const store = transaction.objectStore("tokens");
   store.delete(key);
-};
+  await waitForTransaction(transaction);
+}

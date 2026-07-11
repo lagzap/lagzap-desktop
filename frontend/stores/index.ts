@@ -20,6 +20,10 @@ import {
   VisitTitle,
   GetInterfaces,
   GetClientInfo,
+  CancelConnect,
+  StopService,
+  StopLocalProxy,
+  StartBootstrapLocalProxy,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
   type RelayRoute,
@@ -41,6 +45,8 @@ interface MultiInterfaceLatency {
 import { Events } from "@wailsio/runtime";
 import { displayError } from "~/composables/alert";
 import { getToken } from "~/utils/indexedDB";
+import { clearAuthSession } from "~/composables/useAuthSession";
+import { useMonitoringStore } from "~/stores/monitoring";
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/constants/status";
 import type { Interface } from "~/bindings/github.com/lagzap/zap/common/control";
@@ -48,14 +54,17 @@ import type { Interface } from "~/bindings/github.com/lagzap/zap/common/control"
 export const useStore = defineStore("index", () => {
   const locale = useLocale();
   // State
-  const status = ref<ConnectionStatus>(ConnectionStatus.StatusConnected);
+  const status = ref<ConnectionStatus>(ConnectionStatus.StatusDisconnected);
   const abilities = ref<string[]>([]);
   const displayLimit = ref<number>(10);
   const loading = ref<boolean>(false);
+  const connecting = ref<boolean>(false);
+  const startupCanceled = ref<boolean>(false);
   const statusMessage = ref<string>(locale.t("$vuetify.service.initializing"));
   const error = ref<boolean>(false);
   const optimizeProgress = ref<Optimize | null>(null);
   const serviceReady = ref<boolean>(false);
+  const appReady = ref<boolean>(false);
   const ndisRunning = ref<boolean>(false);
   const latency = ref<MultiInterfaceLatency | null>(null);
 
@@ -74,9 +83,23 @@ export const useStore = defineStore("index", () => {
 
   // Getters
   const isReady = computed(() => serviceReady.value);
-  const connected = computed(
+  const online = computed(
     () => status.value == ConnectionStatus.StatusConnected
   );
+  const connected = online;
+  const usable = computed(() => appReady.value);
+  const internetStatus = computed(() => {
+    if (online.value) {
+      return "online" as const;
+    }
+    if (status.value === ConnectionStatus.StatusReconnecting) {
+      return "reconnecting" as const;
+    }
+    if (appReady.value) {
+      return "offline" as const;
+    }
+    return "unavailable" as const;
+  });
   const optimizing = computed(
     () => optimizeProgress.value !== null && !optimizeProgress.value.is_complete
   );
@@ -118,16 +141,25 @@ export const useStore = defineStore("index", () => {
   });
 
   const initialize = async (callback?: () => void) => {
+    if (startupCanceled.value) {
+      return;
+    }
     loading.value = true;
     error.value = false;
 
     try {
       statusMessage.value = locale.t("$vuetify.service.preparing");
       await check();
+      if (startupCanceled.value) {
+        return;
+      }
 
       await check();
       if (!connected.value) {
         await connect();
+      }
+      if (startupCanceled.value) {
+        return;
       }
 
       if (optimizeProgress.value) {
@@ -139,10 +171,14 @@ export const useStore = defineStore("index", () => {
       await ClearDNSCache();
 
       statusMessage.value = locale.t("$vuetify.service.ready");
+      appReady.value = true;
       if (callback !== undefined) {
         callback();
       }
     } catch (err) {
+      if (startupCanceled.value) {
+        return;
+      }
       console.dir(err);
 
       error.value = true;
@@ -152,47 +188,84 @@ export const useStore = defineStore("index", () => {
     }
   };
 
+  const restoreAfterReload = async () => {
+    if (appReady.value || startupCanceled.value) {
+      return;
+    }
+    const route = useRoute();
+    if (route.path.startsWith("/start-service") || route.path.startsWith("/auth")) {
+      return;
+    }
+    await check();
+    if (!serviceReady.value) {
+      return;
+    }
+    try {
+      await initialize();
+    } catch (err) {
+      console.error("Failed to restore session after reload:", err);
+    }
+  };
+
   // Setup event listeners
   onMounted(async () => {
     await check();
-    Events.On("status", ({ data }) => (status.value = data[0]));
+    Events.On("status", ({ data }) => (status.value = data));
     Events.On("service-started", async () => await check());
-    Events.On("service-stopped", async () => await check());
-    Events.On("titles", ({ data }) => upsertTitles(data[0]));
-    Events.On("title-delete", ({ data }) => deleteTitle(data[0]));
-    Events.On("profiles", ({ data }) => upsertProfiles(data[0]));
-    Events.On("profile-delete", ({ data }) => deleteProfile(data[0]));
-    Events.On("title_states", ({ data }) => upsertTitleStates(data[0]));
-    Events.On("profile_states", ({ data }) => upsertProfileStates(data[0]));
-    Events.On("client_info", ({ data }) => {
-      clientInfo.value = data[0];
+    Events.On("service-stopped", async () => {
+      appReady.value = false;
+      await check();
     });
-    Events.On("regions", ({ data }) => upsertRegions(data[0]));
-    Events.On("region-delete", ({ data }) => deleteRegion(data[0]));
-    Events.On("nodes", ({ data }) => upsertNodes(data[0]));
-    Events.On("node-delete", ({ data }) => deleteNode(data[0]));
+    Events.On("titles", ({ data }) => upsertTitles(data));
+    Events.On("title-delete", ({ data }) => deleteTitle(data));
+    Events.On("profiles", ({ data }) => upsertProfiles(data));
+    Events.On("profile-delete", ({ data }) => deleteProfile(data));
+    Events.On("title_states", ({ data }) => upsertTitleStates(data));
+    Events.On("profile_states", ({ data }) => upsertProfileStates(data));
+    Events.On("client_info", ({ data }) => {
+      clientInfo.value = data;
+    });
+    Events.On("regions", ({ data }) => upsertRegions(data));
+    Events.On("region-delete", ({ data }) => deleteRegion(data));
+    Events.On("nodes", ({ data }) => upsertNodes(data));
+    Events.On("node-delete", ({ data }) => deleteNode(data));
     Events.On("relay-routes", ({ data }) => {
-      const result = data[0] as Record<string, RelayRoute>;
-      routes.value = result;
+      routes.value = {
+        ...routes.value,
+        ...(data as Record<string, RelayRoute>),
+      };
     });
     Events.On("optimize", async ({ data }) => {
-      optimizeProgress.value = data[0];
-      statusMessage.value = `${optimizeProgress.value.completed_tests || 0} / ${optimizeProgress.value.total_tests || 0}`;
+      optimizeProgress.value = data;
+      if (data) {
+        statusMessage.value = `${data.completed_tests || 0} / ${data.total_tests || 0}`;
+      }
     });
     Events.On("latency", ({ data }) => {
-      latency.value = data[0];
+      latency.value = data;
     });
     Events.On("interfaces-updated", async ({ data }) => {
       await updateInterfaces()
     });
 
-    const { user, isAuthenticated } = useSanctumAuth<DataResponse>();
-    if (!isAuthenticated) {
-      return;
+    const { user, isAuthenticated, init: sanctumInit } = useSanctumAuth<DataResponse>();
+    if (!isAuthenticated.value) {
+      const token = await getToken("lz.access_token");
+      if (!token) {
+        return;
+      }
+      try {
+        await sanctumInit();
+      } catch {
+        await clearAuthSession();
+        return;
+      }
     }
     const { log_level } = user.value;
     abilities.value = user.value.abilities || [];
     SetLogLevel(log_level);
+
+    await restoreAfterReload();
   });
 
   onUnmounted(() => {
@@ -285,6 +358,7 @@ export const useStore = defineStore("index", () => {
   };
 
   const upsertTitles = (titlesArray: Title[]) => {
+    if (!Array.isArray(titlesArray)) return;
     for (const title of titlesArray) {
       const existingIndex = titles.value.findIndex((t) => t.id === title.id);
       if (existingIndex !== -1) {
@@ -295,6 +369,7 @@ export const useStore = defineStore("index", () => {
     }
   };
   const upsertProfiles = (profilesArray: Profile[]) => {
+    if (!Array.isArray(profilesArray)) return;
     for (const profile of profilesArray) {
       const existingIndex = profiles.value.findIndex(
         (p) => p.id === profile.id
@@ -307,22 +382,26 @@ export const useStore = defineStore("index", () => {
     }
   };
   const upsertTitleStates = (states: Record<string, TitleState>) => {
+    if (!states) return;
     for (const titleState of Object.values(states)) {
       titleStates.value[titleState.titleId] = titleState;
     }
   };
   const upsertProfileStates = (states: Record<string, ProfileState>) => {
+    if (!states) return;
     for (const profileState of Object.values(states)) {
       profileStates.value[profileState.profileId] = profileState;
       updateProfileUnavailableInterfaces(profileState.profileId);
     }
   };
   const upsertRegions = (newRegions: Region[]) => {
+    if (!Array.isArray(newRegions)) return;
     newRegions.forEach((region) => {
       regions.value[region.tag] = region;
     });
   };
   const upsertNodes = (newNodes: Node[]) => {
+    if (!Array.isArray(newNodes)) return;
     newNodes.forEach((node) => {
       nodes.value[node.id] = node;
     });
@@ -375,11 +454,20 @@ export const useStore = defineStore("index", () => {
     clientInfo.value = await GetClientInfo();
   };
   const connect = async () => {
+    if (startupCanceled.value) {
+      return;
+    }
+    connecting.value = true;
     statusMessage.value = locale.t("$vuetify.service.connecting");
     await updateInterfaces();
     await check();
     if (connected.value) {
+      connecting.value = false;
       loading.value = false;
+      return;
+    }
+    if (startupCanceled.value) {
+      connecting.value = false;
       return;
     }
     statusMessage.value = locale.t("$vuetify.service.fetchingData");
@@ -395,17 +483,90 @@ export const useStore = defineStore("index", () => {
       await SetAccessToken(accessToken);
       await SetEndpoints(endpoints);
       await SetLogLevel(log_level);
+      if (startupCanceled.value) {
+        return;
+      }
       await Connect();
+      if (startupCanceled.value) {
+        return;
+      }
       await check();
     } catch (e) {
+      if (startupCanceled.value) {
+        return;
+      }
       error.value = true;
       statusMessage.value = e.message;
 
       console.error(e);
       throw e;
     } finally {
+      connecting.value = false;
       await check();
     }
+  };
+
+  const resetStartupCancel = () => {
+    startupCanceled.value = false;
+  };
+
+  const resetToPreStartup = async () => {
+    startupCanceled.value = false;
+    connecting.value = false;
+    error.value = false;
+    appReady.value = false;
+    optimizeProgress.value = null;
+
+    try {
+      await CancelConnect();
+    } catch {
+      // ignore
+    }
+
+    try {
+      await StopProxy();
+    } catch {
+      // ignore
+    }
+    useMonitoringStore().resetNetworkSpeedHistory();
+
+    try {
+      await Disconnect();
+    } catch {
+      // ignore
+    }
+
+    try {
+      await StopService();
+    } catch {
+      // ignore
+    }
+
+    try {
+      await StopLocalProxy();
+    } catch {
+      // ignore
+    }
+
+    try {
+      await StartBootstrapLocalProxy();
+    } catch (e) {
+      console.error("failed to restore bootstrap local proxy", e);
+    }
+
+    loading.value = false;
+    statusMessage.value = locale.t("$vuetify.service.initializing");
+    await check();
+  };
+
+  const cancelStartup = async () => {
+    startupCanceled.value = true;
+    await CancelConnect();
+    connecting.value = false;
+    loading.value = false;
+    error.value = false;
+    statusMessage.value = locale.t("$vuetify.startService.startupCanceled");
+    await check();
   };
   const disconnect = async () => {
     loading.value = true;
@@ -419,6 +580,7 @@ export const useStore = defineStore("index", () => {
 
     try {
       await Disconnect();
+      appReady.value = false;
       statusMessage.value = locale.t("$vuetify.service.disconnected");
     } catch (e) {
       error.value = true;
@@ -435,7 +597,10 @@ export const useStore = defineStore("index", () => {
   };
   const startProxy = async () => {
     const isRunning = await IsProxyRunning();
-    if (isRunning) await StopProxy();
+    if (isRunning) {
+      await StopProxy();
+      useMonitoringStore().resetNetworkSpeedHistory();
+    }
 
     await StartProxy();
     ndisRunning.value = await IsProxyRunning();
@@ -443,6 +608,7 @@ export const useStore = defineStore("index", () => {
   const stopProxy = async () => {
     await StopProxy();
     ndisRunning.value = await IsProxyRunning();
+    useMonitoringStore().resetNetworkSpeedHistory();
   };
   const toggleNDIS = async () => {
     ndisRunning.value = await IsProxyRunning();
@@ -526,10 +692,16 @@ export const useStore = defineStore("index", () => {
 
     // State
     connected,
+    online,
+    usable,
+    appReady,
+    internetStatus,
     status,
     abilities,
     displayLimit,
     loading,
+    connecting,
+    startupCanceled,
     statusMessage,
     error,
     optimizing,
@@ -583,6 +755,9 @@ export const useStore = defineStore("index", () => {
     findProfileByRuleTag,
     check,
     connect,
+    cancelStartup,
+    resetStartupCancel,
+    resetToPreStartup,
     disconnect,
     checkNDIS,
     startProxy,
