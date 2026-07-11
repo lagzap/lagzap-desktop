@@ -8,9 +8,8 @@ tasks:
     summary: Builds the application for Windows
     deps:
       - task: common:go:mod:tidy
-      # - task: common:build:frontend
+      - task: common:build:frontend
         vars:
-          GARBLE_SEED: 'test'
           BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
       - task: common:generate:icons
     cmds:
@@ -36,6 +35,28 @@ tasks:
       CGO_ENABLED: 0
       GOARCH: '{{.ARCH | default ARCH}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+
+  build:backend:
+    summary: Builds the Go backend only (dev — skips production frontend build)
+    deps:
+      - task: common:go:mod:tidy
+      - task: common:generate:bindings
+    cmds:
+      - task: generate:syso
+      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
+      - cmd: powershell Remove-item *.syso
+        platforms: [windows]
+      - cmd: rm -f *.syso
+        platforms: [linux, darwin]
+    vars:
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+      CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
+      BUILD_FLAGS: >-
+        -tags debuug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -checklinkname=0" -gcflags=all="-l"
+    env:
+      GOOS: windows
+      CGO_ENABLED: 0
+      GOARCH: '{{.ARCH | default ARCH}}'
 
   package:
     summary: Packages a production build of the application into a `.exe` bundle
@@ -66,5 +87,7 @@ tasks:
       ARG_FLAG: '{{if eq .ARCH "amd64"}}AMD64{{else}}ARM64{{end}}'
 
   run:
+    env:
+      FRONTEND_DEVSERVER_URL: 'http://127.0.0.1:{{.VITE_PORT | default 9245}}'
     cmds:
       - '{{.BIN_DIR}}/{{.APP_NAME}}.exe'

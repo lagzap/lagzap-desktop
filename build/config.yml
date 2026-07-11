@@ -5,7 +5,7 @@ version: '3'
 
 # This information is used to generate the build assets.
 info:
-  companyName: "LagZap" # The name of the company
+  companyName: "Cyrex" # The name of the company
   productName: "Cyrex" # The name of the application
   productIdentifier: "com.lagzap" # The unique product identifier
   description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience" # The application description
@@ -32,12 +32,12 @@ dev_mode:
       - "*.go"
     git_ignore: true
   executes:
-    # - cmd: wails3 task common:install:frontend:deps
-    #   type: once
-    - cmd: wails3 task build
+    - cmd: wails3 task common:install:frontend:deps
+      type: once
+    - cmd: wails3 task common:dev:frontend
+      type: background
+    - cmd: wails3 task build:backend
       type: blocking
-    # - cmd: wails3 task common:dev:frontend
-    #   type: background
     - cmd: wails3 task run
       type: primary
 

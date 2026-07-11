@@ -25,6 +25,21 @@ tasks:
       GOARCH: '{{.ARCH | default ARCH}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
 
+  build:backend:
+    summary: Builds the Go backend only (dev — skips production frontend build)
+    deps:
+      - task: common:go:mod:tidy
+      - task: common:generate:bindings
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}
+    vars:
+      BUILD_FLAGS: '-tags with_gvisor,with_dhcp,with_coordinator -buildvcs=false -gcflags=all="-l"'
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+    env:
+      GOOS: linux
+      CGO_ENABLED: 1
+      GOARCH: '{{.ARCH | default ARCH}}'
+
   package:
     summary: Packages a production build of the application for Linux
     deps:

@@ -2,8 +2,25 @@ version: '3'
 
 tasks:
   go:mod:tidy:
-    summary: Runs `go mod tidy`
+    summary: Syncs Go modules (go.work) or tidies go.mod (CI)
     internal: true
+    deps:
+      - task: go:work:sync
+      - task: go:mod:tidy:only
+
+  go:work:sync:
+    summary: Runs `go work sync` when go.work is present
+    internal: true
+    status:
+      - test ! -f go.work
+    cmds:
+      - go work sync
+
+  go:mod:tidy:only:
+    summary: Runs `go mod tidy` when go.work is absent
+    internal: true
+    status:
+      - test -f go.work
     cmds:
       - go mod tidy
 
@@ -26,11 +43,15 @@ tasks:
     dir: frontend
     sources:
       - "**/*"
+      - "!/.nuxt/**"
+      - "!/.output/**"
+      - "!/dist/**"
+      - "!/node_modules/**"
     generates:
-      - dist/*
+      - .output/public/**
     deps:
       - task: install:frontend:deps
-      # - task: generate:bindings
+      - task: generate:bindings
     cmds:
       - '{{.BUILD_COMMAND}}'
     env:
@@ -70,10 +91,12 @@ tasks:
     env:
       BUILD_TYPE: 'local'
       NODE_ENV: 'development'
+      WAILS_VITE_PORT: '{{.VITE_PORT}}'
+      FRONTEND_DEVSERVER_URL: 'http://127.0.0.1:{{.VITE_PORT}}'
     deps:
       - task: install:frontend:deps
     cmds:
-      - bun run dev -- --port {{.VITE_PORT}}
+      - bun run dev -- --port {{.VITE_PORT}} --host 127.0.0.1
 
   update:build-assets:
     summary: Updates the build assets

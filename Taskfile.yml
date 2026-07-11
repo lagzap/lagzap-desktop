@@ -7,7 +7,7 @@ includes:
   linux: ./build/linux/Taskfile.yml
 
 vars:
-  APP_NAME: "LagZap"
+  APP_NAME: "Cyrex"
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   GOHOSTOS:
@@ -29,6 +29,14 @@ tasks:
       PARAMS: "-v -trimpath -ldflags \"-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}'\" -s -w -buildid=\""
     cmds:
       - task: "{{OS}}:build"
+
+  build:backend:
+    summary: Builds the Go backend only (used by wails dev)
+    env:
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+      CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
+    cmds:
+      - task: "{{OS}}:build:backend"
 
   package:
     summary: Packages a build of the application
