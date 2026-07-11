@@ -6,7 +6,7 @@ require (
 	github.com/lagzap/lagzap v0.1.0-beta.8
 	github.com/lagzap/zap v0.5.0-rc.4
 	github.com/miekg/dns v1.1.67
-	github.com/wailsapp/wails/v3 v3.0.0-00010101000000-000000000000
+	github.com/wailsapp/wails/v3 v3.0.0-alpha2.116
 	golang.org/x/sys v0.35.0
 )
 
@@ -20,7 +20,7 @@ require (
 	github.com/cloudflare/circl v1.6.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/database64128/netx-go v0.1.1 // indirect
-	github.com/database64128/tfo-go/v2 v2.3.1 // indirect
+	github.com/database64128/tfo-go/v2 v2.3.2 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
@@ -96,17 +96,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	howett.net/plist v1.0.1 // indirect
 )
-
-replace github.com/lagzap/lagzap => ../../
-
-replace github.com/lagzap/echo => ../../../echo
-
-replace github.com/lagzap/zap => ../../../zap
-
-replace github.com/lagzap/lagzap-tun => ../../../lagzap-tun
-
-replace github.com/lagzap/geoip => ../../../geoip
-
-replace github.com/lagzap/lagzaprd => ../../../lagzaprd
-
-replace github.com/wailsapp/wails/v3 => ../../../wails/v3

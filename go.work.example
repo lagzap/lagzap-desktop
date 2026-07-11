@@ -1,0 +1,18 @@
+go 1.24.7
+
+# Copy to go.work for local development (gitignored).
+# go.work replaces are used by go build/run; go mod tidy does NOT honor them.
+
+use .
+
+replace github.com/lagzap/lagzap => ../../
+
+replace github.com/lagzap/echo => ../../../echo
+
+replace github.com/lagzap/zap => ../../../zap
+
+replace github.com/lagzap/lagzap-tun => ../../../lagzap-tun
+
+replace github.com/lagzap/geoip => ../../../geoip
+
+replace github.com/lagzap/lagzaprd => ../../../lagzaprd
