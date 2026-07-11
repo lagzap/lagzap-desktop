@@ -8,6 +8,7 @@ import (
 	"github.com/lagzap/lagzap-desktop/constant"
 	"github.com/lagzap/lagzap-desktop/localproxy"
 	"github.com/lagzap/lagzap/adapter"
+	"github.com/lagzap/lagzap/common/device"
 	"github.com/lagzap/lagzap/include"
 	"github.com/lagzap/lagzap/log"
 	"github.com/lagzap/zap/common/control"
@@ -63,6 +64,7 @@ func (s *Service) ReloadService() error {
 		s.StopService()
 		return E.Cause(err, "start service")
 	}
+	device.WarmDeviceHash()
 	s.runtimeCtx = ctx
 	s.dnsRouter = service.FromContext[adapter.DNSRouter](ctx)
 	s.coordinator = service.FromContext[adapter.Coordinator](ctx)
@@ -75,7 +77,7 @@ func (s *Service) ReloadService() error {
 	if err := s.discoverAndStartLocalProxy(); err != nil {
 		return E.Cause(err, "discover and start local proxy")
 	}
-	
+
 	go s.startMonitoring()
 
 	s.logFactory = instance.Logger()
@@ -86,9 +88,6 @@ func (s *Service) ReloadService() error {
 func (s *Service) StopService() error {
 	if s.lagzap == nil {
 		return nil
-	}
-	if s.localProxy != nil {
-		_ = s.localProxy.Stop()
 	}
 	if s.cancel != nil {
 		s.cancel()
@@ -132,12 +131,43 @@ func (s *Service) IsConnected() bool {
 	return s.coordinator != nil && s.coordinator.Status() == adapter.StatusConnected
 }
 
+func (s *Service) IsConnecting() bool {
+	if s.coordinator == nil {
+		return false
+	}
+	return s.coordinator.IsConnecting()
+}
+
+func (s *Service) CancelConnect() {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.CancelConnect()
+}
+
 func (s *Service) SetWindow(window *application.WebviewWindow) {
 	s.window = window
 }
 
 func (s *Service) SetSystray(systray *application.SystemTray) {
 	s.systray = systray
+}
+
+// StartBootstrapLocalProxy starts the auth API proxy before ReloadService so the
+// embedded frontend can reach /data and /token on first load (production builds).
+func (s *Service) StartBootstrapLocalProxy() error {
+	if s.localProxy != nil && s.localProxy.Running() {
+		return nil
+	}
+	target, err := localproxy.DiscoverUpstream(s.ctx, nil, constant.Version, nil)
+	if err != nil {
+		fmt.Printf("localproxy bootstrap upstream: %v (using %s)\n", err, target)
+	}
+	return s.StartLocalProxy(target)
+}
+
+func (s *Service) IsLocalProxyRunning() bool {
+	return s.localProxy != nil && s.localProxy.Running()
 }
 
 func (s *Service) discoverAndStartLocalProxy() error {
@@ -175,13 +205,9 @@ func (s *Service) StartLocalProxy(target string) error {
 	if s.localProxy == nil {
 		s.localProxy = localproxy.New()
 	}
-	proxyCtx := s.runtimeCtx
-	if proxyCtx == nil {
-		proxyCtx = s.ctx
-	}
 	return s.localProxy.Start(localproxy.Config{
 		Target:    target,
-		Context:   proxyCtx,
+		Context:   s.ctx,
 		DNS:       s.dnsRouter,
 		BindIface: localproxy.BindInterface(s.coordinator),
 	})

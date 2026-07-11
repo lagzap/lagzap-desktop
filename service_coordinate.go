@@ -45,7 +45,7 @@ func (s *Service) SetEndpoints(hostnames []string) {
 }
 
 func (s *Service) SetLogLevel(logLevel string) {
-	if s.coordinator == nil {
+	if s.coordinator == nil || s.logFactory == nil {
 		return
 	}
 	level, err := log.ParseLevel(logLevel)
@@ -213,4 +213,40 @@ func (s *Service) ClearDNSCache() {
 
 func (s *Service) GetLatency() *D.Latency {
 	return s.coordinator.GetLatency()
+}
+
+func (s *Service) GetLagFixStats() adapter.LagFixStats {
+	if s.coordinator == nil {
+		return adapter.LagFixStats{}
+	}
+	return s.coordinator.GetLagFixStats()
+}
+
+func (s *Service) GetClientSettings() *D.ClientSettings {
+	if s.coordinator == nil {
+		return nil
+	}
+	return s.coordinator.GetClientSettings()
+}
+
+func (s *Service) SetRoutingSettings(routeAccuracy int, routeProtocol int, routeIp int, realtimeOptimization bool) {
+	if s.coordinator == nil {
+		return
+	}
+	accuracy := D.OptimizeAccuracy(routeAccuracy)
+	protocol := D.OptimizeProtocol(routeProtocol)
+	ip := D.OptimizeIP(routeIp)
+	s.coordinator.SetClientSettings(&D.ClientSettings{
+		RouteAccuracy:        &accuracy,
+		RouteProtocol:        &protocol,
+		RouteIp:              &ip,
+		RealtimeOptimization: &realtimeOptimization,
+	})
+}
+
+func (s *Service) SetClientSettings(settings *D.ClientSettings) {
+	if s.coordinator == nil || settings == nil {
+		return
+	}
+	s.coordinator.SetClientSettings(settings)
 }

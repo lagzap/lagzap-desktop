@@ -35,11 +35,15 @@ func (s *Service) startLogging() {
 }
 
 func (s *Service) startMonitoring() {
+	if s.coordinator == nil {
+		return
+	}
 	connections := s.coordinator.Connections()
 	routes := s.coordinator.GetRouteMonitoringData()
 
 	s.app.Event.Emit("connections", connections)
 	s.app.Event.Emit("routes", routes)
+	s.app.Event.Emit("lag-fix-stats", s.coordinator.GetLagFixStats())
 
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()

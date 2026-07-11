@@ -30,8 +30,9 @@ func main() {
 
 	var window *application.WebviewWindow
 	var systray *application.SystemTray
-	app := application.New(application.Options{
-		LogLevel:    slog.Level(log.LevelError),
+	var app *application.App
+	app = application.New(application.Options{
+		LogLevel:    slog.Level(log.LevelDebug),
 		Name:        "Cyrex",
 		Description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience",
 		Linux:       application.LinuxOptions{},
@@ -62,10 +63,10 @@ func main() {
 			fmt.Printf("Error: %s\n", panicDetails.Error)
 			fmt.Printf("Stacktrace: %s\n", panicDetails.StackTrace)
 
-			dialog := application.InfoDialog()
-			dialog.SetTitle("Cyrex crashed!")
-			dialog.SetMessage("A crash has been occurred, please restart the application!")
-			dialog.Show()
+			app.Dialog.Info().
+				SetTitle("Cyrex crashed!").
+				SetMessage("A crash has been occurred, please restart the application!").
+				Show()
 			file, err := os.OpenFile("panic.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 			if err != nil {
 				fmt.Printf("Failed to open panic log file: %s\n", err)
@@ -91,7 +92,9 @@ func main() {
 		}
 	})
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(event *application.ApplicationEvent) {
-		// go service.StartLocalProxy("https://dev.lagzap-network.ir")
+		if err := service.StartBootstrapLocalProxy(); err != nil {
+			fmt.Printf("localproxy bootstrap on start: %v\n", err)
+		}
 	})
 
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -102,7 +105,6 @@ func main() {
 		MinWidth:           320,
 		MinHeight:          640,
 		ZoomControlEnabled: false,
-		EnableDragAndDrop:  false,
 		Frameless:          true,
 		BackgroundColour:   application.NewRGBA(18, 18, 18, 255),
 		Windows: application.WindowsWindow{
@@ -172,6 +174,7 @@ func main() {
 	})
 	menu.Add("Quit").OnClick(func(ctx *application.Context) {
 		quiting = true
+		_ = service.StopLocalProxy()
 		service.StopService()
 		window.Close()
 		systray.Destroy()

@@ -19,6 +19,12 @@ func (c *Service) generateConfig() option.Options {
 		netip.MustParseAddr("2001:4860:4860::8844"),
 		netip.MustParseAddr("2001:4860:4860::8888"),
 	})
+	predefinedDNS.Put("dev.lagzap.network", []netip.Addr{
+		netip.MustParseAddr("104.19.229.21"),
+		netip.MustParseAddr("104.19.230.21"),
+		netip.MustParseAddr("104.17.148.22"),
+		netip.MustParseAddr("104.17.147.22"),
+	})
 	predefinedDNS.Put("dns.google.com", []netip.Addr{
 		netip.MustParseAddr("8.8.8.8"),
 		netip.MustParseAddr("8.8.4.4"),
@@ -62,6 +68,28 @@ func (c *Service) generateConfig() option.Options {
 			RawDNSOptions: option.RawDNSOptions{
 				Rules: []option.DNSRule{
 					{
+						Tag:  "bootstrap",
+						Type: C.RuleTypeDefault,
+						DefaultOptions: option.DefaultDNSRule{
+							RawDefaultDNSRule: option.RawDefaultDNSRule{
+								Domain: []string{
+									"gstatic.com",
+									"www.gstatic.com",
+								},
+								DomainSuffix: []string{
+									"lagzap.network",
+									"lagzap-network.ir",
+								},
+							},
+							DNSRuleAction: option.DNSRuleAction{
+								Action: "route",
+								RouteOptions: option.DNSRouteActionOptions{
+									Server: "bootstrap",
+								},
+							},
+						},
+					},
+					{
 						Tag:  "dns_google",
 						Type: C.RuleTypeDefault,
 						DefaultOptions: option.DefaultDNSRule{
@@ -69,6 +97,7 @@ func (c *Service) generateConfig() option.Options {
 								Domain: []string{
 									"dns.google",
 									"dns.google.com",
+									"dev.lagzap.network",
 								},
 							},
 							DNSRuleAction: option.DNSRuleAction{
@@ -117,18 +146,27 @@ func (c *Service) generateConfig() option.Options {
 					},
 					{
 						Type: C.DNSTypeUDP,
-						Tag:  "remote",
+						Tag:  "bootstrap",
 						Options: &option.RemoteDNSServerOptions{
 							DNSServerAddressOptions: option.DNSServerAddressOptions{
 								Server:     "8.8.8.8",
-								// Server:     "217.218.127.127",
 								ServerPort: 53,
 							},
-							LocalDNSServerOptions: option.LocalDNSServerOptions{
-								DialerOptions: option.DialerOptions{
-									Detour: "zap",
-								},
+						},
+					},
+					{
+						Type: C.DNSTypeUDP,
+						Tag:  "remote-lagzap",
+						Options: &option.RemoteDNSServerOptions{
+							DNSServerAddressOptions: option.DNSServerAddressOptions{
+								Server:     "8.8.8.8",
+								ServerPort: 53,
 							},
+							// LocalDNSServerOptions: option.LocalDNSServerOptions{
+							// 	DialerOptions: option.DialerOptions{
+							// 		Detour: "zap",
+							// 	},
+							// },
 						},
 					},
 				},
