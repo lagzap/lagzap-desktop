@@ -1,0 +1,113 @@
+<script setup lang="ts">
+import CountryFlag from "vue-country-flag-next";
+import Ping from "~/components/network/Ping.vue";
+import { useHumanSpeed } from "~/composables/helper";
+import { useLocale } from "vuetify";
+
+const props = defineProps<{
+  profileId: string;
+  limit?: number;
+}>();
+
+const store = useStore();
+const locale = useLocale();
+const { t } = locale;
+const { connections } = useMonitoringStore();
+
+function connectionTraffic(connection: {
+  download_speed?: number;
+  upload_speed?: number;
+}) {
+  return (connection.download_speed || 0) + (connection.upload_speed || 0);
+}
+
+const profileConnections = computed(() => {
+  const max = props.limit ?? 5;
+
+  return (connections.value ?? [])
+    .filter((connection) => connection.profile_id === props.profileId)
+    .sort((a, b) =>
+      connectionTraffic(a) > connectionTraffic(b) ? -1 : 1
+    )
+    .slice(0, max);
+});
+
+function nodeCity(nodeId?: string | null) {
+  return store.nodes?.[nodeId ?? ""]?.city?.[locale.current.value ?? "en"] ?? "-";
+}
+</script>
+
+<template>
+  <v-table
+    v-if="profileConnections.length > 0"
+    density="compact"
+    class="profile-connections-table bg-transparent"
+    hover
+  >
+    <thead>
+      <tr>
+        <th>{{ t("$vuetify.connections.gameServer") }}</th>
+        <th>{{ t("$vuetify.connections.lagzapServer") }}</th>
+        <th class="text-center">{{ t("$vuetify.connections.latency") }}</th>
+        <th>{{ t("$vuetify.connections.download") }}</th>
+        <th>{{ t("$vuetify.connections.upload") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="connection in profileConnections" :key="connection.id">
+        <td class="text-no-wrap">
+          <div class="d-flex align-center">
+            <CountryFlag
+              :country="connection.country_code ?? 'XX'"
+              size="small"
+            />
+            <span class="text-caption ms-1">
+              {{ connection.destination_ip }}:{{ connection.destination_port }}
+            </span>
+          </div>
+        </td>
+        <td class="text-no-wrap">
+          <div class="d-flex align-center">
+            <CountryFlag
+              v-if="store.nodes?.[connection.node_id ?? '']?.country"
+              :country="store.nodes[connection.node_id ?? ''].country"
+              size="small"
+            />
+            <span class="text-caption ms-1">{{ nodeCity(connection.node_id) }}</span>
+          </div>
+        </td>
+        <td class="text-center text-no-wrap">
+          <Ping :tag="connection.relay_route?.tag" />
+        </td>
+        <td class="text-no-wrap">
+          <span class="text-caption">
+            {{ useHumanSpeed(connection.download_speed || 0) }}
+          </span>
+        </td>
+        <td class="text-no-wrap">
+          <span class="text-caption">
+            {{ useHumanSpeed(connection.upload_speed || 0) }}
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </v-table>
+
+  <div v-else class="text-center text-medium-emphasis py-6">
+    <div class="text-body-2">
+      {{ t("$vuetify.connections.connectionsSubtitle", [0]) }}
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.profile-connections-table :deep(th) {
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.profile-connections-table :deep(td) {
+  vertical-align: middle;
+}
+</style>

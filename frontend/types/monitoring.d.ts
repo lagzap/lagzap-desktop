@@ -1,3 +1,24 @@
+export interface InterfaceSpeedSample {
+  upload: number;
+  download: number;
+}
+
+export interface NetworkSpeedPoint {
+  interfaces: Record<string, InterfaceSpeedSample>;
+}
+
+export interface InterfaceNetworkTraffic {
+  name: string;
+  upload: number;
+  download: number;
+  upload_speed: number;
+  download_speed: number;
+}
+
+export interface NetworkTraffic {
+  interfaces: InterfaceNetworkTraffic[];
+}
+
 export interface Log {
   time: any;
   type: string;
@@ -148,4 +169,77 @@ export interface RouteMonitoringStatus {
   total_routes: number;
   routes: RouteMonitoringData[];
   timestamp: string;
+}
+
+export interface RouteMetricEvent {
+  route_tag: string;
+  latency: number;
+  packet_loss: number;
+  jitter: number;
+  upload: number;
+  download: number;
+  connections: number;
+  timestamp: string;
+}
+
+export interface RouteProbeSlotMetric {
+  slot: number;
+  path_key?: string;
+  iface?: string;
+  network?: string;
+  latency: number;
+  packet_loss: number;
+  jitter: number;
+  score: number;
+}
+
+export interface RouteProbeEvent {
+  route_tag: string;
+  slots: RouteProbeSlotMetric[];
+  upload: number;
+  download: number;
+  connections: number;
+  timestamp: string;
+}
+
+export interface LagFixProofMetrics {
+  path_key: string;
+  avg_latency: number;
+  packet_loss: number;
+  jitter: number;
+  score: number;
+}
+
+export interface LagFixGlobalSnapshot {
+  avg_latency: number;
+  packet_loss: number;
+  jitter: number;
+  score: number;
+  target: string;
+}
+
+export interface LagFixEvent {
+  id: string;
+  route_tag: string;
+  profile_id?: string;
+  slot_index: number;
+  old_path_key: string;
+  new_path_key: string;
+  status: "pending" | "verified" | "failed";
+  user_side_lag: boolean;
+  timestamp: string;
+  verified_at?: string;
+  before: LagFixProofMetrics;
+  after?: LagFixProofMetrics;
+  global_before: LagFixGlobalSnapshot;
+  global_after?: LagFixGlobalSnapshot;
+  improvement_ms?: number;
+}
+
+export interface LagFixStats {
+  verified_count: number;
+  attempt_count: number;
+  failed_count: number;
+  total_improvement_ms: number;
+  last_verified_at?: string;
 }

@@ -2,13 +2,9 @@
 import { onMounted, onBeforeUnmount, ref, computed, watch } from "vue";
 import { useStore } from "~/stores";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
-import type {
-  RelayRoute,
-  NodeRoute,
-  Hop,
-} from "~/bindings/github.com/lagzap/zap/data";
-import { RoutingMode } from "~/bindings/github.com/lagzap/zap/data";
-import { ProfileFlag } from "~/constants/profile";
+import type { RelayRoute, NodeRoute } from "~/bindings/github.com/lagzap/zap/data";
+import { useProfileDisplayRoutes } from "~/composables/useProfileDisplayRoutes";
+import { useLocale } from "vuetify";
 import * as echarts from "echarts";
 
 const props = defineProps<{
@@ -16,91 +12,63 @@ const props = defineProps<{
 }>();
 
 const store = useStore();
+const { t } = useLocale();
 
-const chartRef = ref<HTMLDivElement | null>(null);
-let chart: echarts.ECharts | null = null;
+const {
+  shouldShowRoutes: shouldShowDiagram,
+  numberOfRoutes,
+  routeSlotCount,
+  matchingRelayNodes,
+  interfaceRouteGroups,
+} = useProfileDisplayRoutes(computed(() => props.profile));
 
-// Detect if we should use vertical layout for small screens
-const useVerticalLayout = computed(() => {
-  if (typeof window === 'undefined') return false;
-  return window.innerWidth < 800; // Use vertical layout for screens smaller than 800px
-});
+const selectedInterfaceIndex = ref(0);
+const selectedCityForVisualization = ref<string | null>(null);
+const showInterfaceSelector = computed(() => interfaceRouteGroups.value.length > 1);
 
-// Check if this profile should show the route diagram
-const shouldShowDiagram = computed(() => {
-  return (
-    (props.profile.flags & ProfileFlag.MULTIPATH) !== 0 &&
-    props.profile.route_action === "route"
+const interfaceSelectItems = computed(() =>
+  interfaceRouteGroups.value.map((group) => ({
+    title: group.name,
+    value: group.index,
+  }))
+);
+
+const routesForSelectedInterface = computed(() => {
+  const group = interfaceRouteGroups.value.find(
+    (item) => item.index === selectedInterfaceIndex.value
   );
+  return group?.routes ?? [];
 });
 
-// Get the number of routes to display
-const numberOfRoutes = computed(() => {
-  if (!shouldShowDiagram.value) return 0;
+const availableCities = computed(() => {
+  const cities = new Set<string>();
 
-  const profileState = store.profileStates[props.profile.id];
-  if (!profileState) return 0;
+  matchingRelayNodes.value.forEach((node) => {
+    if (node.city) {
+      const cityName = store.localized(node.city) as string;
+      cities.add(cityName);
+    }
+  });
 
-  const udpConnections = profileState.udp_connections || 0;
-  const tcpConnections = profileState.tcp_connections || 0;
-  return Math.min(4, udpConnections + tcpConnections); // Show max 4 routes
+  return Array.from(cities).sort();
 });
 
-// Helper function to check if a node matches the profileState selection
-const nodeMatchesSelection = (node: any, profileState: any): boolean => {
-  const mode = profileState.mode;
-  
-  if (!mode || mode === RoutingMode.RoutingMode_ROUTING_MODE_GLOBAL) return true;
-
-  if (mode === RoutingMode.RoutingMode_ROUTING_MODE_REGIONAL) {
-    const selectedRegions = profileState.regions || [];
-    if (selectedRegions.length === 0) return true;
-    return selectedRegions.includes(node.region);
+const visualizationRoutes = computed(() => {
+  if (!selectedCityForVisualization.value) {
+    return [];
   }
 
-  if (mode === RoutingMode.RoutingMode_ROUTING_MODE_COUNTRY) {
-    const selectedCountries = profileState.countries || [];
-    if (selectedCountries.length === 0) return true;
-    return selectedCountries.includes(node.country);
-  }
-
-  if (mode === RoutingMode.RoutingMode_ROUTING_MODE_CITY) {
-    const selectedCities = profileState.cities || [];
-    if (selectedCities.length === 0) return true;
-    return selectedCities.includes(node.name);
-  }
-
-  if (mode === RoutingMode.RoutingMode_ROUTING_MODE_NODE) {
-    const selectedNodeId = profileState.node_id;
-    if (!selectedNodeId || selectedNodeId === '') return true;
-    return node.name === selectedNodeId;
-  }
-
-  return false;
-};
-
-// Get routes from the selected node's RelayRoute
-const routesToDisplay = computed(() => {
-  if (!shouldShowDiagram.value) return [];
-
-  const profileState = store.profileStates[props.profile.id];
-  if (!profileState) return [];
-
-  // Find nodes that match the selection
   const matchingNodes = Object.values(store.nodes).filter((node) => {
-    // Check if node has RELAY flag (required for routing)
-    const hasRelay = (node.flags & 0x1) !== 0; // NODE_FLAG_RELAY
+    const hasRelay = (node.flags & 0x1) !== 0;
     if (!hasRelay) return false;
-    
-    return nodeMatchesSelection(node, profileState);
+    const cityName = store.localized(node.city) as string;
+    return cityName === selectedCityForVisualization.value;
   });
 
   if (matchingNodes.length === 0) return [];
 
-  // Find the best node (lowest latency) from matching nodes
   let bestRelayRoute: RelayRoute | null = null;
   let lowestLatency = Infinity;
-
   const variants = ["ipv4-udp", "ipv4-tcp", "ipv6-udp", "ipv6-tcp"];
 
   for (const node of matchingNodes) {
@@ -111,10 +79,10 @@ const routesToDisplay = computed(() => {
         !routeData ||
         !Array.isArray(routeData.routes) ||
         routeData.routes.length === 0
-      )
+      ) {
         continue;
+      }
 
-      // Check the first route's latency (they should be sorted by latency)
       const firstRoute = routeData.routes[0];
       const latency = firstRoute?.min_latency;
       if (
@@ -129,19 +97,47 @@ const routesToDisplay = computed(() => {
     }
   }
 
-  if (!bestRelayRoute || !bestRelayRoute.routes) return [];
+  if (!bestRelayRoute?.routes) return [];
 
-  // Get all routes from the best node's RelayRoute
-  const routesArray = Object.values(bestRelayRoute.routes) as NodeRoute[];
-  
-  // Sort by min_latency (best routes first) and take first numberOfRoutes
+  const routesArray = [...bestRelayRoute.routes] as NodeRoute[];
   routesArray.sort((a, b) => {
     const latencyA = a.min_latency || Infinity;
     const latencyB = b.min_latency || Infinity;
     return latencyA - latencyB;
   });
 
-  return routesArray.slice(0, numberOfRoutes.value);
+  return routesArray.slice(0, routeSlotCount.value);
+});
+
+const activeDiagramRoutes = computed(() => {
+  if (selectedCityForVisualization.value) {
+    return visualizationRoutes.value;
+  }
+
+  return routesForSelectedInterface.value;
+});
+
+watch(
+  interfaceRouteGroups,
+  (groups) => {
+    if (groups.length === 0) {
+      selectedInterfaceIndex.value = 0;
+      return;
+    }
+    if (selectedInterfaceIndex.value >= groups.length) {
+      selectedInterfaceIndex.value = 0;
+    }
+  },
+  { immediate: true }
+);
+
+const chartRef = ref<HTMLDivElement | null>(null);
+let chart: echarts.ECharts | null = null;
+
+// Detect if we should use vertical layout for small screens
+const useVerticalLayout = computed(() => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 800; // Use vertical layout for screens smaller than 800px
 });
 
 function updateChart() {
@@ -149,26 +145,10 @@ function updateChart() {
     return;
   }
 
-  // Use visualization routes if a city is selected, otherwise use default routes
-  const routes = selectedCityForVisualization.value 
-    ? visualizationRoutes.value 
-    : routesToDisplay.value;
-  
+  const routes = activeDiagramRoutes.value;
   if (routes.length === 0) {
-    // Show empty state or hide diagram
     if (chart) {
       chart.setOption({
-        title: {
-          text: "Game route diagram",
-          left: "left",
-          top: "top",
-          textStyle: {
-            color: "#fff",
-            opacity: 1,
-            fontSize: 16,
-            fontWeight: "bold",
-          },
-        },
         series: [],
         backgroundColor: "transparent",
       });
@@ -235,7 +215,6 @@ function updateChart() {
 
   // Add route nodes and links with equal spacing
   routes.forEach((route, routeIndex) => {
-    console.log(route)
     // Calculate centered positioning for routes
     const routeY = centerY - totalRouteHeight / 2 + routeIndex * routeSpacing;
     const hops = route.hops.length == 1 ? route.hops : route.hops.slice(0, -1);
@@ -681,11 +660,8 @@ onBeforeUnmount(() => {
 
 // Computed property for estimated ping value and score
 const estimatedPingDisplay = computed(() => {
-  // Use visualization routes if a city is selected, otherwise use default routes
-  const routes = selectedCityForVisualization.value 
-    ? visualizationRoutes.value 
-    : routesToDisplay.value;
-    
+  const routes = activeDiagramRoutes.value;
+
   if (routes.length > 0) {
     const bestRoute = routes[0];
     return {
@@ -705,95 +681,16 @@ const getScoreColor = (score: number): string => {
   return "#F44336"; // Red for very poor
 };
 
-// City selector for visualization
-const selectedCityForVisualization = ref<string | null>(null);
-
-// Get all available cities from routes - LIMITED to profile state selection
-const availableCities = computed(() => {
-  const cities = new Set<string>();
-  const profileState = store.profileStates[props.profile.id];
-  if (!profileState) return [];
-
-  // Get all nodes that match the current profile state selection (regions, countries, cities, nodes)
-  const matchingNodes = Object.values(store.nodes).filter((node) => {
-    const hasRelay = (node.flags & 0x1) !== 0;
-    if (!hasRelay) return false;
-    // Apply the same filtering logic as routesToDisplay - must match profile state selection
-    return nodeMatchesSelection(node, profileState);
-  });
-
-  // Get all cities from matching nodes
-  matchingNodes.forEach((node) => {
-    if (node.city) {
-      const cityName = store.localized(node.city) as string;
-      cities.add(cityName);
-    }
-  });
-
-  return Array.from(cities).sort();
-});
-
-// Get routes for selected city visualization
-const visualizationRoutes = computed(() => {
-  if (!selectedCityForVisualization.value) return routesToDisplay.value;
-
-  const profileState = store.profileStates[props.profile.id];
-  if (!profileState) return [];
-
-  // Find nodes matching the selected city
-  const matchingNodes = Object.values(store.nodes).filter((node) => {
-    const hasRelay = (node.flags & 0x1) !== 0;
-    if (!hasRelay) return false;
-    const cityName = store.localized(node.city) as string;
-    return cityName === selectedCityForVisualization.value;
-  });
-
-  if (matchingNodes.length === 0) return [];
-
-  // Find the best route for the selected city
-  let bestRelayRoute: RelayRoute | null = null;
-  let lowestLatency = Infinity;
-  const variants = ["ipv4-udp", "ipv4-tcp", "ipv6-udp", "ipv6-tcp"];
-
-  for (const node of matchingNodes) {
-    for (const v of variants) {
-      const key = `${node.id}-${v}`;
-      const routeData: RelayRoute | undefined = store.routes[key];
-      if (
-        !routeData ||
-        !Array.isArray(routeData.routes) ||
-        routeData.routes.length === 0
-      )
-        continue;
-
-      const firstRoute = routeData.routes[0];
-      const latency = firstRoute?.min_latency;
-      if (
-        typeof latency === "number" &&
-        !Number.isNaN(latency) &&
-        latency > 0 &&
-        latency < lowestLatency
-      ) {
-        lowestLatency = latency;
-        bestRelayRoute = routeData;
-      }
-    }
-  }
-
-  if (!bestRelayRoute || !bestRelayRoute.routes) return [];
-
-  const routesArray = Object.values(bestRelayRoute.routes) as NodeRoute[];
-  routesArray.sort((a, b) => {
-    const latencyA = a.min_latency || Infinity;
-    const latencyB = b.min_latency || Infinity;
-    return latencyA - latencyB;
-  });
-
-  return routesArray.slice(0, numberOfRoutes.value);
-});
-
 watch(
-  [shouldShowDiagram, numberOfRoutes, routesToDisplay, visualizationRoutes, selectedCityForVisualization, () => store.routes],
+  [
+    shouldShowDiagram,
+    numberOfRoutes,
+    activeDiagramRoutes,
+    visualizationRoutes,
+    selectedCityForVisualization,
+    selectedInterfaceIndex,
+    () => store.routes,
+  ],
   () => {
     updateChart();
     setTimeout(() => {
@@ -813,7 +710,7 @@ watch(
   >
     <div
       ref="chartRef"
-      :style="`width: 100%; margin: 0; padding: 0; max-height: 400px; aspect-ratio: 5/2; height: ${Math.max(150, Math.max(1, routesToDisplay.length) * 60 + 120)}px;`"
+      :style="`width: 100%; margin: 0; padding: 0; max-height: 400px; aspect-ratio: 5/2; height: ${Math.max(150, Math.max(1, activeDiagramRoutes.length) * 60 + 120)}px;`"
     ></div>
     <div
       style="position: absolute; top: 1rem; right: 1rem; background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; text-align: center; min-width: 100px;"
@@ -828,20 +725,45 @@ watch(
       </div>
     </div>
     <div
+      v-if="showInterfaceSelector"
+      class="route-diagram-interface"
+      style="position: absolute; top: 1rem; left: 1rem;"
+    >
+      <v-select
+        v-model="selectedInterfaceIndex"
+        :items="interfaceSelectItems"
+        :label="t('$vuetify.title.profile.interface')"
+        density="compact"
+        hide-details
+        single-line
+        variant="plain"
+      />
+    </div>
+    <div
+      class="route-diagram-selectors"
       style="position: absolute; bottom: 1rem; right: 1rem;"
     >
       <v-select
         v-model="selectedCityForVisualization"
         :items="availableCities"
+        :label="t('$vuetify.title.profile.city')"
         clearable
         single-line
         variant="plain"
         density="compact"
         hide-details
-      ></v-select>
+      />
     </div>
   </div>
   <div v-else class="text-center pa-4 text-grey">
     Route diagram not available for this profile
   </div>
 </template>
+
+<style scoped>
+.route-diagram-interface,
+.route-diagram-selectors {
+  min-width: 140px;
+  max-width: 200px;
+}
+</style>
