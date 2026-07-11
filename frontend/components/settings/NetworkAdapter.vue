@@ -40,23 +40,25 @@ async function update() {
         @click="update"
       />
 
-      <v-card-subtitle class="px-0 my-3 text-wrap">
-        {{ t('$vuetify.settings.multiInternetDescription') }}
-      </v-card-subtitle>
-      <v-select
-        :loading="loading"
-        :label="t('$vuetify.settings.multiInternet')"
-        :hint="t('$vuetify.settings.multiInternetHint')"
-        :items="interfaces"
-        item-value="Name"
-        item-title="Name"
-        density="comfortable"
-        variant="outlined"
-        multiple
-        chips
-        clearable
-        @click="update"
-      />
+      <template>
+        <v-card-subtitle class="px-0 my-3 text-wrap">
+          {{ t('$vuetify.settings.multiInternetDescription') }}
+        </v-card-subtitle>
+        <v-select
+          :loading="loading"
+          :label="t('$vuetify.settings.multiInternet')"
+          :hint="t('$vuetify.settings.multiInternetHint')"
+          :items="interfaces"
+          item-value="Name"
+          item-title="Name"
+          density="comfortable"
+          variant="outlined"
+          multiple
+          chips
+          clearable
+          @click="update"
+        />
+      </template>
     </v-card-text>
   </v-card>
 </template>

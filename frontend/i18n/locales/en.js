@@ -87,7 +87,18 @@ export default {
             optimizeProtocol: 'Route optimization protocol',
             networkProtocol: 'Network Protocol',
             ipVersion: 'IP Version',
-            realTimeOptimization: 'Real-time optimization'
+            realTimeOptimization: 'Real-time optimization',
+            protocol: {
+                tcpUdp: 'TCP + UDP',
+                icmp: 'ICMP',
+                tcp: 'TCP',
+                udp: 'UDP',
+            },
+            ip: {
+                dualstack: 'Dual stack',
+                ipv4: 'IPv4 only',
+                ipv6: 'IPv6 only',
+            },
         },
         other: {
             otherSettings: 'Other Settings',
@@ -116,7 +127,16 @@ export default {
         player1: 'Player 1',
         driverMissing: 'Driver missing',
         coordinationFailed: 'Coordination failed',
-        connectionFailed: 'Connection failed'
+        connectionFailed: 'Connection failed',
+        offline: 'Offline',
+        offlineHint: 'Offline mode — changes sync when back online',
+        internetOnline: 'Online',
+        internetReconnecting: 'Reconnecting to cloud…',
+        internetUnavailable: 'Not connected',
+        internetStatusHint: 'Internet status (app stays usable offline)',
+        coordinatorService: 'Cloud service',
+        trafficRouting: 'Traffic routing',
+        latencyUnavailableOffline: 'Latency charts update when cloud service is online'
     },
     network: {
         tcp: 'TCP',
@@ -144,6 +164,7 @@ export default {
         description: 'Enter your email or phone number to continue to.',
         continueButton: 'Continue',
         backButton: 'Back',
+        checkFailed: 'Could not verify your account. Please try again.',
 
         login: {
             title: 'Sign In',
@@ -197,6 +218,8 @@ export default {
         installDriverWarning: 'Installing the LagZap driver will temporarily interrupt your internet connection for a few seconds. This is required for the driver installation. Please make sure you have saved all your work before proceeding. Do you want to continue?',
         installDriverConfirm: 'Yes, Install',
         installDriverCancel: 'Cancel',
+        cancelStartup: 'Cancel',
+        startupCanceled: 'Startup canceled',
         failedToInstallDriverDescription: 'Please restart the system. If the problem persists, please contact support.',
     },
     title: {
@@ -243,7 +266,12 @@ export default {
             multiPathWarning: 'Increase the number of connections to 2 or more to enable multi-path. Having single connection causes multi-path to be disabled and this leads to latency spikes.',
             multiPathWarningRecommendation: "If you have a low-speed internet connection (e.g. ADSL+), using a single route is recommended. Enabling multiple routes can increase bandwidth usage and may reduce performance on slower networks.",
             unavailableInterface: 'This interface is currently unavailable',
-            unavailableInterfaces: 'Some interfaces are currently unavailable'
+            unavailableInterfaces: 'Some interfaces are currently unavailable',
+            routeFlow: 'Route flow',
+            connections: 'Connections',
+            pingUsage: 'Ping & usage',
+            interface: 'Interface',
+            city: 'City',
         },
         active: 'Active',
         inactive: 'Inactive',
@@ -259,7 +287,7 @@ export default {
         host:' Host',
         network: 'Network',
         gameServer: 'Game Server',
-        lagzapServer: 'LagZap Server',
+        lagzapServer: 'Cyrex Server',
         latency: 'Latency',
         upload: 'Upload',
         download: 'Download',
@@ -268,5 +296,23 @@ export default {
     networkLatency: {
         latencyGrid: 'Network Latency',
         networkMap: 'Latency Map',
+        score: 'Network quality score',
+        networkQuality: 'Network quality',
+        scoreOutOf: '{0}/100',
+        latency: 'Latency',
+        bestInterface: 'Best interface',
+        jitter: 'Jitter',
+        loss: 'Loss',
+        min: 'Min',
+        max: 'Max',
+        avg: 'Avg',
+        best: 'Best',
+        timeout: 'Timeout',
+        speed: 'Speed',
+        totalDownload: 'Total download',
+        totalUpload: 'Total upload',
+        moreInterfaces: '+{0} more interfaces',
+        noData: 'No data',
+        noPingData: 'No ping data available',
     },
 }

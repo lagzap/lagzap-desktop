@@ -12,13 +12,29 @@ export const displayAlert = (
 };
 
 export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined = undefined) => {
-  error = error.value ?? error.response?._data ?? error._data ?? error
-  let message = error.data?.message ?? error.message ?? error.cause?.message ?? 'An error occurred'
-  let code = error.data?.code ?? error.code ?? error.cause?.code ?? 0
-  if (code && locale !== undefined) {
-    return locale.t(`$vuetify.server_errors.${code}`.trim())
+  const source = error?.value ?? error
+  const payload = source?.response?._data ?? source?._data ?? source
+  const statusCode = source?.statusCode ?? source?.status ?? source?.response?.status
+  let message = payload?.message ?? source?.message ?? source?.cause?.message ?? "An error occurred"
+  const code = payload?.code ?? source?.code ?? source?.cause?.code ?? 0
+
+  if (locale !== undefined) {
+    const messageKey = typeof message === "string" ? message.trim() : ""
+    if (messageKey) {
+      const translated = locale.t(`$vuetify.server_errors.${messageKey}`)
+      if (translated !== `$vuetify.server_errors.${messageKey}`) {
+        return translated
+      }
+    }
+    if (code) {
+      const translated = locale.t(`$vuetify.server_errors.${code}`.trim())
+      if (translated !== `$vuetify.server_errors.${code}`.trim()) {
+        return translated
+      }
+    }
   }
-  switch (error.statusCode) {
+
+  switch (statusCode) {
     case 400:
       message = 'An error occurred. Code: 0x00011'
       break
@@ -49,15 +65,18 @@ export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined
     case 521:
       message = 'Server is down, please try again later!'
       break
-    default:
-      message = 'An error occurred. Code: 0x00000'
-      if (message.includes('<no response>')) {
-        message = 'Network error. Please check your connection.'
+    default: {
+      const rawMessage = typeof message === "string" ? message : ""
+      if (rawMessage.includes("<no response>") || rawMessage.includes("FetchError")) {
+        message = "Network error. Please check your connection."
+        break
       }
-      if (message.includes('FetchError')) {
-        message = 'Network error. Please check your connection.'
+      if (rawMessage && rawMessage !== "An error occurred") {
+        break
       }
+      message = "An error occurred. Code: 0x00000"
       break
+    }
   }
 
   return message

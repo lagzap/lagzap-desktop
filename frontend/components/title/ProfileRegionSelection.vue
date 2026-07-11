@@ -2,7 +2,7 @@
 import { useLocale } from "vuetify";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
 import ContinentIcon from "~/components/icons/ContinentIcon.vue";
-import Ping from "~/components/Ping.vue";
+import Ping from "~/components/network/Ping.vue";
 import CountryFlag from "vue-country-flag-next";
 import country from "country-list-js";
 import { ProfileFlag } from "~/constants/profile";
@@ -208,7 +208,7 @@ function getPingIcon(score: number | null): string {
           variant="outlined"
           item-title="text"
           item-value="value"
-          :disabled="!store.connected"
+          :disabled="!store.appReady"
           hide-details
         />
 
@@ -233,7 +233,7 @@ function getPingIcon(score: number | null): string {
         v-if="mode === 'region'"
         style="flex: 1"
         width="100%"
-        :disabled="!store.connected"
+        :disabled="!store.appReady"
       >
         <!-- Select All Option -->
         <v-list-item class="border-b">
@@ -313,7 +313,7 @@ function getPingIcon(score: number | null): string {
         v-if="mode === 'country'"
         style="flex: 1"
         width="100%"
-        :disabled="!store.connected"
+        :disabled="!store.appReady"
       >
         <!-- Select All Option -->
         <v-list-item class="border-b">
@@ -415,7 +415,7 @@ function getPingIcon(score: number | null): string {
         v-if="mode === 'city'"
         style="flex: 1"
         width="100%"
-        :disabled="!store.connected"
+        :disabled="!store.appReady"
       >
         <!-- Select All Option -->
         <v-list-item class="border-b">
@@ -535,7 +535,7 @@ function getPingIcon(score: number | null): string {
         />
       </v-card-text>
 
-      <v-list width="100%" :disabled="!store.connected">
+      <v-list width="100%" :disabled="!store.appReady">
         <!-- Automatic Option -->
         <v-list-item @click="selectNode('')">
           <template #prepend>
@@ -588,7 +588,7 @@ function getPingIcon(score: number | null): string {
                   size="small"
                   variant="text"
                   :loading="loadingInterfaces"
-                  :disabled="!store.connected"
+                  :disabled="!store.appReady"
                   @click.stop="updateInterfaces"
                 >
                   <v-icon size="16">mdi-refresh</v-icon>

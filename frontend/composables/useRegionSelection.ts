@@ -309,6 +309,7 @@ export function useRegionSelection(profile: Profile) {
       selected.delete(regionTag);
     } else {
       selected.add(regionTag);
+      store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_REGIONAL;
     }
     
     store.profileStates[pid].regions = Array.from(selected);
@@ -325,6 +326,7 @@ export function useRegionSelection(profile: Profile) {
       selected.delete(country);
     } else {
       selected.add(country);
+      store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_COUNTRY;
     }
     
     store.profileStates[pid].countries = Array.from(selected);
@@ -339,6 +341,7 @@ export function useRegionSelection(profile: Profile) {
       selected.delete(city);
     } else {
       selected.add(city);
+      store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_CITY;
     }
     
     store.profileStates[pid].cities = Array.from(selected);

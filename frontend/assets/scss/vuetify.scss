@@ -41,6 +41,11 @@
 
   &::-webkit-scrollbar {
     width: 4px;
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   &::-webkit-scrollbar-thumb {
@@ -76,6 +81,20 @@ button,
   &.v-theme--light {
     background-color: #fff;
   }
+}
+
+.v-card--topborder::before,
+.v-overlay__content > .v-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1.5px;
+  z-index: 1;
+  background: linear-gradient(90deg, transparent, #e6d785, transparent);
+}
+
+.v-overlay__content > .v-card{
+  outline: thin solid hsla(51, 66%, 71%, 0.15) !important;
 }
 
 .v-switch__thumb {

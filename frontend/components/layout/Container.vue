@@ -106,7 +106,7 @@ onMounted(() => {
       </v-scroll-y-transition>
     </v-app-bar>
 
-    <v-card rounded="xl" class="zoom-in me-2 mb-2" :height="height - 56">
+    <v-card rounded="xl" class="v-card--topborder zoom-in me-2 mb-2" :height="height - 56">
       <template v-if="!!$slots.title" #title>
         <slot name="title" />
       </template>

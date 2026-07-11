@@ -213,7 +213,7 @@ onMounted(() => {
                 inset
                 :min="tcpRoutesMin"
                 :max="MAX_ROUTES"
-                :disabled="!store.connected"
+                :disabled="!store.appReady"
               />
             </v-col>
             <v-col>
@@ -227,7 +227,7 @@ onMounted(() => {
                 inset
                 :min="udpRoutesMin"
                 :max="MAX_ROUTES"
-                :disabled="!store.connected"
+                :disabled="!store.appReady"
               />
             </v-col>
             <v-col cols="12">
@@ -279,7 +279,7 @@ onMounted(() => {
               multiple
               min-width="175"
               append-inner-icon="mdi-refresh"
-              :disabled="!store.connected"
+              :disabled="!store.appReady"
               :loading="loadingInterfaces"
               :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
               @click:append-inner="updateInterfaces"
@@ -320,7 +320,7 @@ onMounted(() => {
               item-title="Name"
               variant="outlined"
               density="comfortable"
-              :disabled="!store.connected"
+              :disabled="!store.appReady"
               :loading="loadingInterfaces"
               :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterface'): undefined"
               @click:append-inner="updateInterfaces"
@@ -337,7 +337,7 @@ onMounted(() => {
           :hint="t('$vuetify.title.profile.allowLocalRoutesHint')"
           density="comfortable"
           persistent-hint
-          :disabled="!store.connected"
+          :disabled="!store.appReady"
         />
       </v-card-text>
     </v-card>

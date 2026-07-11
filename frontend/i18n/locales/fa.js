@@ -87,7 +87,18 @@ export default {
             optimizeProtocol: 'روش بهینه‌سازی مسیریابی',
             networkProtocol: 'پروتکل شبکه',
             ipVersion: 'نسخه آی‌پی',
-            realTimeOptimization: 'بهینه‌سازی به صورت خودکار در پس زمینه انجام شود'
+            realTimeOptimization: 'بهینه‌سازی به صورت خودکار در پس زمینه انجام شود',
+            protocol: {
+                tcpUdp: 'TCP + UDP',
+                icmp: 'ICMP',
+                tcp: 'TCP',
+                udp: 'UDP',
+            },
+            ip: {
+                dualstack: 'دو پشته',
+                ipv4: 'فقط IPv4',
+                ipv6: 'فقط IPv6',
+            },
         },
         other: {
             otherSettings: 'تنظیمات دیگر',
@@ -129,7 +140,16 @@ export default {
         player1: 'بازیکن ۱',
         driverMissing: 'درایور موجود نیست',
         coordinationFailed: 'هماهنگی ناموفق',
-        connectionFailed: 'اتصال ناموفق'
+        connectionFailed: 'اتصال ناموفق',
+        offline: 'آفلاین',
+        offlineHint: 'حالت آفلاین — تغییرات پس از اتصال مجدد همگام‌سازی می‌شوند',
+        internetOnline: 'آنلاین',
+        internetReconnecting: 'در حال اتصال مجدد به سرویس ابری…',
+        internetUnavailable: 'متصل نیست',
+        internetStatusHint: 'وضعیت اینترنت (برنامه در حالت آفلاین هم قابل استفاده است)',
+        coordinatorService: 'سرویس ابری',
+        trafficRouting: 'مسیریابی ترافیک',
+        latencyUnavailableOffline: 'نمودار تأخیر پس از اتصال سرویس ابری به‌روز می‌شود'
     },
     network: {
         tcp: 'TCP',
@@ -157,6 +177,7 @@ export default {
         description: 'برای ادامه ایمیل یا شماره همراه خود را وارد نمایید.',
         continueButton: 'ادامه',
         backButton: 'برگشت',
+        checkFailed: 'امکان بررسی حساب کاربری وجود ندارد. لطفاً دوباره تلاش کنید.',
 
         login: {
             title: 'ورود به سیستم',
@@ -210,6 +231,8 @@ export default {
         installDriverWarning: 'نصب درایور LagZap باعث قطع شدن موقت اتصال اینترنت شما برای چند ثانیه خواهد شد. این برای نصب درایور ضروری است. لطفاً قبل از ادامه مطمئن شوید که تمام کارهای خود را ذخیره کرده‌اید. آیا می‌خواهید ادامه دهید؟',
         installDriverConfirm: 'بله، نصب کن',
         installDriverCancel: 'لغو',
+        cancelStartup: 'لغو',
+        startupCanceled: 'راه‌اندازی لغو شد',
         failedToInstallDriverDescription: 'لطفا سیستم را مجدداً راه‌اندازی کنید. درصورت ناموفق بودن با پشتیبانی تماس بگیرید.',
     },
     title: {
@@ -256,7 +279,12 @@ export default {
             multiPathWarning: 'تعداد اتصالات را به 2 یا بیشتر افزایش دهید تا پروتکل مسیریابی چند مسیری فعال شود. اتصال تکی باعث میشود پروتکل مسیریابی چند مسیری غیرفعال شود و این باعث تغییرات تأخیر میشود.',
             multiPathWarningRecommendation: "اگر شما یک شبکه اینترنتی با سرعت پایین (به عنوان مثال ADSL+) دارید، استفاده از یک مسیر توصیه میشود. فعال کردن چند مسیر میتواند استفاده از پهنای‌باند را افزایش دهد و ممکن است عملکرد روی شبکه‌های با سرعت پایین کاهش یابد.",
             unavailableInterface: 'این رابط‌ هم‌اکنون در دسترس نیست',
-            unavailableInterfaces: 'برخی رابط‌ها هم‌اکنون در دسترس نیستند'
+            unavailableInterfaces: 'برخی رابط‌ها هم‌اکنون در دسترس نیستند',
+            routeFlow: 'مسیر شبکه',
+            connections: 'اتصالات',
+            pingUsage: 'پینگ و مصرف',
+            interface: 'رابط',
+            city: 'شهر',
         },
         active: 'فعال',
         inactive: 'غیرفعال',
@@ -281,5 +309,23 @@ export default {
     networkLatency: {
         latencyGrid: 'شبکه تاخیر',
         networkMap: 'نقشه شبکه',
+        score: 'امتیاز کیفیت شبکه',
+        networkQuality: 'کیفیت شبکه',
+        scoreOutOf: '{0}/100',
+        latency: 'تاخیر',
+        bestInterface: 'بهترین رابط',
+        jitter: 'نوسان',
+        loss: 'از دست رفتن',
+        min: 'حداقل',
+        max: 'حداکثر',
+        avg: 'میانگین',
+        best: 'بهترین',
+        timeout: 'تایم‌اوت',
+        speed: 'سرعت',
+        totalDownload: 'مجموع دانلود',
+        totalUpload: 'مجموع آپلود',
+        moreInterfaces: '+{0} رابط دیگر',
+        noData: 'داده‌ای موجود نیست',
+        noPingData: 'داده پینگ موجود نیست',
     },
 }

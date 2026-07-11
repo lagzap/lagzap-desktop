@@ -15,6 +15,7 @@ export default defineAppConfig({
         ctx: FetchContext,
         logger: ConsolaInstance
       ) => {
+        ctx.options.timeout = 15000;
       },
 
       onResponse: async (

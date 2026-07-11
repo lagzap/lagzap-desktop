@@ -1,22 +1,59 @@
 import { ref, readonly, toRaw } from 'vue'
+import { Events } from '@wailsio/runtime'
+
+export type RouteAccuracySetting = 'veryLow' | 'low' | 'medium' | 'high'
+export type RouteProtocolSetting = 'tcpUdp' | 'icmp' | 'tcp' | 'udp'
+export type RouteIPSetting = 'dualstack' | 'ipv4' | 'ipv6'
 
 interface AppSettings {
   language?: string
   theme?: 'system' | 'light' | 'dark'
   isFirstTime?: boolean
+  routeAccuracy?: RouteAccuracySetting
+  routeProtocol?: RouteProtocolSetting
+  routeIp?: RouteIPSetting
+  realtimeOptimization?: boolean
 }
 
 const DB_NAME = 'lagzap-settings'
 const DB_VERSION = 1
 const STORE_NAME = 'settings'
 
+const defaultRoutingSettings = {
+  routeAccuracy: 'low' as RouteAccuracySetting,
+  routeProtocol: 'tcpUdp' as RouteProtocolSetting,
+  routeIp: 'dualstack' as RouteIPSetting,
+  realtimeOptimization: true,
+}
+
 const settings = ref<AppSettings>({
   language: undefined,
   theme: 'system',
-  isFirstTime: true
+  isFirstTime: true,
+  ...defaultRoutingSettings,
 })
 
 const isLoaded = ref(false)
+
+const accuracyToEnum: Record<RouteAccuracySetting, number> = {
+  veryLow: 0,
+  low: 1,
+  medium: 2,
+  high: 3,
+}
+
+const protocolToEnum: Record<RouteProtocolSetting, number> = {
+  tcpUdp: 0,
+  icmp: 1,
+  tcp: 2,
+  udp: 3,
+}
+
+const ipToEnum: Record<RouteIPSetting, number> = {
+  dualstack: 0,
+  ipv4: 1,
+  ipv6: 2,
+}
 
 export const useSettings = (locale?: any, theme?: any) => {
   const initDB = (): Promise<IDBDatabase> => {
@@ -35,7 +72,6 @@ export const useSettings = (locale?: any, theme?: any) => {
     })
   }
 
-  // Apply theme based on setting
   const applyTheme = (themeSetting: 'system' | 'light' | 'dark') => {
     try {
       if (theme?.global?.name) {
@@ -57,7 +93,6 @@ export const useSettings = (locale?: any, theme?: any) => {
     }
   }
 
-  // Apply locale
   const applyLocale = (language: string) => {
     try {
       if (locale?.current) {
@@ -68,7 +103,20 @@ export const useSettings = (locale?: any, theme?: any) => {
     }
   }
 
-  // Load settings from IndexedDB
+  const syncRoutingSettingsToBackend = async () => {
+    try {
+      const { SetRoutingSettings } = await import('~/bindings/github.com/lagzap/lagzap-desktop/service')
+      await SetRoutingSettings(
+        accuracyToEnum[settings.value.routeAccuracy ?? 'low'],
+        protocolToEnum[settings.value.routeProtocol ?? 'tcpUdp'],
+        ipToEnum[settings.value.routeIp ?? 'dualstack'],
+        settings.value.realtimeOptimization ?? true,
+      )
+    } catch (error) {
+      console.warn('Could not sync routing settings to backend:', error)
+    }
+  }
+
   const loadSettings = async (): Promise<void> => {
     try {
       const db = await initDB()
@@ -90,6 +138,7 @@ export const useSettings = (locale?: any, theme?: any) => {
             applyTheme(settings.value.theme || 'system')
           }
           isLoaded.value = true
+          void syncRoutingSettingsToBackend()
           resolve()
         }
       })
@@ -99,7 +148,6 @@ export const useSettings = (locale?: any, theme?: any) => {
     }
   }
 
-  // Save settings to IndexedDB
   const saveSettings = async (newSettings: Partial<AppSettings>): Promise<void> => {
     try {
       settings.value = { ...settings.value, ...newSettings }
@@ -112,14 +160,16 @@ export const useSettings = (locale?: any, theme?: any) => {
         const request = store.put(toRaw(settings.value), 'app-settings')
         
         request.onerror = () => reject(request.error)
-        request.onsuccess = () => resolve()
+        request.onsuccess = () => {
+          void syncRoutingSettingsToBackend()
+          resolve()
+        }
       })
     } catch (error) {
       console.error('Error saving settings:', error)
     }
   }
 
-  // Set language
   const setLanguage = async (language: string) => {
     applyLocale(language)
     await saveSettings({ 
@@ -128,23 +178,56 @@ export const useSettings = (locale?: any, theme?: any) => {
     })
   }
 
-  // Set theme
   const setTheme = async (themeSetting: 'system' | 'light' | 'dark') => {
     applyTheme(themeSetting)
     await saveSettings({ theme: themeSetting })
   }
 
-  // Get available languages
+  const setRouteAccuracy = async (routeAccuracy: RouteAccuracySetting) => {
+    await saveSettings({ routeAccuracy })
+  }
+
+  const setRouteProtocol = async (routeProtocol: RouteProtocolSetting) => {
+    await saveSettings({ routeProtocol })
+  }
+
+  const setRouteIp = async (routeIp: RouteIPSetting) => {
+    await saveSettings({ routeIp })
+  }
+
+  const setRealtimeOptimization = async (realtimeOptimization: boolean) => {
+    await saveSettings({ realtimeOptimization })
+  }
+
   const getLanguages = () => [
     { title: 'English', value: 'en', flag: '🇺🇸' },
     { title: 'فارسی', value: 'fa', flag: '🇮🇷' }
   ]
 
-  // Get available themes
   const getThemes = () => [
     { title: 'System', value: 'system' },
     { title: 'Light', value: 'light' },
     { title: 'Dark', value: 'dark' }
+  ]
+
+  const getRouteAccuracyOptions = () => [
+    { value: 'veryLow' as const },
+    { value: 'low' as const },
+    { value: 'medium' as const },
+    { value: 'high' as const },
+  ]
+
+  const getRouteProtocolOptions = () => [
+    { value: 'tcpUdp' as const },
+    { value: 'icmp' as const },
+    { value: 'tcp' as const },
+    { value: 'udp' as const },
+  ]
+
+  const getRouteIpOptions = () => [
+    { value: 'dualstack' as const },
+    { value: 'ipv4' as const },
+    { value: 'ipv6' as const },
   ]
 
   return {
@@ -153,7 +236,29 @@ export const useSettings = (locale?: any, theme?: any) => {
     loadSettings,
     setLanguage,
     setTheme,
+    setRouteAccuracy,
+    setRouteProtocol,
+    setRouteIp,
+    setRealtimeOptimization,
+    syncRoutingSettingsToBackend,
     getLanguages,
-    getThemes
+    getThemes,
+    getRouteAccuracyOptions,
+    getRouteProtocolOptions,
+    getRouteIpOptions,
   }
+}
+
+let routingSyncRegistered = false
+
+export function registerRoutingSettingsSync() {
+  if (routingSyncRegistered || typeof window === 'undefined') {
+    return
+  }
+  routingSyncRegistered = true
+
+  Events.On('service-started', () => {
+    const { syncRoutingSettingsToBackend } = useSettings()
+    void syncRoutingSettingsToBackend()
+  })
 }
