@@ -34,7 +34,7 @@ func main() {
 	app = application.New(application.Options{
 		LogLevel:    slog.Level(log.LevelDebug),
 		Name:        "Cyrex",
-		Description: "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience",
+		Description: "Cyrex",
 		Linux:       application.LinuxOptions{},
 		Windows:     application.WindowsOptions{},
 		Services: []application.Service{
@@ -81,6 +81,11 @@ func main() {
 		},
 	})
 	service.New(ctx, app)
+	disableAutostartIfDev(app)
+
+	// PrtScn is swallowed by WebView2 while focused; bridge opens Snipping Tool.
+	startPrintScreenBridge()
+	defer stopPrintScreenBridge()
 
 	app.Event.OnApplicationEvent(events.Windows.SystemThemeChanged, func(event *application.ApplicationEvent) {
 		if event.Context().IsDarkMode() {
@@ -88,7 +93,7 @@ func main() {
 			window.SetBackgroundColour(application.NewRGBA(18, 18, 18, 255))
 		} else {
 			app.Event.Emit("theme", "light")
-			window.SetBackgroundColour(application.NewRGBA(255, 248, 244, 255))
+			window.SetBackgroundColour(application.NewRGBA(245, 245, 245, 255))
 		}
 	})
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(event *application.ApplicationEvent) {
@@ -143,6 +148,16 @@ func main() {
 		},
 		URL: "/start-service/",
 	})
+	startMinimized := false
+	for _, arg := range os.Args[1:] {
+		if arg == startupMinimizeArg {
+			startMinimized = true
+			break
+		}
+	}
+	if startMinimized {
+		window.Hide()
+	}
 	quiting := false
 	window.OnWindowEvent(events.Windows.WindowClosing, func(e *application.WindowEvent) {
 		if !quiting {

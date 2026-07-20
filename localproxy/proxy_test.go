@@ -9,6 +9,24 @@ import (
 	"testing"
 )
 
+func TestStartSkipsRestartWhenTargetUnchanged(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(upstream.Close)
+
+	proxy := New()
+	if err := proxy.Start(Config{Target: upstream.URL}); err != nil {
+		t.Fatalf("first start: %v", err)
+	}
+	first := proxy.server
+	if err := proxy.Start(Config{Target: upstream.URL}); err != nil {
+		t.Fatalf("second start: %v", err)
+	}
+	if proxy.server != first {
+		t.Fatal("expected proxy to skip restart when target unchanged")
+	}
+}
 func TestBufferRequestBody(t *testing.T) {
 	body := `{"entry":"test@example.com"}`
 	req := httptest.NewRequest(http.MethodPost, "/check", strings.NewReader(body))

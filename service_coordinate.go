@@ -207,6 +207,38 @@ func (s *Service) TestSpecificNode(nodeId string) (map[string]*D.RelayRoute, err
 	return s.coordinator.OptimizeSpecificNode(nodeId)
 }
 
+func (s *Service) ListPathPings(refresh bool) ([]adapter.PathPingRow, error) {
+	if !s.IsReady() {
+		return nil, E.New("coordinator_not_ready")
+	}
+	return s.coordinator.ListPathPings(refresh)
+}
+
+func (s *Service) ProbePath(kind, fromID, toID string) (adapter.PathPingRow, error) {
+	if !s.IsReady() {
+		return adapter.PathPingRow{}, E.New("coordinator_not_ready")
+	}
+	return s.coordinator.ProbePath(kind, fromID, toID)
+}
+
+// ProbeNodeRoutes pings the given relay paths immediately and returns updated
+// routes with live latency (used by Estimated Ping on the route diagram).
+// iface binds the probe to that NIC when set.
+func (s *Service) ProbeNodeRoutes(routes []*D.NodeRoute, iface string) []*D.NodeRoute {
+	if !s.IsReady() {
+		return nil
+	}
+	return s.coordinator.ProbeNodeRoutes(routes, iface)
+}
+
+// ForceProbeRelay triggers an immediate probe of watched live sessions for a relay.
+func (s *Service) ForceProbeRelay(nodeID string) {
+	if !s.IsReady() {
+		return
+	}
+	s.coordinator.ForceProbeRelay(nodeID)
+}
+
 func (s *Service) ClearDNSCache() {
 	s.coordinator.ClearDNSCache()
 }
@@ -222,6 +254,13 @@ func (s *Service) GetLagFixStats() adapter.LagFixStats {
 	return s.coordinator.GetLagFixStats()
 }
 
+func (s *Service) GetLagFixHistory() []adapter.LagFixEvent {
+	if s.coordinator == nil {
+		return nil
+	}
+	return s.coordinator.GetLagFixHistory()
+}
+
 func (s *Service) GetClientSettings() *D.ClientSettings {
 	if s.coordinator == nil {
 		return nil
@@ -229,7 +268,30 @@ func (s *Service) GetClientSettings() *D.ClientSettings {
 	return s.coordinator.GetClientSettings()
 }
 
-func (s *Service) SetRoutingSettings(routeAccuracy int, routeProtocol int, routeIp int, realtimeOptimization bool) {
+func (s *Service) SetInternetPingTarget(target string) {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetInternetPingTarget(target)
+}
+
+func (s *Service) GetInternetPingTarget() string {
+	if s.coordinator == nil {
+		return "bestPing"
+	}
+	return s.coordinator.InternetPingTargetID()
+}
+
+func (s *Service) SetRoutingSettings(routeAccuracy int, routeProtocol int, routeIp int, realtimeOptimization bool, proxyDNSRequests bool) {
+	previousProxyDNS := s.proxyDNSRequests
+	s.proxyDNSRequests = proxyDNSRequests
+
+	if previousProxyDNS != proxyDNSRequests {
+		if err := s.applyProxyDNSConfig(); err != nil {
+			fmt.Printf("proxy dns config update: %v\n", err)
+		}
+	}
+
 	if s.coordinator == nil {
 		return
 	}
@@ -241,7 +303,12 @@ func (s *Service) SetRoutingSettings(routeAccuracy int, routeProtocol int, route
 		RouteProtocol:        &protocol,
 		RouteIp:              &ip,
 		RealtimeOptimization: &realtimeOptimization,
+		ProxyDnsRequests:     &proxyDNSRequests,
 	})
+}
+
+func (s *Service) GetProxyDNSRequests() bool {
+	return s.proxyDNSRequests
 }
 
 func (s *Service) SetClientSettings(settings *D.ClientSettings) {
@@ -249,4 +316,9 @@ func (s *Service) SetClientSettings(settings *D.ClientSettings) {
 		return
 	}
 	s.coordinator.SetClientSettings(settings)
+	current := s.coordinator.GetClientSettings()
+	if current == nil {
+		return
+	}
+	s.applyStartupSettings(current)
 }

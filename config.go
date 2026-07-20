@@ -109,8 +109,9 @@ func (c *Service) generateConfig() option.Options {
 						},
 					},
 					{
-						Tag:  "fakeip",
-						Type: C.RuleTypeDefault,
+						Tag:   "fakeip",
+						Order: 10000,
+						Type:  C.RuleTypeDefault,
 						DefaultOptions: option.DefaultDNSRule{
 							RawDefaultDNSRule: option.RawDefaultDNSRule{
 								QueryType: queryTypes,
@@ -155,22 +156,17 @@ func (c *Service) generateConfig() option.Options {
 						},
 					},
 					{
-						Type: C.DNSTypeUDP,
-						Tag:  "remote-lagzap",
-						Options: &option.RemoteDNSServerOptions{
-							DNSServerAddressOptions: option.DNSServerAddressOptions{
-								Server:     "8.8.8.8",
-								ServerPort: 53,
-							},
-							// LocalDNSServerOptions: option.LocalDNSServerOptions{
-							// 	DialerOptions: option.DialerOptions{
-							// 		Detour: "zap",
-							// 	},
-							// },
-						},
+						Type:    C.DNSTypeUDP,
+						Tag:     "remote-lagzap",
+						Options: remoteLagZapDNSServerOptions(c.proxyDNSRequests),
+					},
+					{
+						Type:    C.DNSTypeUDP,
+						Tag:     "remote-lagzap-proxied",
+						Options: remoteLagZapProxiedDNSServerOptions(),
 					},
 				},
-				Final: "local",
+				Final: c.dnsFinal(),
 			},
 		},
 		Outbounds: []option.Outbound{
@@ -235,6 +231,44 @@ func (c *Service) generateConfig() option.Options {
 			GeoIP:               true,
 			FindProcess:         true,
 			AutoDetectInterface: false,
+		},
+	}
+}
+
+func (c *Service) dnsFinal() string {
+	if c.proxyDNSRequests {
+		return "remote-lagzap"
+	}
+	return "local"
+}
+
+func remoteLagZapDNSServerOptions(proxyDNS bool) *option.RemoteDNSServerOptions {
+	opts := &option.RemoteDNSServerOptions{
+		DNSServerAddressOptions: option.DNSServerAddressOptions{
+			Server:     "8.8.8.8",
+			ServerPort: 53,
+		},
+	}
+	if proxyDNS {
+		opts.LocalDNSServerOptions = option.LocalDNSServerOptions{
+			DialerOptions: option.DialerOptions{
+				Detour: "zap",
+			},
+		}
+	}
+	return opts
+}
+
+func remoteLagZapProxiedDNSServerOptions() *option.RemoteDNSServerOptions {
+	return &option.RemoteDNSServerOptions{
+		DNSServerAddressOptions: option.DNSServerAddressOptions{
+			Server:     "8.8.8.8",
+			ServerPort: 53,
+		},
+		LocalDNSServerOptions: option.LocalDNSServerOptions{
+			DialerOptions: option.DialerOptions{
+				Detour: "zap",
+			},
 		},
 	}
 }

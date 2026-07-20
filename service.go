@@ -19,17 +19,18 @@ import (
 
 type Service struct {
 	adapter.LifecycleService
-	ctx         context.Context
-	runtimeCtx  context.Context
-	cancel      context.CancelFunc
-	app         *application.App
-	window      *application.WebviewWindow
-	systray     *application.SystemTray
-	lagzap      *lagzap.LagZap
-	coordinator adapter.Coordinator
-	dnsRouter   adapter.DNSRouter
-	logFactory  log.ObservableFactory
-	localProxy  *localproxy.Proxy
+	ctx              context.Context
+	runtimeCtx       context.Context
+	cancel           context.CancelFunc
+	app              *application.App
+	window           *application.WebviewWindow
+	systray          *application.SystemTray
+	lagzap           *lagzap.LagZap
+	coordinator      adapter.Coordinator
+	dnsRouter        adapter.DNSRouter
+	logFactory       log.ObservableFactory
+	localProxy       *localproxy.Proxy
+	proxyDNSRequests bool
 }
 
 const (
@@ -71,12 +72,19 @@ func (s *Service) ReloadService() error {
 	s.coordinator.Listen(func(event string, data any) {
 		s.app.Event.Emit(event, data)
 	})
+	if settings := s.coordinator.GetClientSettings(); settings != nil && settings.ProxyDnsRequests != nil {
+		s.proxyDNSRequests = settings.GetProxyDnsRequests()
+	}
+	if err := s.applyProxyDNSConfig(); err != nil {
+		fmt.Printf("proxy dns config: %v\n", err)
+	}
 	s.lagzap = instance
-	s.app.Event.Emit("service-started")
 
 	if err := s.discoverAndStartLocalProxy(); err != nil {
+		_ = s.StopService()
 		return E.Cause(err, "discover and start local proxy")
 	}
+	s.app.Event.Emit("service-started")
 
 	go s.startMonitoring()
 
@@ -89,6 +97,15 @@ func (s *Service) StopService() error {
 	if s.lagzap == nil {
 		return nil
 	}
+	if s.coordinator != nil {
+		s.coordinator.Disconnect()
+	}
+	if s.runtimeCtx != nil {
+		if winpkFilter := service.FromContext[adapter.WinpkFilter](s.runtimeCtx); winpkFilter != nil {
+			winpkFilter.SetProxyDNSRequests(false)
+		}
+	}
+	_ = s.StopProxy()
 	if s.cancel != nil {
 		s.cancel()
 	}
@@ -98,6 +115,9 @@ func (s *Service) StopService() error {
 	s.dnsRouter = nil
 	s.runtimeCtx = nil
 	s.app.Event.Emit("service-stopped")
+	if bootstrapErr := s.StartBootstrapLocalProxy(); bootstrapErr != nil {
+		fmt.Printf("localproxy bootstrap after stop: %v\n", bootstrapErr)
+	}
 	return err
 }
 

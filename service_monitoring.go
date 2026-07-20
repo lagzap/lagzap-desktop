@@ -44,6 +44,7 @@ func (s *Service) startMonitoring() {
 	s.app.Event.Emit("connections", connections)
 	s.app.Event.Emit("routes", routes)
 	s.app.Event.Emit("lag-fix-stats", s.coordinator.GetLagFixStats())
+	s.app.Event.Emit("lag-fix-history", s.coordinator.GetLagFixHistory())
 
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
