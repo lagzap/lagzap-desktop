@@ -66,6 +66,8 @@ const {
   getCityLabel,
   firstNodeIdForCity,
   getNodeCityLabel,
+  getCitySelected,
+  selectCity,
 
   // Selection helpers
   getNodeSelected,
@@ -94,7 +96,8 @@ const {
   currentSelectionText,
   
   // Ping data
-  bestPingForCurrentSelection,
+  bestPingMsForCurrentSelection,
+  bestPingScoreForCurrentSelection,
 } = useRegionSelection(props.profile);
 
 function getPingColor(score: number | null): string {
@@ -151,15 +154,15 @@ function getPingIcon(score: number | null): string {
           :text="currentSelectionText"
           class="text-none"
           variant="tonal"
-          :color="getPingColor(bestPingForCurrentSelection?.routes?.[0]?.score || null)"
-          :prepend-icon="getPingIcon(bestPingForCurrentSelection?.routes?.[0]?.score || null)"
+          :color="getPingColor(bestPingScoreForCurrentSelection)"
+          :prepend-icon="getPingIcon(bestPingScoreForCurrentSelection)"
           v-bind="props"
         >
           <template #append>
             <small>
               {{
-                bestPingForCurrentSelection?.routes?.[0]?.min_latency 
-                ? `${bestPingForCurrentSelection.routes[0].min_latency}ms` : '--'
+                bestPingMsForCurrentSelection
+                ? `${bestPingMsForCurrentSelection}ms` : '--'
               }}
             </small>
             <v-icon :icon="dialogOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
@@ -480,11 +483,7 @@ function getPingIcon(score: number | null): string {
                   class="me-2"
                   density="compact"
                   color="primary"
-                  :model-value="
-                    (store.profileStates[profile.id].cities || []).includes(
-                      city
-                    )
-                  "
+                  :model-value="getCitySelected(city)"
                   @click.stop="toggleCity(city)"
                 />
               </template>
@@ -645,16 +644,16 @@ function getPingIcon(score: number | null): string {
             v-for="countryIso2 in Object.keys(nodeHierarchy[regionTag])"
             :key="`${regionTag}-${countryIso2}`"
           >
-            <!-- Node Items in Country -->
+            <!-- Cities in Country -->
             <v-list-item
-              v-for="nodeName in getFilteredNodesForCountry(
+              v-for="cityKey in getFilteredNodesForCountry(
                 regionTag,
                 countryIso2
               )"
-              :key="nodeName"
+              :key="cityKey"
               density="compact"
               class="ml-4"
-              @click="selectNode(nodeName)"
+              @click="selectCity(cityKey)"
             >
               <template #prepend>
                 <v-radio
@@ -662,26 +661,24 @@ function getPingIcon(score: number | null): string {
                   class="me-2"
                   density="compact"
                   color="primary"
-                  :model-value="getNodeSelected(nodeName)"
-                  @click.stop="selectNode(nodeName)"
+                  :model-value="getCitySelected(cityKey)"
+                  @click.stop="selectCity(cityKey)"
                 />
               </template>
               <template #title>
                 <v-avatar size="24" rounded="0">
                   <span style="height: 40px">
-                    <CountryFlag :country="nodeMap[nodeName]?.[0]?.country" />
+                    <CountryFlag :country="cityMap[cityKey]?.[0]?.country" />
                   </span>
                 </v-avatar>
-                <span class="text-caption ms-2">{{
-                  getNodeCityLabel(nodeName)
-                }}</span>
+                <span class="text-caption ms-2">{{ getCityLabel(cityKey) }}</span>
               </template>
               <template #append>
                 <Ping
-                  v-if="getLowestPingForNode(nodeName) !== null"
-                  :tag="getLowestPingForNode(nodeName).tag"
+                  v-if="lowestPingForCity(cityKey) !== null"
+                  :tag="lowestPingForCity(cityKey)!.tag"
                 />
-                <Ping v-else :tag="nodeMap[nodeName]?.[0]?.id || ''" />
+                <Ping v-else :tag="firstNodeIdForCity(cityKey)" />
               </template>
             </v-list-item>
           </template>

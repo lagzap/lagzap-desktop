@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CountryFlag from "vue-country-flag-next";
 import Ping from "~/components/network/Ping.vue";
+import { connectionRelayLatency } from "~/composables/useProfileDisplayRoutes";
 import { useHumanSpeed } from "~/composables/helper";
 import { useLocale } from "vuetify";
 
@@ -13,6 +14,7 @@ const store = useStore();
 const locale = useLocale();
 const { t } = locale;
 const { connections } = useMonitoringStore();
+const { getNodeLabel } = useNodeLocationLabel();
 
 function connectionTraffic(connection: {
   download_speed?: number;
@@ -33,7 +35,7 @@ const profileConnections = computed(() => {
 });
 
 function nodeCity(nodeId?: string | null) {
-  return store.nodes?.[nodeId ?? ""]?.city?.[locale.current.value ?? "en"] ?? "-";
+  return getNodeLabel(nodeId);
 }
 </script>
 
@@ -47,7 +49,7 @@ function nodeCity(nodeId?: string | null) {
     <thead>
       <tr>
         <th>{{ t("$vuetify.connections.gameServer") }}</th>
-        <th>{{ t("$vuetify.connections.lagzapServer") }}</th>
+        <th>{{ t("$vuetify.connections.cyrexServer") }}</th>
         <th class="text-center">{{ t("$vuetify.connections.latency") }}</th>
         <th>{{ t("$vuetify.connections.download") }}</th>
         <th>{{ t("$vuetify.connections.upload") }}</th>
@@ -77,7 +79,10 @@ function nodeCity(nodeId?: string | null) {
           </div>
         </td>
         <td class="text-center text-no-wrap">
-          <Ping :tag="connection.relay_route?.tag" />
+          <Ping
+            :tag="connection.relay_route?.tag"
+            :latency-ms="connectionRelayLatency(connection)"
+          />
         </td>
         <td class="text-no-wrap">
           <span class="text-caption">
@@ -92,12 +97,6 @@ function nodeCity(nodeId?: string | null) {
       </tr>
     </tbody>
   </v-table>
-
-  <div v-else class="text-center text-medium-emphasis py-6">
-    <div class="text-body-2">
-      {{ t("$vuetify.connections.connectionsSubtitle", [0]) }}
-    </div>
-  </div>
 </template>
 
 <style scoped>

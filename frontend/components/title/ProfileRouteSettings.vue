@@ -1,93 +1,164 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
 import { FindAvailableInterfaces } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
 import { ProfileFlag } from "~/constants/profile";
 import { debounce } from "es-toolkit";
+import {
+  MAX_ROUTES,
+  normalizeRouteCounts,
+} from "~/composables/routeCountUtils";
+import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 
 const props = defineProps<{
   profile: Profile;
 }>();
 
-const MAX_ROUTES = 4;
-
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
 
-const normalizeRouteCounts = (
-  tcp: number,
-  udp: number,
-  changed: "tcp" | "udp"
-): { tcp: number; udp: number } => {
-  tcp = Math.max(0, Math.min(MAX_ROUTES, Math.round(tcp) || 0));
-  udp = Math.max(0, Math.min(MAX_ROUTES, Math.round(udp) || 0));
+const {
+  resolvedGlobalTcp,
+  resolvedGlobalUdp,
+  ensureLoaded: ensureNetworkSettingsLoaded,
+} = useNetworkAdapterSettings();
 
-  const excess = tcp + udp - MAX_ROUTES;
-  if (excess > 0) {
-    if (changed === "tcp") {
-      udp = Math.max(0, udp - excess);
-    } else {
-      tcp = Math.max(0, tcp - excess);
-    }
-  }
+const defaultTcpRoutes = resolvedGlobalTcp;
+const defaultUdpRoutes = resolvedGlobalUdp;
 
-  if (tcp + udp < 1) {
-    if (changed === "tcp") {
-      if (tcp === 0) {
-        udp = 1;
-      } else {
-        tcp = 1;
-      }
-    } else if (udp === 0) {
-      tcp = 1;
-    } else {
-      udp = 1;
-    }
-  }
+const profileUsesCustomRoutes = computed(() => {
+  const state = store.profileStates[props.profile.id];
+  return state?.tcp_connections != null || state?.udp_connections != null;
+});
 
-  return { tcp, udp };
-};
-
-const applyRouteCounts = (tcp: number, udp: number, changed: "tcp" | "udp") => {
+const applyRouteCounts = (
+  tcp: number | null,
+  udp: number | null,
+  changed: "tcp" | "udp",
+) => {
   const state = store.profileStates[props.profile.id];
   if (!state) return;
-  const normalized = normalizeRouteCounts(tcp, udp, changed);
-  state.tcp_connections = normalized.tcp;
-  state.udp_connections = normalized.udp;
+
+  if (changed === "tcp" && tcp === null) {
+    delete state.tcp_connections;
+    return;
+  }
+  if (changed === "udp" && udp === null) {
+    delete state.udp_connections;
+    return;
+  }
+
+  const nextTcp = tcp ?? state.tcp_connections ?? defaultTcpRoutes.value;
+  const nextUdp = udp ?? state.udp_connections ?? defaultUdpRoutes.value;
+  const normalized = normalizeRouteCounts(nextTcp, nextUdp, changed);
+  if (normalized.tcp !== null) {
+    state.tcp_connections = normalized.tcp;
+  } else {
+    delete state.tcp_connections;
+  }
+  if (normalized.udp !== null) {
+    state.udp_connections = normalized.udp;
+  } else {
+    delete state.udp_connections;
+  }
 };
 
+/** Always show effective counts (profile override or settings default). */
 const tcpRoutes = computed({
-  get: () => store.profileStates[props.profile.id]?.tcp_connections ?? 0,
-  set: (value: number) => {
-    const udp = store.profileStates[props.profile.id]?.udp_connections ?? 0;
+  get: () =>
+    store.profileStates[props.profile.id]?.tcp_connections ??
+    defaultTcpRoutes.value,
+  set: (value: number | null) => {
+    if (value === null) {
+      applyRouteCounts(null, store.profileStates[props.profile.id]?.udp_connections ?? null, "tcp");
+      return;
+    }
+    const udp =
+      store.profileStates[props.profile.id]?.udp_connections ??
+      defaultUdpRoutes.value;
     applyRouteCounts(value, udp, "tcp");
   },
 });
 
 const udpRoutes = computed({
-  get: () => store.profileStates[props.profile.id]?.udp_connections ?? 0,
-  set: (value: number) => {
-    const tcp = store.profileStates[props.profile.id]?.tcp_connections ?? 0;
+  get: () =>
+    store.profileStates[props.profile.id]?.udp_connections ??
+    defaultUdpRoutes.value,
+  set: (value: number | null) => {
+    if (value === null) {
+      applyRouteCounts(store.profileStates[props.profile.id]?.tcp_connections ?? null, null, "udp");
+      return;
+    }
+    const tcp =
+      store.profileStates[props.profile.id]?.tcp_connections ??
+      defaultTcpRoutes.value;
     applyRouteCounts(tcp, value, "udp");
   },
 });
 
-const tcpRoutesMin = computed(() => (udpRoutes.value === 0 ? 1 : 0));
-const udpRoutesMin = computed(() => (tcpRoutes.value === 0 ? 1 : 0));
+const resolvedTcpDisplay = computed(() => tcpRoutes.value);
+const resolvedUdpDisplay = computed(() => udpRoutes.value);
 
-const totalRoutes = computed(() => tcpRoutes.value + udpRoutes.value);
+const tcpRoutesMin = computed(() =>
+  profileUsesCustomRoutes.value && udpRoutes.value === 0 ? 1 : 0,
+);
+const udpRoutesMin = computed(() =>
+  profileUsesCustomRoutes.value && tcpRoutes.value === 0 ? 1 : 0,
+);
+
+const totalRoutes = computed(
+  () => resolvedTcpDisplay.value + resolvedUdpDisplay.value,
+);
 const showMultiPathRouteWarnings = computed(() => totalRoutes.value <= 1);
+
+const transportFallbackMode = computed({
+  get: () => {
+    const value = store.profileStates[props.profile.id]?.relay_transport_fallback;
+    if (value === undefined || value === null) {
+      return "default";
+    }
+    return value ? "on" : "off";
+  },
+  set: (value: "default" | "on" | "off") => {
+    const state = store.profileStates[props.profile.id];
+    if (!state) return;
+    if (value === "default") {
+      delete state.relay_transport_fallback;
+      return;
+    }
+    state.relay_transport_fallback = value === "on";
+  },
+});
+
+const transportFallbackStateLabel = computed(() => {
+  const key = {
+    default: "transportFallbackDefault",
+    on: "transportFallbackOn",
+    off: "transportFallbackOff",
+  }[transportFallbackMode.value];
+  return t(`$vuetify.title.profile.${key}`);
+});
+
+const transportFallbackHintText = computed(
+  () =>
+    `${t("$vuetify.title.profile.transportFallbackHint")} · ${transportFallbackStateLabel.value}`,
+);
+
+function cycleTransportFallback() {
+  const current = transportFallbackMode.value;
+  transportFallbackMode.value =
+    current === "default" ? "on" : current === "on" ? "off" : "default";
+}
 
 watch(
   store.profileStates,
-  debounce((newState) => {
-    console.log(newState, props.profile.id)
+  debounce(() => {
     store.saveProfileState(props.profile.id);
   }, 1000),
-  { deep: true }
+  { deep: true },
 );
 
 watch(
@@ -114,11 +185,25 @@ watch(
   { deep: true }
 );
 
-const interfaces = computed(() => store.interfaces);
-
-const availableInterfaceNames = computed(() =>
-  interfaces.value.map((iface) => iface.Name)
+watch(
+  () => store.latency,
+  () => {
+    store.updateProfileUnavailableInterfaces(props.profile.id);
+  },
+  { deep: true }
 );
+
+watch(
+  () => store.availableInterfaceNames,
+  () => {
+    store.updateProfileUnavailableInterfaces(props.profile.id);
+  },
+  { deep: true }
+);
+
+const interfaces = computed(() => store.availableInterfaces);
+
+const availableInterfaceNames = computed(() => store.availableInterfaceNames);
 const selectedInterfaces = computed(
   () => store.profileStates[props.profile.id]?.network_interfaces || []
 );
@@ -149,15 +234,8 @@ const closeDialog = () => {
 };
 
 // Initialize unavailable interfaces tracking
-onMounted(() => {
-  const state = store.profileStates[props.profile.id];
-  if (state) {
-    applyRouteCounts(
-      state.tcp_connections ?? 0,
-      state.udp_connections ?? 0,
-      "udp"
-    );
-  }
+onMounted(async () => {
+  await ensureNetworkSettingsLoaded();
   store.updateProfileUnavailableInterfaces(props.profile.id);
 });
 </script>
@@ -204,13 +282,14 @@ onMounted(() => {
           >
             <v-col>
               <v-number-input
-                :key="`tcp-${udpRoutes}`"
-                v-model:model-value="tcpRoutes"
+                :key="`tcp-${resolvedUdpDisplay}`"
+                v-model="tcpRoutes"
                 :label="t('$vuetify.title.profile.tcpRoutes')"
                 variant="outlined"
                 density="comfortable"
                 control-variant="split"
                 inset
+                clearable
                 :min="tcpRoutesMin"
                 :max="MAX_ROUTES"
                 :disabled="!store.appReady"
@@ -218,13 +297,14 @@ onMounted(() => {
             </v-col>
             <v-col>
               <v-number-input
-                :key="`udp-${tcpRoutes}`"
-                v-model:model-value="udpRoutes"
+                :key="`udp-${resolvedTcpDisplay}`"
+                v-model="udpRoutes"
                 :label="t('$vuetify.title.profile.udpRoutes')"
                 variant="outlined"
                 density="comfortable"
                 control-variant="split"
                 inset
+                clearable
                 :min="udpRoutesMin"
                 :max="MAX_ROUTES"
                 :disabled="!store.appReady"
@@ -252,16 +332,42 @@ onMounted(() => {
                   </div>
                 </v-alert>
               </v-scale-transition>
+              <v-alert
+                v-if="!showMultiPathRouteWarnings"
+                type="info"
+                variant="tonal"
+                density="compact"
+                class="mb-2"
+              >
+                <div class="text-body-2">
+                  {{ t("$vuetify.title.profile.multiPathBandwidthInfo") }}
+                </div>
+              </v-alert>
+            </v-col>
+            <v-col cols="12">
+              <v-checkbox
+                :model-value="transportFallbackMode === 'on'"
+                :indeterminate="transportFallbackMode === 'default'"
+                :label="t('$vuetify.title.profile.transportFallback')"
+                :hint="transportFallbackHintText"
+                persistent-hint
+                hide-details="auto"
+                :disabled="!store.appReady"
+                @click.prevent="cycleTransportFallback"
+              />
             </v-col>
           </template>
           <v-col
             v-if="
-              (profile.flags & ProfileFlag.GAME_PACKET) !== 0 &&
+              ((profile.flags & ProfileFlag.MULTIPATH) !== 0 ||
+                (profile.flags & ProfileFlag.GAME_PACKET) !== 0 ||
+                (profile.flags & ProfileFlag.PREVENT_DISCONNECT) !== 0) &&
               profile.route_action == 'route'
             "
             cols="12"
           >
             <v-select
+              v-if="(profile.flags & ProfileFlag.MULTIPATH) !== 0"
               v-model:model-value="
                 store.profileStates[profile.id].network_interfaces
               "
@@ -301,9 +407,118 @@ onMounted(() => {
                 </v-chip>
               </template>
             </v-select>
-
+            <template
+              v-else-if="(profile.flags & ProfileFlag.PREVENT_DISCONNECT) !== 0"
+            >
+              <v-select
+                v-model:model-value="
+                  store.profileStates[profile.id].default_interface
+                "
+                :label="t('$vuetify.title.profile.networkAdapter')"
+                :hint="t('$vuetify.title.profile.networkAdaptersHint')"
+                :placeholder="
+                  t('$vuetify.title.profile.networkAdaptersPlaceholder')
+                "
+                :items="interfaces"
+                clearable
+                item-value="Name"
+                item-title="Name"
+                variant="outlined"
+                density="comfortable"
+                class="mb-3"
+                append-inner-icon="mdi-refresh"
+                :disabled="!store.appReady"
+                :loading="loadingInterfaces"
+                :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterface'): undefined"
+                @click:append-inner="updateInterfaces"
+              />
+              <v-select
+                v-model:model-value="
+                  store.profileStates[profile.id].network_interfaces
+                "
+                :label="t('$vuetify.title.profile.backupInterfaces')"
+                :hint="t('$vuetify.title.profile.backupInterfacesHint')"
+                :placeholder="
+                  t('$vuetify.title.profile.networkAdaptersPlaceholder')
+                "
+                :items="interfaces"
+                clearable
+                item-value="Name"
+                item-title="Name"
+                variant="outlined"
+                density="comfortable"
+                multiple
+                min-width="175"
+                append-inner-icon="mdi-refresh"
+                :disabled="!store.appReady"
+                :loading="loadingInterfaces"
+                :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
+                @click:append-inner="updateInterfaces"
+              >
+                <template #selection="{ item }">
+                  <v-chip
+                    :key="item.value"
+                    rounded
+                    closable
+                    :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
+                    @click:close="
+                      store.profileStates[profile.id].network_interfaces = (
+                        store.profileStates[profile.id].network_interfaces || []
+                      ).filter((name) => name !== item.value);
+                      store.updateProfileUnavailableInterfaces(profile.id);
+                    "
+                  >
+                    {{ item.value }}
+                  </v-chip>
+                </template>
+              </v-select>
+            </template>
+            <v-select
+              v-else-if="(profile.flags & ProfileFlag.GAME_PACKET) !== 0"
+              v-model:model-value="
+                store.profileStates[profile.id].network_interfaces
+              "
+              :label="t('$vuetify.title.profile.multiInternet')"
+              :hint="t('$vuetify.title.profile.networkAdaptersHint')"
+              :placeholder="
+                t('$vuetify.title.profile.networkAdaptersPlaceholder')
+              "
+              :items="interfaces"
+              clearable
+              item-value="Name"
+              item-title="Name"
+              variant="outlined"
+              density="comfortable"
+              multiple
+              min-width="175"
+              append-inner-icon="mdi-refresh"
+              :disabled="!store.appReady"
+              :loading="loadingInterfaces"
+              :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
+              @click:append-inner="updateInterfaces"
+            >
+              <template #selection="{ item }">
+                <v-chip
+                  :key="item.value"
+                  rounded
+                  closable
+                  :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
+                  @click:close="
+                    store.profileStates[profile.id].network_interfaces = (
+                      store.profileStates[profile.id].network_interfaces || []
+                    ).filter((name) => name !== item.value);
+                    store.updateProfileUnavailableInterfaces(profile.id);
+                  "
+                >
+                  {{ item.value }}
+                </v-chip>
+              </template>
+            </v-select>
           </v-col>
-          <v-col v-else-if="profile.route_action != 'block'" cols="12">
+          <v-col
+            v-else-if="profile.route_action != 'block'"
+            cols="12"
+          >
             <v-select
               v-model:model-value="
                 store.profileStates[profile.id].default_interface

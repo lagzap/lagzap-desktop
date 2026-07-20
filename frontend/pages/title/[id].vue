@@ -3,6 +3,7 @@ import Container from "~/components/layout/Container.vue";
 import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
 import ProfileCard from "~/components/title/ProfileCard.vue";
+import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 
 const { t } = useLocale();
 const store = useStore();
@@ -19,6 +20,35 @@ const profiles = computed(() =>
     .sort((a, b) => a.order - b.order)
 );
 
+const showInactiveBanner = ref(false);
+let bannerDelayTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearBannerDelay() {
+  if (bannerDelayTimer != null) {
+    clearTimeout(bannerDelayTimer);
+    bannerDelayTimer = null;
+  }
+}
+
+watch(
+  () => ({
+    ready: store.appReady,
+    inactive: !!(title.value && !store.isTitleActive(title.value.id)),
+  }),
+  ({ ready, inactive }) => {
+    clearBannerDelay();
+    showInactiveBanner.value = false;
+    if (!ready || !inactive) {
+      return;
+    }
+    bannerDelayTimer = setTimeout(() => {
+      bannerDelayTimer = null;
+      showInactiveBanner.value = true;
+    }, 500);
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
   nextTick(() => {
     if (!title.value || !store.appReady) {
@@ -26,6 +56,10 @@ onMounted(() => {
     }
     store.visitTitle(title.value.id);
   });
+});
+
+onBeforeUnmount(() => {
+  clearBannerDelay();
 });
 </script>
 
@@ -51,6 +85,7 @@ onMounted(() => {
         </v-app-bar-title>
 
         <v-spacer />
+        <TitleFavoriteButton v-if="title" :title-id="title.id" />
         <v-switch
           :model-value="store.isTitleActive(title.id)"
           hide-details
@@ -61,9 +96,9 @@ onMounted(() => {
           <v-icon>mdi-pause</v-icon>
         </v-switch>
       </template>
-      <v-expand-transition>
+      <v-expand-transition v-if="store.appReady">
         <v-banner
-          v-if="title && !store.isTitleActive(title.id)"
+          v-if="showInactiveBanner"
           color="primary"
           lines="one"
         >

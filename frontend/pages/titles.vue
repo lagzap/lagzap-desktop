@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useLocale } from "vuetify";
 import Container from "~/components/layout/Container.vue";
+import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 
 const locale = useLocale();
 const { t } = locale;
@@ -32,44 +33,49 @@ const titles = computed(() => store.getTitles);
               >
                 <v-card
                   :to="{ name: 'title-id', params: { id: item.raw.id } }"
-                  class="py-1 mb-1"
+                  class="py-1 mb-1 titles-card"
                 >
                   <v-list-item
                     :prepend-avatar="item.raw.icon_url"
                     :title="store.localized(item.raw.name)"
                   >
                     <template #append>
-                      <v-tooltip
-                        :text="
-                          store.isTitleActive(item.raw.id)
-                            ? store.ndisRunning
-                              ? t('$vuetify.title.active')
-                              : t('$vuetify.title.serviceStopped')
-                            : t('$vuetify.title.inactive')
-                        "
-                      >
-                        <template #activator="{ props }">
-                          <v-btn
-                            v-bind="props"
-                            :color="
-                              store.isTitleActive(item.raw.id)
-                                ? 'green'
-                                : 'secondary'
-                            "
-                            :icon="
-                              store.ndisRunning
-                                ? 'mdi-circle-medium'
-                                : 'mdi-circle-small'
-                            "
-                            variant="text"
-                            size="md"
-                            :disabled="!store.appReady"
-                            @click.stop.prevent="
-                              store.toggleTitleState(item.raw)
-                            "
-                          />
-                        </template>
-                      </v-tooltip>
+                      <div class="d-flex align-center">
+                        <span class="titles-card__fav">
+                          <TitleFavoriteButton :title-id="item.raw.id" />
+                        </span>
+                        <v-tooltip
+                          :text="
+                            store.isTitleActive(item.raw.id)
+                              ? store.ndisRunning
+                                ? t('$vuetify.title.active')
+                                : t('$vuetify.title.serviceStopped')
+                              : t('$vuetify.title.inactive')
+                          "
+                        >
+                          <template #activator="{ props }">
+                            <v-btn
+                              v-bind="props"
+                              :color="
+                                store.isTitleActive(item.raw.id)
+                                  ? 'green'
+                                  : 'secondary'
+                              "
+                              :icon="
+                                store.ndisRunning
+                                  ? 'mdi-circle-medium'
+                                  : 'mdi-circle-small'
+                              "
+                              variant="text"
+                              size="md"
+                              :disabled="!store.appReady"
+                              @click.stop.prevent="
+                                store.toggleTitleState(item.raw)
+                              "
+                            />
+                          </template>
+                        </v-tooltip>
+                      </div>
                     </template>
                   </v-list-item>
                 </v-card>
@@ -99,3 +105,18 @@ const titles = computed(() => store.getTitles);
     </Container>
   </div>
 </template>
+
+<style scoped>
+.titles-card__fav {
+  display: inline-flex;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.titles-card:hover .titles-card__fav,
+.titles-card:focus-within .titles-card__fav {
+  opacity: 1;
+  pointer-events: auto;
+}
+</style>

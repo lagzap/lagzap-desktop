@@ -7,10 +7,35 @@ import { debounce } from 'es-toolkit';
 import { ProfileFlag } from '~/constants/profile';
 import { useLocale } from 'vuetify';
 import { FindAvailableInterfaces } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { nodeCityGroupKey, useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
+import {
+  displayPingMsForRelay,
+  displayScoreForRelay,
+} from "~/composables/relayPingDisplay";
+import { useMonitoringStore } from "~/stores/monitoring";
 
 export function useRegionSelection(profile: Profile) {
   const store = useStore();
+  const { routeProbeHistory } = useMonitoringStore();
   const { t } = useLocale();
+  const { getCityGroupLabel, getCityGroupNodes, cityKeyForNode } =
+    useNodeLocationLabel();
+
+  /** Best live probe, else best path measured RTT — never routes[0] alone. */
+  function lowestMsForRelayRoute(routeData: RelayRoute | null | undefined): number | null {
+    if (!routeData) {
+      return null;
+    }
+    return displayPingMsForRelay(
+      routeData.tag,
+      routeData,
+      routeProbeHistory.value
+    );
+  }
+
+  function bestScoreForRelayRoute(routeData: RelayRoute | null | undefined): number | null {
+    return displayScoreForRelay(routeData);
+  }
   
   // Reactive state
   const dialogOpen = ref(false);
@@ -143,9 +168,9 @@ export function useRegionSelection(profile: Profile) {
     const map: Record<string, Node[]> = {};
     Object.values(areas.value || {}).forEach((nodes) => {
       nodes.forEach((n: Node) => {
-        const city = n.name;
-        map[city] = map[city] || [];
-        map[city].push(n);
+        const cityKey = nodeCityGroupKey(n);
+        map[cityKey] = map[cityKey] || [];
+        map[cityKey].push(n);
       });
     });
     Object.values(map).forEach((arr) =>
@@ -275,27 +300,83 @@ export function useRegionSelection(profile: Profile) {
     return getLowestPingForCountry(relayNodes);
   };
   
-  const lowestPingForCity = (city: string): RelayRoute | null => {
-    return getLowestPingForCountry(cityMap.value[city]);
+  const lowestPingForCity = (cityKeyOrLegacy: string): RelayRoute | null => {
+    const cityKey = cityKeyForNode(cityKeyOrLegacy) ?? cityKeyOrLegacy;
+    const nodes = cityMap.value[cityKey] ?? getCityGroupNodes(cityKey);
+    return getLowestPingForCountry(nodes.filter(hasRelayFlag));
+  };
+
+  function profileSelectedCityKeys(profileState: {
+    mode?: number;
+    cities?: string[];
+    node_id?: string | null;
+  }): string[] {
+    const keys = new Set<string>();
+
+    for (const city of profileState.cities ?? []) {
+      const resolved = cityKeyForNode(city) ?? city;
+      keys.add(resolved);
+    }
+
+    if (profileState.node_id) {
+      const resolved = cityKeyForNode(profileState.node_id);
+      if (resolved) {
+        keys.add(resolved);
+      }
+    }
+
+    return [...keys];
+  }
+
+  const getCitySelected = (cityKey: string): boolean => {
+    const pid = profile?.id;
+    if (!pid) return false;
+    const profileState = store.profileStates[pid];
+    if (!profileState) return false;
+
+    const isMultipath =
+      (profile.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !== 0;
+    const effectiveMode =
+      profileState.mode ||
+      (isMultipath
+        ? RoutingMode.RoutingMode_ROUTING_MODE_GLOBAL
+        : RoutingMode.RoutingMode_ROUTING_MODE_NODE);
+
+    if (effectiveMode === RoutingMode.RoutingMode_ROUTING_MODE_CITY) {
+      return profileSelectedCityKeys(profileState).includes(cityKey);
+    }
+
+    if (effectiveMode === RoutingMode.RoutingMode_ROUTING_MODE_NODE) {
+      const selectedKeys = profileSelectedCityKeys(profileState);
+      if (selectedKeys.length === 0) {
+        return false;
+      }
+      return selectedKeys.includes(cityKey);
+    }
+
+    return false;
+  };
+
+  const selectCity = (cityKey: string) => {
+    const pid = profile?.id;
+    if (!pid) return;
+
+    store.profileStates[pid].node_id = null;
+    store.profileStates[pid].cities = [cityKey];
+    store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_CITY;
   };
   
   // City helper functions
   const getCityLabel = (cityKey: string): string => {
-    const node = cityMap.value[cityKey]?.[0];
-    if (!node) return cityKey;
-    
-    const c = (node as any).city;
-    if (typeof c === 'string') return c;
-    try {
-      const label = store.localized(c);
-      return label || cityKey;
-    } catch (e) {
-      return cityKey;
-    }
+    return getCityGroupLabel(cityKey);
   };
-  
-  const firstNodeIdForCity = (city: string): string => {
-    return cityMap.value[city]?.[0]?.id || '';
+
+  const firstNodeIdForCity = (cityKey: string): string => {
+    const relayRoute = lowestPingForCity(cityKey);
+    if (relayRoute?.tag) {
+      return relayRoute.tag;
+    }
+    return cityMap.value[cityKey]?.[0]?.id || "";
   };
 
   const toggleRegion = (regionTag: string) => {
@@ -488,28 +569,27 @@ export function useRegionSelection(profile: Profile) {
   // Hierarchical node organization by region and country (for node selection mode)
   const nodeHierarchy = computed(() => {
     const hierarchy: Record<string, Record<string, string[]>> = {};
-    
+
     Object.values(store.nodes)
       .filter(shouldShowNode)
       .forEach((node) => {
         const regionTag = node.region;
         const countryIso2 = node.country;
-        const nodeName = node.name; // Node name is the city name
-        
+        const cityKey = nodeCityGroupKey(node);
+
         if (!hierarchy[regionTag]) {
           hierarchy[regionTag] = {};
         }
-        
+
         if (!hierarchy[regionTag][countryIso2]) {
           hierarchy[regionTag][countryIso2] = [];
         }
-        
-        // Add node name if not already present
-        if (!hierarchy[regionTag][countryIso2].includes(nodeName)) {
-          hierarchy[regionTag][countryIso2].push(nodeName);
+
+        if (!hierarchy[regionTag][countryIso2].includes(cityKey)) {
+          hierarchy[regionTag][countryIso2].push(cityKey);
         }
       });
-    
+
     return hierarchy;
   });
 
@@ -524,11 +604,12 @@ export function useRegionSelection(profile: Profile) {
       let lowestPing = Infinity;
       
       // Find the lowest ping across all nodes in this region
-      Object.values(nodeHierarchy.value[regionTag]).forEach(countryNodes => {
-        countryNodes.forEach(nodeName => {
-          const ping = getLowestPingForNode(nodeName);
-          if (ping && ping.routes?.[0]?.min_latency && ping.routes[0].min_latency < lowestPing) {
-            lowestPing = ping.routes[0].min_latency;
+      Object.values(nodeHierarchy.value[regionTag]).forEach((countryCities) => {
+        countryCities.forEach((cityKey) => {
+          const ping = lowestPingForCity(cityKey);
+          const ms = lowestMsForRelayRoute(ping);
+          if (ms != null && ms < lowestPing) {
+            lowestPing = ms;
           }
         });
       });
@@ -557,34 +638,33 @@ export function useRegionSelection(profile: Profile) {
   };
 
   // Get sorted nodes for a specific region and country (for node selection mode)
-  const getSortedNodesForCountry = (regionTag: string, countryIso2: string): string[] => {
-    const nodeNames = nodeHierarchy.value[regionTag]?.[countryIso2] || [];
-    
-    // Create a map of node names to their ping latencies
-    const nodePings = new Map<string, number>();
-    
-    nodeNames.forEach(nodeName => {
-      const ping = getLowestPingForNode(nodeName);
-      if (ping && ping.routes?.[0]?.min_latency) {
-        nodePings.set(nodeName, ping.routes[0].min_latency);
+  const getSortedNodesForCountry = (
+    regionTag: string,
+    countryIso2: string
+  ): string[] => {
+    const cityKeys = nodeHierarchy.value[regionTag]?.[countryIso2] || [];
+    const cityPings = new Map<string, number>();
+
+    cityKeys.forEach((cityKey) => {
+      const ping = lowestPingForCity(cityKey);
+      const ms = lowestMsForRelayRoute(ping);
+      if (ms != null) {
+        cityPings.set(cityKey, ms);
       }
     });
-    
-    return nodeNames.sort((a, b) => {
-      const pingA = nodePings.get(a);
-      const pingB = nodePings.get(b);
-      
-      // If both have pings, sort by latency (lowest first)
+
+    return cityKeys.sort((a, b) => {
+      const pingA = cityPings.get(a);
+      const pingB = cityPings.get(b);
+
       if (pingA !== undefined && pingB !== undefined) {
         return pingA - pingB;
       }
-      
-      // If only one has ping, prioritize it
+
       if (pingA !== undefined && pingB === undefined) return -1;
       if (pingB !== undefined && pingA === undefined) return 1;
-      
-      // If neither has ping, sort alphabetically
-      return a.localeCompare(b);
+
+      return getCityLabel(a).localeCompare(getCityLabel(b));
     });
   };
 
@@ -603,12 +683,9 @@ export function useRegionSelection(profile: Profile) {
       const countries = Object.keys(nodeHierarchy.value[regionTag] || {});
       for (const countryIso2 of countries) {
         const nodes = nodeHierarchy.value[regionTag][countryIso2] || [];
-        for (const nodeName of nodes) {
-          const node = nodeMap.value[nodeName]?.[0];
-          if (node) {
-            const nodeLabel = getNodeCityLabel(nodeName);
-            if (matchesSearch(nodeLabel, searchQuery.value)) return true;
-          }
+        for (const cityKey of nodes) {
+          const cityLabel = getCityLabel(cityKey);
+          if (matchesSearch(cityLabel, searchQuery.value)) return true;
         }
       }
       return false;
@@ -627,17 +704,15 @@ export function useRegionSelection(profile: Profile) {
     const allNodes = getSortedNodesForCountry(regionTag, countryIso2);
     if (!searchQuery.value) return allNodes;
     
-    return allNodes.filter(nodeName => {
-      const nodeLabel = getNodeCityLabel(nodeName);
-      return matchesSearch(nodeLabel, searchQuery.value);
+    return allNodes.filter((cityKey) => {
+      const cityLabel = getCityLabel(cityKey);
+      return matchesSearch(cityLabel, searchQuery.value);
     });
   };
 
   // Interface-related computed properties and functions
-  const interfaces = computed(() => store.interfaces);
-  const availableInterfaceNames = computed(() =>
-    interfaces.value.map((iface) => iface.Name)
-  );
+  const interfaces = computed(() => store.availableInterfaces);
+  const availableInterfaceNames = computed(() => store.availableInterfaceNames);
   const selectedDefaultInterface = computed(
     () => store.profileStates[profile.id]?.default_interface || null
   );
@@ -655,61 +730,36 @@ export function useRegionSelection(profile: Profile) {
   // Hierarchical city organization by region and country (for city mode)
   const cityHierarchy = computed(() => {
     const hierarchy: Record<string, Record<string, string[]>> = {};
-    
+
     Object.values(store.nodes)
       .filter(shouldShowNode)
       .forEach((node) => {
         const regionTag = node.region;
         const countryIso2 = node.country;
-        const cityName = node.name; // City name is the node name
-        
+        const cityKey = nodeCityGroupKey(node);
+
         if (!hierarchy[regionTag]) {
           hierarchy[regionTag] = {};
         }
-        
+
         if (!hierarchy[regionTag][countryIso2]) {
           hierarchy[regionTag][countryIso2] = [];
         }
-        
-        // Add city name if not already present
-        if (!hierarchy[regionTag][countryIso2].includes(cityName)) {
-          hierarchy[regionTag][countryIso2].push(cityName);
+
+        if (!hierarchy[regionTag][countryIso2].includes(cityKey)) {
+          hierarchy[regionTag][countryIso2].push(cityKey);
         }
       });
-    
+
     return hierarchy;
   });
 
   // Get sorted cities for a specific region and country
-  const getSortedCitiesForCountry = (regionTag: string, countryIso2: string): string[] => {
-    const cityNames = cityHierarchy.value[regionTag]?.[countryIso2] || [];
-    
-    // Create a map of city names to their ping latencies
-    const cityPings = new Map<string, number>();
-    
-    cityNames.forEach(cityName => {
-      const ping = lowestPingForCity(cityName);
-      if (ping && ping.routes?.[0]?.min_latency) {
-        cityPings.set(cityName, ping.routes[0].min_latency);
-      }
-    });
-    
-    return cityNames.sort((a, b) => {
-      const pingA = cityPings.get(a);
-      const pingB = cityPings.get(b);
-      
-      // If both have pings, sort by latency (lowest first)
-      if (pingA !== undefined && pingB !== undefined) {
-        return pingA - pingB;
-      }
-      
-      // If only one has ping, prioritize it
-      if (pingA !== undefined && pingB === undefined) return -1;
-      if (pingB !== undefined && pingA === undefined) return 1;
-      
-      // If neither has ping, sort alphabetically
-      return a.localeCompare(b);
-    });
+  const getSortedCitiesForCountry = (
+    regionTag: string,
+    countryIso2: string
+  ): string[] => {
+    return getSortedNodesForCountry(regionTag, countryIso2);
   };
 
   // Region city selection helpers
@@ -786,8 +836,9 @@ export function useRegionSelection(profile: Profile) {
     
     regionsList.forEach(region => {
       const ping = getLowestPingForRegion(region.tag);
-      if (ping && ping.routes?.[0]?.min_latency) {
-        regionPings.set(region.tag, ping.routes[0].min_latency);
+      const ms = lowestMsForRelayRoute(ping);
+      if (ms != null) {
+        regionPings.set(region.tag, ms);
       }
     });
     
@@ -840,52 +891,54 @@ export function useRegionSelection(profile: Profile) {
       return effectiveMode === RoutingMode.RoutingMode_ROUTING_MODE_DIRECT;
     }
     
-    // Handle specific node selection
-    return selected === nodeName && effectiveMode === RoutingMode.RoutingMode_ROUTING_MODE_NODE;
+    // Handle specific city selection
+    return getCitySelected(nodeName);
   };
 
   const selectNode = (nodeName: string) => {
     const pid = profile?.id;
     if (!pid) return;
-    
+
     // Check if this is a multipath profile
-    const isMultipath = (profile.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !== 0;
-    
+    const isMultipath =
+      (profile.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !== 0;
+
     if (isMultipath) {
       // For multipath profiles, use the original logic
-      if (nodeName === '') {
+      if (nodeName === "") {
         store.profileStates[pid].node_id = null;
-        store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_GLOBAL;
+        store.profileStates[pid].mode =
+          RoutingMode.RoutingMode_ROUTING_MODE_GLOBAL;
         return;
       }
-      
-      if (nodeName === 'direct') {
+
+      if (nodeName === "direct") {
         store.profileStates[pid].node_id = null;
-        store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_DIRECT;
+        store.profileStates[pid].mode =
+          RoutingMode.RoutingMode_ROUTING_MODE_DIRECT;
         return;
       }
-      
+
       store.profileStates[pid].node_id = nodeName;
       store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_NODE;
     } else {
       // For non-multipath profiles: automatic = node mode with null nodeId, direct = direct mode
-      if (nodeName === '') {
-        // Automatic: node mode with null nodeId
+      if (nodeName === "") {
         store.profileStates[pid].node_id = null;
+        store.profileStates[pid].cities = [];
         store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_NODE;
         return;
       }
-      
-      if (nodeName === 'direct') {
-        // Direct: direct mode with null nodeId
+
+      if (nodeName === "direct") {
         store.profileStates[pid].node_id = null;
-        store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_DIRECT;
+        store.profileStates[pid].cities = [];
+        store.profileStates[pid].mode =
+          RoutingMode.RoutingMode_ROUTING_MODE_DIRECT;
         return;
       }
-      
-      // Specific node: node mode with specific nodeId
-      store.profileStates[pid].node_id = nodeName;
-      store.profileStates[pid].mode = RoutingMode.RoutingMode_ROUTING_MODE_NODE;
+
+      selectCity(nodeName);
     }
   };
 
@@ -930,8 +983,9 @@ export function useRegionSelection(profile: Profile) {
         .filter(shouldShowNode)
         .forEach(node => {
           const ping = getLowestPingForNode(node.name);
-          if (ping && ping.routes?.[0]?.min_latency && ping.routes[0].min_latency < lowestPing) {
-            lowestPing = ping.routes[0].min_latency;
+          const ms = lowestMsForRelayRoute(ping);
+          if (ms != null && ms < lowestPing) {
+            lowestPing = ms;
             bestRoute = ping;
           }
         });
@@ -944,8 +998,15 @@ export function useRegionSelection(profile: Profile) {
       return null;
     }
     
-    // For specific node selection, get ping for that node
-    if (effectiveMode === RoutingMode.RoutingMode_ROUTING_MODE_NODE && profileState.node_id) {
+    // For specific city selection, get ping for that city group
+    if (
+      effectiveMode === RoutingMode.RoutingMode_ROUTING_MODE_NODE &&
+      profileState.node_id
+    ) {
+      const cityKey = cityKeyForNode(profileState.node_id);
+      if (cityKey) {
+        return lowestPingForCity(cityKey);
+      }
       return getLowestPingForNode(profileState.node_id);
     }
     
@@ -959,8 +1020,9 @@ export function useRegionSelection(profile: Profile) {
       
       regions.forEach(regionTag => {
         const ping = getLowestPingForRegion(regionTag);
-        if (ping && ping.routes?.[0]?.min_latency && ping.routes[0].min_latency < lowestPing) {
-          lowestPing = ping.routes[0].min_latency;
+        const ms = lowestMsForRelayRoute(ping);
+        if (ms != null && ms < lowestPing) {
+          lowestPing = ms;
           bestRoute = ping;
         }
       });
@@ -979,8 +1041,9 @@ export function useRegionSelection(profile: Profile) {
       countries.forEach(countryCode => {
         const nodes = areas.value[countryCode] || [];
         const ping = getLowestPingForCountry(nodes);
-        if (ping && ping.routes?.[0]?.min_latency && ping.routes[0].min_latency < lowestPing) {
-          lowestPing = ping.routes[0].min_latency;
+        const ms = lowestMsForRelayRoute(ping);
+        if (ms != null && ms < lowestPing) {
+          lowestPing = ms;
           bestRoute = ping;
         }
       });
@@ -996,10 +1059,11 @@ export function useRegionSelection(profile: Profile) {
       let lowestPing = Infinity;
       let bestRoute: RelayRoute | null = null;
       
-      cities.forEach(cityName => {
-        const ping = lowestPingForCity(cityName);
-        if (ping && ping.routes?.[0]?.min_latency && ping.routes[0].min_latency < lowestPing) {
-          lowestPing = ping.routes[0].min_latency;
+      cities.forEach((citySelection) => {
+        const ping = lowestPingForCity(citySelection);
+        const ms = lowestMsForRelayRoute(ping);
+        if (ms != null && ms < lowestPing) {
+          lowestPing = ms;
           bestRoute = ping;
         }
       });
@@ -1010,20 +1074,33 @@ export function useRegionSelection(profile: Profile) {
     return null;
   });
 
-  // Get city label for a node
-  const getNodeCityLabel = (nodeName: string): string => {
-    const node = nodeMap.value[nodeName]?.[0];
-    if (!node) return nodeName;
-    
-    const city = (node as any).city;
-    if (typeof city === 'string') return city;
-    try {
-      const label = store.localized(city);
-      return label || nodeName;
-    } catch (e) {
-      return nodeName;
-    }
+  const bestPingMsForCurrentSelection = computed(() =>
+    lowestMsForRelayRoute(bestPingForCurrentSelection.value)
+  );
+
+  const bestPingScoreForCurrentSelection = computed(() =>
+    bestScoreForRelayRoute(bestPingForCurrentSelection.value)
+  );
+
+  const getNodeCityLabel = (cityKeyOrNode: string): string => {
+    const cityKey = cityKeyForNode(cityKeyOrNode) ?? cityKeyOrNode;
+    return getCityLabel(cityKey);
   };
+
+  function selectionCityLabel(profileState: {
+    mode?: number;
+    cities?: string[];
+    node_id?: string | null;
+  }): string | null {
+    const selectedKeys = profileSelectedCityKeys(profileState);
+    if (selectedKeys.length === 1) {
+      return getCityLabel(selectedKeys[0]);
+    }
+    if (selectedKeys.length > 1) {
+      return `${getCityLabel(selectedKeys[0])} +${selectedKeys.length - 1}`;
+    }
+    return null;
+  }
   
   // Current selection text
   const currentSelectionText = computed(() => {
@@ -1039,8 +1116,10 @@ export function useRegionSelection(profile: Profile) {
     
     // Handle node selection mode
     if (isNodeSelectionMode.value) {
-      const selectedNode = profileState.node_id;
-      return selectedNode ? getNodeCityLabel(selectedNode) : t('$vuetify.title.profile.server.automatic');
+      return (
+        selectionCityLabel(profileState) ??
+        t('$vuetify.title.profile.server.automatic')
+      );
     }
     
     // Handle unset mode - default to global for multipath, automatic for non-multipath
@@ -1081,30 +1160,8 @@ export function useRegionSelection(profile: Profile) {
     if (mode === 3) {
       const cities = profileState.cities || [];
       if (cities.length === 0) return 'Global';
-      if (cities.length === 1) {
-        const node = Object.values(store.nodes)
-          .filter(shouldShowNode)
-          .find((n) => n.name === cities[0]);
-        if (!node || !node.city || typeof node.city !== 'object')
-          return cities[0];
-        try {
-          const cityName = store.localized(node.city);
-          return cityName || cities[0];
-        } catch (e) {
-          return cities[0];
-        }
-      }
-      const firstNode = Object.values(store.nodes)
-        .filter(shouldShowNode)
-        .find((n) => n.name === cities[0]);
-      if (!firstNode || !firstNode.city || typeof firstNode.city !== 'object')
-        return `${cities[0]} +${cities.length - 1}`;
-      try {
-        const firstCityName = store.localized(firstNode.city);
-        return `${firstCityName || cities[0]} +${cities.length - 1}`;
-      } catch (e) {
-        return `${cities[0]} +${cities.length - 1}`;
-      }
+      const cityLabel = selectionCityLabel(profileState);
+      return cityLabel ?? 'Global';
     }
 
     if (mode === 4) {
@@ -1112,8 +1169,10 @@ export function useRegionSelection(profile: Profile) {
       if (!nodeId) {
         return t('$vuetify.title.profile.server.automatic');
       }
-      const node = store.nodes[nodeId];
-      return node ? getNodeCityLabel(nodeId) : t('$vuetify.title.profile.server.automatic');
+      const cityKey = cityKeyForNode(nodeId);
+      return cityKey
+        ? getCityLabel(cityKey)
+        : t('$vuetify.title.profile.server.automatic');
     }
     
     return t('$vuetify.title.profile.server.global');
@@ -1176,11 +1235,15 @@ export function useRegionSelection(profile: Profile) {
     lowestPingForCity,
     getLowestPingForNode,
     bestPingForCurrentSelection,
+    bestPingMsForCurrentSelection,
+    bestPingScoreForCurrentSelection,
     
     // City helpers
     getCityLabel,
     firstNodeIdForCity,
     getNodeCityLabel,
+    getCitySelected,
+    selectCity,
     
     // Selection helpers
     getNodeSelected,

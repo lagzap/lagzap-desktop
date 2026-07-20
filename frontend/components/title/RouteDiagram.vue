@@ -1,11 +1,23 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, computed, watch } from "vue";
+import { Call } from "@wailsio/runtime";
 import { useStore } from "~/stores";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
-import type { RelayRoute, NodeRoute } from "~/bindings/github.com/lagzap/zap/data";
-import { useProfileDisplayRoutes } from "~/composables/useProfileDisplayRoutes";
-import { useLocale } from "vuetify";
+import { NodeRoute } from "~/bindings/github.com/lagzap/zap/data";
+import type { NodeRoute as NodeRouteType } from "~/bindings/github.com/lagzap/zap/data";
+import {
+  useProfileDisplayRoutes,
+  routeRelayLatency,
+  routeRelayMetrics,
+  bestRouteRelayLatency,
+} from "~/composables/useProfileDisplayRoutes";
+import {
+  interfaceConnectionColor,
+} from "~/composables/useLatencyMetrics";
+import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
+import { useLocale, useTheme } from "vuetify";
 import * as echarts from "echarts";
+import country from "country-list-js";
 
 const props = defineProps<{
   profile: Profile;
@@ -13,119 +25,89 @@ const props = defineProps<{
 
 const store = useStore();
 const { t } = useLocale();
+const theme = useTheme();
+const { getNodeLabelByIp } = useNodeLocationLabel();
 
 const {
   shouldShowRoutes: shouldShowDiagram,
   numberOfRoutes,
-  routeSlotCount,
-  matchingRelayNodes,
   interfaceRouteGroups,
+  primaryRelayNodeId,
 } = useProfileDisplayRoutes(computed(() => props.profile));
 
-const selectedInterfaceIndex = ref(0);
-const selectedCityForVisualization = ref<string | null>(null);
+/** "best" = Best Internet (pick lowest-latency interface group). */
+const BEST_INTERFACE = "best";
+const selectedInterfaceKey = ref<string>(BEST_INTERFACE);
 const showInterfaceSelector = computed(() => interfaceRouteGroups.value.length > 1);
+const probingEstimatedPing = ref(false);
+const probedBestOverride = ref<{ ping: number; score: number } | null>(null);
 
-const interfaceSelectItems = computed(() =>
-  interfaceRouteGroups.value.map((group) => ({
+const interfaceSelectItems = computed(() => [
+  {
+    title: t("$vuetify.title.profile.bestInternet"),
+    value: BEST_INTERFACE,
+  },
+  ...interfaceRouteGroups.value.map((group) => ({
     title: group.name,
-    value: group.index,
-  }))
+    value: group.name,
+  })),
+]);
+
+function bestInterfaceGroup() {
+  const groups = interfaceRouteGroups.value;
+  if (groups.length === 0) {
+    return null;
+  }
+  let best = groups[0];
+  let bestPing = 0;
+  for (const group of groups) {
+    const ping = bestRouteRelayLatency(group.routes).ping;
+    if (ping <= 0) {
+      continue;
+    }
+    if (bestPing === 0 || ping < bestPing) {
+      best = group;
+      bestPing = ping;
+    }
+  }
+  return best;
+}
+
+const resolvedInterfaceGroup = computed(() => {
+  const groups = interfaceRouteGroups.value;
+  if (groups.length === 0) {
+    return null;
+  }
+  if (selectedInterfaceKey.value === BEST_INTERFACE) {
+    return bestInterfaceGroup();
+  }
+  return (
+    groups.find((item) => item.name === selectedInterfaceKey.value) ??
+    groups[0]
+  );
+});
+
+/** Adapter shown under hops — for Best Internet, the winning NIC's name. */
+const selectedAdapterName = computed(
+  () => resolvedInterfaceGroup.value?.name ?? ""
 );
 
-const routesForSelectedInterface = computed(() => {
-  const group = interfaceRouteGroups.value.find(
-    (item) => item.index === selectedInterfaceIndex.value
-  );
-  return group?.routes ?? [];
-});
-
-const availableCities = computed(() => {
-  const cities = new Set<string>();
-
-  matchingRelayNodes.value.forEach((node) => {
-    if (node.city) {
-      const cityName = store.localized(node.city) as string;
-      cities.add(cityName);
-    }
-  });
-
-  return Array.from(cities).sort();
-});
-
-const visualizationRoutes = computed(() => {
-  if (!selectedCityForVisualization.value) {
-    return [];
-  }
-
-  const matchingNodes = Object.values(store.nodes).filter((node) => {
-    const hasRelay = (node.flags & 0x1) !== 0;
-    if (!hasRelay) return false;
-    const cityName = store.localized(node.city) as string;
-    return cityName === selectedCityForVisualization.value;
-  });
-
-  if (matchingNodes.length === 0) return [];
-
-  let bestRelayRoute: RelayRoute | null = null;
-  let lowestLatency = Infinity;
-  const variants = ["ipv4-udp", "ipv4-tcp", "ipv6-udp", "ipv6-tcp"];
-
-  for (const node of matchingNodes) {
-    for (const v of variants) {
-      const key = `${node.id}-${v}`;
-      const routeData: RelayRoute | undefined = store.routes[key];
-      if (
-        !routeData ||
-        !Array.isArray(routeData.routes) ||
-        routeData.routes.length === 0
-      ) {
-        continue;
-      }
-
-      const firstRoute = routeData.routes[0];
-      const latency = firstRoute?.min_latency;
-      if (
-        typeof latency === "number" &&
-        !Number.isNaN(latency) &&
-        latency > 0 &&
-        latency < lowestLatency
-      ) {
-        lowestLatency = latency;
-        bestRelayRoute = routeData;
-      }
-    }
-  }
-
-  if (!bestRelayRoute?.routes) return [];
-
-  const routesArray = [...bestRelayRoute.routes] as NodeRoute[];
-  routesArray.sort((a, b) => {
-    const latencyA = a.min_latency || Infinity;
-    const latencyB = b.min_latency || Infinity;
-    return latencyA - latencyB;
-  });
-
-  return routesArray.slice(0, routeSlotCount.value);
-});
-
-const activeDiagramRoutes = computed(() => {
-  if (selectedCityForVisualization.value) {
-    return visualizationRoutes.value;
-  }
-
-  return routesForSelectedInterface.value;
-});
+const activeDiagramRoutes = computed(
+  () => resolvedInterfaceGroup.value?.routes ?? []
+);
 
 watch(
   interfaceRouteGroups,
   (groups) => {
     if (groups.length === 0) {
-      selectedInterfaceIndex.value = 0;
+      selectedInterfaceKey.value = BEST_INTERFACE;
       return;
     }
-    if (selectedInterfaceIndex.value >= groups.length) {
-      selectedInterfaceIndex.value = 0;
+    if (
+      selectedInterfaceKey.value !== BEST_INTERFACE &&
+      !groups.some((g) => g.name === selectedInterfaceKey.value)
+    ) {
+      selectedInterfaceKey.value = BEST_INTERFACE;
     }
   },
   { immediate: true }
@@ -133,6 +115,416 @@ watch(
 
 const chartRef = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
+
+function routeDiagramColor(routeIndex: number): string {
+  const group = resolvedInterfaceGroup.value ?? interfaceRouteGroups.value[0];
+  const iface = group?.name || "iface";
+  const ifaceIndex = group?.index ?? 0;
+  return interfaceConnectionColor(iface, routeIndex, ifaceIndex);
+}
+
+function locationForHopIp(ip?: string | null): string {
+  return getNodeLabelByIp(ip);
+}
+
+function locationForRouteHop(hop: { ip?: string | null } | null | undefined): string {
+  return locationForHopIp(hop?.ip);
+}
+
+type HopTransport = "TCP" | "UDP";
+
+/** Route-level tcp/udp flags (Hop has no transport field yet). */
+function resolveHopTransport(route: NodeRoute): HopTransport {
+  if (route.tcp_available && !route.udp_available) {
+    return "TCP";
+  }
+  if (route.udp_available && !route.tcp_available) {
+    return "UDP";
+  }
+  if (route.tcp_available) {
+    return "TCP";
+  }
+  return "UDP";
+}
+
+/** Intermediate hops: address family. Last hop uses adapter name instead. */
+function hopIpVersionLabel(hop: { ip?: string | null } | null | undefined): string {
+  const ip = hop?.ip?.trim() || "";
+  if (!ip) return "";
+  if (ip.includes(":")) return "IPv6";
+  return "IPv4";
+}
+
+function transportChipStyle(transport: HopTransport, dark: boolean) {
+  const labelColors = resolveDiagramLabelColors();
+  if (transport === "TCP") {
+    return {
+      bg: labelColors.bg,
+      border: labelColors.border,
+      color: dark ? "#90CAF9" : "#1565C0",
+    };
+  }
+  return {
+    bg: labelColors.bg,
+    border: labelColors.border,
+    color: dark ? "#E6D785" : "#8B6914",
+  };
+}
+
+function hopMarkerLabel(
+  hopName: string,
+  transport: HopTransport,
+  ipLabel: string,
+  chrome: ReturnType<typeof resolveDiagramChrome>
+) {
+  const chip = transportChipStyle(transport, isDarkTheme());
+  return {
+    show: true,
+    position: "inside" as const,
+    // City above / chip on the line / IPv4|IPv6 below — balanced so chip centers on the hop
+    formatter: `{a|${hopName}}\n{chip|${transport}}\n{b|${ipLabel}}`,
+    rich: {
+      a: {
+        color: chrome.hopLabel,
+        fontSize: 11,
+        fontWeight: "normal" as const,
+        lineHeight: 14,
+        padding: [0, 0, 4, 0],
+      },
+      chip: {
+        backgroundColor: chip.bg,
+        color: chip.color,
+        borderColor: chip.border,
+        borderWidth: 1,
+        borderRadius: 1.5,
+        padding: [3, 5, 2, 5],
+        fontSize: 10,
+        fontWeight: "normal" as const,
+        lineHeight: 12,
+        align: "center" as const,
+      },
+      b: {
+        color: chrome.hopSub,
+        fontSize: 9,
+        fontWeight: "normal" as const,
+        lineHeight: 14,
+        padding: [4, 0, 0, 0],
+      },
+    },
+  };
+}
+
+function hopMarkerNode(
+  id: string,
+  x: number,
+  y: number,
+  hopName: string,
+  transport: HopTransport,
+  ipLabel: string,
+  chrome: ReturnType<typeof resolveDiagramChrome>,
+  _routeColor: string
+) {
+  return {
+    id,
+    name: hopName,
+    x: px(x),
+    y: px(y),
+    offset: [0, 0],
+    // Transport chip is the on-line marker — no circle behind it
+    symbol: "circle",
+    symbolSize: 0,
+    tooltip: { show: false },
+    silent: true,
+    itemStyle: {
+      color: "transparent",
+      borderWidth: 0,
+    },
+    label: hopMarkerLabel(hopName, transport, ipLabel, chrome),
+  };
+}
+
+const FLOW_LINE_COLOR = "#424242";
+
+/** Snap layout coords to whole pixels. */
+function px(n: number) {
+  return Math.round(n);
+}
+
+function elbowNode(id: string, x: number, y: number) {
+  return {
+    id,
+    name: "",
+    x: px(x),
+    y: px(y),
+    symbolSize: 0,
+    tooltip: { show: false },
+    silent: true,
+    itemStyle: { color: "transparent" },
+    label: { show: false },
+  };
+}
+
+function isDarkTheme() {
+  return theme.current.value.dark;
+}
+
+function resolveDiagramChrome() {
+  if (isDarkTheme()) {
+    return {
+      userFill: "#2D2D2D",
+      userBorder: "transparent",
+      userBorderWidth: 0,
+      userLabel: "#FFFFFF",
+      hopLabel: "#FFFFFF",
+      hopSub: "#888888",
+      seriesLabel: "#FFFFFF",
+      tooltipBg: "rgba(18, 18, 18, 0.92)",
+      tooltipBorder: "rgba(255, 255, 255, 0.08)",
+      tooltipText: "#FFFFFF",
+      tooltipShadow: "0 8px 24px rgba(0,0,0,0.35)",
+    };
+  }
+  return {
+    userFill: "#FFFFFF",
+    userBorder: "#171717",
+    userBorderWidth: 1.5,
+    userLabel: "#171717",
+    hopLabel: "#171717",
+    hopSub: "#5C5C5C",
+    seriesLabel: "#171717",
+    tooltipBg: "rgba(255, 255, 255, 0.96)",
+    tooltipBorder: "rgba(0, 0, 0, 0.14)",
+    tooltipText: "#171717",
+    tooltipShadow: "0 8px 24px rgba(0,0,0,0.12)",
+  };
+}
+
+function resolveDiagramLabelColors() {
+  const colors = theme.current.value.colors;
+  const isDark = isDarkTheme();
+
+  if (chartRef.value && typeof getComputedStyle !== "undefined") {
+    const style = getComputedStyle(chartRef.value);
+    const surface = style.getPropertyValue("--v-theme-surface").trim();
+    const onSurface = style.getPropertyValue("--v-theme-on-surface").trim();
+    if (surface && onSurface) {
+      return {
+        text: `rgb(${onSurface})`,
+        bg: `rgb(${surface})`,
+        border: FLOW_LINE_COLOR,
+      };
+    }
+  }
+
+  return {
+    text: colors["on-surface"] ?? (isDark ? "#FFFFFF" : "#171717"),
+    bg: colors.surface ?? (isDark ? "#1E1E1E" : "#FFFFFF"),
+    border: FLOW_LINE_COLOR,
+  };
+}
+
+function flowLineStyle() {
+  return {
+    color: FLOW_LINE_COLOR,
+    opacity: 1,
+    width: 1,
+    type: "solid" as const,
+    // Round/square caps stick ~1px past elbows so H/V look misaligned
+    cap: "butt" as const,
+    join: "miter" as const,
+  };
+}
+
+function addPingLabelNode(
+  nodes: any[],
+  id: string,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  latencyMs: number
+) {
+  const labelColors = resolveDiagramLabelColors();
+  const text = `${latencyMs}ms`;
+
+  nodes.push({
+    id,
+    name: text,
+    x: px((x1 + x2) / 2),
+    y: px((y1 + y2) / 2),
+    symbolSize: 0,
+    tooltip: { show: false },
+    silent: true,
+    z: 20,
+    label: {
+      show: true,
+      position: "inside",
+      formatter: `{a|${text}}`,
+      rich: {
+        a: {
+          color: labelColors.text,
+          backgroundColor: labelColors.bg,
+          borderColor: labelColors.border,
+          borderWidth: 1,
+          borderRadius: 1.5,
+          padding: [3, 5, 2, 5],
+          lineHeight: 12,
+          fontSize: 11,
+          fontWeight: "normal",
+          textAlign: "center",
+          verticalAlign: "middle",
+        },
+      },
+    },
+  });
+}
+
+type RouteTooltipPayload = {
+  routeTooltip: true;
+  routeIndex: number;
+  routeLabel: string;
+  estimatedPing: number;
+  avg: number;
+  min: number;
+  max: number;
+  score: number;
+};
+
+/** Destination / exit-node tip — no “relay” wording, no server IP. */
+type EndpointTooltipPayload = {
+  endpointTooltip: true;
+  title: string;
+  country?: string;
+  ping: number;
+  score: number;
+};
+
+type DiagramTooltipPayload = RouteTooltipPayload | EndpointTooltipPayload;
+
+function countryDisplayName(iso2?: string | null): string | undefined {
+  if (!iso2) {
+    return undefined;
+  }
+  const name = country.findByIso2(iso2)?.name;
+  return name || undefined;
+}
+
+function buildRouteTooltipPayload(
+  routeIndex: number,
+  route: NodeRoute
+): RouteTooltipPayload {
+  const metrics = routeRelayMetrics(route);
+  return {
+    routeTooltip: true,
+    routeIndex,
+    routeLabel: `Route ${routeIndex + 1}`,
+    estimatedPing: metrics.estimated,
+    avg: metrics.avg,
+    min: metrics.min,
+    max: metrics.max,
+    score: metrics.score,
+  };
+}
+
+function buildEndpointTooltipPayload(
+  hop: { ip?: string | null; latency?: number | null } | null | undefined,
+  route: NodeRoute | null | undefined
+): EndpointTooltipPayload {
+  const ip = hop?.ip || undefined;
+  const node = ip
+    ? Object.values(store.nodes).find(
+        (n) => n.ipv4 === ip || n.ipv6 === ip
+      )
+    : null;
+  const metrics = routeRelayMetrics(route);
+  const hopLatency = hop?.latency || 0;
+  return {
+    endpointTooltip: true,
+    title: locationForHopIp(ip),
+    country: countryDisplayName(node?.country),
+    ping: hopLatency > 0 ? hopLatency : metrics.estimated,
+    score: metrics.score,
+  };
+}
+
+function diagramTooltipMutedLabelColor() {
+  return isDarkTheme() ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)";
+}
+
+function diagramTooltipRow(
+  label: string,
+  value: string,
+  valueColor?: string
+): string {
+  const color = valueColor || "inherit";
+  return `<tr>
+    <td style="padding:3px 14px 3px 0;color:${diagramTooltipMutedLabelColor()};font-size:11px;font-weight:400;white-space:nowrap;vertical-align:baseline">${label}</td>
+    <td style="padding:3px 0;text-align:right;font-size:12px;font-weight:400;color:${color};white-space:nowrap;vertical-align:baseline">${value}</td>
+  </tr>`;
+}
+
+function diagramTooltipTable(rows: string[]): string {
+  return `<table style="border-collapse:collapse;line-height:1.35;min-width:140px">${rows.join("")}</table>`;
+}
+
+function formatRouteTooltip(payload: RouteTooltipPayload): string {
+  const scoreColor =
+    payload.score > 0 ? getScoreColor(payload.score) : undefined;
+  const pingColor =
+    payload.score > 0 ? getScoreColor(payload.score) : undefined;
+  const rows = [
+    diagramTooltipRow("Route", String(payload.routeIndex + 1)),
+    diagramTooltipRow("Ping", `${payload.estimatedPing}ms`, pingColor),
+    diagramTooltipRow("Avg", `${payload.avg}ms`),
+    diagramTooltipRow("Min", `${payload.min}ms`),
+    diagramTooltipRow("Max", `${payload.max}ms`),
+  ];
+  if (payload.score > 0) {
+    rows.push(diagramTooltipRow("Score", String(payload.score), scoreColor));
+  }
+  return diagramTooltipTable(rows);
+}
+
+function formatEndpointTooltip(payload: EndpointTooltipPayload): string {
+  const scoreColor =
+    payload.score > 0 ? getScoreColor(payload.score) : undefined;
+  const rows = [diagramTooltipRow("City", payload.title)];
+  if (payload.country) {
+    rows.push(diagramTooltipRow("Country", payload.country));
+  }
+  if (payload.ping > 0) {
+    rows.push(
+      diagramTooltipRow("Ping", `${payload.ping}ms`, scoreColor)
+    );
+  }
+  if (payload.score > 0) {
+    rows.push(diagramTooltipRow("Score", String(payload.score), scoreColor));
+  }
+  return diagramTooltipTable(rows);
+}
+
+function formatDiagramTooltip(payload: DiagramTooltipPayload | undefined): string | null {
+  if (!payload) {
+    return null;
+  }
+  if ("routeTooltip" in payload && payload.routeTooltip) {
+    return formatRouteTooltip(payload);
+  }
+  if ("endpointTooltip" in payload && payload.endpointTooltip) {
+    return formatEndpointTooltip(payload);
+  }
+  return null;
+}
+
+/** Score colors used by tooltips + estimated-ping badge (hoisted via function). */
+function getScoreColor(score: number): string {
+  const light = !isDarkTheme();
+  if (score >= 80) return light ? "#1B7A2E" : "#4CAF50";
+  if (score >= 60) return light ? "#558B2F" : "#8BC34A";
+  if (score >= 40) return light ? "#F9A825" : "#FFC107";
+  if (score >= 20) return light ? "#EF6C00" : "#FF9800";
+  return light ? "#C62828" : "#F44336";
+}
 
 // Detect if we should use vertical layout for small screens
 const useVerticalLayout = computed(() => {
@@ -165,7 +557,7 @@ function updateChart() {
   const startX = 50; // More space from left edge
   const routeSpacing = 40; // Reduced space between routes
   const hopSpacing = 100; // Spacing between hops
-  
+
   // Calculate dynamic center based on layout direction
   const totalRouteHeight = (routes.length - 1) * routeSpacing;
   const centerY = 0; // Keep center at 0, routes will be distributed around it
@@ -174,343 +566,354 @@ function updateChart() {
   const nodes: any[] = [];
   const links: any[] = [];
 
+  const chrome = resolveDiagramChrome();
+
   // Add user node (keep as circle)
   nodes.push({
     id: "user",
     name: "User",
-    x: startX,
-    y: centerY,
+    x: px(startX),
+    y: px(centerY),
     symbolSize: 40,
+    tooltip: { show: false },
+    silent: true,
     itemStyle: {
-      color: "#2D2D2D",
+      color: chrome.userFill,
       opacity: 1,
-      borderWidth: 0,
+      borderColor: chrome.userBorder,
+      borderWidth: chrome.userBorderWidth,
+    },
+    label: {
+      show: true,
+      position: "inside",
+      color: chrome.userLabel,
+      fontSize: 11,
     },
   });
 
   // Add main branch point from user - moved further right to spread out branches
   const branchPointId = "branch-point";
-  const branchX = startX + hopSpacing / 3; // Moved closer to user to spread branches
-  nodes.push({
-    id: branchPointId,
-    name: "",
-    x: branchX,
-    y: centerY,
-    symbolSize: 0,
-    itemStyle: { color: "transparent" },
-    label: { show: false },
-  });
+  const branchX = px(startX + hopSpacing / 3);
+  nodes.push(elbowNode(branchPointId, branchX, centerY));
 
   // Connect user to branch point
   links.push({
     source: "user",
     target: branchPointId,
-    lineStyle: {
-      color: "#424242",
-      opacity: 1,
-      width: 1,
-      type: "solid",
-    },
+    tooltip: { show: false },
+    lineStyle: flowLineStyle(),
   });
+
+  // Destination convergence X (shared by all routes)
+  const destConvergenceX = px(startX + (maxHops + 1) * hopSpacing);
 
   // Add route nodes and links with equal spacing
   routes.forEach((route, routeIndex) => {
-    // Calculate centered positioning for routes
-    const routeY = centerY - totalRouteHeight / 2 + routeIndex * routeSpacing;
+    const routeY = px(centerY - totalRouteHeight / 2 + routeIndex * routeSpacing);
     const hops = route.hops.length == 1 ? route.hops : route.hops.slice(0, -1);
 
     // Add hop nodes for this route with equal spacing
     // For routes with fewer hops, position them further right to use space better
     const routeOffset = ((maxHops - hops.length) * hopSpacing) / 2;
     hops.forEach((hop, hopIndex) => {
-      const hopX = startX * 1.77777777 + (hopIndex + 1) * hopSpacing + routeOffset;
+      const hopX = px(
+        startX * 1.77777777 + (hopIndex + 1) * hopSpacing + routeOffset
+      );
       const hopId = `route-${routeIndex}-hop-${hopIndex}`;
+      const hopName = locationForRouteHop(hop);
+      const hopNodeX = px(hopX - 24);
+      const transport = resolveHopTransport(route);
+      const ipLabel = hopIpVersionLabel(hop);
+      const routeColor = routeDiagramColor(routeIndex);
 
-      // Find node information by IP
-      let hopName = hop.ip || "Auto";
-      let hopNode = null;
-
-      if (hop.ip) {
-        // Look up node by IP in store.nodes
-        hopNode = Object.values(store.nodes).find(
-          (node) => node.ipv4 === hop.ip || node.ipv6 === hop.ip
-        );
-
-        if (hopNode) {
-          hopName = store.localized(hopNode.city) as string;
-        }
-      }
-
-      // Calculate cumulative latency (sum of all previous hops up to this point)
-      const cumulativeLatency = route.hops.slice(0, hopIndex + 1).reduce((sum, h) => sum + (h.latency || 0), 0);
-
-      nodes.push({
-        id: hopId,
-        name: hopName,
-        x: hopX - 24,
-        y: routeY,
-        offset: [0, 0],
-        value: "hop", // Mark as hop node for tooltip
-        label: {
-          show: true,
-          position: "inside",
-          formatter: `{a|${hopName}}\n\n{b|IPv4 Route}`,
-          rich: {
-            a: {
-              color: "#FFFFFF",
-              fontSize: 11,
-              lineHeight: 20,
-            },
-            b: {
-              color: "#888888",
-              fontSize: 9,
-              lineHeight: 14,
-            },
-          },
-        },
-      });
+      nodes.push(
+        hopMarkerNode(
+          hopId,
+          hopNodeX,
+          routeY,
+          hopName,
+          transport,
+          ipLabel,
+          chrome,
+          routeColor
+        )
+      );
 
       // Add link from previous node with angular path using waypoints
       if (hopIndex === 0) {
         // Create waypoint for angular path from branch point to first hop
         const waypointId = `waypoint-${routeIndex}-${hopIndex}`;
-        const waypointX = branchX; // Same X as branch point
 
-        // Add invisible waypoint node at the route's Y position with equal spacing
-        nodes.push({
-          id: waypointId,
-          name: "",
-          x: waypointX,
-          y: routeY, // Use calculated routeY for equal spacing
-          symbolSize: 0,
-          itemStyle: { color: "transparent" },
-          label: { show: false },
-        });
+        // Point elbow — no rect cap (those attach edges to box sides → 1px stubs)
+        nodes.push(elbowNode(waypointId, branchX, routeY));
 
         // Connect branch point -> waypoint (vertical line to route level)
         links.push({
           source: "branch-point",
           target: waypointId,
-          lineStyle: {
-            color: "#424242",
-            opacity: 1,
-            width: 1,
-            type: "solid",
-          },
+          tooltip: { show: false },
+          lineStyle: flowLineStyle(),
         });
-        // Show individual hop latency on label, cumulative in tooltip
         const firstHopLatency = route.hops[0]?.latency || 0;
-        const firstHopCumulativeLatency = route.hops.slice(0, hopIndex + 1).reduce((sum, h) => sum + (h.latency || 0), 0);
         links.push({
           source: waypointId,
           target: hopId,
-          value: firstHopCumulativeLatency, // Store cumulative latency for tooltip
-          label: {
-            show: true,
-            position: "middle",
-            formatter: `{a|${firstHopLatency}ms}`,
-            rich: {
-              a: {
-                color: "#FFFFFF",
-                backgroundColor: "rgba(0, 0, 0, 0.6)",
-                borderColor: "rgba(255, 255, 255, 0.2)",
-                borderWidth: 1,
-                borderRadius: 4,
-                padding: [3, 6, 2, 6],
-                lineHeight: 16,
-                textAlign: "center",
-                verticalAlign: "middle",
-              },
-            },
-            offset: [-11, 11],
-          },
+          tooltip: { show: false },
+          lineStyle: flowLineStyle(),
         });
+        addPingLabelNode(
+          nodes,
+          `ping-${routeIndex}-${hopIndex}`,
+          branchX,
+          routeY,
+          hopNodeX,
+          routeY,
+          firstHopLatency
+        );
       } else {
         const prevHopId = `route-${routeIndex}-hop-${hopIndex - 1}`;
-        // Show individual hop latency on label, cumulative in tooltip
+        const prevHopNodeX = px(
+          startX * 1.77777777 + hopIndex * hopSpacing + routeOffset - 24
+        );
         const individualHopLatency = hop.latency || 0;
-        const hopCumulativeLatency = route.hops.slice(0, hopIndex + 1).reduce((sum, h) => sum + (h.latency || 0), 0);
         links.push({
           source: prevHopId,
           target: hopId,
-          value: hopCumulativeLatency, // Store cumulative latency for tooltip
-          label: {
-            show: true,
-            position: "middle",
-            formatter: `{a|${individualHopLatency}ms}`,
-            rich: {
-              a: {
-                color: "#FFFFFF",
-                backgroundColor: "rgba(0, 0, 0, 0.6)",
-                borderColor: "rgba(255, 255, 255, 0.2)",
-                borderWidth: 1,
-                borderRadius: 4,
-                padding: [3, 6, 2, 6],
-                lineHeight: 16,
-                textAlign: "center",
-                verticalAlign: "middle",
-              },
-            },
-            offset: [0, 11],
-          },
+          tooltip: { show: false },
+          lineStyle: flowLineStyle(),
         });
+        addPingLabelNode(
+          nodes,
+          `ping-${routeIndex}-${hopIndex}`,
+          prevHopNodeX,
+          routeY,
+          hopNodeX,
+          routeY,
+          individualHopLatency
+        );
       }
     });
 
     if (hops.length > 0) {
       const lastHopId = `route-${routeIndex}-hop-${hops.length - 1}`;
       const waypointId = `waypoint-dest-${routeIndex}`;
-      const waypointX = startX + (maxHops + 1) * hopSpacing;
+      const waypointX = destConvergenceX;
+
+      nodes.push(elbowNode(waypointId, waypointX, routeY));
+
+      const finalHop = route.hops[route.hops.length - 1];
+      const finalHopLatency =
+        route.hops.length === 1 ? 0 : finalHop?.latency || 0;
+      const routeTooltip = buildRouteTooltipPayload(routeIndex, route);
+      const lastHopNodeX = px(
+        startX * 1.77777777 + hops.length * hopSpacing + routeOffset - 24
+      );
+
+      // Full route hit strip between the trunks
+      const hitLeft = branchX;
+      const hitRight = waypointX;
+      const hitWidth = Math.max(hitRight - hitLeft + 24, 96);
+      const hitX = px((hitLeft + hitRight) / 2);
 
       nodes.push({
-        id: waypointId,
+        id: `route-${routeIndex}-hit`,
         name: "",
-        x: waypointX,
-        y: routeY, // Use routeY for proper vertical line
-        symbolSize: 0,
-        itemStyle: { color: "transparent" },
+        x: hitX,
+        y: routeY,
+        symbol: "rect",
+        symbolSize: [hitWidth, 36],
+        tooltip: { show: true },
+        silent: false,
+        z: 200,
+        itemStyle: {
+          color: "transparent",
+          opacity: 0,
+          borderWidth: 0,
+        },
+        emphasis: {
+          scale: false,
+          itemStyle: {
+            color: "transparent",
+            opacity: 0,
+          },
+        },
+        value: routeTooltip,
         label: { show: false },
       });
 
-      // Show individual hop latency on label, cumulative in tooltip
-      // For single hop, label shows 0ms but tooltip shows cumulative
-      const finalHop = route.hops[route.hops.length - 1];
-      const finalHopLatency = route.hops.length === 1 ? 0 : (finalHop?.latency || 0);
-      const totalCumulativeLatency = route.hops.reduce((sum, hop) => sum + (hop?.latency || 0), 0);
-      // Horizontal line AFTER final hop - this is where we show Avg, Min, Max, Score, Estimated Ping in tooltip
       links.push({
         source: lastHopId,
         target: waypointId,
-        value: {
-          avg: route.avg_latency || 0,
-          min: route.min_latency || 0,
-          max: route.max_latency || 0,
-          score: route.score || 0,
-          estimatedPing: route.min_latency || 0, // Estimated ping is min_latency
-          isFinalLine: true, // Mark as final horizontal line after hop
-        },
-        label: {
-          show: true,
-          position: "middle",
-          formatter: `{a|${finalHopLatency}ms}`,
-          rich: {
-            a: {
-              color: "#FFFFFF",
-              backgroundColor: "rgba(0, 0, 0, 0.6)",
-              borderColor: "rgba(255, 255, 255, 0.2)",
-              borderWidth: 1,
-              borderRadius: 4,
-              padding: [3, 6, 2, 6],
-            },
-          },
-          offset: [11, 11],
-        },
+        tooltip: { show: false },
+        lineStyle: flowLineStyle(),
       });
-      // Vertical convergence line (no special tooltip)
+      addPingLabelNode(
+        nodes,
+        `ping-${routeIndex}-final`,
+        lastHopNodeX,
+        routeY,
+        waypointX,
+        routeY,
+        finalHopLatency
+      );
       links.push({
         source: waypointId,
         target: "dest-convergence",
-        lineStyle: {
-          color: "#424242",
-          opacity: 1,
-          width: 1,
-          type: "solid",
-        },
+        tooltip: { show: false },
+        lineStyle: flowLineStyle(),
       });
     } else {
       // If no hops, connect directly from user to destination
       links.push({
         source: "user",
         target: "destination",
-        lineStyle: {
-          color: "#424242",
-          opacity: 1,
-          width: 1,
-          type: "solid",
-        },
+        lineStyle: flowLineStyle(),
       });
     }
   });
 
+  // Spine hits: left = route metrics; right (exit node) = location tip, not route #.
+  if (routes.length > 0) {
+    const leftSpineTooltip = buildRouteTooltipPayload(0, routes[0]);
+    const bestForEndpoint =
+      bestRouteRelayLatency(routes).route ?? routes[0];
+    const endpointHop =
+      bestForEndpoint.hops?.[bestForEndpoint.hops.length - 1] ?? null;
+    const rightSpineTooltip = buildEndpointTooltipPayload(
+      endpointHop,
+      bestForEndpoint
+    );
+
+    const spineHit = (
+      id: string,
+      x1: number,
+      x2: number,
+      y: number,
+      height: number,
+      tooltipValue: DiagramTooltipPayload
+    ) => {
+      const width = Math.max(Math.abs(x2 - x1) + 16, 48);
+      nodes.push({
+        id,
+        name: "",
+        x: px((x1 + x2) / 2),
+        y: px(y),
+        symbol: "rect",
+        symbolSize: [width, height],
+        tooltip: { show: true },
+        silent: false,
+        z: 200,
+        itemStyle: {
+          color: "transparent",
+          opacity: 0,
+          borderWidth: 0,
+        },
+        emphasis: {
+          scale: false,
+          itemStyle: { color: "transparent", opacity: 0 },
+        },
+        value: tooltipValue,
+        label: { show: false },
+      });
+    };
+
+    const spineHeight = Math.max(totalRouteHeight + 48, 56);
+    spineHit("spine-hit-left", startX, branchX, centerY, spineHeight, leftSpineTooltip);
+    spineHit(
+      "spine-hit-right",
+      destConvergenceX,
+      destConvergenceX + 70,
+      centerY,
+      spineHeight,
+      rightSpineTooltip
+    );
+  }
+
   // Add destination convergence point (like branch point on user side)
   const destConvergenceId = "dest-convergence";
-  const destConvergenceX = startX + (maxHops + 1) * hopSpacing; // Position at the rightmost route
-  nodes.push({
-    id: destConvergenceId,
-    name: "",
-    x: destConvergenceX,
-    y: centerY,
-    symbolSize: 0,
-    itemStyle: { color: "transparent" },
-    label: { show: false },
-  });
+  nodes.push(elbowNode(destConvergenceId, destConvergenceX, centerY));
 
-  const profileState = store.profileStates[props.profile.id];
   let destinationName = "Dest";
   let estimatedPing: number | null = null;
-  
-  if (routes.length > 0) {
+  const bestForDest = bestRouteRelayLatency(routes);
+
+  if (bestForDest.route) {
+    estimatedPing = bestForDest.ping || null;
+    const lastHop = bestForDest.route.hops?.[bestForDest.route.hops.length - 1];
+    if (lastHop) {
+      destinationName = locationForRouteHop(lastHop);
+    }
+  } else if (routes.length > 0) {
     const bestRoute = routes[0];
-    estimatedPing = bestRoute.min_latency || null;
-    if (bestRoute.hops && bestRoute.hops.length > 0) {
-      const lastHop = bestRoute.hops[bestRoute.hops.length - 1];
-      if (lastHop?.ip) {
-        const destinationNode = Object.values(store.nodes).find(
-          (node) => node.ipv4 === lastHop.ip || node.ipv6 === lastHop.ip
-        );
-        if (destinationNode) {
-          destinationName = store.localized(destinationNode.city) as string;
-        }
-      }
+    estimatedPing = routeRelayLatency(bestRoute) || null;
+    const lastHop = bestRoute.hops?.[bestRoute.hops.length - 1];
+    if (lastHop) {
+      destinationName = locationForRouteHop(lastHop);
     }
   }
 
+  const destColor =
+    routes.length > 0 ? routeDiagramColor(0) : "#424242";
+
+  // Final exit hop: city above, adapter name below (empty slot in the path)
+  const adapterLabel = selectedAdapterName.value || "";
   nodes.push({
     id: "destination",
-    name: "Dest",
-    x: destConvergenceX + 30,
-    y: centerY,
-    value: estimatedPing, // Store estimated ping for tooltip
+    name: destinationName,
+    x: px(destConvergenceX + 30),
+    y: px(centerY),
+    symbol: "circle",
+    symbolSize: 10,
+    tooltip: { show: false },
+    silent: true,
+    itemStyle: {
+      color: destColor,
+      borderColor: destColor,
+      borderWidth: 0,
+    },
     label: {
-      offset: [0, 0],
       show: true,
       position: "inside",
-      formatter: `{a|${destinationName}}\n\n{b|IPv4 Route}`,
+      distance: 0,
+      formatter: adapterLabel
+        ? `{a|${destinationName}}\n{b|${adapterLabel}}`
+        : `{a|${destinationName}}`,
       rich: {
         a: {
-          color: "#FFFFFF",
+          color: chrome.hopLabel,
           fontSize: 11,
-          lineHeight: 20,
+          fontWeight: "normal",
+          lineHeight: 14,
+          align: "center",
+          padding: [0, 0, 14, 0],
         },
         b: {
-          color: "#888888",
+          color: chrome.hopSub,
           fontSize: 9,
+          fontWeight: "normal",
           lineHeight: 14,
+          align: "center",
+          padding: [14, 0, 0, 0],
         },
       },
     },
   });
 
-  // Connect destination convergence point to destination
   links.push({
     source: destConvergenceId,
     target: "destination",
-    lineStyle: {
-      color: "#424242",
-      opacity: 1,
-      width: 1, // Normal width
-      type: "solid",
-    },
+    tooltip: { show: false },
+    lineStyle: flowLineStyle(),
   });
 
-
-  // Add game server node after destination with proper spacing
   nodes.push({
     id: "game-server",
     name: "Game",
-    x: destConvergenceX + 70, // Proper spacing from destination
-    y: centerY,
-    symbolSize: 0, // Make it invisible
+    x: px(destConvergenceX + 70),
+    y: px(centerY),
+    symbolSize: 0,
+    tooltip: { show: false },
+    silent: true,
     itemStyle: { color: "transparent" },
     label: {
       show: true,
@@ -530,19 +933,15 @@ function updateChart() {
     },
   });
 
-  // Connect destination to game server
   links.push({
     source: "destination",
     target: "game-server",
-    lineStyle: {
-      color: "#424242",
-      opacity: 1,
-      width: 1,
-      type: "solid",
-    },
+    tooltip: { show: false },
+    lineStyle: flowLineStyle(),
   });
 
   const option = {
+    animation: false,
     grid: {
       left: 0,
       right: 0,
@@ -553,40 +952,61 @@ function updateChart() {
     tooltip: {
       show: true,
       trigger: "item",
-      formatter: (params: any) => {
-        // Show tooltip ONLY for horizontal line AFTER final hop (from lastHopId to waypointId)
-        // This link has isFinalLine: true and object value with avg, min, max, score, estimatedPing
-        if (params.dataType === "edge" && 
-            params.value && 
-            typeof params.value === "object" && 
-            params.value.isFinalLine === true &&
-            params.value.avg !== undefined) {
-          const { avg, min, max, score, estimatedPing } = params.value;
-          return `Estimated Ping: ${estimatedPing}ms<br/>` +
-                 `Avg: ${avg}ms<br/>` +
-                 `Min: ${min}ms<br/>` +
-                 `Max: ${max}ms<br/>` +
-                 `Score: ${score}`;
+      triggerOn: "mousemove",
+      renderMode: "html",
+      // Flip above/below (and clamp horizontally) like axis tooltips —
+      // always-above + pointer-events caused sticky/covered hover.
+      position: (
+        point: number[],
+        _params: unknown,
+        _dom: unknown,
+        _rect: unknown,
+        size: { contentSize: number[]; viewSize: number[] }
+      ) => {
+        const [contentW, contentH] = size.contentSize;
+        const [viewW, viewH] = size.viewSize;
+        const gap = 12;
+        const margin = 8;
+
+        let y = point[1] - contentH - gap;
+        if (y < margin) {
+          y = point[1] + gap;
         }
-        // Show tooltip for other links with cumulative latency (number value, NOT object)
-        if (params.dataType === "edge" && typeof params.value === "number") {
-          return `Route Latency: ${params.value}ms`;
+        if (y + contentH > viewH - margin) {
+          y = Math.max(margin, Math.min(y, viewH - contentH - margin));
         }
-        // Show tooltip for destination node (final node before game icon) with estimated ping
-        if (params.dataType === "node" && params.data && params.data.id === "destination" && params.value !== null && params.value !== undefined) {
-          return `Estimated Ping: ${params.value}ms`;
+
+        let x = point[0] - contentW / 2;
+        if (x < margin) {
+          x = margin;
+        } else if (x + contentW > viewW - margin) {
+          x = Math.max(margin, viewW - contentW - margin);
         }
-        // No tooltip for anything else (including hop nodes, vertical lines, etc.)
-        return "";
+
+        return [x, y];
       },
-      backgroundColor: "rgba(0, 0, 0, 0.8)",
-      borderColor: "rgba(255, 255, 255, 0.2)",
+      enterable: false,
+      hideDelay: 0,
+      showDelay: 0,
+      transitionDuration: 0,
+      confine: false,
+      alwaysShowContent: false,
+      formatter: (params: any) => {
+        return formatDiagramTooltip(
+          params.data?.value as DiagramTooltipPayload | undefined
+        );
+      },
+      backgroundColor: chrome.tooltipBg,
+      borderColor: chrome.tooltipBorder,
       borderWidth: 1,
       textStyle: {
-        color: "#FFFFFF",
+        color: chrome.tooltipText,
         fontSize: 12,
+        fontWeight: "normal",
       },
-      padding: [8, 12],
+      padding: [8, 10],
+      extraCssText:
+        `border-radius:8px;box-shadow:${chrome.tooltipShadow};pointer-events:none;`,
     },
     series: [
       {
@@ -595,24 +1015,39 @@ function updateChart() {
         data: nodes,
         links: links,
         roam: false,
+        tooltip: {
+          show: true,
+        },
         label: {
           show: true,
           position: "inside",
-          color: "#fff",
+          color: chrome.seriesLabel,
           opacity: 1,
           fontSize: 11,
         },
         lineStyle: {
-          color: "#424242",
+          color: FLOW_LINE_COLOR,
           opacity: 1,
           width: 1,
           curveness: 0,
           type: "solid",
+          cap: "butt",
+          join: "miter",
         },
         edgeSymbol: ["none", "none"],
         edgeSymbolSize: 0,
         emphasis: {
-          disabled: true, // Disable all emphasis/hover effects
+          focus: "none",
+          scale: false,
+          itemStyle: {
+            opacity: 1,
+          },
+          lineStyle: {
+            opacity: 1,
+            width: 1,
+            cap: "butt",
+            join: "miter",
+          },
         },
       },
     ],
@@ -658,38 +1093,80 @@ onBeforeUnmount(() => {
   }
 });
 
-// Computed property for estimated ping value and score
+// Latency for the currently shown interface group (Best → winning NIC).
 const estimatedPingDisplay = computed(() => {
-  const routes = activeDiagramRoutes.value;
-
-  if (routes.length > 0) {
-    const bestRoute = routes[0];
-    return {
-      ping: bestRoute.min_latency || 0,
-      score: bestRoute.score || 0,
-    };
+  if (probedBestOverride.value && probedBestOverride.value.ping > 0) {
+    return probedBestOverride.value;
   }
-  return { ping: 0, score: 0 };
+  const best = bestRouteRelayLatency(activeDiagramRoutes.value);
+  return { ping: best.ping, score: best.score };
 });
 
-// Function to get color based on score
-const getScoreColor = (score: number): string => {
-  if (score >= 80) return "#4CAF50"; // Green for excellent
-  if (score >= 60) return "#8BC34A"; // Light green for good
-  if (score >= 40) return "#FFC107"; // Yellow for fair
-  if (score >= 20) return "#FF9800"; // Orange for poor
-  return "#F44336"; // Red for very poor
-};
+function normalizeProbedRoutes(raw: unknown): NodeRouteType[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .map((item) => {
+      try {
+        return NodeRoute.createFrom(item) as NodeRouteType;
+      } catch {
+        return null;
+      }
+    })
+    .filter((route): route is NodeRouteType => route != null);
+}
+
+async function probeEstimatedPingNow() {
+  if (probingEstimatedPing.value) {
+    return;
+  }
+  const routes = activeDiagramRoutes.value;
+  if (!routes.length) {
+    return;
+  }
+
+  probingEstimatedPing.value = true;
+  try {
+    const iface = resolvedInterfaceGroup.value?.name ?? "";
+    const raw = await Call.ByName(
+      "main.Service.ProbeNodeRoutes",
+      routes,
+      iface
+    );
+    const probed = normalizeProbedRoutes(raw);
+    const best = bestRouteRelayLatency(probed);
+    if (best.ping > 0) {
+      probedBestOverride.value = { ping: best.ping, score: best.score };
+    }
+
+    const relayId = primaryRelayNodeId.value;
+    if (relayId) {
+      await Call.ByName("main.Service.ForceProbeRelay", relayId).catch(() => undefined);
+    }
+  } catch (error) {
+    console.warn("Estimated ping probe failed:", error);
+  } finally {
+    probingEstimatedPing.value = false;
+  }
+}
+
+watch(
+  [activeDiagramRoutes, selectedInterfaceKey],
+  () => {
+    probedBestOverride.value = null;
+  }
+);
 
 watch(
   [
     shouldShowDiagram,
     numberOfRoutes,
     activeDiagramRoutes,
-    visualizationRoutes,
-    selectedCityForVisualization,
-    selectedInterfaceIndex,
+    selectedInterfaceKey,
+    selectedAdapterName,
     () => store.routes,
+    () => theme.current.value.dark,
   ],
   () => {
     updateChart();
@@ -706,52 +1183,45 @@ watch(
 <template>
   <div
     v-if="shouldShowDiagram"
-    style="position: relative; width: 100%; margin: 0; padding: 0;"
+    class="route-diagram-root"
+    style="position: relative; width: 100%; margin: 0; padding: 0; overflow: visible;"
   >
     <div
       ref="chartRef"
+      class="route-diagram-chart"
       :style="`width: 100%; margin: 0; padding: 0; max-height: 400px; aspect-ratio: 5/2; height: ${Math.max(150, Math.max(1, activeDiagramRoutes.length) * 60 + 120)}px;`"
     ></div>
-    <div
-      style="position: absolute; top: 1rem; right: 1rem; background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; text-align: center; min-width: 100px;"
+    <button
+      type="button"
+      class="estimated-ping-badge"
+      :class="{ 'estimated-ping-badge--dark': theme.current.value.dark }"
+      :disabled="probingEstimatedPing || activeDiagramRoutes.length === 0"
+      :title="t('$vuetify.title.profile.probeEstimatedPingHint')"
+      @click="probeEstimatedPingNow"
     >
-      <div style="color: #FFFFFF; font-size: 11px; line-height: 16px; margin-bottom: 3px; padding-top: 4px">
-        Estimated Ping
+      <div class="estimated-ping-badge__label">
+        {{ probingEstimatedPing ? t('$vuetify.title.profile.probingPing') : t('$vuetify.title.profile.estimatedPing') }}
       </div>
       <div
-        :style="`color: ${getScoreColor(estimatedPingDisplay.score)}; font-size: 1.1rem; font-weight: bold; line-height: 16px; padding-bottom: 4px`"
+        class="estimated-ping-badge__value"
+        :style="{ color: getScoreColor(estimatedPingDisplay.score) }"
       >
-        {{ estimatedPingDisplay.ping }}ms
+        {{ estimatedPingDisplay.ping || '—' }}{{ estimatedPingDisplay.ping ? 'ms' : '' }}
       </div>
-    </div>
+    </button>
     <div
       v-if="showInterfaceSelector"
       class="route-diagram-interface"
       style="position: absolute; top: 1rem; left: 1rem;"
     >
       <v-select
-        v-model="selectedInterfaceIndex"
+        v-model="selectedInterfaceKey"
         :items="interfaceSelectItems"
         :label="t('$vuetify.title.profile.interface')"
         density="compact"
         hide-details
         single-line
         variant="plain"
-      />
-    </div>
-    <div
-      class="route-diagram-selectors"
-      style="position: absolute; bottom: 1rem; right: 1rem;"
-    >
-      <v-select
-        v-model="selectedCityForVisualization"
-        :items="availableCities"
-        :label="t('$vuetify.title.profile.city')"
-        clearable
-        single-line
-        variant="plain"
-        density="compact"
-        hide-details
       />
     </div>
   </div>
@@ -761,9 +1231,63 @@ watch(
 </template>
 
 <style scoped>
-.route-diagram-interface,
-.route-diagram-selectors {
+.route-diagram-root,
+.route-diagram-chart {
+  overflow: visible !important;
+}
+
+.route-diagram-chart :deep(canvas) {
+  overflow: visible;
+}
+
+.route-diagram-interface {
   min-width: 140px;
-  max-width: 200px;
+  max-width: 220px;
+}
+
+.estimated-ping-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  min-width: 100px;
+  margin: 0;
+  padding: 0;
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+  color: inherit;
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.18);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.estimated-ping-badge:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.estimated-ping-badge__label {
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 11px;
+  line-height: 16px;
+  margin-bottom: 3px;
+  padding-top: 4px;
+}
+
+.estimated-ping-badge__value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  line-height: 16px;
+  padding-bottom: 4px;
+}
+
+.estimated-ping-badge--dark {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+.estimated-ping-badge--dark .estimated-ping-badge__label {
+  color: #ffffff;
 }
 </style>

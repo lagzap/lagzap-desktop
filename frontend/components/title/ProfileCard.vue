@@ -8,10 +8,19 @@ import RouteDiagram from "~/components/title/RouteDiagram.vue";
 import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.vue";
 import ProfilePingUsage from "~/components/title/ProfilePingUsage.vue";
 import { ProfileFlag } from "~/constants/profile";
+import { useProfileDisplayRoutes } from "~/composables/useProfileDisplayRoutes";
 
 const props = defineProps<{
   profile: Profile;
 }>();
+
+const { connections } = useMonitoringStore();
+
+const hasProfileConnections = computed(() =>
+  (connections.value ?? []).some(
+    (connection) => connection.profile_id === props.profile.id
+  )
+);
 
 const showProfileSections = computed(
   () =>
@@ -21,6 +30,7 @@ const showProfileSections = computed(
 );
 
 const store = useStore();
+const { numberOfRoutes } = useProfileDisplayRoutes(computed(() => props.profile));
 
 const toggleProfile = async (profile: any) => {
   if (store.isProfileActive(profile.id)) {
@@ -42,13 +52,9 @@ const routeSettingsText = computed(() => {
     (props.profile.flags & ProfileFlag.MULTIPATH) != 0 &&
     props.profile.route_action == "route"
   ) {
-    const udpConnections = profileState.udp_connections;
-    if (udpConnections > 1) {
-      parts.push(`${udpConnections} Routes`);
-    }
-
-    if (profileState.allow_local_routes) {
-      parts.push("Local routes");
+    const routeCount = numberOfRoutes.value;
+    if (routeCount > 1) {
+      parts.push(`${routeCount} Routes`);
     }
   } else if (props.profile.route_action == "route") {
     if ((props.profile.flags & ProfileFlag.BYPASS_SANCTIONS) != 0) {
@@ -60,6 +66,13 @@ const routeSettingsText = computed(() => {
     }
   } else if (props.profile.route_action == "proxy") {
     parts.push("Proxy");
+  }
+
+  if (
+    props.profile.route_action == "route" &&
+    profileState.allow_local_routes
+  ) {
+    parts.push("Domestic routes");
   }
 
   // Add network interfaces info if custom
@@ -116,11 +129,14 @@ const routeSettingsText = computed(() => {
     </v-card-subtitle>
 
     <v-card-text v-if="showProfileSections" class="pt-0 profile-sections">
-      <RouteDiagram :profile="props.profile" class="mb-4" />
-
+      <RouteDiagram :profile="props.profile" />
+      <v-divider class="my-4" />
       <ProfilePingUsage :profile-id="props.profile.id" class="mb-4" />
-
-      <ProfileConnectionsTable :profile-id="props.profile.id" :limit="5" />
+      <ProfileConnectionsTable
+        v-if="hasProfileConnections"
+        :profile-id="props.profile.id"
+        :limit="5"
+      />
     </v-card-text>
   </v-card>
 </template>
