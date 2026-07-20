@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { useDisplay, useTheme, useLocale } from "vuetify";
-import { Events, System, Window } from "@wailsio/runtime";
+import { Events, Window } from "@wailsio/runtime";
 import { useMessagesStore } from "~/stores/messages";
 import OptimizeParticles from "~/components/effects/OptimizeParticles.vue";
+import InterfaceReconnectOverlay from "~/components/network/InterfaceReconnectOverlay.vue";
+import {
+  syncThemeFromSetting,
+  type AppThemeSetting,
+} from "~/composables/useSettings";
 
 const store = useStore();
 const messages = useMessagesStore();
@@ -21,25 +26,42 @@ window.addEventListener(
 const theme = useTheme();
 const locale = useLocale();
 const { mobile } = useDisplay();
-const { settings, loadSettings, isLoaded } = useSettings(locale, theme);
+const { settings, isLoaded } = useSettings(locale, theme);
 
 const isMaximized = ref<boolean>(false);
 const loaded = ref(false);
+const route = useRoute();
+/** First paint after spa-loading-template → start-service: fade, not zoom. */
+const isStartServiceBoot = computed(
+  () =>
+    route.meta.layout === "start" || route.path.startsWith("/start-service")
+);
+/** Pop-out latency window uses its own chrome; hide main title-bar buttons. */
+const isOverlayWindow = computed(
+  () =>
+    route.meta.layout === "overlay" ||
+    route.path.startsWith("/latency-overlay")
+);
 
 onMounted(async () => {
-  await loadSettings();
+  if (isLoaded.value) {
+    await syncThemeFromSetting(settings.value.theme ?? "system", theme);
+  }
   setTimeout(() => {
     loaded.value = true;
   }, 300);
   isMaximized.value = await Window.IsMaximised();
 });
 
-watch(isLoaded, (loaded) => {
-  if (loaded && (!settings.value.theme || settings.value.theme === "system")) {
-    System.IsDarkMode().then((systemTheme) => {
-      theme.change(systemTheme ? "dark" : "light");
-    });
+watch(isLoaded, async (loaded) => {
+  if (!loaded) {
+    return;
   }
+  await syncThemeFromSetting(settings.value.theme ?? "system", theme);
+});
+
+Events.On("app-theme-changed", ({ data }) => {
+  syncThemeFromSetting(data as AppThemeSetting, theme);
 });
 
 Events.On("theme", ({ data }) => {
@@ -65,10 +87,16 @@ async function close() {
 </script>
 
 <template>
-  <NuxtLayout :class="{ 'layout-enter-active': !loaded }">
+  <NuxtLayout
+    :class="{
+      'layout-enter-active': !loaded && !isStartServiceBoot,
+      'layout-fade-enter-active': !loaded && isStartServiceBoot,
+    }"
+  >
     <NuxtPage />
   </NuxtLayout>
   <div
+    v-if="!isOverlayWindow"
     class="d-flex align-self-start position-fixed top-0"
     :class="{
       'flex-row-reverse': $vuetify.locale.isRtl,
@@ -120,9 +148,15 @@ async function close() {
     </v-btn>
   </div>
 
-  <v-snackbar-queue v-model="messages.queue" :timeout="1000" />
-  
-  <OptimizeParticles />
+  <v-snackbar-queue
+    v-if="!isOverlayWindow"
+    v-model="messages.queue"
+    :timeout="1000"
+  />
+
+  <InterfaceReconnectOverlay v-if="!isOverlayWindow" />
+
+  <OptimizeParticles v-if="!isOverlayWindow" />
 </template>
 
 <style lang="scss">
@@ -130,5 +164,9 @@ async function close() {
   background:
     radial-gradient(ellipse 80% 50% at 50% -10%, rgb(230 215 133 / 0.03), transparent),
     linear-gradient(180deg, #141414 0%, #0a0a0a 100%);
+}
+
+.overlay-layout.v-application {
+  background: transparent !important;
 }
 </style>

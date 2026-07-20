@@ -14,6 +14,10 @@ const { t } = useLocale();
 const data = useSanctumUser<DataResponse>();
 const { logout } = useSanctumAuth()
 const user = computed(() => data.value.user);
+const { planName, planStatusLabel } = useAccountStatus();
+const planSubtitle = computed(
+  () => `${planName.value} · ${planStatusLabel.value}`
+);
 const { mobile } = useDisplay();
 const store = useStore();
 
@@ -87,22 +91,10 @@ async function checkForUpdates() {
           <v-list-item rounded="xl" height="56">
             <template #title>
               <LogoName class="ms-3 me-1" />
-              <span v-if="false" class="lagzap-name ms-3 me-1">
-                Lag<span
-                  :class="
-                    running
-                      ? 'text-primary'
-                      : store.error
-                      ? 'text-red'
-                      : 'text-grey'
-                  "
-                  >Z</span
-                >ap
-              </span>
             </template>
             <template #prepend>
               <span class="cursor-pointer" v-bind="props">
-                <v-avatar rounded="0" size="32">
+                <v-avatar rounded="circle" size="32">
                   <CyrexLogo />
                 </v-avatar>
                 <v-icon icon="mdi-chevron-down" size="xs" />
@@ -156,7 +148,7 @@ async function checkForUpdates() {
               v-if="user"
               :to="{ name: 'profile' }"
               :title="user.name ?? t('$vuetify.status.player1')"
-              :subtitle="t('$vuetify.status.unlimited')"
+              :subtitle="planSubtitle"
             >
               <template #prepend>
                 <v-avatar
@@ -176,16 +168,28 @@ async function checkForUpdates() {
               </template>
 
               <template #append>
-                <v-switch
-                  :model-value="running"
-                  inset
-                  hide-details
-                  density="comfortable"
-                  :color="store.error ? 'red' : 'green'"
-                  :disabled="!store.serviceReady"
-                  :loading="store.loading"
-                  @click.stop.prevent="store.toggleNDIS()"
-                />
+                <v-tooltip
+                  :text="
+                    running
+                      ? t('$vuetify.accountStatus.serviceRoutingHint')
+                      : t('$vuetify.accountStatus.servicePausedHint')
+                  "
+                >
+                  <template #activator="{ props: tipProps }">
+                    <div v-bind="tipProps">
+                      <v-switch
+                        :model-value="running"
+                        inset
+                        hide-details
+                        density="comfortable"
+                        :color="store.error ? 'red' : 'green'"
+                        :disabled="!store.serviceReady"
+                        :loading="store.loading"
+                        @click.stop.prevent="store.toggleNDIS()"
+                      />
+                    </div>
+                  </template>
+                </v-tooltip>
               </template>
             </v-list-item>
           </v-list>
@@ -194,7 +198,7 @@ async function checkForUpdates() {
 
             <v-list-item prepend-icon="mdi-cog" :to="{ name: 'settings' }">
               <template #title>
-                <span class="text-caption">Settings</span>
+                <span class="text-caption">{{ t('$vuetify.navigation.settings') }}</span>
               </template>
             </v-list-item>
             <v-list-item prepend-icon="mdi-update" @click="checkForUpdates">
@@ -302,6 +306,27 @@ async function checkForUpdates() {
         :to="{ name: 'admin-routes' }"
         title="Route Monitoring"
         prepend-icon="mdi-network-pos"
+        rounded="xl"
+        density="compact"
+      />
+      <v-list-item
+        :to="{ name: 'admin-path-pings' }"
+        title="Path Pings"
+        prepend-icon="mdi-swap-horizontal-variant"
+        rounded="xl"
+        density="compact"
+      />
+      <v-list-item
+        :to="{ name: 'admin-live' }"
+        title="Live Relay Monitor"
+        prepend-icon="mdi-radar"
+        rounded="xl"
+        density="compact"
+      />
+      <v-list-item
+        :to="{ name: 'admin-lag-fix' }"
+        title="Lag Fix Events"
+        prepend-icon="mdi-swap-horizontal"
         rounded="xl"
         density="compact"
       />

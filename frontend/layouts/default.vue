@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { NuxtPage } from "#components";
-import { useDisplay } from "vuetify";
+import { useDisplay, useLocale } from "vuetify";
 import NavigationDrawer from "~/components/layout/NavigationDrawer.vue";
 
 const { mobile } = useDisplay();
+const { t } = useLocale();
 const sidebar = ref(!mobile.value);
 provide("sidebar", sidebar);
 
 const store = useStore();
 
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 import { useStore } from "@/stores";
-import { GetNodes, GetProfiles, GetProfileStates, GetRegions, GetRoutes, GetRoutes2, GetTitles, GetTitleStates } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { GetNodes, GetProfiles, GetProfileStates, GetRegions, GetRoutes, GetTitles, GetTitleStates } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
-// Helper to check if an object is empty
 function isEmpty(obj: any) {
   return !obj || (typeof obj === "object" && Object.keys(obj).length === 0);
 }
@@ -55,6 +55,70 @@ onMounted(async () => {
   }
 });
 
+const optimize = computed(() => store.optimizeProgress);
+const showOptimizePanel = computed(() => store.optimizing && !!optimize.value);
+const globalProgress = computed(() => {
+  const o = optimize.value;
+  if (!o) return 0;
+  if (o.is_complete) return 100;
+  const measureTotal = o.probe_total ?? 0;
+  const measureDone = o.probe_completed ?? 0;
+  const confirmTotal = o.verify_total ?? 0;
+  const confirmDone = o.verify_completed ?? 0;
+  let measurePct = 0;
+  if (measureTotal > 0) {
+    measurePct = Math.min(50, (measureDone * 50) / measureTotal);
+  } else if (o.phase === "verify" || o.phase === "done") {
+    measurePct = 50;
+  }
+  let confirmPct = 0;
+  if (confirmTotal > 0) {
+    confirmPct = Math.min(50, (confirmDone * 50) / confirmTotal);
+  }
+  const total = Math.round(measurePct + confirmPct);
+  return Math.min(99, Math.max(0, total));
+});
+const phaseLabel = computed(() => {
+  const phase = optimize.value?.phase || "probe";
+  if (phase === "verify") return t("$vuetify.routeAnalysis.phaseVerifying");
+  if (phase === "done") return t("$vuetify.routeAnalysis.phaseComplete");
+  return t("$vuetify.routeAnalysis.phaseAnalyzing");
+});
+const globalSubtitle = computed(() => {
+  const o = optimize.value;
+  if (!o) return t("$vuetify.routeAnalysis.initializing");
+  const analyzeDone =
+    (o.probe_completed ?? 0) >= (o.probe_total ?? 0) && (o.probe_total ?? 0) > 0;
+  const analyzeCompleted = o.probe_completed ?? o.completed_tests ?? 0;
+  const analyzeTotal = o.probe_total ?? o.total_tests ?? 0;
+  if ((o.phase || "probe") === "verify" || analyzeDone) {
+    return t(
+      "$vuetify.routeAnalysis.subtitleVerifying",
+      analyzeCompleted,
+      analyzeTotal
+    );
+  }
+  return t(
+    "$vuetify.routeAnalysis.subtitleAnalyzing",
+    analyzeCompleted,
+    analyzeTotal
+  );
+});
+const interfaceRows = computed(() => optimize.value?.interfaces ?? []);
+
+function ifacePhaseLabel(phase?: string) {
+  if (phase === "verify") return t("$vuetify.routeAnalysis.ifaceVerifying");
+  if (phase === "done") return t("$vuetify.routeAnalysis.ifaceDone");
+  return t("$vuetify.routeAnalysis.ifaceAnalyzing");
+}
+
+function minimizeOptimize() {
+  store.optimizeMinimized = true;
+}
+
+function expandOptimize() {
+  store.optimizeMinimized = false;
+}
 </script>
 
 <template>
@@ -70,51 +134,128 @@ onMounted(async () => {
       }"
     />
 
-    <v-dialog
-      :model-value="store.optimizing"
-      persistent
-      scrim
-      max-width="500"
+    <v-btn
+      v-if="showOptimizePanel && store.optimizeMinimized"
+      class="optimize-fab"
+      color="primary"
+      rounded="lg"
+      elevation="10"
+      @click="expandOptimize"
+    >
+      <v-progress-circular
+        class="me-2"
+        color="white"
+        size="18"
+        width="2"
+        :model-value="globalProgress"
+        :indeterminate="globalProgress <= 0"
+      />
+      {{
+        t(
+          "$vuetify.routeAnalysis.fabProgress",
+          Math.round(globalProgress),
+          phaseLabel
+        )
+      }}
+    </v-btn>
+
+    <v-card
+      v-if="showOptimizePanel && !store.optimizeMinimized"
+      class="optimize-panel"
+      color="surface"
+      variant="elevated"
+      density="compact"
+      elevation="16"
+      border
+      max-width="420"
       style="--wails-draggable: drag"
     >
-      <v-card
-        v-show="store.optimizing"
-        density="compact"
-        :subtitle="store.optimizeProgress.total_tests ? `${store.optimizeProgress.completed_tests || 0} / ${
-          store.optimizeProgress.total_tests || 0
-        }` : 'Initializing'"
-        variant="elevated"
-      >
-        <template v-slot:prepend>
-          <v-avatar>
+      <v-card-item class="pb-1">
+        <template #prepend>
+          <v-avatar size="32">
             <CyrexLogo />
           </v-avatar>
         </template>
-
-        <template #title>
-          <span class="text-subtitle-1">Advanced Route Analysis</span>
+        <v-card-title class="text-subtitle-1">{{
+          t("$vuetify.routeAnalysis.title")
+        }}</v-card-title>
+        <v-card-subtitle>{{ globalSubtitle }}</v-card-subtitle>
+        <template #append>
+          <v-btn
+            icon="mdi-window-minimize"
+            size="small"
+            variant="text"
+            :aria-label="t('$vuetify.routeAnalysis.minimize')"
+            @click="minimizeOptimize"
+          />
         </template>
+      </v-card-item>
 
-        <template v-slot:append>
-          <v-scale-transition leave-absolute>
-            <v-progress-circular
-              v-if="store.optimizeProgress.progress <= 100"
-              color="primary"
-              size="24"
-              width="2"
-              class="ms-3"
-              :model-value="store.optimizeProgress.progress"
-              :indeterminate="store.optimizeProgress.total_tests === 0 || store.optimizeProgress.progress === 100 || store.optimizeProgress.progress === 0"
-            />
-            <v-icon
-              v-else-if="store.optimizeProgress.progress === 100"
-              color="green"
-            >
-              mdi-check-circle
-            </v-icon>
-          </v-scale-transition>
-        </template>
-      </v-card>
-    </v-dialog>
+      <v-divider />
+
+      <v-card-text class="pt-3">
+        <div class="d-flex align-center justify-space-between mb-1">
+          <span class="text-caption text-medium-emphasis">{{ phaseLabel }}</span>
+          <span class="text-caption font-weight-medium">{{ Math.round(globalProgress) }}%</span>
+        </div>
+        <v-progress-linear
+          color="primary"
+          height="8"
+          rounded
+          :model-value="globalProgress"
+          :indeterminate="(optimize?.total_tests ?? 0) === 0 && globalProgress <= 0"
+          class="mb-4"
+        />
+
+        <div
+          v-for="iface in interfaceRows"
+          :key="iface.name"
+          class="mb-3"
+        >
+          <div class="d-flex align-center justify-space-between mb-1">
+            <span class="text-body-2">{{
+              iface.name || t("$vuetify.routeAnalysis.defaultInterface")
+            }}</span>
+            <span class="text-caption text-medium-emphasis">
+              {{ ifacePhaseLabel(iface.phase) }}
+              <template v-if="iface.phase !== 'verify'">
+                · {{ iface.completed ?? 0 }}/{{ iface.total ?? 0 }}
+              </template>
+            </span>
+          </div>
+          <v-progress-linear
+            :color="iface.phase === 'verify' ? 'secondary' : iface.phase === 'done' ? 'success' : 'primary'"
+            height="6"
+            rounded
+            :model-value="iface.progress ?? 0"
+            :indeterminate="(iface.total ?? 0) === 0 && (iface.progress ?? 0) <= 0 && iface.phase !== 'done'"
+          />
+        </div>
+      </v-card-text>
+    </v-card>
   </v-app>
 </template>
+
+<style scoped>
+.optimize-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2000;
+  width: min(420px, calc(100vw - 32px));
+  background-color: rgb(var(--v-theme-surface)) !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+.optimize-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2000;
+  text-transform: none;
+}
+</style>

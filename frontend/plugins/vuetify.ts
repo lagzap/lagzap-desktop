@@ -67,7 +67,9 @@ async function vuetifyThemeFromImage(
 
 // const primaryColor = 0xFFAB00;
 
-export default defineNuxtPlugin(async (app) => {
+export default defineNuxtPlugin({
+  name: "vuetify",
+  async setup(app) {
   const primaryColor = false ? 0xFFAB00 : 0xe6d785;
   const vuetify = createVuetify({
     components,
@@ -109,14 +111,27 @@ export default defineNuxtPlugin(async (app) => {
           primaryColor,
           false,
           0.9,
-          {},
           {
-            primary: false ? '#ffc107' : '#e6d785',
-            background: "#fff8f4"
+            // Full opacity so #171717 reads as ~90% black, not washed grey
+            "high-emphasis-opacity": 1,
+            "medium-emphasis-opacity": 0.62,
+          },
+          {
+            // Richer gold — more chroma than the muted olive
+            primary: false ? '#ffc107' : '#B8860B',
+            // Neutral light frame — readable contrast vs white content
+            background: "#F0F1F3",
+            "on-background": "#171717",
+            surface: "#FFFFFF",
+            "on-surface": "#171717",
+            "on-surface-variant": "#3A3A3A",
+            success: "#1B7A2E",
+            accent: "#2E2E2E",
           }
         ),
       },
     },
   });
   app.vueApp.use(vuetify);
+  },
 });

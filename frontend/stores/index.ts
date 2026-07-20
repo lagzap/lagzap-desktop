@@ -24,6 +24,7 @@ import {
   StopService,
   StopLocalProxy,
   StartBootstrapLocalProxy,
+  GetOptimizeProgress,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
   type RelayRoute,
@@ -37,11 +38,6 @@ import {
   Optimize,
   ClientInfo,
 } from "~/bindings/github.com/lagzap/zap/data";
-
-interface MultiInterfaceLatency {
-  interfaces: Record<string, Latency>;
-  best_score: number;
-}
 import { Events } from "@wailsio/runtime";
 import { displayError } from "~/composables/alert";
 import { getToken } from "~/utils/indexedDB";
@@ -50,6 +46,12 @@ import { useMonitoringStore } from "~/stores/monitoring";
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/constants/status";
 import type { Interface } from "~/bindings/github.com/lagzap/zap/common/control";
+import type { MultiInterfaceLatency } from "~/composables/useLatencyMetrics";
+import {
+  mergeLatencyPingCache,
+  type LatencyPingCache,
+} from "~/composables/pingChartCache";
+import { PING_RAW_CAP } from "~/constants/pingChart";
 
 export const useStore = defineStore("index", () => {
   const locale = useLocale();
@@ -63,10 +65,12 @@ export const useStore = defineStore("index", () => {
   const statusMessage = ref<string>(locale.t("$vuetify.service.initializing"));
   const error = ref<boolean>(false);
   const optimizeProgress = ref<Optimize | null>(null);
+  const optimizeMinimized = ref(false);
   const serviceReady = ref<boolean>(false);
   const appReady = ref<boolean>(false);
   const ndisRunning = ref<boolean>(false);
   const latency = ref<MultiInterfaceLatency | null>(null);
+  const latencyPingCache = ref<LatencyPingCache>({ byInterface: {} });
 
   const titles = ref<Title[]>([]);
   const profiles = ref<Profile[]>([]);
@@ -140,6 +144,37 @@ export const useStore = defineStore("index", () => {
     return titlesArray;
   });
 
+  const waitForOptimizeComplete = async (timeoutMs = 180_000) => {
+    const deadline = Date.now() + timeoutMs;
+    let graceUntil = Date.now() + 3_000;
+
+    while (Date.now() < deadline) {
+      if (startupCanceled.value) {
+        return;
+      }
+
+      let progress: Optimize | null = null;
+      try {
+        progress = await GetOptimizeProgress();
+      } catch {
+        progress = null;
+      }
+
+      if (progress) {
+        optimizeProgress.value = progress;
+        graceUntil = 0;
+        if (progress.is_complete) {
+          await new Promise((resolve) => setTimeout(resolve, 900));
+          return;
+        }
+      } else if (graceUntil > 0 && Date.now() > graceUntil) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  };
+
   const initialize = async (callback?: () => void) => {
     if (startupCanceled.value) {
       return;
@@ -158,6 +193,11 @@ export const useStore = defineStore("index", () => {
       if (!connected.value) {
         await connect();
       }
+      if (startupCanceled.value) {
+        return;
+      }
+
+      await waitForOptimizeComplete();
       if (startupCanceled.value) {
         return;
       }
@@ -193,7 +233,11 @@ export const useStore = defineStore("index", () => {
       return;
     }
     const route = useRoute();
-    if (route.path.startsWith("/start-service") || route.path.startsWith("/auth")) {
+    if (
+      route.path.startsWith("/start-service") ||
+      route.path.startsWith("/auth") ||
+      route.path.startsWith("/latency-overlay")
+    ) {
       return;
     }
     await check();
@@ -209,6 +253,7 @@ export const useStore = defineStore("index", () => {
 
   // Setup event listeners
   onMounted(async () => {
+    let unavailableIfaceTimer: ReturnType<typeof setTimeout> | null = null;
     await check();
     Events.On("status", ({ data }) => (status.value = data));
     Events.On("service-started", async () => await check());
@@ -236,16 +281,47 @@ export const useStore = defineStore("index", () => {
       };
     });
     Events.On("optimize", async ({ data }) => {
+      // Ignore stale in-flight updates that race after completion and leave
+      // the UI stuck at 99% with is_complete=false.
+      if (
+        optimizeProgress.value?.is_complete &&
+        data &&
+        !data.is_complete &&
+        (data.progress ?? 0) > 0
+      ) {
+        return;
+      }
       optimizeProgress.value = data;
+      if (data?.is_complete) {
+        optimizeMinimized.value = false;
+        statusMessage.value = `${data.completed_tests || 0} / ${data.total_tests || 0}`;
+        // Dismiss the panel shortly after completion.
+        window.setTimeout(() => {
+          if (optimizeProgress.value?.is_complete) {
+            optimizeProgress.value = null;
+          }
+        }, 900);
+        return;
+      }
       if (data) {
         statusMessage.value = `${data.completed_tests || 0} / ${data.total_tests || 0}`;
       }
     });
-    Events.On("latency", ({ data }) => {
-      latency.value = data;
-    });
     Events.On("interfaces-updated", async ({ data }) => {
       await updateInterfaces()
+    });
+    Events.On("route-probe", () => {
+      // Probes arrive ~2/sec for game routes — debounce iface availability
+      // so we do not recompute every profile on every tick.
+      if (unavailableIfaceTimer != null) {
+        return;
+      }
+      unavailableIfaceTimer = setTimeout(() => {
+        unavailableIfaceTimer = null;
+        Object.keys(profileStates.value).forEach((profileId) => {
+          updateProfileUnavailableInterfaces(profileId);
+        });
+      }, 1000);
     });
 
     const { user, isAuthenticated, init: sanctumInit } = useSanctumAuth<DataResponse>();
@@ -516,6 +592,7 @@ export const useStore = defineStore("index", () => {
     error.value = false;
     appReady.value = false;
     optimizeProgress.value = null;
+    optimizeMinimized.value = false;
 
     try {
       await CancelConnect();
@@ -632,6 +709,30 @@ export const useStore = defineStore("index", () => {
     return item[locale.current.value] || item["en"];
   };
 
+  const availableInterfaceNames = computed(() => {
+    const names = new Set(interfaces.value.map((iface) => iface.Name));
+    for (const name of Object.keys(latency.value?.interfaces ?? {})) {
+      names.add(name);
+    }
+    const { probedInterfaceNames } = useMonitoringStore();
+    for (const name of probedInterfaceNames.value ?? []) {
+      names.add(name);
+    }
+    return [...names];
+  });
+
+  const availableInterfaces = computed(() => {
+    const byName = new Map(
+      interfaces.value.map((iface) => [iface.Name, iface] as const)
+    );
+    for (const name of availableInterfaceNames.value) {
+      if (!byName.has(name)) {
+        byName.set(name, { Name: name, Flags: 0 } as Interface);
+      }
+    }
+    return [...byName.values()];
+  });
+
   // Helper functions for unavailable interfaces
   const updateProfileUnavailableInterfaces = (profileId: string) => {
     const profileState = profileStates.value[profileId];
@@ -640,18 +741,22 @@ export const useStore = defineStore("index", () => {
       return;
     }
 
-    const availableInterfaceNames = interfaces.value.map(iface => iface.Name);
+    const available = new Set(availableInterfaceNames.value);
+
     const unavailableInterfaces: string[] = [];
 
     // Check default_interface
-    if (profileState.default_interface && !availableInterfaceNames.includes(profileState.default_interface)) {
+    if (
+      profileState.default_interface &&
+      !available.has(profileState.default_interface)
+    ) {
       unavailableInterfaces.push(profileState.default_interface);
     }
 
     // Check network_interfaces
     const selectedInterfaces = profileState.network_interfaces || [];
     const unavailableNetworkInterfaces = selectedInterfaces.filter(
-      name => !availableInterfaceNames.includes(name)
+      (name) => !available.has(name)
     );
     unavailableInterfaces.push(...unavailableNetworkInterfaces);
 
@@ -687,6 +792,42 @@ export const useStore = defineStore("index", () => {
     return [...new Set(allUnavailableInterfaces)]; // Remove duplicates
   };
 
+  const applyLatencyUpdate = (incoming: MultiInterfaceLatency) => {
+    latencyPingCache.value = mergeLatencyPingCache(
+      latencyPingCache.value,
+      incoming
+    );
+    latency.value = {
+      ...incoming,
+      interfaces: Object.fromEntries(
+        Object.entries(incoming.interfaces ?? {}).map(([name, iface]) => [
+          name,
+          {
+            ...iface,
+            pings: (iface.pings ?? []).slice(-PING_RAW_CAP),
+          },
+        ])
+      ),
+    };
+    Object.keys(profileStates.value).forEach((profileId) => {
+      updateProfileUnavailableInterfaces(profileId);
+    });
+  };
+
+  const applyLatencySnapshot = (snapshot: {
+    latency: MultiInterfaceLatency;
+    latencyPingCache: LatencyPingCache;
+  }) => {
+    latencyPingCache.value = JSON.parse(
+      JSON.stringify(snapshot.latencyPingCache)
+    ) as LatencyPingCache;
+    if (snapshot.latency) {
+      latency.value = JSON.parse(
+        JSON.stringify(snapshot.latency)
+      ) as MultiInterfaceLatency;
+    }
+  };
+
   return {
     isLagZap: false,
 
@@ -706,6 +847,7 @@ export const useStore = defineStore("index", () => {
     error,
     optimizing,
     optimizeProgress,
+    optimizeMinimized,
     serviceReady,
     ndisRunning,
     titles,
@@ -717,9 +859,12 @@ export const useStore = defineStore("index", () => {
     clientInfo,
     routes,
     latency,
+    latencyPingCache,
 
     defaultInterface,
     interfaces,
+    availableInterfaceNames,
+    availableInterfaces,
     updateInterfaces,
     profileUnavailableInterfaces,
 
@@ -765,6 +910,8 @@ export const useStore = defineStore("index", () => {
     toggleNDIS,
     updateEcho,
     pingNode,
+    applyLatencyUpdate,
+    applyLatencySnapshot,
 
     localized,
     

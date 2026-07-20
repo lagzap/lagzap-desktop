@@ -108,7 +108,7 @@ onUnmounted(() => {
   <div class="animated-logo-container">
     <!-- Glowing logo in center with orbital particles -->
     <div class="logo-container">
-      <v-img src="~/assets/svgs/lagzap.svg" alt="LagZap" class="animated-logo" />
+      <v-img src="~/assets/svgs/lagzap.svg" alt="Cyrex" class="animated-logo" />
     </div>
   </div>
 </template>

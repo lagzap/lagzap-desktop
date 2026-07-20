@@ -23,6 +23,12 @@ interface Subscriber {
   email?: string
   phone?: number
   status?: string
+  /** Display name of the plan — stub until billing ships. */
+  plan_name?: string
+  /** e.g. active | trial | expiring | expired — stub until billing ships. */
+  plan_status?: string
+  /** ISO date string or null for unlimited — stub until billing ships. */
+  expires_at?: string | null
 }
 
 interface ClientInfo {

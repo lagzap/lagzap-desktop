@@ -25,6 +25,10 @@ body {
   animation: zoom-in 0.25s cubic-bezier(0.05, 0.7, 0.1, 1) both;
 }
 
+.layout-fade-enter-active {
+  animation: fade-in 0.3s ease both;
+}
+
 .zoom-out,
 .layout-leave-active {
   animation: zoom-out 0.15s cubic-bezier(0.05, 0.7, 0.1, 1) both;
@@ -70,7 +74,7 @@ body {
 }
 
 .lagzap-name {
-  color: var(--v-theme-surface) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
   font-style: normal;
   font-weight: 400;
   font-family: "Righteous", "Vazirmatn", sans-serif;
@@ -79,7 +83,7 @@ body {
 
 
 .cyrex-name {
-  color: var(--v-theme-surface) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
   font-style: normal;
   font-weight: 400;
   font-family: "Righteous", "Vazirmatn", sans-serif;
