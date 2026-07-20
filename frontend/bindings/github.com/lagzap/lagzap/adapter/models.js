@@ -21,6 +21,268 @@ export const ConnectionStatus = {
     StatusReconnecting: 2,
 };
 
+export class LagFixEvent {
+    /**
+     * Creates a new LagFixEvent instance.
+     * @param {Partial<LagFixEvent>} [$$source = {}] - The source object to create the LagFixEvent.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("route_tag" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["route_tag"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["profile_id"] = undefined;
+        }
+        if (!("slot_index" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["slot_index"] = 0;
+        }
+        if (!("old_path_key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["old_path_key"] = "";
+        }
+        if (!("new_path_key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["new_path_key"] = "";
+        }
+        if (!("status" in $$source)) {
+            /**
+             * pending, verified, failed, skipped
+             * @member
+             * @type {string}
+             */
+            this["status"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["reason"] = undefined;
+        }
+        if (!("user_side_lag" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["user_side_lag"] = false;
+        }
+        if (!("timestamp" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["timestamp"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["verified_at"] = undefined;
+        }
+        if (!("before" in $$source)) {
+            /**
+             * @member
+             * @type {LagFixProofMetrics}
+             */
+            this["before"] = (new LagFixProofMetrics());
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {LagFixProofMetrics | undefined}
+             */
+            this["after"] = undefined;
+        }
+        if (!("global_before" in $$source)) {
+            /**
+             * @member
+             * @type {LagFixGlobalSnapshot}
+             */
+            this["global_before"] = (new LagFixGlobalSnapshot());
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {LagFixGlobalSnapshot | undefined}
+             */
+            this["global_after"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["improvement_ms"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LagFixEvent instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LagFixEvent}
+     */
+    static createFrom($$source = {}) {
+        const $$createField11_0 = $$createType0;
+        const $$createField12_0 = $$createType0;
+        const $$createField13_0 = $$createType1;
+        const $$createField14_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("before" in $$parsedSource) {
+            $$parsedSource["before"] = $$createField11_0($$parsedSource["before"]);
+        }
+        if ("after" in $$parsedSource) {
+            $$parsedSource["after"] = $$createField12_0($$parsedSource["after"]);
+        }
+        if ("global_before" in $$parsedSource) {
+            $$parsedSource["global_before"] = $$createField13_0($$parsedSource["global_before"]);
+        }
+        if ("global_after" in $$parsedSource) {
+            $$parsedSource["global_after"] = $$createField14_0($$parsedSource["global_after"]);
+        }
+        return new LagFixEvent(/** @type {Partial<LagFixEvent>} */($$parsedSource));
+    }
+}
+
+export class LagFixGlobalSnapshot {
+    /**
+     * Creates a new LagFixGlobalSnapshot instance.
+     * @param {Partial<LagFixGlobalSnapshot>} [$$source = {}] - The source object to create the LagFixGlobalSnapshot.
+     */
+    constructor($$source = {}) {
+        if (!("avg_latency" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["avg_latency"] = 0;
+        }
+        if (!("packet_loss" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["packet_loss"] = 0;
+        }
+        if (!("jitter" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["jitter"] = 0;
+        }
+        if (!("score" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["score"] = 0;
+        }
+        if (!("target" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["target"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LagFixGlobalSnapshot instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LagFixGlobalSnapshot}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LagFixGlobalSnapshot(/** @type {Partial<LagFixGlobalSnapshot>} */($$parsedSource));
+    }
+}
+
+export class LagFixProofMetrics {
+    /**
+     * Creates a new LagFixProofMetrics instance.
+     * @param {Partial<LagFixProofMetrics>} [$$source = {}] - The source object to create the LagFixProofMetrics.
+     */
+    constructor($$source = {}) {
+        if (!("path_key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["path_key"] = "";
+        }
+        if (!("avg_latency" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["avg_latency"] = 0;
+        }
+        if (!("packet_loss" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["packet_loss"] = 0;
+        }
+        if (!("jitter" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["jitter"] = 0;
+        }
+        if (!("score" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["score"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LagFixProofMetrics instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LagFixProofMetrics}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LagFixProofMetrics(/** @type {Partial<LagFixProofMetrics>} */($$parsedSource));
+    }
+}
+
 /**
  * LagFixStats is persisted lifetime counters for verified lag fixes.
  */
@@ -81,6 +343,171 @@ export class LagFixStats {
 }
 
 /**
+ * PathPingRow is one hop measurement: user→edge, edge→edge, or edge→relay.
+ */
+export class PathPingRow {
+    /**
+     * Creates a new PathPingRow instance.
+     * @param {Partial<PathPingRow>} [$$source = {}] - The source object to create the PathPingRow.
+     */
+    constructor($$source = {}) {
+        if (!("key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["key"] = "";
+        }
+        if (!("kind" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["kind"] = "";
+        }
+        if (!("from_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from_id"] = "";
+        }
+        if (!("from_name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from_name"] = "";
+        }
+        if (!("from_country" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from_country"] = "";
+        }
+        if (!("from_city" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from_city"] = "";
+        }
+        if (!("to_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["to_id"] = "";
+        }
+        if (!("to_name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["to_name"] = "";
+        }
+        if (!("to_country" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["to_country"] = "";
+        }
+        if (!("to_city" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["to_city"] = "";
+        }
+        if (!("ip_version" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["ip_version"] = 0;
+        }
+        if (!("avg_latency" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["avg_latency"] = 0;
+        }
+        if (!("min_latency" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["min_latency"] = 0;
+        }
+        if (!("max_latency" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["max_latency"] = 0;
+        }
+        if (!("packet_loss" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["packet_loss"] = 0;
+        }
+        if (!("tcp" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["tcp"] = false;
+        }
+        if (!("udp" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["udp"] = false;
+        }
+        if (!("icmp" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["icmp"] = false;
+        }
+        if (!("source" in $$source)) {
+            /**
+             * client | server | chain
+             * @member
+             * @type {string}
+             */
+            this["source"] = "";
+        }
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ok"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PathPingRow instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {PathPingRow}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PathPingRow(/** @type {Partial<PathPingRow>} */($$parsedSource));
+    }
+}
+
+/**
  * @readonly
  * @enum {number}
  */
@@ -110,3 +537,7 @@ export const SyncTransportMode = {
     SyncTransportWebSocket: 1,
     SyncTransportHTTP: 2,
 };
+
+// Private type creation functions
+const $$createType0 = LagFixProofMetrics.createFrom;
+const $$createType1 = LagFixGlobalSnapshot.createFrom;

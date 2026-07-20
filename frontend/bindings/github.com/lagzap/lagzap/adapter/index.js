@@ -4,7 +4,11 @@
 
 export {
     ConnectionStatus,
+    LagFixEvent,
+    LagFixGlobalSnapshot,
+    LagFixProofMetrics,
     LagFixStats,
+    PathPingRow,
     StartStage,
     SyncTransportMode
 } from "./models.js";

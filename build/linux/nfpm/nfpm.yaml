@@ -3,44 +3,78 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "cyrex"
+name: "Cyrex"
 arch: ${GOARCH}
 platform: "linux"
-version: "0.1.0"
+version: "0.1.0.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "A cutting-edge lag elimination software powered by LagZap protocol designed to deliver a seamless and smooth experience"
-vendor: "Cyrex"
-homepage: "https://www.cyrex.online"
-license: "private"
+description: "Cyrex"
+vendor: "lagzap"
+homepage: "https://wails.io"
+license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/lagzap"
-    dst: "/usr/local/bin/lagzap"
+  - src: "./bin/Cyrex"
+    dst: "/usr/local/bin/Cyrex"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/lagzap.png"
-  - src: "./build/linux/lagzap.desktop"
-    dst: "/usr/share/applications/lagzap.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/Cyrex.png"
+  - src: "./build/linux/Cyrex.desktop"
+    dst: "/usr/share/applications/Cyrex.desktop"
 
-replaces:
-  - foobar
-provides:
-  - bar
+# Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:
-  - gtk3
-  - libwebkit2gtk
-recommends:
-  - whatever
-suggests:
-  - something-else
-conflicts:
-  - not-foo
-  - not-bar
-changelog: "changelog.yaml"
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
+
+# Distribution-specific overrides for different package formats
+overrides:
+  # RPM packages for Fedora / RHEL / AlmaLinux / Rocky Linux
+  rpm:
+    depends:
+      - gtk4
+      - webkitgtk6.0
+
+  # Arch Linux packages
+  archlinux:
+    depends:
+      - gtk4
+      - webkitgtk-6.0
+
+# scripts section to ensure desktop database is updated after install
 scripts:
-  preinstall: ./build/linux/nfpm/scripts/preinstall.sh
-  postinstall: ./build/linux/nfpm/scripts/postinstall.sh
-  preremove: ./build/linux/nfpm/scripts/preremove.sh
-  postremove: ./build/linux/nfpm/scripts/postremove.sh
+  postinstall: "./build/linux/nfpm/scripts/postinstall.sh"
+  # You can also add preremove, postremove if needed
+  # preremove: "./build/linux/nfpm/scripts/preremove.sh"
+  # postremove: "./build/linux/nfpm/scripts/postremove.sh"
+
+# If you build your app with -tags gtk3 (legacy WebKit2GTK 4.1 stack — supported through v3.0.x, removed in v3.1),
+# replace the depends/overrides above with these:
+#
+# depends:
+#   - libgtk-3-0
+#   - libwebkit2gtk-4.1-0
+# overrides:
+#   rpm:
+#     depends:
+#       - gtk3
+#       - webkit2gtk4.1
+#   archlinux:
+#     depends:
+#       - gtk3
+#       - webkit2gtk-4.1
+#
+# replaces:
+#   - foobar
+# provides:
+#   - bar
+# recommends:
+#   - whatever
+# suggests:
+#   - something-else
+# conflicts:
+#   - not-foo
+#   - not-bar
+# changelog: "changelog.yaml"

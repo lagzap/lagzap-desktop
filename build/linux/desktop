@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Cyrex
+Comment=Cyrex
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/Cyrex %u
+Terminal=false
+Type=Application
+Icon=Cyrex
+Categories=Utility;
+StartupWMClass=Cyrex
+
+ 

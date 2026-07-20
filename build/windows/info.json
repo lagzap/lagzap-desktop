@@ -1,15 +1,15 @@
 {
 	"fixed": {
-		"file_version": "0.0.1"
+		"file_version": "0.1.0.0"
 	},
 	"info": {
 		"0000": {
-			"ProductVersion": "0.0.1",
-			"CompanyName": "Cyrex",
+			"ProductVersion": "0.1.0.0",
+			"CompanyName": "lagzap",
 			"FileDescription": "Cyrex",
-			"LegalCopyright": "© 2025, Cyrex",
+			"LegalCopyright": "(c) 2025, Cyrex",
 			"ProductName": "Cyrex",
-			"Comments": "A cutting-edge lag elimination software designed to deliver a seamless and smooth experience"
+			"Comments": "Cyrex"
 		}
 	}
 }

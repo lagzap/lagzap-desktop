@@ -52,7 +52,7 @@ tasks:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
       BUILD_FLAGS: >-
-        -tags debuug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -checklinkname=0" -gcflags=all="-l"
+        -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.DevBuild=true' -checklinkname=0" -gcflags=all="-l"
     env:
       GOOS: windows
       CGO_ENABLED: 0

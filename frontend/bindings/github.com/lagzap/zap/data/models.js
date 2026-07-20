@@ -254,6 +254,41 @@ export class ClientSettings {
              */
             this["dualstack"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["proxy_dns_requests"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["internet_ping_target"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(InterfaceRouteSettings | null)[] | undefined}
+             */
+            this["interface_route_settings"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["relay_transport_fallback"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["backup_interfaces"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -265,9 +300,17 @@ export class ClientSettings {
      */
     static createFrom($$source = {}) {
         const $$createField8_0 = $$createType0;
+        const $$createField22_0 = $$createType3;
+        const $$createField24_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("multi_internet_interfaces" in $$parsedSource) {
             $$parsedSource["multi_internet_interfaces"] = $$createField8_0($$parsedSource["multi_internet_interfaces"]);
+        }
+        if ("interface_route_settings" in $$parsedSource) {
+            $$parsedSource["interface_route_settings"] = $$createField22_0($$parsedSource["interface_route_settings"]);
+        }
+        if ("backup_interfaces" in $$parsedSource) {
+            $$parsedSource["backup_interfaces"] = $$createField24_0($$parsedSource["backup_interfaces"]);
         }
         return new ClientSettings(/** @type {Partial<ClientSettings>} */($$parsedSource));
     }
@@ -331,7 +374,7 @@ export class CredentialsPayload {
      * @returns {CredentialsPayload}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType2;
+        const $$createField5_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("update" in $$parsedSource) {
             $$parsedSource["update"] = $$createField5_0($$parsedSource["update"]);
@@ -421,6 +464,48 @@ export const IPVersion = {
     IPVersion_IPV6: 6,
 };
 
+export class InterfaceRouteSettings {
+    /**
+     * Creates a new InterfaceRouteSettings instance.
+     * @param {Partial<InterfaceRouteSettings>} [$$source = {}] - The source object to create the InterfaceRouteSettings.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["interface"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["tcp_routes"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["udp_routes"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new InterfaceRouteSettings instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {InterfaceRouteSettings}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new InterfaceRouteSettings(/** @type {Partial<InterfaceRouteSettings>} */($$parsedSource));
+    }
+}
+
 export class Latency {
     /**
      * Creates a new Latency instance.
@@ -507,7 +592,7 @@ export class Latency {
      * @returns {Latency}
      */
     static createFrom($$source = {}) {
-        const $$createField9_0 = $$createType5;
+        const $$createField9_0 = $$createType8;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("pings" in $$parsedSource) {
             $$parsedSource["pings"] = $$createField9_0($$parsedSource["pings"]);
@@ -630,7 +715,7 @@ export class Node {
      * @returns {Node}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType6;
+        const $$createField5_0 = $$createType9;
         const $$createField10_0 = $$createType0;
         const $$createField11_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -772,7 +857,7 @@ export class NodeRoute {
      * @returns {NodeRoute}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType9;
+        const $$createField0_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("hops" in $$parsedSource) {
             $$parsedSource["hops"] = $$createField0_0($$parsedSource["hops"]);
@@ -815,6 +900,49 @@ export class Optimize {
              */
             this["progress"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * Overall phase: "probe", "verify", or "done".
+             * @member
+             * @type {string | undefined}
+             */
+            this["phase"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["probe_total"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["probe_completed"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["verify_total"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["verify_completed"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(OptimizeInterfaceProgress | null)[] | undefined}
+             */
+            this["interfaces"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -825,7 +953,11 @@ export class Optimize {
      * @returns {Optimize}
      */
     static createFrom($$source = {}) {
+        const $$createField9_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("interfaces" in $$parsedSource) {
+            $$parsedSource["interfaces"] = $$createField9_0($$parsedSource["interfaces"]);
+        }
         return new Optimize(/** @type {Partial<Optimize>} */($$parsedSource));
     }
 }
@@ -860,6 +992,63 @@ export const OptimizeIP = {
     OptimizeIP_OPTIMIZE_PROTOCOL_IPV4: 1,
     OptimizeIP_OPTIMIZE_PROTOCOL_IPV6: 2,
 };
+
+export class OptimizeInterfaceProgress {
+    /**
+     * Creates a new OptimizeInterfaceProgress instance.
+     * @param {Partial<OptimizeInterfaceProgress>} [$$source = {}] - The source object to create the OptimizeInterfaceProgress.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["name"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Current phase for this interface: "probe", "verify", or "done".
+             * @member
+             * @type {string | undefined}
+             */
+            this["phase"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["completed"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["total"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["progress"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OptimizeInterfaceProgress instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {OptimizeInterfaceProgress}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new OptimizeInterfaceProgress(/** @type {Partial<OptimizeInterfaceProgress>} */($$parsedSource));
+    }
+}
 
 /**
  * @readonly
@@ -1029,8 +1218,8 @@ export class Profile {
      * @returns {Profile}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType6;
-        const $$createField5_0 = $$createType6;
+        const $$createField4_0 = $$createType9;
+        const $$createField5_0 = $$createType9;
         const $$createField6_0 = $Create.ByteSlice;
         const $$createField8_0 = $Create.ByteSlice;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -1108,14 +1297,14 @@ export class ProfileState {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {number | undefined}
+             * @type {number | null | undefined}
              */
             this["tcp_connections"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {number | undefined}
+             * @type {number | null | undefined}
              */
             this["udp_connections"] = undefined;
         }
@@ -1146,6 +1335,13 @@ export class ProfileState {
              * @type {string | null | undefined}
              */
             this["node_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["relay_transport_fallback"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -1229,7 +1425,7 @@ export class Region {
      * @returns {Region}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType6;
+        const $$createField1_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
             $$parsedSource["name"] = $$createField1_0($$parsedSource["name"]);
@@ -1275,7 +1471,7 @@ export class RelayRoute {
      * @returns {RelayRoute}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType12;
+        const $$createField2_0 = $$createType18;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("routes" in $$parsedSource) {
             $$parsedSource["routes"] = $$createField2_0($$parsedSource["routes"]);
@@ -1465,7 +1661,7 @@ export class Title {
      * @returns {Title}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType6;
+        const $$createField3_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
             $$parsedSource["name"] = $$createField3_0($$parsedSource["name"]);
@@ -1546,7 +1742,7 @@ export class UpdatePayload {
      * @returns {UpdatePayload}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType14;
+        const $$createField0_0 = $$createType20;
         const $$createField1_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("last_update_at" in $$parsedSource) {
@@ -1561,17 +1757,23 @@ export class UpdatePayload {
 
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = UpdatePayload.createFrom;
+const $$createType1 = InterfaceRouteSettings.createFrom;
 const $$createType2 = $Create.Nullable($$createType1);
-const $$createType3 = PingPoint.createFrom;
-const $$createType4 = $Create.Nullable($$createType3);
-const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = $Create.Map($Create.Any, $Create.Any);
-const $$createType7 = Hop.createFrom;
-const $$createType8 = $Create.Nullable($$createType7);
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = NodeRoute.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = UpdatePayload.createFrom;
+const $$createType5 = $Create.Nullable($$createType4);
+const $$createType6 = PingPoint.createFrom;
+const $$createType7 = $Create.Nullable($$createType6);
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = $Create.Map($Create.Any, $Create.Any);
+const $$createType10 = Hop.createFrom;
 const $$createType11 = $Create.Nullable($$createType10);
 const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = timestamppb$0.Timestamp.createFrom;
+const $$createType13 = OptimizeInterfaceProgress.createFrom;
 const $$createType14 = $Create.Nullable($$createType13);
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = NodeRoute.createFrom;
+const $$createType17 = $Create.Nullable($$createType16);
+const $$createType18 = $Create.Array($$createType17);
+const $$createType19 = timestamppb$0.Timestamp.createFrom;
+const $$createType20 = $Create.Nullable($$createType19);
