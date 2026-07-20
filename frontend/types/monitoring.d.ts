@@ -68,13 +68,13 @@ export interface Connection {
   profile_id: string | null;
   node_id: string | null;
   relay_route: RelayRoute | null;
-  ping_packet_sent: number;
-  ping_packet_received: number;
-  ping_packet_loss: number;
-  ping_avg_latency: number;
-  ping_min_latency: number;
-  ping_max_latency: number;
-  ping_jitter: number;
+  packet_sent: number;
+  packet_received: number;
+  packet_loss: number;
+  avg_latency: number;
+  min_latency: number;
+  max_latency: number;
+  jitter: number;
   ping_series: RoutePingSeries[];
 }
 
@@ -225,7 +225,8 @@ export interface LagFixEvent {
   slot_index: number;
   old_path_key: string;
   new_path_key: string;
-  status: "pending" | "verified" | "failed";
+  status: "pending" | "verified" | "failed" | "skipped";
+  reason?: string;
   user_side_lag: boolean;
   timestamp: string;
   verified_at?: string;
@@ -236,10 +237,30 @@ export interface LagFixEvent {
   improvement_ms?: number;
 }
 
+export interface RelayPathEvent {
+  id: string;
+  kind: "silent-redial" | "path-added" | "path-removed" | string;
+  route_tag?: string;
+  conn_uuid?: string;
+  destination?: string;
+  entry?: string;
+  iface?: string;
+  is_tcp: boolean;
+  timestamp: string;
+}
+
 export interface LagFixStats {
   verified_count: number;
   attempt_count: number;
   failed_count: number;
   total_improvement_ms: number;
   last_verified_at?: string;
+}
+
+export interface InterfaceGraceEvent {
+  active: boolean;
+  expired?: boolean;
+  deadline_unix_ms: number;
+  grace_seconds: number;
+  lost_interfaces: string[];
 }

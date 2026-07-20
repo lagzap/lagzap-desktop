@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CountryFlag from "vue-country-flag-next";
 import Ping from "~/components/network/Ping.vue";
+import { connectionRelayLatency } from "~/composables/useProfileDisplayRoutes";
 import type { Connection } from "~/types/monitoring";
 import { sum } from "es-toolkit";
 import { useLocale } from "vuetify";
@@ -55,6 +56,7 @@ const locale = useLocale();
 const { t } = locale;
 const router = useRouter();
 const { connections } = useMonitoringStore();
+const { getNodeLabel } = useNodeLocationLabel();
 
 const connectionGroups = computed(() => {
   const filtered = (connections.value ?? []).filter((c) => c.profile_id !== "");
@@ -117,10 +119,7 @@ function profileName(item: Connection) {
 }
 
 function nodeCity(item: Connection) {
-  return (
-    store.nodes?.[item.node_id ?? ""]?.city?.[locale.current.value ?? "en"] ??
-    "-"
-  );
+  return getNodeLabel(item.node_id);
 }
 
 function goToConnections() {
@@ -157,7 +156,7 @@ const navigateIcon = computed(() =>
         <tr>
           <th>{{ t("$vuetify.connections.title") }}</th>
           <th>{{ t("$vuetify.connections.gameServer") }}</th>
-          <th>{{ t("$vuetify.connections.lagzapServer") }}</th>
+          <th>{{ t("$vuetify.connections.cyrexServer") }}</th>
           <th class="text-center">{{ t("$vuetify.connections.latency") }}</th>
           <th>{{ t("$vuetify.connections.download") }}</th>
           <th>{{ t("$vuetify.connections.upload") }}</th>
@@ -198,7 +197,10 @@ const navigateIcon = computed(() =>
             </div>
           </td>
           <td class="text-center text-no-wrap">
-            <Ping :tag="group.connection.relay_route?.tag" />
+            <Ping
+              :tag="group.connection.relay_route?.tag"
+              :latency-ms="connectionRelayLatency(group.connection)"
+            />
           </td>
           <td class="text-no-wrap">
             <span class="text-caption">

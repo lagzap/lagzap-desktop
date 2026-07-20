@@ -2,76 +2,108 @@
 import Container from "~/components/layout/Container.vue";
 import { useLocale } from "vuetify";
 
-const { t } = useLocale()
+const { t } = useLocale();
 const { logs } = useMonitoringStore();
 
-const search = ref<string>("");
-const virtualScrollRef = ref();
-const isAtBottom = ref(true);
-const previousLogsLength = ref(0);
+const search = ref("");
+const virtualScrollRef = ref<{ $el?: HTMLElement } | null>(null);
+const stickToBottom = ref(true);
+const programmaticScroll = ref(false);
+const BOTTOM_THRESHOLD = 24;
 
 const filteredItems = computed(() => {
   if (!search.value) return logs.value;
-  return logs.value.filter((log: any) => 
-    JSON.stringify(log).toLowerCase().includes(search.value.toLowerCase())
+  const q = search.value.toLowerCase();
+  return logs.value.filter((log: any) =>
+    JSON.stringify(log).toLowerCase().includes(q)
   );
 });
 
-// Watch for new logs and auto-scroll if at bottom
-watch(() => logs.value.length, (newLength) => {
-  if (newLength > previousLogsLength.value && isAtBottom.value) {
-    nextTick(() => {
-      scrollToBottom();
-    });
+function getScrollEl(): HTMLElement | null {
+  return virtualScrollRef.value?.$el ?? null;
+}
+
+function isNearBottom(el: HTMLElement) {
+  return el.scrollTop + el.clientHeight >= el.scrollHeight - BOTTOM_THRESHOLD;
+}
+
+function scrollToBottom() {
+  const el = getScrollEl();
+  if (!el) return;
+  programmaticScroll.value = true;
+  el.scrollTop = el.scrollHeight;
+  // release after layout settles
+  requestAnimationFrame(() => {
+    programmaticScroll.value = false;
+    stickToBottom.value = true;
+  });
+}
+
+function handleScroll() {
+  if (programmaticScroll.value) return;
+  const el = getScrollEl();
+  if (!el) return;
+  stickToBottom.value = isNearBottom(el);
+}
+
+function maybeStick() {
+  if (!stickToBottom.value) return;
+  nextTick(() => {
+    scrollToBottom();
+  });
+}
+
+watch(
+  () => filteredItems.value.length,
+  () => {
+    maybeStick();
   }
-  previousLogsLength.value = newLength;
+);
+
+watch(search, () => {
+  if (stickToBottom.value) {
+    nextTick(() => scrollToBottom());
+  }
 });
 
-const scrollToBottom = () => {
-  if (virtualScrollRef.value) {
-    const scrollElement = virtualScrollRef.value.$el.querySelector('.v-virtual-scroll__container');
-    if (scrollElement) {
-      scrollElement.scrollTop = scrollElement.scrollHeight;
-    }
-  }
-};
-
-const handleScroll = (event: Event) => {
-  const target = event.target as HTMLElement;
-  const threshold = 10; // pixels from bottom
-  isAtBottom.value = target.scrollTop + target.clientHeight >= target.scrollHeight - threshold;
-};
+onMounted(() => {
+  nextTick(() => scrollToBottom());
+});
 
 const getLogLevelColor = (level: string) => {
   switch (level?.toLowerCase()) {
-    case 'panic': return 'red-darken-4';
-    case 'fatal': return 'red-darken-2';
-    case 'error': return 'error';
-    case 'warning': case 'warn': return 'warning';
-    case 'info': return 'info';
-    case 'debug': return 'primary';
-    case 'trace': return 'blue-grey';
-    default: return 'grey';
+    case "panic":
+      return "red-darken-4";
+    case "fatal":
+      return "red-darken-2";
+    case "error":
+      return "error";
+    case "warning":
+    case "warn":
+      return "warning";
+    case "info":
+      return "info";
+    case "debug":
+      return "primary";
+    case "trace":
+      return "blue-grey";
+    default:
+      return "grey";
   }
-}
-
-const formatLogEntry = (item: any) => {
-  const level = item.type?.toUpperCase() || 'INFO';
-  const timestamp = new Date(item.time || Date.now()).toLocaleString();
-  const message = item.payload || 'No message';
-  return `${level}[${item.id || '?'}] [${timestamp}] ${message}`;
-}
+};
 </script>
 
 <template>
   <div>
     <Container>
       <template #header>
-        <v-app-bar-title class="text-subtitle-1">{{ t('$vuetify.navigation.connections') }}</v-app-bar-title>
+        <v-app-bar-title class="text-subtitle-1">{{
+          t("$vuetify.navigation.logs")
+        }}</v-app-bar-title>
       </template>
       <v-toolbar class="bg-transparent px-3">
         <v-text-field
-          v-model:model-value="search"
+          v-model="search"
           variant="solo-filled"
           rounded="xl"
           density="compact"
@@ -81,22 +113,46 @@ const formatLogEntry = (item: any) => {
           single-line
           style="width: 200px"
         />
+        <v-spacer />
+        <v-chip
+          size="small"
+          variant="tonal"
+          :color="stickToBottom ? 'success' : 'default'"
+          class="me-2"
+        >
+          {{ stickToBottom ? "Following" : "Paused" }}
+        </v-chip>
+        <v-btn
+          v-if="!stickToBottom"
+          size="small"
+          variant="tonal"
+          rounded="xl"
+          prepend-icon="mdi-arrow-down"
+          @click="scrollToBottom"
+        >
+          Jump to bottom
+        </v-btn>
       </v-toolbar>
-      
-      <!-- Console-style log output -->
+
       <v-sheet class="console-output">
         <v-virtual-scroll
           ref="virtualScrollRef"
           :height="$vuetify.display.height - 140"
           :items="filteredItems"
           class="console-scroll"
-          @scroll="handleScroll"
+          @scroll.passive="handleScroll"
         >
-          <template v-slot:default="{ item }">
+          <template #default="{ item }">
             <div class="console-line">
-              <span class="text-white me-1 text-grey">[{{ new Date(item.time || Date.now()).toLocaleString() }}]</span>
-              <span :class="`me-1 text-${getLogLevelColor(item.type)}`">{{ item.type?.toUpperCase() || 'INFO' }}</span>
-              <span>{{ item.payload || 'No message' }}</span>
+              <span class="text-white me-1 text-grey"
+                >[{{
+                  new Date(item.time || Date.now()).toLocaleString()
+                }}]</span
+              >
+              <span :class="`me-1 text-${getLogLevelColor(item.type)}`">{{
+                item.type?.toUpperCase() || "INFO"
+              }}</span>
+              <span>{{ item.payload || "No message" }}</span>
             </div>
           </template>
         </v-virtual-scroll>
@@ -109,7 +165,7 @@ const formatLogEntry = (item: any) => {
 .console-output {
   border-radius: 4px;
   margin: 8px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
   overflow: hidden;
 }
 
@@ -119,7 +175,7 @@ const formatLogEntry = (item: any) => {
 }
 
 .console-line {
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
   font-size: 12px;
   line-height: 1.4;
   padding: 2px 8px;

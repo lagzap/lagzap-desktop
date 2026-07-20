@@ -1,12 +1,28 @@
 <script lang="ts" setup>
-import { min } from "es-toolkit/compat";
 import type { RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
+import {
+  displayPingMsForRelay,
+  displayScoreForRelay,
+} from "~/composables/relayPingDisplay";
+import {
+  getLatencyColorClass,
+  getScoreColorClass,
+} from "~/composables/useLatencyMetrics";
 
 const props = defineProps<{
   tag?: string;
+  latencyMs?: number | null;
 }>();
 
 const store = useStore();
+const { routeProbeHistory } = useMonitoringStore();
+
+function toTextColor(className: string) {
+  if (className === "grey") {
+    return "text-grey";
+  }
+  return `text-${className}`;
+}
 
 const relayRoute = computed<RelayRoute | null>(() => {
   if (!props.tag || !store.routes) {
@@ -26,50 +42,32 @@ const relayRoute = computed<RelayRoute | null>(() => {
   );
 });
 
-// Helper function to get color class based on gaming score
-function getScoreColorClass(score: number | null): string {
-  if (score === null || score < 0) {
-    return "text-grey"; // Failed connection or no data
+const displayLatencyMs = computed(() => {
+  if (props.latencyMs != null && props.latencyMs > 0) {
+    return Math.round(props.latencyMs);
   }
+  return displayPingMsForRelay(
+    props.tag,
+    relayRoute.value,
+    routeProbeHistory.value
+  );
+});
 
-  if (score >= 80) {
-    return "text-green"; // Excellent for gaming
-  } else if (score >= 70) {
-    return "text-lime"; // Good for gaming
-  } else if (score >= 60) {
-    return "text-amber"; // Playable but not ideal
-  } else {
-    return "text-red"; // Poor gaming experience
-  }
-}
+const displayScore = computed(() => displayScoreForRelay(relayRoute.value));
 
-// Helper function to get score description
-function getScoreDescription(score: number | null): string {
-  if (score === null || score < 0) {
-    return "Failed";
+const colorClass = computed(() => {
+  if (displayLatencyMs.value == null) {
+    return "text-grey";
   }
-
-  if (score >= 80) {
-    return "Excellent";
-  } else if (score >= 70) {
-    return "Good";
-  } else if (score >= 60) {
-    return "Fair";
-  } else {
-    return "Poor";
+  if (displayScore.value != null && displayScore.value > 0) {
+    return toTextColor(getScoreColorClass(displayScore.value));
   }
-}
+  return toTextColor(getLatencyColorClass(displayLatencyMs.value));
+});
 </script>
 
 <template>
-  <span
-    :class="getScoreColorClass(relayRoute?.routes?.[0]?.score || null)"
-    class="d-flex align-center gap-1 text-caption"
-  >
-    <span class="ms-1">{{
-      relayRoute?.routes?.[0]?.min_latency
-        ? `${Math.max(0, relayRoute.routes[0].min_latency)}ms`
-        : "timeout"
-    }}</span>
+  <span :class="['text-caption', 'font-weight-medium', colorClass]">
+    {{ displayLatencyMs != null ? `${displayLatencyMs}ms` : "-" }}
   </span>
 </template>

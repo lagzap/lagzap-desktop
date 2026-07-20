@@ -2,6 +2,7 @@
 import type { VDataTable, VDataTableVirtual } from "vuetify/components";
 import Container from "~/components/layout/Container.vue";
 import CountryFlag from "vue-country-flag-next";
+import { connectionRelayLatency } from "~/composables/useProfileDisplayRoutes";
 import { sum } from "es-toolkit";
 import { useLocale, type DataTableHeader } from "vuetify";
 
@@ -9,6 +10,7 @@ const store = useStore();
 const locale = useLocale();
 const { t } = locale;
 const { connections } = useMonitoringStore();
+const { getNodeLabel } = useNodeLocationLabel();
 const items = computed(
   () =>
     connections.value
@@ -37,7 +39,7 @@ const headers = ref<DataTableHeader[]>([
     nowrap: true,
   },
   {
-    title: t("$vuetify.connections.lagzapServer"),
+    title: t("$vuetify.connections.cyrexServer"),
     key: "destination",
     sortable: false,
     nowrap: true,
@@ -135,11 +137,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
               size="small"
             />
             <span class="ms-1">
-              {{
-                store.nodes?.[item.node_id]?.city?.[
-                  locale.current.value ?? "en"
-                ] ?? "-"
-              }}
+              {{ getNodeLabel(item.node_id) }}
             </span>
           </div>
         </template>
@@ -164,7 +162,12 @@ const sortBy = ref<VDataTable["sortBy"]>([
           </div>
         </template>
         <template #item.latency="{ item }">
-          <div class="d-flex align-center flex-nowrap">-</div>
+          <div class="d-flex align-center flex-nowrap">
+            <Ping
+              :tag="item.relay_route?.tag"
+              :latency-ms="connectionRelayLatency(item)"
+            />
+          </div>
         </template>
         <template #header.data-table-group />
         <template #item.data-table-group="{ item }">
@@ -217,17 +220,16 @@ const sortBy = ref<VDataTable["sortBy"]>([
                   size="small"
                 />
                 <span class="text-caption ms-1">
-                  {{
-                    store.nodes?.[item.items[0].raw.node_id]?.city?.[
-                      locale.current.value ?? "en"
-                    ] ?? "-"
-                  }}
+                  {{ getNodeLabel(item.items[0].raw.node_id) }}
                 </span>
               </div>
             </td>
             <td class="text-no-wrap">
               <div class="d-flex align-center flex-nowrap">
-                <Ping :tag="item.items[0].raw.relay_route?.tag" />
+                <Ping
+                  :tag="item.items[0].raw.relay_route?.tag"
+                  :latency-ms="connectionRelayLatency(item.items[0].raw)"
+                />
               </div>
             </td>
             <td class="text-no-wrap">

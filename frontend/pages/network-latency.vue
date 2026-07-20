@@ -1,110 +1,167 @@
 <script setup lang="ts">
 import Container from "~/components/layout/Container.vue";
 import CountryFlag from "vue-country-flag-next";
-import Europe from "~/components/icons/regions/europe.vue";
-import country from "country-list-js";
 import Ping from "~/components/network/Ping.vue";
 import { useLocale } from "vuetify";
 import { StartOptimizing } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import ContinentIcon from "~/components/icons/ContinentIcon.vue";
-import type { Node, RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
-import { NodeFlag } from "~/bindings/github.com/lagzap/zap/data";
+import type { Node } from "~/bindings/github.com/lagzap/zap/data";
+import type { DataTableHeader } from "vuetify";
+import { useNetworkLatencyGrid } from "~/composables/useNetworkLatencyGrid";
+import country from "country-list-js";
 
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
-const regions = computed(() => store.regions);
 const filterMode = ref("all");
 
-const showRouteDialog = ref(false)
-const selectedNode = ref<Node | null>(null)
-const selectedNodeRoutes = computed(() => {
-  return store.routes[`${selectedNode.value?.id}-ipv4-udp`] || null
-})
+const {
+  stackFilter,
+  transportFilter,
+  interfaceFilter,
+  visibleRegions,
+  hasRelayFlag,
+  getFilteredLatencyForNode,
+  getFilteredLatencyForNodes,
+  getFilteredLatencyForRegion,
+  getNodeRouteTableRows,
+} = useNetworkLatencyGrid();
+const { getNodeLabel } = useNodeLocationLabel();
+
+const routeTableHeaders = computed<DataTableHeader[]>(() => [
+  {
+    title: t("$vuetify.networkLatency.routePath"),
+    key: "path",
+    sortable: false,
+  },
+  {
+    title: t("$vuetify.networkLatency.routeStack"),
+    key: "stack",
+    sortable: false,
+    width: "72px",
+  },
+  {
+    title: t("$vuetify.networkLatency.routeTransport"),
+    key: "transport",
+    sortable: false,
+    width: "72px",
+  },
+  {
+    title: t("$vuetify.networkLatency.routePing"),
+    key: "latencyMs",
+    align: "center",
+    sortable: true,
+    width: "88px",
+  },
+  {
+    title: t("$vuetify.networkLatency.routeLivePing"),
+    key: "liveProbeMs",
+    align: "center",
+    sortable: true,
+    width: "96px",
+  },
+  {
+    title: t("$vuetify.networkLatency.routeAvailability"),
+    key: "availability",
+    sortable: false,
+    width: "120px",
+  },
+  {
+    title: t("$vuetify.networkLatency.routeAvailable"),
+    key: "available",
+    align: "center",
+    sortable: true,
+    width: "96px",
+  },
+]);
+
+const stackFilterItems = computed(() => [
+  {
+    value: "all",
+    title: t("$vuetify.networkLatency.filters.stackAll"),
+  },
+  {
+    value: "ipv4",
+    title: t("$vuetify.networkLatency.filters.stackIpv4"),
+  },
+  {
+    value: "ipv6",
+    title: t("$vuetify.networkLatency.filters.stackIpv6"),
+  },
+]);
+
+const transportFilterItems = computed(() => [
+  {
+    value: "all",
+    title: t("$vuetify.networkLatency.filters.transportAll"),
+  },
+  {
+    value: "udp",
+    title: t("$vuetify.networkLatency.filters.transportUdp"),
+  },
+  {
+    value: "tcp",
+    title: t("$vuetify.networkLatency.filters.transportTcp"),
+  },
+]);
+
+const interfaceFilterItems = computed(() => [
+  {
+    value: "best",
+    title: t("$vuetify.networkLatency.filters.bestInterface"),
+  },
+  ...store.interfaces.map((iface) => ({
+    value: iface.Name,
+    title: iface.Name,
+  })),
+]);
+
+const showRouteDialog = ref(false);
+const selectedNode = ref<Node | null>(null);
+
+const selectedNodeRouteRows = computed(() => {
+  if (!selectedNode.value) {
+    return [];
+  }
+  return getNodeRouteTableRows(selectedNode.value.id);
+});
+
+const selectedNodeTitle = computed(() => {
+  if (!selectedNode.value) {
+    return "";
+  }
+  return getNodeLabel(selectedNode.value);
+});
+
 function showRoutes(node: Node) {
   selectedNode.value = node;
   showRouteDialog.value = true;
 }
 
-function hasRelayFlag(node: Node): boolean {
-  return (node.flags & NodeFlag.NodeFlag_NODE_FLAG_RELAY) !== 0;
-}
-
-function getLowestPingForArea(nodes: Node[]): RelayRoute | null {
-  let bestRoute: RelayRoute | null = null;
-  let lowestLatency = Infinity;
-  if (!nodes || nodes.length === 0) return null;
-
-  const variants = ["ipv4-udp", "ipv4-tcp", "ipv6-udp", "ipv6-tcp"];
-
-  for (const node of nodes) {
-    // Only consider nodes with RELAY flag
-    if (!hasRelayFlag(node)) continue;
-    
-    for (const v of variants) {
-      const key = `${node.id}-${v}`;
-      const routeData: RelayRoute | undefined = (store.routes || {})[key];
-      if (
-        !routeData ||
-        !Array.isArray(routeData.routes) ||
-        routeData.routes.length === 0
-      )
-        continue;
-
-      for (const route of routeData.routes) {
-        const l = route?.min_latency;
-        if (
-          typeof l === "number" &&
-          !Number.isNaN(l) &&
-          l > 0 &&
-          l < lowestLatency
-        ) {
-          lowestLatency = l;
-          bestRoute = routeData;
-        }
-      }
-    }
-  }
-
-  return bestRoute;
-}
-
 function firstNodeIdForArea(nodes: Node[]): string {
   const relayNodes = nodes.filter(hasRelayFlag);
-  return relayNodes && relayNodes.length > 0 ? relayNodes[0].id : "";
-}
-
-function getLowestPingForRegion(regionTag: string): RelayRoute | null {
-  // flatten all areas in the region and find the best ping
-  const regionAreas = areasByRegion.value[regionTag] || {};
-  const nodes: Node[] = [];
-  Object.values(regionAreas).forEach((arr) => nodes.push(...arr));
-  if (nodes.length === 0) return null;
-  
-  // Filter to only RELAY nodes
-  const relayNodes = nodes.filter(hasRelayFlag);
-  if (relayNodes.length === 0) return null;
-  
-  return getLowestPingForArea(relayNodes);
+  return relayNodes.length > 0 ? relayNodes[0].id : "";
 }
 
 const areas = computed(() => {
   const allNodes = Object.values(store.nodes)
     .slice()
-    .filter(hasRelayFlag) // Only show nodes with RELAY flag
+    .filter(hasRelayFlag)
     .sort((a, b) => {
       const countryA = country.findByIso2(a.country)?.name || "";
       const countryB = country.findByIso2(b.country)?.name || "";
       return countryA.localeCompare(countryB);
     })
-    .reduce((acc, node) => {
-      const area = store.localized(node.city);
-      acc[area] = acc[area] || [];
-      acc[area].push(node);
-      acc[area].sort((a, b) => a.name.localeCompare(b.name));
-
-      return acc;
-    }, {} as Record<string, Node[]>);
+    .reduce(
+      (acc, node) => {
+        const area = store.localized(node.city);
+        acc[area] = acc[area] || [];
+        acc[area].push(node);
+        acc[area].sort((a, b) => a.name.localeCompare(b.name));
+        return acc;
+      },
+      {} as Record<string, Node[]>
+    );
 
   if (filterMode.value !== "all") {
     const filteredAreas: Record<string, Node[]> = {};
@@ -127,20 +184,55 @@ const areasByRegion = computed(() => {
   const regionGroups: Record<string, Record<string, Node[]>> = {};
   Object.entries(areas.value).forEach(([area, nodes]) => {
     const regionTag = nodes[0]?.region;
-    if (regionTag) {
+    if (regionTag && visibleRegions.value.some((region) => region.tag === regionTag)) {
       regionGroups[regionTag] = regionGroups[regionTag] || {};
       regionGroups[regionTag][area] = nodes;
     }
   });
 
   const sortedRegionGroups: Record<string, Record<string, Node[]>> = {};
-  Object.values(regions.value).forEach((region: any) => {
+  visibleRegions.value.forEach((region) => {
     if (regionGroups[region.tag]) {
       sortedRegionGroups[region.tag] = regionGroups[region.tag];
     }
   });
 
   return sortedRegionGroups;
+});
+
+const regionLatencyByTag = computed(() => {
+  const result: Record<string, ReturnType<typeof getFilteredLatencyForRegion>> = {};
+  for (const region of visibleRegions.value) {
+    result[region.tag] = getFilteredLatencyForRegion(region.tag, areasByRegion.value);
+  }
+  return result;
+});
+
+const areaLatencyByKey = computed(() => {
+  const result: Record<string, ReturnType<typeof getFilteredLatencyForNodes>> = {};
+  for (const [area, nodes] of Object.entries(areas.value)) {
+    result[area] = getFilteredLatencyForNodes(nodes);
+  }
+  return result;
+});
+
+const nodeLatencyById = computed(() => {
+  const result: Record<string, ReturnType<typeof getFilteredLatencyForNode>> = {};
+  for (const node of Object.values(store.nodes)) {
+    if (hasRelayFlag(node)) {
+      result[node.id] = getFilteredLatencyForNode(node.id);
+    }
+  }
+  return result;
+});
+
+watch(visibleRegions, (regions) => {
+  if (
+    filterMode.value !== "all" &&
+    !regions.some((region) => region.tag === filterMode.value)
+  ) {
+    filterMode.value = "all";
+  }
 });
 
 async function optimize() {
@@ -151,19 +243,51 @@ async function optimize() {
 <template>
   <div>
     <Container>
-      <template v-if="false" #header>
-        <v-tabs fixed-tabs>
-          <v-tab :to="{ name: 'network-latency' }" :text="t('$vuetify.networkLatency.latencyGrid')" />
-          <v-tab :to="{ name: 'network-map' }" :text="t('$vuetify.networkLatency.networkMap')" />
-        </v-tabs>
-        <v-spacer />
-      </template>
-      <template #header v-else>
+      <template #header>
         <v-app-bar-title class="text-subtitle-1">
-          {{ t('$vuetify.networkLatency.latencyGrid') }}
+          {{ t("$vuetify.networkLatency.latencyGrid") }}
         </v-app-bar-title>
       </template>
       <v-card-text>
+        <v-row dense class="mb-3">
+          <v-col cols="12" sm="4">
+            <v-select
+              v-model="interfaceFilter"
+              :items="interfaceFilterItems"
+              item-value="value"
+              item-title="title"
+              :label="t('$vuetify.networkLatency.filters.interface')"
+              density="compact"
+              variant="outlined"
+              hide-details
+            />
+          </v-col>
+          <v-col cols="12" sm="4">
+            <v-select
+              v-model="stackFilter"
+              :items="stackFilterItems"
+              item-value="value"
+              item-title="title"
+              :label="t('$vuetify.networkLatency.filters.stack')"
+              density="compact"
+              variant="outlined"
+              hide-details
+            />
+          </v-col>
+          <v-col cols="12" sm="4">
+            <v-select
+              v-model="transportFilter"
+              :items="transportFilterItems"
+              item-value="value"
+              item-title="title"
+              :label="t('$vuetify.networkLatency.filters.transport')"
+              density="compact"
+              variant="outlined"
+              hide-details
+            />
+          </v-col>
+        </v-row>
+
         <v-chip-group
           v-model="filterMode"
           color="primary"
@@ -176,7 +300,7 @@ async function optimize() {
             <span>{{ t("$vuetify.network.allRegions") }}</span>
           </v-chip>
           <v-chip
-            v-for="region in regions"
+            v-for="region in visibleRegions"
             :key="region.tag"
             rounded
             size="large"
@@ -192,8 +316,9 @@ async function optimize() {
             <template #append>
               <div class="ms-2">
                 <Ping
-                  v-if="getLowestPingForRegion(region.tag) !== null"
-                  :tag="getLowestPingForRegion(region.tag).tag"
+                  v-if="regionLatencyByTag[region.tag]?.latencyMs != null"
+                  :tag="regionLatencyByTag[region.tag].routeTag"
+                  :latency-ms="regionLatencyByTag[region.tag].latencyMs"
                 />
               </div>
             </template>
@@ -210,9 +335,7 @@ async function optimize() {
                 <v-list-subheader>
                   {{
                     store.localized(
-                      Object.values(regions).find(
-                        (r: any) => r.tag === regionTag
-                      )?.name
+                      visibleRegions.find((region) => region.tag === regionTag)?.name
                     )
                   }}
                 </v-list-subheader>
@@ -247,8 +370,9 @@ async function optimize() {
                       </template>
                       <template #append>
                         <Ping
-                          v-if="getLowestPingForArea(nodes) !== null"
-                          :tag="getLowestPingForArea(nodes).tag"
+                          v-if="areaLatencyByKey[area]?.latencyMs != null"
+                          :tag="areaLatencyByKey[area].routeTag"
+                          :latency-ms="areaLatencyByKey[area].latencyMs"
                         />
                         <Ping v-else :tag="firstNodeIdForArea(nodes)" />
                       </template>
@@ -262,11 +386,15 @@ async function optimize() {
                       @click="showRoutes(node)"
                     >
                       <v-list-item-title>
-                        {{ store.localized(node.city) }}
-                        {{ i + 1 }}
+                        {{ getNodeLabel(node) }}
                       </v-list-item-title>
                       <template #append>
-                        <Ping v-if="hasRelayFlag(node)" :tag="node.id" />
+                        <Ping
+                          v-if="nodeLatencyById[node.id]?.latencyMs != null"
+                          :tag="nodeLatencyById[node.id].routeTag"
+                          :latency-ms="nodeLatencyById[node.id].latencyMs"
+                        />
+                        <Ping v-else-if="hasRelayFlag(node)" :tag="node.id" />
                       </template>
                     </v-list-item>
                   </v-list>
@@ -305,8 +433,9 @@ async function optimize() {
                     </template>
                     <template #append>
                       <Ping
-                        v-if="getLowestPingForArea(nodes) !== null"
-                        :tag="getLowestPingForArea(nodes).tag"
+                        v-if="areaLatencyByKey[area]?.latencyMs != null"
+                        :tag="areaLatencyByKey[area].routeTag"
+                        :latency-ms="areaLatencyByKey[area].latencyMs"
                       />
                       <Ping v-else :tag="firstNodeIdForArea(nodes)" />
                     </template>
@@ -317,10 +446,18 @@ async function optimize() {
                     v-for="(node, i) in nodes"
                     :key="i"
                     :value="node.id"
+                    @click="showRoutes(node)"
                   >
-                    <v-list-item-title>{{ node.name }}</v-list-item-title>
+                    <v-list-item-title>
+                      {{ getNodeLabel(node) }}
+                    </v-list-item-title>
                     <template #append>
-                      <Ping v-if="hasRelayFlag(node)" :tag="node.id" />
+                      <Ping
+                        v-if="nodeLatencyById[node.id]?.latencyMs != null"
+                        :tag="nodeLatencyById[node.id].routeTag"
+                        :latency-ms="nodeLatencyById[node.id].latencyMs"
+                      />
+                      <Ping v-else-if="hasRelayFlag(node)" :tag="node.id" />
                     </template>
                   </v-list-item>
                 </v-list>
@@ -329,8 +466,9 @@ async function optimize() {
           </template>
         </v-row>
         <v-hover>
-          <template #default="{ isHovering, props }">
+          <template #default="{ props }">
             <v-fab
+              v-if="!store.optimizing"
               prepend-icon="mdi-fire"
               appear
               size="large"
@@ -344,7 +482,6 @@ async function optimize() {
                 zIndex: 10000,
               }"
               text="Optimize"
-              :loading="store.optimizing"
               @click="optimize()"
             />
           </template>
@@ -352,22 +489,92 @@ async function optimize() {
       </v-card-text>
     </Container>
 
-    <v-dialog v-model:model-value="showRouteDialog" max-width="500">
-      <template v-slot:default="{ isActive }">
-        <v-card title="Dialog">
-          <v-card-text>
-            <pre>
-              {{ selectedNodeRoutes }}
-            </pre>
-          </v-card-text>
-
-          <v-card-actions>
-            <v-spacer></v-spacer>
-
-            <v-btn text="Close Dialog" @click="isActive.value = false"></v-btn>
-          </v-card-actions>
-        </v-card>
-      </template>
+    <v-dialog v-model="showRouteDialog" max-width="960">
+      <v-card>
+        <v-card-title class="text-subtitle-1">
+          {{
+            t("$vuetify.networkLatency.routeDialogTitle", [selectedNodeTitle])
+          }}
+        </v-card-title>
+        <v-card-text>
+          <v-data-table
+            v-if="selectedNodeRouteRows.length > 0"
+            :headers="routeTableHeaders"
+            :items="selectedNodeRouteRows"
+            item-value="key"
+            density="compact"
+            :items-per-page="10"
+            class="bg-transparent"
+          >
+            <template #item.latencyMs="{ item }">
+              <Ping
+                v-if="item.latencyMs != null"
+                :tag="item.routeTag"
+                :latency-ms="item.latencyMs"
+              />
+              <span v-else class="text-medium-emphasis">—</span>
+            </template>
+            <template #item.liveProbeMs="{ item }">
+              <Ping
+                v-if="item.liveProbeMs != null"
+                :tag="item.routeTag"
+                :latency-ms="item.liveProbeMs"
+              />
+              <span v-else class="text-medium-emphasis">—</span>
+            </template>
+            <template #item.availability="{ item }">
+              <div class="d-flex ga-1">
+                <v-chip
+                  size="x-small"
+                  variant="tonal"
+                  :color="item.icmp ? 'success' : 'default'"
+                >
+                  ICMP
+                </v-chip>
+                <v-chip
+                  size="x-small"
+                  variant="tonal"
+                  :color="item.tcp ? 'success' : 'default'"
+                >
+                  TCP
+                </v-chip>
+                <v-chip
+                  size="x-small"
+                  variant="tonal"
+                  :color="item.udp ? 'success' : 'default'"
+                >
+                  UDP
+                </v-chip>
+              </div>
+            </template>
+            <template #item.available="{ item }">
+              <v-chip
+                size="x-small"
+                variant="flat"
+                :color="item.available ? 'success' : 'error'"
+              >
+                {{
+                  item.available
+                    ? t("$vuetify.networkLatency.routeAvailable")
+                    : t("$vuetify.networkLatency.routeUnavailable")
+                }}
+              </v-chip>
+            </template>
+          </v-data-table>
+          <div v-else class="text-medium-emphasis py-4 text-center">
+            {{ t("$vuetify.networkLatency.routeNoPaths") }}
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showRouteDialog = false"
+          >
+            {{ t("$vuetify.close") }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
     </v-dialog>
   </div>
 </template>

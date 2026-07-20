@@ -10,13 +10,15 @@ import type {
   RouteProbeEvent,
   LagFixEvent,
   LagFixStats,
+  RelayPathEvent,
 } from "~/types/monitoring";
 
 const MAX_LOGS = 1000;
 const MAX_SPEED_HISTORY = SPEED_HISTORY_SECONDS;
-const MAX_ROUTE_PING_HISTORY = SPEED_HISTORY_SECONDS * 2;
+const MAX_ROUTE_PING_HISTORY = 240;
 
 const MAX_LAG_FIX_HISTORY = 200;
+const MAX_RELAY_PATH_EVENTS = 300;
 
 let connectionsStore: ReturnType<typeof createMonitoringStore> | null = null;
 
@@ -28,7 +30,13 @@ function createMonitoringStore() {
   let networkSpeedHistory: Ref<NetworkSpeedPoint[]> = ref([]);
   let routePingHistory: Ref<Record<string, RouteMetricEvent[]>> = ref({});
   let routeProbeHistory: Ref<Record<string, RouteProbeEvent[]>> = ref({});
+  /** Monotonic received count per tag (survives ring-buffer truncation). */
+  let routeProbeReceivedCount: Ref<Record<string, number>> = ref({});
+  /** NIC names seen on live probes — avoids scanning full probe history. */
+  let probedInterfaceNames: Ref<string[]> = ref([]);
+  const probedInterfaceNameSet = new Set<string>();
   let lagFixHistory: Ref<LagFixEvent[]> = ref([]);
+  let relayPathEvents: Ref<RelayPathEvent[]> = ref([]);
   let lagFixStats: Ref<LagFixStats> = ref({
     verified_count: 0,
     attempt_count: 0,
@@ -40,7 +48,7 @@ function createMonitoringStore() {
     if (data) {
       logs.value.push(data as Log);
       if (logs.value.length > MAX_LOGS) {
-        logs.value = logs.value.slice(0, MAX_LOGS);
+        logs.value = logs.value.slice(-MAX_LOGS);
       }
     }
   });
@@ -67,7 +75,24 @@ function createMonitoringStore() {
     if (!tag) {
       return;
     }
+    let ifacesChanged = false;
+    for (const slot of probe.slots ?? []) {
+      if (!slot.iface || !(slot.latency > 0)) {
+        continue;
+      }
+      if (!probedInterfaceNameSet.has(slot.iface)) {
+        probedInterfaceNameSet.add(slot.iface);
+        ifacesChanged = true;
+      }
+    }
+    if (ifacesChanged) {
+      probedInterfaceNames.value = [...probedInterfaceNameSet];
+    }
     const history = routeProbeHistory.value[tag] ?? [];
+    routeProbeReceivedCount.value = {
+      ...routeProbeReceivedCount.value,
+      [tag]: (routeProbeReceivedCount.value[tag] ?? 0) + 1,
+    };
     routeProbeHistory.value = {
       ...routeProbeHistory.value,
       [tag]: [...history, probe].slice(-MAX_ROUTE_PING_HISTORY),
@@ -87,6 +112,21 @@ function createMonitoringStore() {
       return;
     }
     lagFixHistory.value = [...lagFixHistory.value, fix].slice(-MAX_LAG_FIX_HISTORY);
+  });
+
+  Events.On("lag-fix-history", ({ data }: any) => {
+    if (!data || !Array.isArray(data)) {
+      return;
+    }
+    lagFixHistory.value = (data as LagFixEvent[]).slice(-MAX_LAG_FIX_HISTORY);
+  });
+
+  Events.On("relay-path", ({ data }: any) => {
+    if (!data) {
+      return;
+    }
+    const event = data as RelayPathEvent;
+    relayPathEvents.value = [...relayPathEvents.value, event].slice(-MAX_RELAY_PATH_EVENTS);
   });
 
   Events.On("lag-fix-stats", ({ data }: any) => {
@@ -142,7 +182,10 @@ function createMonitoringStore() {
     networkSpeedHistory: computed(() => networkSpeedHistory.value),
     routePingHistory: computed(() => routePingHistory.value),
     routeProbeHistory: computed(() => routeProbeHistory.value),
+    routeProbeReceivedCount: computed(() => routeProbeReceivedCount.value),
+    probedInterfaceNames: computed(() => probedInterfaceNames.value),
     lagFixHistory: computed(() => lagFixHistory.value),
+    relayPathEvents: computed(() => relayPathEvents.value),
     lagFixStats: computed(() => lagFixStats.value),
     resetNetworkSpeedHistory: () => {
       networkSpeedHistory.value = [];
@@ -151,7 +194,11 @@ function createMonitoringStore() {
     resetRoutePingHistory: () => {
       routePingHistory.value = {};
       routeProbeHistory.value = {};
+      routeProbeReceivedCount.value = {};
+      probedInterfaceNameSet.clear();
+      probedInterfaceNames.value = [];
       lagFixHistory.value = [];
+      relayPathEvents.value = [];
     },
   };
 }

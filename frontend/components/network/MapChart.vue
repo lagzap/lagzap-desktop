@@ -56,6 +56,7 @@ const emit = defineEmits(["update:modelValue"]);
 
 const store = useStore();
 const locale = useLocale();
+const { getNodeLabel } = useNodeLocationLabel();
 const t = locale.t;
 
 const chartRef = ref<HTMLDivElement | null>(null);
@@ -122,8 +123,10 @@ const ipToCoord = (ip: string | null | undefined) => {
 };
 
 const getLocalizedNodeName = (node: NodeLike) => {
-  const currentLocale = locale.current.value;
-  return node.city?.[currentLocale] || node.city?.en || node.name || "-";
+  if (node.id) {
+    return getNodeLabel(node.id);
+  }
+  return node.name || "-";
 };
 
 function buildSeriesForSelection(nodeId: string | null) {

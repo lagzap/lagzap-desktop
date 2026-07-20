@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import LatencyPanel from "~/components/network/LatencyPanel.vue";
 import TopConnectionsPreview from "~/components/network/TopConnectionsPreview.vue";
+import OverviewTitleGrid from "~/components/title/OverviewTitleGrid.vue";
 import {
   getBestInterfaceName,
   getJitterAccent,
   getLossAccent,
   getScoreAccent,
-  INTERFACE_CHART_COLORS,
+  interfaceBaseColor,
   isPingTimeout,
   useLatencyMetrics,
 } from "~/composables/useLatencyMetrics";
 import { useHumanSpeed } from "~/composables/helper";
-import { useLocale } from "vuetify";
+import { useLocale, useTheme } from "vuetify";
 
 withDefaults(
   defineProps<{
@@ -23,11 +24,15 @@ withDefaults(
 );
 
 const { t } = useLocale();
+const theme = useTheme();
+const isDark = computed(() => theme.current.value.dark);
 const store = useStore();
 const { networkSpeedHistory, networkTraffic } = useMonitoringStore();
 
 const { lastPingMs, combinedScore, combinedMetrics, chartData } =
-  useLatencyMetrics(computed(() => store.latency));
+  useLatencyMetrics(computed(() => store.latency), {
+    pingCache: computed(() => store.latencyPingCache),
+  });
 
 const bestInterfaceName = computed(() => {
   if (!store.latency?.interfaces) {
@@ -41,13 +46,11 @@ const bestInterfaceColor = computed(() => {
   if (!name) {
     return "#888";
   }
-  return (
-    chartData.value.interfaceColors[name] ??
-    INTERFACE_CHART_COLORS[
-      Math.max(0, chartData.value.rankedInterfaces.indexOf(name)) %
-        INTERFACE_CHART_COLORS.length
-    ]
-  );
+  if (chartData.value.interfaceColors[name]) {
+    return chartData.value.interfaceColors[name];
+  }
+  const order = chartData.value.rankedInterfaces;
+  return interfaceBaseColor(name, Math.max(0, order.indexOf(name)));
 });
 
 const bestInterfaceLatency = computed(() => {
@@ -102,12 +105,14 @@ const currentUploadSpeed = computed(() => {
   );
 });
 
-const scoreAccent = computed(() => getScoreAccent(combinedScore.value));
+const scoreAccent = computed(() =>
+  getScoreAccent(combinedScore.value, isDark.value)
+);
 const jitterAccent = computed(() =>
-  getJitterAccent(combinedMetrics.value.jitter || 0)
+  getJitterAccent(combinedMetrics.value.jitter || 0, isDark.value)
 );
 const lossAccent = computed(() =>
-  getLossAccent(combinedMetrics.value.loss || 0)
+  getLossAccent(combinedMetrics.value.loss || 0, isDark.value)
 );
 
 function metricValueStyle(accent: string | null) {
@@ -117,14 +122,16 @@ function metricValueStyle(accent: string | null) {
 
 <template>
   <div>
-    <v-card flat class="mt-3 bg-transparent">
-      <v-card-text v-if="store.connected" class="py-3">
-        <div class="network-header d-flex align-center justify-space-between mb-4">
-          <div class="text-subtitle-1 font-weight-medium">
-            {{ t("$vuetify.connections.network") }}
-          </div>
-        </div>
+    <div class="overview-status px-4 pt-4">
+      <AccountStatusStrip />
+    </div>
 
+    <OverviewTitleGrid />
+
+    <v-divider class="mx-4 mt-3" />
+
+    <v-card flat class="bg-transparent">
+      <v-card-text v-if="store.connected" class="py-3">
         <div class="network-summary">
           <div v-if="bestInterfaceName" class="network-summary__item">
             <div class="network-summary__label">
@@ -227,6 +234,7 @@ function metricValueStyle(accent: string | null) {
         <div v-if="store.connected">
           <LatencyPanel
             :latency="store.latency"
+            :ping-cache="store.latencyPingCache"
             :chart-height="chartHeight"
             :network-speed-history="networkSpeedHistory"
             show-legend
