@@ -1,39 +1,118 @@
-import { ref, readonly, toRaw } from 'vue'
-import { Events } from '@wailsio/runtime'
+import { ref, readonly, shallowRef, toRaw } from 'vue'
+import { Events, System } from '@wailsio/runtime'
+import type { ThemeInstance } from 'vuetify'
+import { ClientSettings } from '~/bindings/github.com/lagzap/zap/data/models'
+import {
+  GetClientSettings,
+  GetInternetPingTarget,
+  IsReady,
+  SetClientSettings,
+  SetInternetPingTarget,
+  SetRoutingSettings,
+} from '~/bindings/github.com/lagzap/lagzap-desktop/service'
+import { getSettingsValue, putSettingsValue } from '~/utils/settingsDB'
 
 export type RouteAccuracySetting = 'veryLow' | 'low' | 'medium' | 'high'
 export type RouteProtocolSetting = 'tcpUdp' | 'icmp' | 'tcp' | 'udp'
 export type RouteIPSetting = 'dualstack' | 'ipv4' | 'ipv6'
+import { DEFAULT_INTERNET_PING_TARGET, type InternetPingTargetId } from '~/composables/internetPingTargets'
+
+export const MAX_FAVORITE_TITLES = 10
+
+export type AppThemeSetting = 'system' | 'light' | 'dark'
 
 interface AppSettings {
   language?: string
-  theme?: 'system' | 'light' | 'dark'
+  theme?: AppThemeSetting
   isFirstTime?: boolean
+  allowSendDebugInfo?: boolean
+  allowSendAnonymousData?: boolean
+  launchOnStartup?: boolean
+  launchOnStartupMinimize?: boolean
+  activeOnStart?: boolean
+  gpuAcceleration?: boolean
   routeAccuracy?: RouteAccuracySetting
   routeProtocol?: RouteProtocolSetting
   routeIp?: RouteIPSetting
   realtimeOptimization?: boolean
+  proxyDnsRequests?: boolean
+  internetPingTarget?: InternetPingTargetId
+  relayTransportFallback?: boolean
+  /** Ordered title IDs for Quick Access favorites (max MAX_FAVORITE_TITLES). */
+  favoriteTitleIds?: string[]
 }
 
-const DB_NAME = 'lagzap-settings'
-const DB_VERSION = 1
-const STORE_NAME = 'settings'
+const APP_SETTINGS_KEY = 'app-settings'
 
-const defaultRoutingSettings = {
-  routeAccuracy: 'low' as RouteAccuracySetting,
-  routeProtocol: 'tcpUdp' as RouteProtocolSetting,
-  routeIp: 'dualstack' as RouteIPSetting,
+const defaultRoutingSettings: Required<
+  Pick<
+    AppSettings,
+    | 'routeAccuracy'
+    | 'routeProtocol'
+    | 'routeIp'
+    | 'realtimeOptimization'
+    | 'proxyDnsRequests'
+    | 'internetPingTarget'
+    | 'relayTransportFallback'
+  >
+> = {
+  routeAccuracy: 'low',
+  routeProtocol: 'tcpUdp',
+  routeIp: 'dualstack',
   realtimeOptimization: true,
+  proxyDnsRequests: false,
+  internetPingTarget: DEFAULT_INTERNET_PING_TARGET,
+  relayTransportFallback: false,
 }
 
-const settings = ref<AppSettings>({
+const settings = shallowRef<AppSettings>({
   language: undefined,
   theme: 'system',
   isFirstTime: true,
+  allowSendDebugInfo: false,
+  allowSendAnonymousData: false,
+  launchOnStartup: false,
+  launchOnStartupMinimize: false,
+  activeOnStart: true,
+  gpuAcceleration: true,
+  favoriteTitleIds: [],
   ...defaultRoutingSettings,
 })
 
 const isLoaded = ref(false)
+let settingsHydrated = false
+
+function cloneAppSettings(value: AppSettings): AppSettings {
+  return JSON.parse(JSON.stringify(toRaw(value))) as AppSettings
+}
+
+async function persistAppSettings(): Promise<void> {
+  await putSettingsValue(APP_SETTINGS_KEY, cloneAppSettings(settings.value))
+}
+
+export async function syncThemeFromSetting(
+  themeSetting: AppThemeSetting,
+  theme?: ThemeInstance
+) {
+  if (!theme) {
+    return
+  }
+  if (themeSetting === 'system') {
+    try {
+      const isDark = await System.IsDarkMode()
+      theme.change(isDark ? 'dark' : 'light')
+      return
+    } catch {
+      theme.change(
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+      )
+      return
+    }
+  }
+  theme.change(themeSetting)
+}
 
 const accuracyToEnum: Record<RouteAccuracySetting, number> = {
   veryLow: 0,
@@ -56,41 +135,15 @@ const ipToEnum: Record<RouteIPSetting, number> = {
 }
 
 export const useSettings = (locale?: any, theme?: any) => {
-  const initDB = (): Promise<IDBDatabase> => {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION)
-      
-      request.onerror = () => reject(request.error)
-      request.onsuccess = () => resolve(request.result)
-      
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME)
-        }
-      }
-    })
+  const applyTheme = (themeSetting: AppThemeSetting) => {
+    if (!theme) {
+      return
+    }
+    void syncThemeFromSetting(themeSetting, theme)
   }
 
-  const applyTheme = (themeSetting: 'system' | 'light' | 'dark') => {
-    try {
-      if (theme?.global?.name) {
-        if (themeSetting === 'system') {
-          const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-          theme.change(mediaQuery.matches ? 'dark' : 'light')
-          
-          mediaQuery.addEventListener('change', (e) => {
-            if (settings.value.theme === 'system') {
-              theme.change(e.matches ? 'dark' : 'light')
-            }
-          })
-        } else {
-          theme.change(themeSetting)
-        }
-      }
-    } catch (error) {
-      console.warn('Could not apply theme:', error)
-    }
+  const applyThemeAsync = async (themeSetting: AppThemeSetting) => {
+    await syncThemeFromSetting(themeSetting, theme)
   }
 
   const applyLocale = (language: string) => {
@@ -103,84 +156,207 @@ export const useSettings = (locale?: any, theme?: any) => {
     }
   }
 
+  const applyClientSettingsFromBackend = (
+    clientSettings: ClientSettings,
+    options?: { applyUiPrefs?: boolean }
+  ) => {
+    const applyUiPrefs = options?.applyUiPrefs ?? false
+    const patch: Partial<AppSettings> = {}
+
+    if (applyUiPrefs && clientSettings.language) {
+      patch.language = clientSettings.language
+    }
+    if (applyUiPrefs && clientSettings.theme) {
+      const theme = clientSettings.theme
+      if (theme === 'system' || theme === 'light' || theme === 'dark') {
+        patch.theme = theme
+      }
+    }
+    if (applyUiPrefs && clientSettings.allow_send_debug_info !== undefined) {
+      patch.allowSendDebugInfo = !!clientSettings.allow_send_debug_info
+    }
+    if (applyUiPrefs && clientSettings.allow_send_annonymos_data !== undefined) {
+      patch.allowSendAnonymousData = !!clientSettings.allow_send_annonymos_data
+    }
+    if (applyUiPrefs && clientSettings.launch_on_startup !== undefined) {
+      patch.launchOnStartup = !!clientSettings.launch_on_startup
+    }
+    if (applyUiPrefs && clientSettings.launch_on_startup_minimize !== undefined) {
+      patch.launchOnStartupMinimize = !!clientSettings.launch_on_startup_minimize
+    }
+    if (applyUiPrefs && clientSettings.active_on_start !== undefined) {
+      patch.activeOnStart = !!clientSettings.active_on_start
+    }
+    if (applyUiPrefs && clientSettings.gpu_acceleration !== undefined) {
+      patch.gpuAcceleration = !!clientSettings.gpu_acceleration
+    }
+    if (clientSettings.relay_transport_fallback !== undefined) {
+      patch.relayTransportFallback = !!clientSettings.relay_transport_fallback
+    }
+    if (clientSettings.internet_ping_target) {
+      patch.internetPingTarget = clientSettings.internet_ping_target as InternetPingTargetId
+    }
+
+    if (Object.keys(patch).length > 0) {
+      settings.value = { ...settings.value, ...patch }
+    }
+  }
+
+  const buildClientSettingsPayload = async () => {
+    const existing = await GetClientSettings()
+    const next = existing ? new ClientSettings(existing) : new ClientSettings()
+    if (settings.value.language) {
+      next.language = settings.value.language
+    }
+    if (settings.value.theme) {
+      next.theme = settings.value.theme
+    }
+    next.allow_send_debug_info = settings.value.allowSendDebugInfo ?? false
+    next.allow_send_annonymos_data = settings.value.allowSendAnonymousData ?? false
+    next.launch_on_startup = settings.value.launchOnStartup ?? false
+    next.launch_on_startup_minimize = settings.value.launchOnStartupMinimize ?? false
+    next.active_on_start = settings.value.activeOnStart ?? true
+    next.gpu_acceleration = settings.value.gpuAcceleration ?? true
+    next.relay_transport_fallback = settings.value.relayTransportFallback ?? false
+    next.internet_ping_target = settings.value.internetPingTarget ?? DEFAULT_INTERNET_PING_TARGET
+    next.proxy_dns_requests = settings.value.proxyDnsRequests ?? false
+    next.tcp_routes = existing?.tcp_routes
+    next.udp_routes = existing?.udp_routes
+    next.default_interface = existing?.default_interface ?? ''
+    next.multi_internet_interfaces = existing?.multi_internet_interfaces ?? []
+    next.backup_interfaces = existing?.backup_interfaces ?? []
+    next.interface_route_settings = existing?.interface_route_settings ?? []
+    return next
+  }
+
   const syncRoutingSettingsToBackend = async () => {
     try {
-      const { SetRoutingSettings } = await import('~/bindings/github.com/lagzap/lagzap-desktop/service')
+      if (!(await IsReady())) {
+        return
+      }
       await SetRoutingSettings(
         accuracyToEnum[settings.value.routeAccuracy ?? 'low'],
         protocolToEnum[settings.value.routeProtocol ?? 'tcpUdp'],
         ipToEnum[settings.value.routeIp ?? 'dualstack'],
         settings.value.realtimeOptimization ?? true,
+        settings.value.proxyDnsRequests ?? false,
       )
+      await SetClientSettings(await buildClientSettingsPayload())
+      await SetInternetPingTarget(settings.value.internetPingTarget ?? DEFAULT_INTERNET_PING_TARGET)
     } catch (error) {
       console.warn('Could not sync routing settings to backend:', error)
     }
   }
 
+  const applyPresentation = async () => {
+    if (settings.value.language) {
+      applyLocale(settings.value.language)
+    }
+
+    if (theme) {
+      await applyThemeAsync(settings.value.theme || 'system')
+    } else {
+      applyTheme(settings.value.theme || 'system')
+    }
+  }
+
   const loadSettings = async (): Promise<void> => {
+    if (settingsHydrated) {
+      await applyPresentation()
+      return
+    }
+
     try {
-      const db = await initDB()
-      const transaction = db.transaction([STORE_NAME], 'readonly')
-      const store = transaction.objectStore(STORE_NAME)
-      
-      return new Promise((resolve, reject) => {
-        const request = store.get('app-settings')
-        request.onerror = () => reject(request.error)
-        request.onsuccess = () => {
-          const result = request.result
-          if (result) {
-            settings.value = { ...settings.value, ...result }
-            
-            if (settings.value.language) {
-              applyLocale(settings.value.language)
-            }
-            
-            applyTheme(settings.value.theme || 'system')
-          }
-          isLoaded.value = true
-          void syncRoutingSettingsToBackend()
-          resolve()
+      const result = await getSettingsValue<AppSettings>(APP_SETTINGS_KEY)
+
+      const hadLocalPrefs = !!result
+      if (result) {
+        settings.value = { ...settings.value, ...result }
+      }
+
+      try {
+        const backendSettings = await GetClientSettings()
+        if (backendSettings) {
+          applyClientSettingsFromBackend(backendSettings, {
+            applyUiPrefs: !hadLocalPrefs,
+          })
         }
-      })
+        const pingTarget = await GetInternetPingTarget()
+        if (pingTarget) {
+          settings.value = {
+            ...settings.value,
+            internetPingTarget: pingTarget as InternetPingTargetId,
+          }
+        }
+      } catch (error) {
+        console.warn('Could not load client settings from backend:', error)
+      }
+
+      if (!hadLocalPrefs) {
+        await persistAppSettings()
+      }
+
+      settingsHydrated = true
+      isLoaded.value = true
+      await applyPresentation()
     } catch (error) {
       console.error('Error loading settings:', error)
+      settingsHydrated = true
       isLoaded.value = true
     }
   }
 
   const saveSettings = async (newSettings: Partial<AppSettings>): Promise<void> => {
+    settings.value = { ...settings.value, ...newSettings }
     try {
-      settings.value = { ...settings.value, ...newSettings }
-      
-      const db = await initDB()
-      const transaction = db.transaction([STORE_NAME], 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      
-      return new Promise((resolve, reject) => {
-        const request = store.put(toRaw(settings.value), 'app-settings')
-        
-        request.onerror = () => reject(request.error)
-        request.onsuccess = () => {
-          void syncRoutingSettingsToBackend()
-          resolve()
-        }
-      })
+      await persistAppSettings()
+      void syncRoutingSettingsToBackend()
     } catch (error) {
       console.error('Error saving settings:', error)
+      throw error
     }
   }
 
   const setLanguage = async (language: string) => {
     applyLocale(language)
-    await saveSettings({ 
-      language, 
-      isFirstTime: false 
+    await saveSettings({
+      language,
+      isFirstTime: false,
     })
   }
 
   const setTheme = async (themeSetting: 'system' | 'light' | 'dark') => {
     applyTheme(themeSetting)
     await saveSettings({ theme: themeSetting })
+    Events.Emit('app-theme-changed', themeSetting)
+  }
+
+  const setAllowSendDebugInfo = async (allowSendDebugInfo: boolean) => {
+    await saveSettings({ allowSendDebugInfo })
+  }
+
+  const setAllowSendAnonymousData = async (allowSendAnonymousData: boolean) => {
+    await saveSettings({ allowSendAnonymousData })
+  }
+
+  const setLaunchOnStartup = async (launchOnStartup: boolean) => {
+    const patch: Partial<AppSettings> = { launchOnStartup }
+    if (!launchOnStartup) {
+      patch.launchOnStartupMinimize = false
+    }
+    await saveSettings(patch)
+  }
+
+  const setLaunchOnStartupMinimize = async (launchOnStartupMinimize: boolean) => {
+    await saveSettings({ launchOnStartupMinimize })
+  }
+
+  const setActiveOnStart = async (activeOnStart: boolean) => {
+    await saveSettings({ activeOnStart })
+  }
+
+  const setGpuAcceleration = async (gpuAcceleration: boolean) => {
+    await saveSettings({ gpuAcceleration })
   }
 
   const setRouteAccuracy = async (routeAccuracy: RouteAccuracySetting) => {
@@ -197,6 +373,45 @@ export const useSettings = (locale?: any, theme?: any) => {
 
   const setRealtimeOptimization = async (realtimeOptimization: boolean) => {
     await saveSettings({ realtimeOptimization })
+  }
+
+  const setProxyDnsRequests = async (proxyDnsRequests: boolean) => {
+    await saveSettings({ proxyDnsRequests })
+  }
+
+  const setRelayTransportFallback = async (relayTransportFallback: boolean) => {
+    await saveSettings({ relayTransportFallback })
+  }
+
+  const setInternetPingTarget = async (internetPingTarget: InternetPingTargetId) => {
+    try {
+      await SetInternetPingTarget(internetPingTarget)
+    } catch (error) {
+      console.warn('Could not set internet ping target:', error)
+    }
+    await saveSettings({ internetPingTarget })
+  }
+
+  const normalizeFavoriteTitleIds = (ids: string[]): string[] => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const id of ids) {
+      if (!id || seen.has(id)) {
+        continue
+      }
+      seen.add(id)
+      out.push(id)
+      if (out.length >= MAX_FAVORITE_TITLES) {
+        break
+      }
+    }
+    return out
+  }
+
+  const setFavoriteTitleIds = async (favoriteTitleIds: string[]) => {
+    await saveSettings({
+      favoriteTitleIds: normalizeFavoriteTitleIds(favoriteTitleIds),
+    })
   }
 
   const getLanguages = () => [
@@ -236,10 +451,20 @@ export const useSettings = (locale?: any, theme?: any) => {
     loadSettings,
     setLanguage,
     setTheme,
+    setAllowSendDebugInfo,
+    setAllowSendAnonymousData,
+    setLaunchOnStartup,
+    setLaunchOnStartupMinimize,
+    setActiveOnStart,
+    setGpuAcceleration,
     setRouteAccuracy,
     setRouteProtocol,
     setRouteIp,
     setRealtimeOptimization,
+    setProxyDnsRequests,
+    setRelayTransportFallback,
+    setInternetPingTarget,
+    setFavoriteTitleIds,
     syncRoutingSettingsToBackend,
     getLanguages,
     getThemes,
@@ -257,7 +482,10 @@ export function registerRoutingSettingsSync() {
   }
   routingSyncRegistered = true
 
-  Events.On('service-started', () => {
+  Events.On('service-started', async () => {
+    if (!(await IsReady())) {
+      return
+    }
     const { syncRoutingSettingsToBackend } = useSettings()
     void syncRoutingSettingsToBackend()
   })

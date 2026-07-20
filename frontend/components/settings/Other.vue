@@ -5,21 +5,7 @@ const locale = useLocale()
 const { t } = locale
 const theme = useTheme()
 
-const { 
-  settings, 
-  setLanguage, 
-  setTheme, 
-  getLanguages, 
-  getThemes 
-} = useSettings(locale, theme)
-
-const handleLanguageChange = (language: string) => {
-  setLanguage(language)
-}
-
-const handleThemeChange = (theme: 'system' | 'light' | 'dark') => {
-  setTheme(theme)
-}
+const { settings, setGpuAcceleration } = useSettings(locale, theme)
 </script>
 
 <template>
@@ -30,9 +16,10 @@ const handleThemeChange = (theme: 'system' | 'light' | 'dark') => {
     max-width="500"
   >
     <v-card-text class="pb-0">
-      <v-switch
-        inset
+      <v-checkbox
         :label="t('$vuetify.settings.other.disableGPUAcceleration')"
+        :model-value="!settings.gpuAcceleration"
+        @update:model-value="setGpuAcceleration(!$event)"
       />
     </v-card-text>
   </v-card>

@@ -5,6 +5,13 @@ import type {
   RouteIPSetting,
   RouteProtocolSetting,
 } from '~/composables/useSettings'
+import {
+  DEFAULT_INTERNET_PING_TARGET,
+  INTERNET_PING_TARGET_BEST,
+  INTERNET_PING_TARGETS,
+  internetPingTargetLabel,
+  type InternetPingTargetId,
+} from '~/composables/internetPingTargets'
 
 const locale = useLocale()
 const { t } = locale
@@ -15,6 +22,8 @@ const {
   setRouteProtocol,
   setRouteIp,
   setRealtimeOptimization,
+  setProxyDnsRequests,
+  setInternetPingTarget,
   getRouteAccuracyOptions,
   getRouteProtocolOptions,
   getRouteIpOptions,
@@ -40,6 +49,17 @@ const ipItems = computed(() =>
     title: t(`$vuetify.settings.route.ip.${item.value}`),
   }))
 )
+
+const internetPingTargetItems = computed(() => [
+  {
+    value: INTERNET_PING_TARGET_BEST,
+    title: internetPingTargetLabel(INTERNET_PING_TARGET_BEST, t),
+  },
+  ...INTERNET_PING_TARGETS.map((item) => ({
+    value: item.id,
+    title: internetPingTargetLabel(item.id, t),
+  })),
+])
 </script>
 
 <template>
@@ -94,11 +114,33 @@ const ipItems = computed(() =>
           />
         </v-col>
       </v-row>
-      <v-switch
-        inset
-        :model-value="settings.realtimeOptimization"
+
+      <v-checkbox
+        hide-details
+        class="mb-1"
         :label="t('$vuetify.settings.route.realTimeOptimization')"
-        @update:model-value="setRealtimeOptimization(!!$event)"
+        :model-value="settings.realtimeOptimization"
+        @update:model-value="setRealtimeOptimization"
+      />
+      <v-checkbox
+        class="mb-4"
+        :label="t('$vuetify.settings.route.proxyDnsRequests')"
+        :hint="t('$vuetify.settings.route.proxyDnsRequestsHint')"
+        persistent-hint
+        :model-value="settings.proxyDnsRequests"
+        @update:model-value="setProxyDnsRequests"
+      />
+
+      <v-select
+        :model-value="settings.internetPingTarget"
+        :items="internetPingTargetItems"
+        item-value="value"
+        item-title="title"
+        :label="t('$vuetify.settings.route.internetPingTarget.selectLabel')"
+        density="comfortable"
+        variant="outlined"
+        class="mb-4"
+        @update:model-value="setInternetPingTarget($event as InternetPingTargetId)"
       />
     </v-card-text>
   </v-card>

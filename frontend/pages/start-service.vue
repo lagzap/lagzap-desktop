@@ -7,9 +7,36 @@ import { getToken } from "~/utils/indexedDB";
 import { handleAuthFailure } from "~/composables/useAuthSession";
 
 const router = useRouter();
+const route = useRoute();
 const store = useStore();
 const { t } = useLocale();
-const isLagZap = computed(() => store.isLagZap);
+const { settings } = useSettings();
+/** Open splash without ReloadService — use ?preview=1 from the app menu. */
+const isPreview = computed(
+  () => route.query.preview === "1" || route.query.preview === "true"
+);
+const logoLoading = computed(
+  () =>
+    store.optimizing ||
+    (!isPreview.value &&
+      !store.appReady &&
+      !store.error &&
+      !store.startupCanceled)
+);
+
+const optimizeRealPct = computed(() => {
+  const p = store.optimizeProgress;
+  if (!p) return 0;
+  const total = p.total_tests ?? 0;
+  if (total > 0) {
+    return Math.min(100, Math.max(0, ((p.completed_tests ?? 0) / total) * 100));
+  }
+  return Math.min(100, Math.max(0, p.progress ?? 0));
+});
+const optimizeDisplayPct = usePsychoProgress(
+  optimizeRealPct,
+  computed(() => store.optimizing)
+);
 definePageMeta({
   layout: "start",
   sanctum: {
@@ -25,8 +52,21 @@ const { init, refreshIdentity, isAuthenticated, logout } = useSanctumAuth();
 
 onMounted(async () => {
   await nextTick();
+  if (isPreview.value) {
+    store.loading = false;
+    return;
+  }
   await start();
 });
+
+async function leavePreview() {
+  await router.replace({ name: "index" });
+}
+
+async function runStartupFromPreview() {
+  await router.replace({ name: "start-service" });
+  await start();
+}
 
 const driverDialog = ref(false);
 const installDisclaimerDialog = ref(false);
@@ -141,19 +181,18 @@ async function start() {
     }
     console.error(e);
     console.dir(e);
-    store.error = true;
     errorName.value = (e as Error).name;
     errorStatusCode.value = getHttpStatus(e) ?? 0;
     errorStatusText.value = (e as { statusMessage?: string; response?: { statusText?: string } }).statusMessage
       ?? (e as { response?: { statusText?: string } }).response?.statusText
       ?? "unknown";
-    if (store.isReady) {
-      if (store.ndisRunning) {
-        store.stopProxy();
-      }
-      store.disconnect();
-    }
     store.statusMessage = getErrorMessage(e);
+    try {
+      await store.resetToPreStartup();
+    } catch {
+      // ignore cleanup errors
+    }
+    store.error = true;
     return;
   } finally {
     if (store.startupCanceled || redirecting.value) {
@@ -202,7 +241,9 @@ async function initApp() {
   }
 
   try {
-    await store.initialize();
+    if (settings.value.activeOnStart !== false) {
+      await store.initialize();
+    }
   } catch (e) {
     return;
   }
@@ -220,8 +261,7 @@ async function initApp() {
 
 <template>
   <div>
-    <LagZapAnimatedLogo v-if="isLagZap" :loading="store.optimizing || (!store.error && !store.startupCanceled)" />
-    <CyrexAnimatedLogo v-else :loading="store.optimizing || (!store.error && !store.startupCanceled)" />
+    <CyrexAnimatedLogo :loading="logoLoading" />
     <div class="status-container text-center">
       <v-card-title>
         <LogoName />
@@ -232,16 +272,24 @@ async function initApp() {
         <v-card-subtitle class="text-subtitle-1 text-accent text-center">
           {{ t("$vuetify.startService.advancedRoutingAnalysisInProgress") }}
         </v-card-subtitle>
-        <v-progress-linear color="primary" :model-value="(store.optimizeProgress.completed_tests /
-            store.optimizeProgress.total_tests) *
-          100
-          " rounded height="4" class="mt-2" />
-        <v-card-subtitle class="text-subtitle-2 text-primary text-center mt-3">
-          {{ store.statusMessage }}
-        </v-card-subtitle>
+        <v-progress-linear color="primary" :model-value="optimizeDisplayPct" rounded height="4" class="mt-2" />
       </template>
       <!-- Non-optimizing state content -->
       <template v-else>
+        <template v-if="isPreview">
+          <v-card-subtitle class="text-subtitle-1 text-center text-medium-emphasis">
+            {{ t('$vuetify.startService.previewMode') }}
+          </v-card-subtitle>
+          <div class="d-flex justify-center mt-3" style="gap: 0.75rem">
+            <v-btn color="on-surface" density="comfortable" variant="tonal" @click="leavePreview">
+              {{ t('$vuetify.startService.backToApp') }}
+            </v-btn>
+            <v-btn color="primary" density="comfortable" variant="tonal" @click="runStartupFromPreview">
+              {{ t('$vuetify.startService.runStartup') }}
+            </v-btn>
+          </div>
+        </template>
+        <template v-else>
         <v-card-subtitle v-if="store.serviceReady && store.error && errorName != 'FetchError'"
           class="text-subtitle-1 text-error text-center">
           {{ t("$vuetify.status.coordinationFailed") }}
@@ -264,7 +312,7 @@ async function initApp() {
         </v-card-subtitle>
 
         <div v-if="showCancelStartup" class="d-flex justify-center mt-3">
-          <v-btn color="grey" density="comfortable" variant="tonal" @click="handleCancelStartup">
+          <v-btn color="on-surface" density="comfortable" variant="tonal" @click="handleCancelStartup">
             {{ t("$vuetify.startService.cancelStartup") }}
           </v-btn>
         </div>
@@ -278,10 +326,11 @@ async function initApp() {
             {{ t("$vuetify.startService.retry") }}
           </v-btn>
         </div>
+        </template>
       </template>
     </div>
     <v-dialog v-model="driverDialog" width="500" persistent>
-      <v-card :title="t('$vuetify.startService.installLagZapDriver')">
+      <v-card :title="t('$vuetify.startService.installCyrexDriver')">
         <v-card-text>
           {{ t('$vuetify.service.driverMustBeInstalled') }}
           <br />
@@ -335,11 +384,16 @@ async function initApp() {
 <style scoped>
 .status-container {
   position: fixed;
-  top: 60%;
+  top: calc(50% + 110px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 1002;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.status-container :deep(.v-card-title) {
+  margin-top: 0.75rem;
+  padding-top: 0;
+  padding-bottom: 0.5rem;
 }
 
 .lagzap-name {

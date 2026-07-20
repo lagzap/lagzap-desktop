@@ -3,6 +3,7 @@
     <div
       v-if="showParticles"
       class="optimize-particles"
+      :class="{ 'optimize-particles--light': !isDark }"
       style="
         position: fixed;
         top: 0;
@@ -17,38 +18,50 @@
       <div
         ref="particleContainer"
         class="particle-container"
-        style="
-          position: relative;
-          width: 100%;
-          height: 100%;
-          background: radial-gradient(
-            ellipse at center bottom,
-            rgba(255, 140, 0, 0.1) 0%,
-            transparent 50%
-          );
-        "
       />
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
+import { useTheme } from "vuetify";
 import { useStore } from "~/stores";
 import { useMonitoringStore } from "~/stores/monitoring";
 
 const store = useStore();
 const monitoringStore = useMonitoringStore();
+const theme = useTheme();
+const route = useRoute();
+const isDark = computed(() => theme.current.value.dark);
 const particleContainer = ref<HTMLElement>();
 const particles = ref<HTMLElement[]>([]);
 const isAnimating = ref(true);
 const animationFrameId = ref<number | null>(null);
 
+const onSplash = computed(() => {
+  const name = String(route.name ?? "");
+  const path = route.path || "";
+  return (
+    route.meta.layout === "start" ||
+    path.startsWith("/start-service") ||
+    name === "start-service" ||
+    name.endsWith("start-service")
+  );
+});
+
 const showParticles = computed(() => {
-  const hasOptimizeProgress = store.optimizeProgress && !store.optimizeProgress.is_complete;
-  const hasActiveConnections = monitoringStore.connections.value && monitoringStore.connections.value.length > 0;
-  
-  // Don't show particles if there are active connections
-  return hasOptimizeProgress && !hasActiveConnections;
+  const hasOptimizeProgress =
+    store.optimizeProgress && !store.optimizeProgress.is_complete;
+  const hasActiveConnections =
+    monitoringStore.connections.value &&
+    monitoringStore.connections.value.length > 0;
+
+  // Splash owns its tip-dot sparks — never show float-up particles there.
+  if (onSplash.value) {
+    return false;
+  }
+
+  return !!hasOptimizeProgress && !hasActiveConnections;
 });
 
 const particleCount = computed(() => {
@@ -63,20 +76,34 @@ const animationSpeed = computed(() => {
   return Math.max(1, Math.min(10, Math.round((progress / 100) * 4) + 1));
 });
 
-const size = ref(8); // Set to 8 as requested
+const size = ref(8);
 
-// Particle colors - EXACT from HTML
-const colors = [
-  "#ff8c00", // Dark orange
-  "#ffa500", // Orange
-  "#ffb347", // Light orange
-  "#ffd700", // Gold
-  "#ffed4e", // Yellow
-  "#ffeb3b", // Bright yellow
-  "#ffc107", // Amber
-  "#ff9800", // Orange
-  "#ff6f00", // Dark orange
-  "#ffab00", // Amber yellow
+/** Bright sparks for dark UI */
+const darkColors = [
+  "#ff8c00",
+  "#ffa500",
+  "#ffb347",
+  "#ffd700",
+  "#ffed4e",
+  "#ffeb3b",
+  "#ffc107",
+  "#ff9800",
+  "#ff6f00",
+  "#ffab00",
+];
+
+/** Deeper brand ambers — crisp on light backgrounds without muddy bloom */
+const lightColors = [
+  "#8B6914",
+  "#A67C00",
+  "#B8860B",
+  "#C9A227",
+  "#9A7B2F",
+  "#B45309",
+  "#D97706",
+  "#CA8A04",
+  "#92400E",
+  "#A16207",
 ];
 
 function createParticle() {
@@ -84,54 +111,55 @@ function createParticle() {
     return;
   }
 
-  // Don't create particles if there are active connections
   if (monitoringStore.connections.value && monitoringStore.connections.value.length > 0) {
     return;
   }
 
-
+  const light = !isDark.value;
+  const palette = light ? lightColors : darkColors;
   const particle = document.createElement("div");
-  particle.className = "particle";
+  particle.className = light ? "particle particle--light" : "particle";
 
-  const color = colors[Math.floor(Math.random() * colors.length)];
-  const particleSize = Math.random() * size.value + 1;
+  const color = palette[Math.floor(Math.random() * palette.length)];
+  // Slightly tighter dots on light so they read as sparks, not smudges
+  const particleSize = light
+    ? Math.random() * (size.value * 0.7) + 1.5
+    : Math.random() * size.value + 1;
   const x = Math.random() * window.innerWidth;
 
-  // Generate random drift amounts for smooth horizontal movement
-  const maxDrift = window.innerWidth * 0.15; // Max 15% of screen width drift
+  const maxDrift = window.innerWidth * 0.15;
   const drift1 = (Math.random() - 0.5) * maxDrift * 0.9;
   const drift2 = (Math.random() - 0.5) * maxDrift * 0.6;
 
-  // Random disappear height - particles can disappear anywhere from 20% to 100% of screen height
-  // Since particles start at top: 100vh, we use negative values to move them up
-  const minDisappearHeight = -(window.innerHeight * 0.8); // 80% up from bottom
-  const maxDisappearHeight = -(window.innerHeight * 1.1); // 10% above screen
+  const minDisappearHeight = -(window.innerHeight * 0.8);
+  const maxDisappearHeight = -(window.innerHeight * 1.1);
   const disappearHeight =
     minDisappearHeight +
     Math.random() * (maxDisappearHeight - minDisappearHeight);
 
-  // Random velocity (duration affects speed)
-  const baseDuration = 1 + Math.random() * 3; // 4-13 seconds
+  const baseDuration = 1 + Math.random() * 3;
   const duration = baseDuration / animationSpeed.value;
 
-  particle.style.position = "absolute"; // FIX: Set position to absolute
+  particle.style.position = "absolute";
   particle.style.left = x + "px";
-  particle.style.top = "100vh"; // Start from bottom of screen - EXACT LIKE HTML
+  particle.style.top = "100vh";
   particle.style.width = particleSize + "px";
   particle.style.height = particleSize + "px";
   particle.style.background = color;
-  particle.style.boxShadow = `0 0 ${particleSize * 3}px ${color}, 0 0 ${
-    particleSize * 4
-  }px ${color}`;
-  particle.style.borderRadius = "50%"; // Make it circular
-  particle.style.pointerEvents = "none"; // Don't interfere with clicks
-  particle.style.opacity = "0"; // Start invisible
-  particle.style.transform = "scale(0)"; // Start small
-
-  // Apply single animation with both vertical and horizontal movement
+  if (light) {
+    // Soft amber halo — no full-color bloom that turns muddy on white
+    particle.style.boxShadow = `0 0 ${particleSize * 1.5}px rgba(184, 134, 11, 0.45)`;
+  } else {
+    particle.style.boxShadow = `0 0 ${particleSize * 3}px ${color}, 0 0 ${
+      particleSize * 4
+    }px ${color}`;
+  }
+  particle.style.borderRadius = "50%";
+  particle.style.pointerEvents = "none";
+  particle.style.opacity = "0";
+  particle.style.transform = "scale(0)";
   particle.style.animation = `floatUp ${duration}s ease-out`;
 
-  // Add event listener to clean up when animation ends
   particle.addEventListener("animationend", () => {
     if (particle.parentNode) {
       particle.parentNode.removeChild(particle);
@@ -142,7 +170,6 @@ function createParticle() {
     }
   });
 
-  // Set CSS custom properties for drift amounts and disappear height
   particle.style.setProperty("--drift-1", drift1 + "px");
   particle.style.setProperty("--drift-2", drift2 + "px");
   particle.style.setProperty("--disappear-height", disappearHeight + "px");
@@ -150,7 +177,6 @@ function createParticle() {
   particleContainer.value.appendChild(particle);
   particles.value.push(particle);
 
-  // Remove particle after animation completes
   setTimeout(() => {
     if (particle.parentNode) {
       particle.parentNode.removeChild(particle);
@@ -163,11 +189,10 @@ function createParticle() {
 }
 
 function startAnimation() {
-  // Don't start if already animating
   if (animationFrameId.value !== null) {
     return;
   }
-  
+
   const animate = () => {
     if (
       isAnimating.value &&
@@ -177,8 +202,7 @@ function startAnimation() {
     ) {
       createParticle();
     }
-    
-    // Continue animating only if still active
+
     if (isAnimating.value && showParticles.value) {
       animationFrameId.value = requestAnimationFrame(animate);
     } else {
@@ -197,7 +221,6 @@ function stopAnimation() {
 }
 
 function clearParticles() {
-  // Smooth fade out existing particles
   particles.value.forEach((particle) => {
     if (particle.parentNode) {
       particle.style.transition = "opacity 1s ease-out";
@@ -212,7 +235,6 @@ function clearParticles() {
   particles.value = [];
 }
 
-// Initialize on mount
 onMounted(() => {
   if (showParticles.value) {
     isAnimating.value = true;
@@ -220,7 +242,6 @@ onMounted(() => {
   }
 });
 
-// Watch for changes in showParticles
 watch(showParticles, (show) => {
   if (show) {
     isAnimating.value = true;
@@ -231,7 +252,13 @@ watch(showParticles, (show) => {
   }
 });
 
-// Cleanup on unmount
+// Theme flip mid-optimize: clear so new particles use the right look
+watch(isDark, () => {
+  if (showParticles.value) {
+    clearParticles();
+  }
+});
+
 onUnmounted(() => {
   stopAnimation();
   clearParticles();
@@ -255,6 +282,26 @@ onUnmounted(() => {
   }
 }
 
+.particle-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    ellipse at center bottom,
+    rgba(255, 140, 0, 0.1) 0%,
+    transparent 50%
+  );
+}
+
+.optimize-particles--light .particle-container {
+  /* Warm lift without orange mud on light chrome */
+  background: radial-gradient(
+    ellipse at center bottom,
+    rgba(184, 134, 11, 0.06) 0%,
+    transparent 45%
+  );
+}
+
 .particle {
   position: absolute;
   border-radius: 50%;
@@ -267,6 +314,8 @@ onUnmounted(() => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   background: inherit;
   filter: blur(8px);
@@ -279,13 +328,26 @@ onUnmounted(() => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   background: inherit;
   filter: blur(15px);
   opacity: 0.3;
 }
 
-/* Particle container fade transitions */
+/* Light: sharp core, tiny halo — no big soft blur smudges */
+.particle--light::before {
+  filter: blur(2px);
+  opacity: 0.35;
+  width: 140%;
+  height: 140%;
+}
+
+.particle--light::after {
+  display: none;
+}
+
 .particle-fade-enter-active {
   transition: opacity 1s ease-in;
 }
