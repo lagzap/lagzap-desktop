@@ -10,19 +10,21 @@ import {
   CHART_TIME_RANGE_SECONDS,
   CHART_TIME_RANGE_OPTIONS,
   CHART_WINDOW_SECONDS_SMALL,
-  PING_CHART_COLORS,
-  INTERFACE_CHART_COLORS,
   PING_BAR_COLOR,
   PING_TIMEOUT_COLOR,
-  SPEED_CHART_COLORS,
-  chartColorAt,
+  colorForChartSeries,
+  interfaceBaseColor,
+  ifaceIndexInOrder,
+  parseSeriesInterfaceKey,
+  uniqueInterfaceOrder,
   alignPerInterfaceSpeedToPingWindow,
   useLatencyMetrics,
   type ChartTimeRange,
   type MultiInterfaceLatency,
 } from "~/composables/useLatencyMetrics";
 import type { NetworkSpeedPoint } from "~/types/monitoring";
-import { useLocale } from "vuetify";
+import { useLocale, useTheme } from "vuetify";
+import type { LatencyPingCache } from "~/composables/pingChartCache";
 
 const props = withDefaults(
   defineProps<{
@@ -31,23 +33,32 @@ const props = withDefaults(
     chartHeight?: number;
     hideHeader?: boolean;
     showLegend?: boolean;
+    showSummaryMetrics?: boolean;
     showNetworkSpeed?: boolean;
     networkSpeedHistory?: NetworkSpeedPoint[];
     compact?: boolean;
     denseTimeRange?: boolean;
     /** `bars` = default overview; `lines` = per-route lines with usage area behind */
     chartVariant?: "bars" | "lines";
+    pingCache?: LatencyPingCache;
+    /** One probe sample per chart slot (route probes ~1/sec). */
+    rollingSamples?: boolean;
+    /** Probe cadence; route watchers emit ~1/sec. */
+    probeSamplesPerSecond?: number;
   }>(),
   {
     active: true,
     chartHeight: 150,
     hideHeader: false,
     showLegend: false,
+    showSummaryMetrics: true,
     showNetworkSpeed: false,
     networkSpeedHistory: () => [],
     compact: false,
     denseTimeRange: false,
     chartVariant: "bars",
+    rollingSamples: false,
+    probeSamplesPerSecond: 2,
   }
 );
 
@@ -67,7 +78,59 @@ const chartRef = ref<HTMLDivElement>();
 let chartInstance: echarts.ECharts | null = null;
 let hoverDataIndex: number | null = null;
 let pointerInsideChart = false;
+let renderTimer: ReturnType<typeof setTimeout> | null = null;
+const CHART_RENDER_INTERVAL_MS = 1000;
+let tooltipCacheKey = "";
+let tooltipCacheHtml = "";
+
+function chartRenderFingerprint() {
+  const data = chartData.value;
+  const ranked = data.rankedInterfaces;
+  const lastSamples = ranked.map((name) => {
+    const series = data.seriesData[name];
+    return series?.[series.length - 1] ?? "";
+  });
+  return [
+    ranked.length,
+    ranked.join("\0"),
+    lastSamples.join("|"),
+    props.networkSpeedHistory?.length ?? 0,
+    chartTimeRange.value,
+  ].join("#");
+}
+
+function invalidateTooltipCache() {
+  tooltipCacheKey = "";
+  tooltipCacheHtml = "";
+}
 const { t } = useLocale();
+const theme = useTheme();
+const isDarkTheme = computed(() => theme.current.value.dark);
+
+function chartTooltipChrome() {
+  if (isDarkTheme.value) {
+    return {
+      backgroundColor: "rgba(18, 18, 18, 0.92)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
+      textColor: "#fff",
+      shadow: "0 8px 24px rgba(0,0,0,0.35)",
+      labelMuted: "#888",
+      label: "#bbb",
+      section: "#666",
+      axisLabel: "#888",
+    };
+  }
+  return {
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderColor: "rgba(0, 0, 0, 0.14)",
+    textColor: "#171717",
+    shadow: "0 8px 24px rgba(0,0,0,0.12)",
+    labelMuted: "#6B6B6B",
+    label: "#3A3A3A",
+    section: "#5C5C5C",
+    axisLabel: "#5C5C5C",
+  };
+}
 const hiddenInterfaces = ref<Set<string>>(new Set());
 
 const CHART_Y_MIN = 0;
@@ -75,7 +138,8 @@ const CHART_Y_DEFAULT_MAX = 500;
 const CHART_Y_EXPANDED_MAX = PING_TIMEOUT_MS;
 const SPEED_DOWNLOAD_STACK = "speed";
 const SPEED_AREA_OPACITY = 0.72;
-const SPEED_BACKGROUND_OPACITY = 0.16;
+/** Soft fill behind profile latency lines — per-NIC color, quieter than overview. */
+const SPEED_BACKGROUND_OPACITY = 0.22;
 const ROUTE_LINE_WIDTH = 1;
 const LATENCY_STACK = "latency";
 const PING_BAR_OPACITY = 0.9;
@@ -103,8 +167,9 @@ function getSpeedInterfaceColor(name: string) {
     return chartData.value.speedInterfaceColors[name];
   }
 
-  const index = Math.max(0, getSpeedInterfaceNames().indexOf(name));
-  return chartColorAt(SPEED_CHART_COLORS, index);
+  const ifaceOrder = uniqueInterfaceOrder(chartData.value.rankedInterfaces);
+  const { iface } = parseSeriesInterfaceKey(name);
+  return interfaceBaseColor(iface, ifaceIndexInOrder(iface, ifaceOrder));
 }
 
 function getPingInterfaceColor(name: string) {
@@ -112,17 +177,37 @@ function getPingInterfaceColor(name: string) {
     return chartData.value.interfaceColors[name];
   }
 
-  const index = Math.max(0, chartData.value.rankedInterfaces.indexOf(name));
-  return chartColorAt(INTERFACE_CHART_COLORS, index);
+  return colorForChartSeries(
+    name,
+    uniqueInterfaceOrder(chartData.value.rankedInterfaces)
+  );
 }
 
 function getSpeedInterfaceNames() {
-  const names = new Set<string>();
-  chartData.value.rankedInterfaces.forEach((name) => names.add(name));
+  // Prefer bare NIC names from traffic history (overview-style). Fall back to
+  // unique ifaces parsed from route series keys (`Ethernet::0` → `Ethernet`).
+  const fromHistory = new Set<string>();
   props.networkSpeedHistory.forEach((point) => {
-    Object.keys(point.interfaces ?? {}).forEach((name) => names.add(name));
+    Object.keys(point.interfaces ?? {}).forEach((name) => {
+      if (name && name !== "traffic") {
+        fromHistory.add(name);
+      }
+    });
   });
-  return [...names].sort();
+  if (fromHistory.size > 0) {
+    return [...fromHistory];
+  }
+  return uniqueInterfaceOrder(chartData.value.rankedInterfaces);
+}
+
+function isSpeedInterfaceVisible(ifaceName: string) {
+  if (isInterfaceVisible(ifaceName)) {
+    return true;
+  }
+  return chartData.value.rankedInterfaces.some((key) => {
+    const { iface } = parseSeriesInterfaceKey(key);
+    return iface === ifaceName && isInterfaceVisible(key);
+  });
 }
 
 function getAlignedSpeedData() {
@@ -144,19 +229,15 @@ function getAlignedSpeedData() {
 }
 
 function getSpeedYMax() {
-  const { downloadByInterface, uploadByInterface, interfaceNames } =
-    getAlignedSpeedData();
+  const { downloadByInterface, uploadByInterface } = getAlignedSpeedData();
+  const visibleNames = getSpeedInterfaceNames().filter(isSpeedInterfaceVisible);
   let max = 0;
 
   for (let index = 0; index < chartData.value.times.length; index++) {
     let downloadTotal = 0;
     let uploadTotal = 0;
 
-    interfaceNames.forEach((name) => {
-      if (!isInterfaceVisible(name)) {
-        return;
-      }
-
+    visibleNames.forEach((name) => {
       downloadTotal += downloadByInterface[name]?.[index] ?? 0;
       uploadTotal += uploadByInterface[name]?.[index] ?? 0;
     });
@@ -173,54 +254,64 @@ function getSpeedYMax() {
 }
 
 function toStackedAreaData(values: (number | null | undefined)[]) {
-  let last = 0;
+  // Do not carry stale peaks across empty slots — that creates a growing
+  // filled wedge that then "shrinks" as the window slides on each update.
   return values.map((value) => {
     if (value !== null && value !== undefined && value > 0) {
-      last = value;
+      return value;
     }
-    return last;
+    return 0;
   });
 }
 
 function buildSpeedBackgroundSeries() {
-  const { downloadByInterface, uploadByInterface } = getAlignedSpeedData();
-  const visibleNames = getSpeedInterfaceNames().filter(isInterfaceVisible);
-  const slotCount = chartData.value.times.length;
-  const combined: number[] = [];
+  const { downloadByInterface } = getAlignedSpeedData();
+  const ifaceOrder = uniqueInterfaceOrder([
+    ...chartData.value.rankedInterfaces,
+    ...getSpeedInterfaceNames(),
+  ]);
+  const visibleNames = getSpeedInterfaceNames().filter(isSpeedInterfaceVisible);
 
-  for (let index = 0; index < slotCount; index++) {
-    let total = 0;
-    visibleNames.forEach((name) => {
-      total += downloadByInterface[name]?.[index] ?? 0;
-      total += uploadByInterface[name]?.[index] ?? 0;
-    });
-    combined.push(total);
-  }
+  return visibleNames.map((name) => {
+    const color = interfaceBaseColor(
+      name,
+      ifaceIndexInOrder(name, ifaceOrder)
+    );
 
-  return [
-    {
-      name: "__usage__",
+    return {
+      name: `__speed__${name}`,
       type: "line",
+      stack: SPEED_DOWNLOAD_STACK,
       yAxisIndex: 1,
-      data: toStackedAreaData(combined),
-      smooth: 0.35,
+      data: toStackedAreaData(downloadByInterface[name] ?? []),
+      smooth: false,
       showSymbol: false,
-      connectNulls: true,
+      connectNulls: false,
+      triggerLineEvent: false,
+      tooltip: { show: false },
       lineStyle: {
         width: 0,
         opacity: 0,
       },
       areaStyle: {
-        color: SPEED_CHART_COLORS[0],
+        color,
         opacity: SPEED_BACKGROUND_OPACITY,
       },
       emphasis: {
         disabled: true,
       },
+      blur: {
+        areaStyle: {
+          opacity: SPEED_BACKGROUND_OPACITY,
+        },
+        lineStyle: {
+          opacity: 0,
+        },
+      },
       silent: true,
       z: 1,
-    },
-  ];
+    };
+  });
 }
 
 function buildSpeedSeries() {
@@ -233,7 +324,7 @@ function buildSpeedSeries() {
   }
 
   const { downloadByInterface } = getAlignedSpeedData();
-  const visibleNames = getSpeedInterfaceNames().filter(isInterfaceVisible);
+  const visibleNames = getSpeedInterfaceNames().filter(isSpeedInterfaceVisible);
 
   return visibleNames.map((name, index) => {
     const color = getSpeedInterfaceColor(name);
@@ -248,7 +339,7 @@ function buildSpeedSeries() {
       stack: SPEED_DOWNLOAD_STACK,
       yAxisIndex: 1,
       data: toStackedAreaData(downloadByInterface[name] ?? []),
-      smooth: 0.35,
+      smooth: false,
       showSymbol: false,
       connectNulls: false,
       lineStyle: {
@@ -269,10 +360,10 @@ function buildSpeedSeries() {
 }
 
 function buildYAxis() {
-  const pingBounds =
-    props.chartVariant === "lines"
-      ? getChartPingBounds()
-      : { min: CHART_Y_MIN, max: getChartYMax() };
+  const pingBounds = isLinesChart()
+    ? { min: CHART_Y_MIN, max: CHART_Y_DEFAULT_MAX }
+    : { min: CHART_Y_MIN, max: getChartYMax() };
+  const chrome = chartTooltipChrome();
 
   const latencyAxis = {
     type: "value" as const,
@@ -281,7 +372,7 @@ function buildYAxis() {
     inverse: props.showNetworkSpeed && props.chartVariant === "bars",
     axisLabel: {
       fontSize: 9,
-      color: "#666",
+      color: chrome.axisLabel,
       formatter: (value: number) => `${value}`,
     },
     axisLine: { show: false },
@@ -303,7 +394,7 @@ function buildYAxis() {
       position: "right" as const,
       axisLabel: {
         fontSize: 9,
-        color: "#888",
+        color: chrome.axisLabel,
         formatter: (value: number) => formatSpeedAxisLabel(value),
       },
       axisLine: { show: false },
@@ -370,16 +461,9 @@ function getChartYMax() {
   }
 
   const { bestSeries } = getVisibleEnvelope();
-  const hasTimeouts = chartData.value.timeoutBars.some((failures, index) => {
-    const visibleFailures = failures.filter((failure) =>
-      isInterfaceVisible(failure.interfaceName)
-    );
-    if (visibleFailures.length > 0) {
-      return true;
-    }
-    const best = bestSeries[index];
-    return best !== null && best !== undefined && isPingTimeout(best);
-  });
+  const hasTimeouts = chartData.value.timeoutBars.some((failures) =>
+    failures.some((failure) => isInterfaceVisible(failure.interfaceName))
+  );
 
   let maxPing = 0;
   bestSeries.forEach((best) => {
@@ -396,14 +480,14 @@ function getChartYMax() {
 }
 
 function isIndexTimeout(axisIndex: number, best: number | null | undefined) {
-  const failures = (chartData.value.timeoutBars[axisIndex] ?? []).filter(
+  // Keep a successful best bar green; only paint a full red timeout bar when
+  // nothing usable landed in this slot for the visible interfaces.
+  if (best !== null && best !== undefined && !isPingTimeout(best)) {
+    return false;
+  }
+  return (chartData.value.timeoutBars[axisIndex] ?? []).some(
     (failure) => isInterfaceVisible(failure.interfaceName)
   );
-  if (failures.length > 0) {
-    return true;
-  }
-
-  return best !== null && best !== undefined && isPingTimeout(best);
 }
 
 function isInterfaceSlotTimeout(
@@ -515,7 +599,10 @@ function buildLatencyLineSeries() {
   return visible.map((name, index) => {
     const color =
       chartData.value.interfaceColors[name] ??
-      chartColorAt(PING_CHART_COLORS, index);
+      colorForChartSeries(
+        name,
+        uniqueInterfaceOrder(chartData.value.rankedInterfaces)
+      );
     const data = chartData.value.times.map((_, slotIndex) => {
       const value = chartData.value.seriesData[name]?.[slotIndex];
       if (value === null || value === undefined) {
@@ -532,7 +619,7 @@ function buildLatencyLineSeries() {
       type: "line",
       yAxisIndex: 0,
       data,
-      smooth: 0.3,
+      smooth: false,
       showSymbol: false,
       connectNulls: false,
       lineStyle: {
@@ -543,11 +630,10 @@ function buildLatencyLineSeries() {
       itemStyle: {
         color,
       },
+      // Avoid focus/blur — it warps the usage area series into a solid wedge
+      // under the cursor and leaves it stuck until the next data refresh.
       emphasis: {
-        focus: "series",
-        lineStyle: {
-          width: ROUTE_LINE_WIDTH + 0.5,
-        },
+        disabled: true,
       },
       z: 10 + index,
     };
@@ -571,6 +657,9 @@ const {
 } = useLatencyMetrics(toRef(props, "latency"), {
   windowSize: chartWindowSize,
   windowSeconds: chartWindowSeconds,
+  pingCache: computed(() => props.pingCache),
+  rollingSamples: computed(() => props.rollingSamples),
+  probeSamplesPerSecond: computed(() => props.probeSamplesPerSecond),
 });
 
 const visibleInterfaceLegend = computed(() =>
@@ -604,6 +693,34 @@ function buildLegendSelected(interfaceNames: string[]) {
   );
 }
 
+function seriesDisplayName(seriesKey: string) {
+  const { iface, slot } = parseSeriesInterfaceKey(seriesKey);
+  if (seriesKey.includes("::")) {
+    return (
+      props.latency?.interfaces?.[seriesKey]?.target_ip?.trim() ||
+      `${iface} · ${slot + 1}`
+    );
+  }
+  return iface;
+}
+
+function pingTargetTitle() {
+  if (props.chartVariant === "lines") {
+    return "";
+  }
+  const interfaces = props.latency?.interfaces;
+  if (!interfaces) {
+    return "";
+  }
+  for (const iface of Object.values(interfaces)) {
+    const ip = iface?.target_ip?.trim();
+    if (ip) {
+      return ip;
+    }
+  }
+  return props.latency?.ping_target?.trim() || "";
+}
+
 function truncateInterfaceName(name: string, maxLength = 14) {
   if (name.length <= maxLength) {
     return name;
@@ -612,9 +729,10 @@ function truncateInterfaceName(name: string, maxLength = 14) {
 }
 
 function tooltipRow(label: string, value: string, options?: { muted?: boolean }) {
+  const chrome = chartTooltipChrome();
   const labelStyle = options?.muted
-    ? "color:#888;font-size:11px"
-    : "color:#bbb;font-size:11px";
+    ? `color:${chrome.labelMuted};font-size:11px`
+    : `color:${chrome.label};font-size:11px`;
   return `<tr>
     <td style="padding:2px 10px 2px 0;white-space:nowrap;${labelStyle}">${label}</td>
     <td style="padding:2px 0;text-align:right;font-weight:500;white-space:nowrap">${value}</td>
@@ -627,12 +745,13 @@ function tooltipInterfaceRow(
   valueHtml: string,
   options?: { muted?: boolean }
 ) {
-  const label = `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:5px;height:5px;border-radius:50%;background:${color};flex-shrink:0"></span>${truncateInterfaceName(name)}</span>`;
+  const label = `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:5px;height:5px;border-radius:50%;background:${color};flex-shrink:0"></span>${truncateInterfaceName(seriesDisplayName(name))}</span>`;
   return tooltipRow(label, valueHtml, options);
 }
 
 function tooltipSection(title: string) {
-  return `<div style="padding:6px 0 3px;color:#666;font-size:10px;text-transform:uppercase;letter-spacing:0.04em">${title}</div>`;
+  const chrome = chartTooltipChrome();
+  return `<div style="padding:6px 0 3px;color:${chrome.section};font-size:10px;text-transform:uppercase;letter-spacing:0.04em">${title}</div>`;
 }
 
 function tooltipTable(rows: string[]) {
@@ -684,8 +803,18 @@ function formatInterfaceSpeedPair(down: number, up: number) {
 }
 
 function formatTooltipContent(axisIndex: number) {
+  const cacheKey = `${axisIndex}#${chartRenderFingerprint()}`;
+  if (cacheKey === tooltipCacheKey && tooltipCacheHtml) {
+    return tooltipCacheHtml;
+  }
+
   const sections: string[] = [];
   const visible = getVisibleInterfaces();
+  const timedOutNames = new Set(
+    (chartData.value.timeoutBars[axisIndex] ?? [])
+      .filter((failure) => isInterfaceVisible(failure.interfaceName))
+      .map((failure) => failure.interfaceName)
+  );
 
   const latencyRows: string[] = [];
   visible.forEach((interfaceName) => {
@@ -699,12 +828,7 @@ function formatTooltipContent(axisIndex: number) {
       return;
     }
 
-    const timedOut = (chartData.value.timeoutBars[axisIndex] ?? []).some(
-      (failure) =>
-        failure.interfaceName === interfaceName &&
-        isInterfaceVisible(failure.interfaceName)
-    );
-    if (timedOut) {
+    if (timedOutNames.has(interfaceName)) {
       latencyRows.push(
         tooltipInterfaceRow(color, interfaceName, formatTimeoutValue())
       );
@@ -718,7 +842,7 @@ function formatTooltipContent(axisIndex: number) {
 
   if (props.showNetworkSpeed) {
     const { downloadByInterface, uploadByInterface } = getAlignedSpeedData();
-    const visibleNames = getSpeedInterfaceNames().filter(isInterfaceVisible);
+    const visibleNames = getSpeedInterfaceNames().filter(isSpeedInterfaceVisible);
     const speedRows: string[] = [];
 
     visibleNames.forEach((name) => {
@@ -742,10 +866,14 @@ function formatTooltipContent(axisIndex: number) {
   }
 
   if (sections.length === 0) {
-    return t("$vuetify.networkLatency.noData");
+    tooltipCacheKey = cacheKey;
+    tooltipCacheHtml = t("$vuetify.networkLatency.noData");
+    return tooltipCacheHtml;
   }
 
-  return `<div style="line-height:1.35;font-size:12px;min-width:180px;max-width:280px">${sections.join("")}</div>`;
+  tooltipCacheKey = cacheKey;
+  tooltipCacheHtml = `<div style="line-height:1.35;font-size:12px;min-width:180px;max-width:280px">${sections.join("")}</div>`;
+  return tooltipCacheHtml;
 }
 
 function hideChartTooltip() {
@@ -798,6 +926,7 @@ function bindChartInteraction() {
 }
 
 function buildChartOption() {
+  const chrome = chartTooltipChrome();
   return {
     animation: false,
     brush: {
@@ -808,11 +937,11 @@ function buildChartOption() {
     },
     dataZoom: [],
     grid: {
-      left: 8,
-      right: 8,
+      left: props.showNetworkSpeed ? 36 : 28,
+      right: props.showNetworkSpeed ? 44 : 8,
       bottom: 8,
       top: 8,
-      containLabel: true,
+      containLabel: false,
     },
     xAxis: {
       type: "category",
@@ -836,13 +965,13 @@ function buildChartOption() {
         type: "line",
         snap: true,
       },
-      backgroundColor: "rgba(18, 18, 18, 0.92)",
-      borderColor: "rgba(255, 255, 255, 0.08)",
+      backgroundColor: chrome.backgroundColor,
+      borderColor: chrome.borderColor,
       borderWidth: 1,
       padding: [8, 10],
-      textStyle: { color: "#fff", fontSize: 12 },
+      textStyle: { color: chrome.textColor, fontSize: 12 },
       extraCssText:
-        "border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.35);",
+        `border-radius:8px;box-shadow:${chrome.shadow};`,
       formatter: (params: any) => {
         const dataIndex = params[0]?.dataIndex;
         if (dataIndex === undefined || dataIndex < 0) {
@@ -858,6 +987,16 @@ function buildChartOption() {
       alwaysShowContent: false,
     },
   };
+}
+
+function scheduleRenderChart() {
+  if (renderTimer !== null) {
+    return;
+  }
+  renderTimer = setTimeout(() => {
+    renderTimer = null;
+    renderChart();
+  }, CHART_RENDER_INTERVAL_MS);
 }
 
 function ensureChartInstance() {
@@ -891,25 +1030,30 @@ function renderChart() {
     return;
   }
 
+  // Always merge. notMerge:true on the lines chart was rebuilding the whole
+  // option while the pointer was over it, which made the usage area fill jump
+  // into a stuck wedge until the next realtime tick.
+  // Rolling route charts must keep scrolling while hovered — only skip the
+  // heavier full option rebuild for bar charts under an active hover.
   const isHovering =
+    !props.rollingSamples &&
     pointerInsideChart &&
     hoverDataIndex !== null &&
     chartData.value.times.length > 0;
 
   if (isHovering) {
     chartInstance.setOption(buildChartDataOption(), {
-      notMerge: false,
-      replaceMerge: ["series"],
+      replaceMerge: ["series", "yAxis", "xAxis"],
+      lazyUpdate: true,
     });
-    chartInstance.resize();
     return;
   }
 
+  invalidateTooltipCache();
   chartInstance.setOption(buildChartOption(), {
-    notMerge: false,
-    replaceMerge: ["series"],
+    replaceMerge: ["series", "yAxis", "xAxis"],
+    lazyUpdate: true,
   });
-  chartInstance.resize();
 }
 
 const initChart = async () => {
@@ -930,6 +1074,10 @@ const initChart = async () => {
 };
 
 const disposeChart = () => {
+  if (renderTimer !== null) {
+    clearTimeout(renderTimer);
+    renderTimer = null;
+  }
   if (chartInstance) {
     chartInstance.dispose();
     chartInstance = null;
@@ -945,6 +1093,7 @@ const refreshChart = () => {
     setTimeout(() => {
       if (allPings.value.length > 0) {
         initChart();
+        chartInstance?.resize();
       } else {
         disposeChart();
       }
@@ -952,14 +1101,17 @@ const refreshChart = () => {
   });
 };
 
+function handleWindowResize() {
+  chartInstance?.resize();
+}
+
 watch(
-  () => props.latency?.interfaces,
+  chartRenderFingerprint,
   () => {
     if (props.active && allPings.value.length > 0) {
-      renderChart();
+      scheduleRenderChart();
     }
-  },
-  { deep: true }
+  }
 );
 
 watch(
@@ -981,19 +1133,18 @@ watch(
   }
 );
 
-watch(
-  () => props.networkSpeedHistory,
-  () => {
-    if (props.active && allPings.value.length > 0) {
-      renderChart();
-    }
-  },
-  { deep: true }
-);
+watch(isDarkTheme, () => {
+  invalidateTooltipCache();
+  if (props.active && allPings.value.length > 0) {
+    renderChart();
+  }
+});
 
 watch(
   () => props.active,
   (active) => {
+    pointerInsideChart = false;
+    hoverDataIndex = null;
     if (active) {
       refreshChart();
     } else {
@@ -1006,19 +1157,37 @@ onMounted(() => {
   if (props.active) {
     refreshChart();
   }
+  window.addEventListener("resize", handleWindowResize);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 });
 
 onUnmounted(() => {
+  window.removeEventListener("resize", handleWindowResize);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
   disposeChart();
 });
+
+function handleVisibilityChange() {
+  if (document.visibilityState !== "visible") {
+    return;
+  }
+  pointerInsideChart = false;
+  hoverDataIndex = null;
+  if (props.active && allPings.value.length > 0) {
+    chartInstance?.resize();
+    scheduleRenderChart();
+  }
+}
 </script>
 
 <template>
   <div>
     <div v-if="!hideHeader" class="d-flex align-center justify-space-between mb-3">
-      <span class="text-subtitle-1 font-weight-medium">
-        {{ t("$vuetify.connections.latency") }}
-      </span>
+      <div>
+        <span class="text-subtitle-1 font-weight-medium">
+          {{ pingTargetTitle() || t("$vuetify.connections.latency") }}
+        </span>
+      </div>
 
       <v-btn-toggle
         v-if="!compact && allPings.length > 0"
@@ -1040,7 +1209,7 @@ onUnmounted(() => {
       </v-btn-toggle>
     </div>
 
-    <div class="d-flex flex-wrap gap-3 mb-3">
+    <div v-if="showSummaryMetrics" class="d-flex flex-wrap gap-3 mb-3">
       <div class="flex-grow-1">
         <div class="text-caption text-grey">{{ t("$vuetify.networkLatency.min") }}</div>
         <div class="text-body-2 font-weight-medium">
@@ -1086,7 +1255,7 @@ onUnmounted(() => {
           <span
             class="interface-legend-label"
             :style="{ color: item.visible ? item.color : undefined }"
-          >{{ item.name }}</span>
+          >{{ item.label || item.name }}</span>
         </button>
       </div>
     </div>
