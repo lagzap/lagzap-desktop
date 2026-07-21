@@ -10,10 +10,10 @@ tasks:
       - task: go:mod:tidy:only
 
   go:work:sync:
-    summary: Runs `go work sync` when go.work is present
+    summary: Runs `go work sync` when go.work is present (local dev only)
     internal: true
     status:
-      - sh: 'test ! -f go.work'
+      - bash -c "test ! -f go.work"
     cmds:
       - go work sync
 
@@ -22,7 +22,7 @@ tasks:
     internal: true
     run: once
     status:
-      - sh: 'test -f go.work || test -n "$CI_SKIP_GO_MOD_TIDY"'
+      - bash -c "test -f go.work || test -n \"${CI_SKIP_GO_MOD_TIDY}\""
     cmds:
       - go mod tidy
 
