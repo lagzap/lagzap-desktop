@@ -102,11 +102,13 @@ jobs:
         run: |
           TOOL_DIR="${RUNNER_TOOL_CACHE}/go-tools"
           mkdir -p "$TOOL_DIR"
-          if [ ! -f "$TOOL_DIR/wails3.exe" ]; then
-            GOBIN="$TOOL_DIR" go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS3_VERSION}"
+          export GOBIN="$TOOL_DIR"
+          export PATH="$TOOL_DIR:$PATH"
+          if [ ! -x "$TOOL_DIR/wails3.exe" ]; then
+            go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS3_VERSION}"
           fi
-          if [ ! -f "$TOOL_DIR/garble.exe" ]; then
-            GOBIN="$TOOL_DIR" go install "mvdan.cc/garble@${GARBLE_VERSION}"
+          if [ ! -x "$TOOL_DIR/garble.exe" ]; then
+            go install "mvdan.cc/garble@${GARBLE_VERSION}"
           fi
           echo "$TOOL_DIR" >> "$GITHUB_PATH"
           wails3 version
