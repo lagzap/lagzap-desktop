@@ -4,6 +4,7 @@ tasks:
   go:mod:tidy:
     summary: Syncs Go modules (go.work) or tidies go.mod (CI)
     internal: true
+    run: once
     deps:
       - task: go:work:sync
       - task: go:mod:tidy:only
@@ -19,6 +20,7 @@ tasks:
   go:mod:tidy:only:
     summary: Runs `go mod tidy` when go.work is absent
     internal: true
+    run: once
     status:
       - test -f go.work
     cmds:
@@ -27,6 +29,8 @@ tasks:
   install:frontend:deps:
     summary: Install frontend dependencies
     dir: frontend
+    deps:
+      - task: go:mod:tidy
     sources:
       - package.json
       - bun.lockb
