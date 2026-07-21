@@ -81,7 +81,18 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install NSIS
-        run: choco install nsis -y
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          $nsis = Join-Path ${env:ProgramFiles(x86)} 'NSIS'
+          if (-not (Test-Path "$nsis\makensis.exe")) {
+            $nsis = Join-Path $env:ProgramFiles 'NSIS'
+          }
+          if (-not (Test-Path "$nsis\makensis.exe")) {
+            throw "makensis.exe not found after NSIS install"
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $nsis
+          & "$nsis\makensis.exe" /VERSION
 
       - name: Install Task
         uses: arduino/setup-task@v2
