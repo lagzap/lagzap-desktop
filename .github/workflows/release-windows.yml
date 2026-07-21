@@ -191,7 +191,7 @@ jobs:
             -channel "$CHANNEL" \
             -name "Cyrex $VERSION" \
             -notes-file release-body.md \
-            -o bin/update.manifest.json \
+            -output bin/update.manifest.json \
             "$ZIP"
           rm -f updater.key
 
