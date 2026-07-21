@@ -90,27 +90,12 @@ jobs:
         with:
           version: 3.x
 
-      - name: Cache Wails + Garble
-        uses: actions/cache@v4
-        id: cache-gotools
-        with:
-          path: ${{ runner.tool_cache }}/go-tools
-          key: ${{ runner.os }}-go-tools-wails3-${{ env.WAILS3_VERSION }}-garble-${{ env.GARBLE_VERSION }}
-
+      # Same as https://v3.wails.io/guides/build/signing/#windows-workflow
+      # setup-go adds $(go env GOPATH)/bin to PATH — no custom GOBIN.
       - name: Install Wails + Garble
-        shell: bash
         run: |
-          TOOL_DIR="${RUNNER_TOOL_CACHE}/go-tools"
-          mkdir -p "$TOOL_DIR"
-          export GOBIN="$TOOL_DIR"
-          export PATH="$TOOL_DIR:$PATH"
-          if [ ! -x "$TOOL_DIR/wails3.exe" ]; then
-            go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS3_VERSION}"
-          fi
-          if [ ! -x "$TOOL_DIR/garble.exe" ]; then
-            go install "mvdan.cc/garble@${GARBLE_VERSION}"
-          fi
-          echo "$TOOL_DIR" >> "$GITHUB_PATH"
+          go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS3_VERSION }}
+          go install mvdan.cc/garble@${{ env.GARBLE_VERSION }}
           wails3 version
           garble version
 
