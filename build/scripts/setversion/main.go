@@ -114,13 +114,20 @@ func patchConfigYML(path, fileVer string) error {
 	if err != nil {
 		return err
 	}
-	re := regexp.MustCompile(`(?m)^(\s*version:\s*)"[^"]*"`)
-	replaced := re.ReplaceAll(data, []byte(fmt.Sprintf(`${1}"%s"`, fileVer)))
-	if string(replaced) == string(data) {
-		// Fallback: bare version: value without quotes
-		re2 := regexp.MustCompile(`(?m)^(\s*version:\s*)[^\n#]+`)
-		replaced = re2.ReplaceAll(data, []byte(fmt.Sprintf(`${1}"%s"`, fileVer)))
-	}
+	// Only info.version (indented); do not touch root wails config schema version.
+	re := regexp.MustCompile(`(?m)^(\s+version:\s*)"[^"]*"(\s*(?:#.*))?\s*$`)
+	replaced := re.ReplaceAllFunc(data, func(match []byte) []byte {
+		sub := re.FindSubmatch(match)
+		prefix := string(sub[1])
+		suffix := ""
+		if len(sub) > 2 && len(sub[2]) > 0 {
+			comment := strings.TrimSpace(string(sub[2]))
+			if strings.HasPrefix(comment, "#") {
+				suffix = " " + comment
+			}
+		}
+		return []byte(fmt.Sprintf("%s\"%s\"%s", prefix, fileVer, suffix))
+	})
 	return os.WriteFile(path, replaced, 0o644)
 }
 

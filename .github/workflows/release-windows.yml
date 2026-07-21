@@ -18,6 +18,8 @@ env:
   APP_NAME: Cyrex
   RELEASES_REPO: lagzap/cyrex-releases
   GO_VERSION: "1.24.7"
+  GOPRIVATE: github.com/lagzap/*
+  GONOSUMDB: github.com/lagzap/*
 
 jobs:
   windows:
@@ -29,15 +31,22 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Configure private Go modules
+        shell: bash
+        env:
+          GO_MODULE_TOKEN: ${{ secrets.GO_MODULE_TOKEN }}
+        run: |
+          if [ -z "$GO_MODULE_TOKEN" ]; then
+            echo "GO_MODULE_TOKEN secret missing — required to fetch private github.com/lagzap/* modules" >&2
+            exit 1
+          fi
+          git config --global url."https://x-access-token:${GO_MODULE_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${GO_MODULE_TOKEN}@github.com/".insteadOf "git@github.com:"
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
