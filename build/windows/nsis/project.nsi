@@ -45,9 +45,10 @@ Unicode true
     !endif
 !endif
 
-# The version information for this two must consist of 4 parts
-VIProductVersion "${INFO_PRODUCTVERSION}.0"
-VIFileVersion    "${INFO_PRODUCTVERSION}.0"
+# The version information for these two must consist of exactly 4 numeric parts
+# (MAJOR.MINOR.PATCH.BUILD). INFO_PRODUCTVERSION is synced by setversion / CI.
+VIProductVersion "${INFO_PRODUCTVERSION}"
+VIFileVersion    "${INFO_PRODUCTVERSION}"
 
 VIAddVersionKey "CompanyName"     "${INFO_COMPANYNAME}"
 VIAddVersionKey "FileDescription" "${INFO_PRODUCTNAME} Installer"

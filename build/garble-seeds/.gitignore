@@ -1,0 +1,5 @@
+# Garble seeds are never committed.
+# CI stores version→seed as a private Actions artifact (see docs/RELEASE.md).
+*
+!.gitignore
+!README.md

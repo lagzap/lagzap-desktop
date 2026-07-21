@@ -4,7 +4,7 @@ import QuickAccess from "./QuickAccess.vue";
 import { Application, Events, Window } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/bindings/github.com/lagzap/lagzap/adapter";
-import { StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { CheckForUpdates, StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import DiscordIcon from "~/components/icons/DiscordIcon.vue";
 import XIcon from "~/components/icons/XIcon.vue";
 import TelegramIcon from "~/components/icons/TelegramIcon.vue";
@@ -74,7 +74,7 @@ async function exit() {
 }
 
 async function checkForUpdates() {
-  //
+  await CheckForUpdates();
 }
 </script>
 

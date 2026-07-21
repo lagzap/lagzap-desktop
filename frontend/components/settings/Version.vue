@@ -1,15 +1,29 @@
 <script lang="ts" setup>
-import { useLocale, useTheme } from 'vuetify'
-import { ClearDNSCache } from '~/bindings/github.com/lagzap/lagzap-desktop/service';
+import { useLocale } from 'vuetify'
+import { CheckForUpdates, GetVersion } from '~/bindings/github.com/lagzap/lagzap-desktop/service';
 
 const locale = useLocale()
 const { t } = locale
-const theme = useTheme()
 
-const version = ref('1.0.0')
+const version = ref('…')
+const checking = ref(false)
 
-async function clearCache() {
-  await ClearDNSCache();
+onMounted(async () => {
+  try {
+    version.value = (await GetVersion()) || 'unknown'
+  } catch {
+    version.value = 'unknown'
+  }
+})
+
+async function checkForUpdate() {
+  if (checking.value) return
+  checking.value = true
+  try {
+    await CheckForUpdates()
+  } finally {
+    checking.value = false
+  }
 }
 </script>
 
@@ -29,7 +43,8 @@ async function clearCache() {
         variant="tonal"
         color="default"
         class="mb-3"
-        @click="clearCache"
+        :loading="checking"
+        @click="checkForUpdate"
       >{{ t('$vuetify.settings.checkForUpdate') }}</v-btn>
     </v-card-text>
   </v-card>

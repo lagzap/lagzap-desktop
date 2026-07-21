@@ -143,6 +143,18 @@ func (s *Service) IsRunning() bool {
 	return s.lagzap != nil
 }
 
+func (s *Service) GetVersion() string {
+	return constant.SemVer()
+}
+
+func (s *Service) GetChannel() string {
+	return constant.Channel()
+}
+
+func (s *Service) CheckForUpdates() error {
+	return checkForUpdates(s.app)
+}
+
 func (s *Service) IsReady() bool {
 	return s.coordinator != nil
 }

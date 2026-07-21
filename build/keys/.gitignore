@@ -1,0 +1,5 @@
+# Keep the public key for reference; never commit updater.key
+*
+!.gitignore
+!updater.key.pub
+!README.md

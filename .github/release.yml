@@ -1,0 +1,34 @@
+# GitHub "Generate release notes" config for lagzap-desktop.
+# Used when you draft a release in the GitHub UI before publishing.
+# CI still prefers CHANGELOG.md + release-notes-template.md on tag push.
+
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+      - dependencies
+    authors:
+      - dependabot[bot]
+      - github-actions[bot]
+
+  categories:
+    - title: "## Added"
+      labels:
+        - enhancement
+        - feature
+    - title: "## Changed"
+      labels:
+        - change
+        - refactor
+    - title: "## Fixed"
+      labels:
+        - bug
+        - fix
+    - title: "## Security"
+      labels:
+        - security
+    - title: "## Other"
+      labels:
+        - "*"

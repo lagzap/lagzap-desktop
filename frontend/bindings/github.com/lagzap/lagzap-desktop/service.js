@@ -29,6 +29,13 @@ export function CancelConnect() {
 /**
  * @returns {$CancellablePromise<void>}
  */
+export function CheckForUpdates() {
+    return $Call.ByID(1119934520);
+}
+
+/**
+ * @returns {$CancellablePromise<void>}
+ */
 export function ClearDNSCache() {
     return $Call.ByID(3678018421);
 }
@@ -92,6 +99,13 @@ export function FindAvailableInterfaces() {
  */
 export function ForceProbeRelay(nodeID) {
     return $Call.ByID(3828988719, nodeID);
+}
+
+/**
+ * @returns {$CancellablePromise<string>}
+ */
+export function GetChannel() {
+    return $Call.ByID(431520758);
 }
 
 /**
@@ -243,6 +257,13 @@ export function GetTitles() {
     return $Call.ByID(94823092).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType38($result);
     }));
+}
+
+/**
+ * @returns {$CancellablePromise<string>}
+ */
+export function GetVersion() {
+    return $Call.ByID(307981769);
 }
 
 /**

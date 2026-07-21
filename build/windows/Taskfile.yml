@@ -3,6 +3,14 @@ version: '3'
 includes:
   common: ../Taskfile.yml
 
+vars:
+  # Authenticode (optional — leave empty for unsigned beta builds).
+  # Set SIGN_CERTIFICATE to a .pfx path, or SIGN_THUMBPRINT for a store cert.
+  # Password: WAILS_WINDOWS_CERT_PASSWORD env (CI) or wails3 keychain (local).
+  SIGN_CERTIFICATE: '{{.SIGN_CERTIFICATE | default ""}}'
+  SIGN_THUMBPRINT: '{{.SIGN_THUMBPRINT | default ""}}'
+  TIMESTAMP_SERVER: '{{.TIMESTAMP_SERVER | default "http://timestamp.digicert.com"}}'
+
 tasks:
   build:
     summary: Builds the application for Windows
@@ -14,27 +22,60 @@ tasks:
       - task: common:generate:icons
     cmds:
       - task: generate:syso
-      # - go install mvdan.cc/garble@latest
-      # - garble -seed=random build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
-      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
-      - cmd: powershell Remove-item *.syso
+      - task: compile
+        vars:
+          BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+          VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+          CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
+          RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+          GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
+      - cmd: powershell Remove-Item -ErrorAction SilentlyContinue *.syso
         platforms: [windows]
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
     vars:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+      CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
+      BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
+      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+      GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
+      BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+    env:
+      GOOS: windows
+      CGO_ENABLED: 0
+      GOARCH: '{{.ARCH | default ARCH}}'
+      BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+      CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
+      BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
+      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+      GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
+
+  compile:
+    summary: Compile Cyrex.exe (Garble when GARBLE_SEED is set on production builds)
+    cmds:
+      - '{{.COMPILE_CMD}} {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe'
+    vars:
+      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
+      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+      GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
+      BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+      COMPILE_CMD: '{{if and (eq .BUILD_TYPE "production") (ne .GARBLE_SEED "")}}garble -seed={{.GARBLE_SEED}} -literals -tiny build{{else}}go build{{end}}'
       BUILD_FLAGS: >-
-        {{if eq .BUILD_TYPE "production"}}
-        -tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui -checklinkname=0"
+        {{if and (eq .BUILD_TYPE "production") (ne .GARBLE_SEED "")}}
+        -tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0,wails_obfuscated -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui -checklinkname=0"
+        {{else if eq .BUILD_TYPE "production"}}
+        -tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui -checklinkname=0"
         {{else}}
-        -tags debuug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -checklinkname=0" -gcflags=all="-l"
+        -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -checklinkname=0" -gcflags=all="-l"
         {{end}}
     env:
       GOOS: windows
       CGO_ENABLED: 0
       GOARCH: '{{.ARCH | default ARCH}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+      GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
 
   build:backend:
     summary: Builds the Go backend only (dev — skips production frontend build)
@@ -44,15 +85,18 @@ tasks:
     cmds:
       - task: generate:syso
       - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
-      - cmd: powershell Remove-item *.syso
+      - cmd: powershell Remove-Item -ErrorAction SilentlyContinue *.syso
         platforms: [windows]
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
     vars:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
+      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
       BUILD_FLAGS: >-
-        -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.DevBuild=true' -checklinkname=0" -gcflags=all="-l"
+        -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0
+        -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.DevBuild=true' -checklinkname=0"
+        -gcflags=all="-l"
     env:
       GOOS: windows
       CGO_ENABLED: 0
@@ -62,6 +106,54 @@ tasks:
     summary: Packages a production build of the application into a `.exe` bundle
     cmds:
       - task: create:nsis:installer
+
+  release:
+    summary: Produce setup.exe, updater zip, and SHA256SUMS
+    cmds:
+      - task: create:nsis:installer
+        vars:
+          BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+          VERSION: '{{.VERSION}}'
+          CORE_VERSION: '{{.CORE_VERSION}}'
+          BUILD_NUMBER: '{{.BUILD_NUMBER}}'
+          RELEASES_REPO: '{{.RELEASES_REPO}}'
+          GARBLE_SEED: '{{.GARBLE_SEED}}'
+      - task: rename:artifacts
+      - task: create:update:zip
+      - task: create:checksums
+
+  create:update:zip:
+    summary: Zip Cyrex.exe for the auto-updater (single top-level entry)
+    cmds:
+      - cmd: powershell -NoProfile -Command "Compress-Archive -Force -Path '{{.BIN_DIR}}\{{.APP_NAME}}.exe' -DestinationPath '{{.BIN_DIR}}\{{.APP_NAME}}-windows-{{.ARCH}}.zip'"
+        platforms: [windows]
+      - cmd: cd {{.BIN_DIR}} && zip -9 -j {{.APP_NAME}}-windows-{{.ARCH}}.zip {{.APP_NAME}}.exe
+        platforms: [linux, darwin]
+    vars:
+      ARCH: '{{.ARCH | default ARCH}}'
+
+  create:checksums:
+    summary: Write SHA256SUMS for release artifacts
+    cmds:
+      - cmd: powershell -NoProfile -File ./build/scripts/sha256sums.ps1 -BinDir "{{.BIN_DIR}}" -AppName "{{.APP_NAME}}" -Arch "{{.ARCH}}"
+        platforms: [windows]
+      - cmd: cd {{.BIN_DIR}} && sha256sum {{.APP_NAME}}-windows-{{.ARCH}}.zip {{.APP_NAME}}-windows-{{.ARCH}}-setup.exe > SHA256SUMS
+        platforms: [linux, darwin]
+    vars:
+      ARCH: '{{.ARCH | default ARCH}}'
+
+  rename:artifacts:
+    summary: Rename NSIS installer to Cyrex-windows-ARCH-setup.exe
+    cmds:
+      - cmd: powershell -NoProfile -Command "if (Test-Path '{{.BIN_DIR}}\{{.APP_NAME}}-{{.ARCH}}-installer.exe') { Move-Item -Force '{{.BIN_DIR}}\{{.APP_NAME}}-{{.ARCH}}-installer.exe' '{{.BIN_DIR}}\{{.APP_NAME}}-windows-{{.ARCH}}-setup.exe' }"
+        platforms: [windows]
+      - cmd: |
+          if [ -f "{{.BIN_DIR}}/{{.APP_NAME}}-{{.ARCH}}-installer.exe" ]; then
+            mv -f "{{.BIN_DIR}}/{{.APP_NAME}}-{{.ARCH}}-installer.exe" "{{.BIN_DIR}}/{{.APP_NAME}}-windows-{{.ARCH}}-setup.exe"
+          fi
+        platforms: [linux, darwin]
+    vars:
+      ARCH: '{{.ARCH | default ARCH}}'
 
   generate:syso:
     summary: Generates Windows `.syso` file
@@ -77,14 +169,36 @@ tasks:
     deps:
       - task: build
         vars:
-          BUILD_TYPE: "production"
+          BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+          VERSION: '{{.VERSION}}'
+          CORE_VERSION: '{{.CORE_VERSION}}'
+          BUILD_NUMBER: '{{.BUILD_NUMBER}}'
+          RELEASES_REPO: '{{.RELEASES_REPO}}'
+          GARBLE_SEED: '{{.GARBLE_SEED}}'
     cmds:
-      # Create the Microsoft WebView2 bootstrapper if it doesn't exist
       - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"
       - makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}\\{{.BIN_DIR}}\\{{.APP_NAME}}.exe" project.nsi
     vars:
       ARCH: '{{.ARCH | default ARCH}}'
       ARG_FLAG: '{{if eq .ARCH "amd64"}}AMD64{{else}}ARM64{{end}}'
+
+  sign:
+    summary: Sign Cyrex.exe with Authenticode (requires cert — see docs/RELEASE.md)
+    cmds:
+      - wails3 tool sign -platform windows -certificate "{{.SIGN_CERTIFICATE}}" -thumbprint "{{.SIGN_THUMBPRINT}}" -timestamp "{{.TIMESTAMP_SERVER}}" "{{.BIN_DIR}}/{{.APP_NAME}}.exe"
+    preconditions:
+      - sh: test -n "{{.SIGN_CERTIFICATE}}{{.SIGN_THUMBPRINT}}"
+        msg: "Set SIGN_CERTIFICATE or SIGN_THUMBPRINT (see docs/RELEASE.md). Skip for unsigned beta."
+
+  sign:installer:
+    summary: Sign the NSIS setup.exe
+    cmds:
+      - wails3 tool sign -platform windows -certificate "{{.SIGN_CERTIFICATE}}" -thumbprint "{{.SIGN_THUMBPRINT}}" -timestamp "{{.TIMESTAMP_SERVER}}" "{{.BIN_DIR}}/{{.APP_NAME}}-windows-{{.ARCH}}-setup.exe"
+    vars:
+      ARCH: '{{.ARCH | default ARCH}}'
+    preconditions:
+      - sh: test -n "{{.SIGN_CERTIFICATE}}{{.SIGN_THUMBPRINT}}"
+        msg: "Set SIGN_CERTIFICATE or SIGN_THUMBPRINT (see docs/RELEASE.md)."
 
   run:
     env:

@@ -14,37 +14,75 @@ vars:
     sh: go env GOHOSTOS
   GOHOSTARCH:
     sh: go env GOHOSTARCH
-  VERSION: v0.1.0-dev
-    # sh: CGO_ENABLED=0 GOOS={{.GOHOSTOS}} GOARCH={{.GOHOSTARCH}} go run ../../cmd/internal/read_tag/main.go
+  # Override with VERSION=v0.2.0-beta.3. CI sets this from the git tag.
+  VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+  BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
+  RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
   CORE_VERSION:
-    sh: cd ./../.. && CGO_ENABLED=0 GOOS={{.GOHOSTOS}} GOARCH={{.GOHOSTARCH}} go run ./cmd/internal/read_tag/main.go
+    sh: |
+      if [ -f ./../../cmd/internal/read_tag/main.go ]; then
+        cd ./../.. && CGO_ENABLED=0 go run ./cmd/internal/read_tag/main.go
+      else
+        echo unknown
+      fi
+  GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
 
 tasks:
+  sync:version:
+    summary: Sync VERSION/BUILD_NUMBER into Windows packaging metadata
+    cmds:
+      - go run ./build/scripts/setversion -version {{.VERSION}} -build {{.BUILD_NUMBER}} -root .
+
   build:
     summary: Builds the application
-    env:
-      BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}' # production or beta
-      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
-      CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
-      PARAMS: "-v -trimpath -ldflags \"-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}'\" -s -w -buildid=\""
+    deps:
+      - task: sync:version
     cmds:
       - task: "{{OS}}:build"
+        vars:
+          BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+          VERSION: '{{.VERSION}}'
+          CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
+          BUILD_NUMBER: '{{.BUILD_NUMBER}}'
+          RELEASES_REPO: '{{.RELEASES_REPO}}'
+          GARBLE_SEED: '{{.GARBLE_SEED}}'
 
   build:backend:
     summary: Builds the Go backend only (used by wails dev)
-    env:
-      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
-      CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
     cmds:
       - task: "{{OS}}:build:backend"
+        vars:
+          VERSION: '{{.VERSION}}'
+          CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
+          RELEASES_REPO: '{{.RELEASES_REPO}}'
 
   package:
     summary: Packages a build of the application
-    env:
-      BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}' # production or beta
-      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+    deps:
+      - task: sync:version
     cmds:
       - task: "{{OS}}:package"
+        vars:
+          BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
+          VERSION: '{{.VERSION}}'
+          CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
+          BUILD_NUMBER: '{{.BUILD_NUMBER}}'
+          RELEASES_REPO: '{{.RELEASES_REPO}}'
+          GARBLE_SEED: '{{.GARBLE_SEED}}'
+
+  release:windows:
+    summary: Build Windows release artifacts (setup, zip, checksums)
+    deps:
+      - task: sync:version
+    cmds:
+      - task: windows:release
+        vars:
+          BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+          VERSION: '{{.VERSION}}'
+          CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
+          BUILD_NUMBER: '{{.BUILD_NUMBER}}'
+          RELEASES_REPO: '{{.RELEASES_REPO}}'
+          GARBLE_SEED: '{{.GARBLE_SEED}}'
 
   run:
     summary: Runs the application
@@ -54,6 +92,7 @@ tasks:
   dev:
     summary: Runs the application in development mode
     env:
-      VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
+      VERSION: '{{.VERSION}}'
+      RELEASES_REPO: '{{.RELEASES_REPO}}'
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}

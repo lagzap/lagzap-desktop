@@ -72,7 +72,16 @@ tasks:
     generates:
       - "frontend/bindings/**/*"
     cmds:
-      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true 
+      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true
+
+  generate:bindings:obfuscated:
+    summary: Generates obfuscated bindings + wails_obfuscated.gen.go (commit the gen file)
+    deps:
+      - task: go:mod:tidy
+    cmds:
+      - wails3 generate bindings -obfuscated -f '{{.BUILD_FLAGS}}'
+    vars:
+      BUILD_FLAGS: '-tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0'
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` files from an image

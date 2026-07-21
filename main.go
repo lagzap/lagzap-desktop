@@ -81,6 +81,7 @@ func main() {
 		},
 	})
 	service.New(ctx, app)
+	initUpdater(app)
 	disableAutostartIfDev(app)
 
 	// PrtScn is swallowed by WebView2 while focused; bridge opens Snipping Tool.

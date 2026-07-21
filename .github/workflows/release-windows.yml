@@ -1,0 +1,184 @@
+name: Release Windows
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag to release (e.g. v0.1.0-beta.1). Must exist on this branch."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  APP_NAME: Cyrex
+  RELEASES_REPO: lagzap/cyrex-releases
+  GO_VERSION: "1.24.7"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      - name: Install Wails + Garble
+        shell: bash
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.116
+          go install mvdan.cc/garble@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Derive version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.version }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          if [[ ! "$TAG" =~ ^v ]]; then
+            echo "Tag must start with v (got $TAG)" >&2
+            exit 1
+          fi
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "build_number=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          SEMVER="${TAG#v}"
+          echo "semver=${SEMVER}" >> "$GITHUB_OUTPUT"
+          if [[ "$SEMVER" == *"-dev"* || "$SEMVER" == *"-beta"* || "$SEMVER" == *"-alpha"* || "$SEMVER" == *"-rc"* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ "$SEMVER" == *"-dev"* ]]; then
+            echo "channel=dev" >> "$GITHUB_OUTPUT"
+          elif [[ "$SEMVER" == *"-alpha"* ]]; then
+            echo "channel=alpha" >> "$GITHUB_OUTPUT"
+          elif [[ "$SEMVER" == *"-beta"* ]]; then
+            echo "channel=beta" >> "$GITHUB_OUTPUT"
+          elif [[ "$SEMVER" == *"-rc"* ]]; then
+            echo "channel=rc" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Render release notes
+        shell: bash
+        run: |
+          go run ./build/scripts/releasenotes \
+            -version "${{ steps.ver.outputs.version }}" \
+            -build "${{ steps.ver.outputs.build_number }}" \
+            -channel "${{ steps.ver.outputs.channel }}" \
+            -public-repo "${{ env.RELEASES_REPO }}" \
+            -output release-body.md
+
+      - name: Generate Garble seed
+        id: seed
+        shell: bash
+        run: |
+          SEED=$(openssl rand -hex 32)
+          echo "seed=${SEED}" >> "$GITHUB_OUTPUT"
+          echo "${{ steps.ver.outputs.version }} ${SEED}" > garble-seed.txt
+          echo "::add-mask::${SEED}"
+
+      - name: Build release artifacts
+        shell: bash
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          BUILD_NUMBER: ${{ steps.ver.outputs.build_number }}
+          GARBLE_SEED: ${{ steps.seed.outputs.seed }}
+          RELEASES_REPO: ${{ env.RELEASES_REPO }}
+          CORE_VERSION: unknown
+          BUILD_TYPE: production
+        run: |
+          task release:windows \
+            VERSION="$VERSION" \
+            BUILD_NUMBER="$BUILD_NUMBER" \
+            GARBLE_SEED="$GARBLE_SEED" \
+            RELEASES_REPO="$RELEASES_REPO" \
+            CORE_VERSION="$CORE_VERSION" \
+            BUILD_TYPE=production
+
+      - name: Sign update artifacts
+        shell: bash
+        env:
+          UPDATER_PRIVATE_KEY: ${{ secrets.UPDATER_PRIVATE_KEY }}
+          VERSION: ${{ steps.ver.outputs.semver }}
+          CHANNEL: ${{ steps.ver.outputs.channel }}
+        run: |
+          if [ -z "$UPDATER_PRIVATE_KEY" ]; then
+            echo "UPDATER_PRIVATE_KEY secret missing" >&2
+            exit 1
+          fi
+          printf '%s\n' "$UPDATER_PRIVATE_KEY" > updater.key
+          ZIP="bin/${APP_NAME}-windows-amd64.zip"
+          wails3 updater sign -key updater.key "$ZIP"
+          wails3 updater manifest \
+            -key updater.key \
+            -version "$VERSION" \
+            -channel "$CHANNEL" \
+            -name "Cyrex $VERSION" \
+            -notes-file release-body.md \
+            -o bin/update.manifest.json \
+            "$ZIP"
+          rm -f updater.key
+
+      - name: Upload Garble seed (private artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: garble-seed-${{ steps.ver.outputs.version }}
+          path: garble-seed.txt
+          retention-days: 90
+
+      - name: Publish to public releases repo
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.RELEASES_TOKEN }}
+          repository: ${{ env.RELEASES_REPO }}
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: Cyrex ${{ steps.ver.outputs.semver }}
+          body_path: release-body.md
+          prerelease: ${{ steps.ver.outputs.prerelease }}
+          files: |
+            bin/Cyrex-windows-amd64.zip
+            bin/Cyrex-windows-amd64-setup.exe
+            bin/SHA256SUMS
+            bin/update.manifest.json
+
+      - name: Mirror release notes on lagzap-desktop (private)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: Cyrex ${{ steps.ver.outputs.semver }}
+          body_path: release-body.md
+          prerelease: ${{ steps.ver.outputs.prerelease }}
+          make_latest: false

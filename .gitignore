@@ -5,11 +5,16 @@ go.work
 .task
 bin
 build/bin
+build/keys/updater.key
 node_modules
 frontend/dist
 /*.json
+!wails_obfuscated.gen.go
 /*.srs
 /*.db
 /lagzap.exe
+/Cyrex.exe
 /config.d/
 /*.log
+updater.key
+*.syso
