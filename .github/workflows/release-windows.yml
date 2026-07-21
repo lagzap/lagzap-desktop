@@ -111,6 +111,70 @@ jobs:
             echo "channel=stable" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout private dependency repos (for go.work replaces)
+        uses: actions/checkout@v4
+        with:
+          repository: lagzap/lagzap
+          path: _deps/lagzap
+          token: ${{ secrets.GO_MODULE_TOKEN }}
+          fetch-depth: 0
+
+      - name: Checkout private dependency repos (echo)
+        uses: actions/checkout@v4
+        with:
+          repository: lagzap/echo
+          path: _deps/echo
+          token: ${{ secrets.GO_MODULE_TOKEN }}
+          fetch-depth: 0
+
+      - name: Checkout private dependency repos (zap)
+        uses: actions/checkout@v4
+        with:
+          repository: lagzap/zap
+          path: _deps/zap
+          token: ${{ secrets.GO_MODULE_TOKEN }}
+          fetch-depth: 0
+
+      - name: Checkout private dependency repos (lagzap-tun)
+        uses: actions/checkout@v4
+        with:
+          repository: lagzap/lagzap-tun
+          path: _deps/lagzap-tun
+          token: ${{ secrets.GO_MODULE_TOKEN }}
+          fetch-depth: 0
+
+      - name: Checkout private dependency repos (geoip)
+        uses: actions/checkout@v4
+        with:
+          repository: lagzap/geoip
+          path: _deps/geoip
+          token: ${{ secrets.GO_MODULE_TOKEN }}
+          fetch-depth: 0
+
+      - name: Checkout private dependency repos (lagzaprd)
+        uses: actions/checkout@v4
+        with:
+          repository: lagzap/lagzaprd
+          path: _deps/lagzaprd
+          token: ${{ secrets.GO_MODULE_TOKEN }}
+          fetch-depth: 0
+
+      - name: Create go.work using private dependency replaces
+        shell: bash
+        run: |
+          cat > go.work <<'EOF'
+          go 1.25.0
+
+          use .
+
+          replace github.com/lagzap/lagzap => ./_deps/lagzap
+          replace github.com/lagzap/echo => ./_deps/echo
+          replace github.com/lagzap/zap => ./_deps/zap
+          replace github.com/lagzap/lagzap-tun => ./_deps/lagzap-tun
+          replace github.com/lagzap/geoip => ./_deps/geoip
+          replace github.com/lagzap/lagzaprd => ./_deps/lagzaprd
+          EOF
+
       - name: Render release notes
         shell: bash
         run: |
