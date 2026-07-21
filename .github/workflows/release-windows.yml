@@ -130,6 +130,14 @@ jobs:
           echo "${{ steps.ver.outputs.version }} ${SEED}" > garble-seed.txt
           echo "::add-mask::${SEED}"
 
+      # go mod tidy walks the module tree; bun install locks frontend/node_modules.
+      # Task runs those in parallel during windows:build — serialize here for CI.
+      - name: Prepare Go and frontend dependencies
+        shell: bash
+        run: |
+          go mod tidy
+          bun install --cwd frontend
+
       - name: Build release artifacts
         shell: bash
         env:
