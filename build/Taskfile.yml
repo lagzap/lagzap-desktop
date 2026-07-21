@@ -13,7 +13,7 @@ tasks:
     summary: Runs `go work sync` when go.work is present
     internal: true
     status:
-      - test ! -f go.work
+      - sh: 'test ! -f go.work'
     cmds:
       - go work sync
 
@@ -22,8 +22,7 @@ tasks:
     internal: true
     run: once
     status:
-      - test -f go.work
-      - test -n "${CI_SKIP_GO_MOD_TIDY}"
+      - sh: 'test -f go.work || test -n "$CI_SKIP_GO_MOD_TIDY"'
     cmds:
       - go mod tidy
 
