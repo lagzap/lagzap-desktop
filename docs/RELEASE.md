@@ -147,7 +147,7 @@ Self-signed certs are only for dry-running this pipeline — not for beta distri
 
 | Secret | Purpose |
 |--------|---------|
-| `GO_MODULE_TOKEN` | PAT with **read** access to all private `github.com/lagzap/*` module repos (`lagzap`, `zap`, `echo`, `geoip`, `lagzap-tun`, `lagzaprd`, …) |
+| `GO_MODULE_TOKEN` | Fine-grained PAT with **Contents: Read** on every private module repo. Must include at least `lagzap/echo`, `lagzap/lagzap`, `lagzap/zap`, and any other `github.com/lagzap/*` in `go.mod`. CI writes this to `%USERPROFILE%\_netrc` for Windows `go mod` / Task subprocesses. |
 | `RELEASES_TOKEN` | PAT / GitHub App token with `contents: write` on `lagzap/cyrex-releases` |
 | `UPDATER_PRIVATE_KEY` | Ed25519 private key PEM for update signing |
 | `WINDOWS_CERT_PFX` | (later) Base64 PFX for Authenticode |

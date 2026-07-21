@@ -1,6 +1,6 @@
 module github.com/lagzap/lagzap-desktop
 
-go 1.24.7
+go 1.25.0
 
 require (
 	github.com/lagzap/lagzap v0.1.0-beta.8

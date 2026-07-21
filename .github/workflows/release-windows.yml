@@ -17,9 +17,10 @@ permissions:
 env:
   APP_NAME: Cyrex
   RELEASES_REPO: lagzap/cyrex-releases
-  GO_VERSION: "1.24.7"
+  GO_VERSION: "1.25.0"
   GOPRIVATE: github.com/lagzap/*
   GONOSUMDB: github.com/lagzap/*
+  GIT_TERMINAL_PROMPT: "0"
 
 jobs:
   windows:
@@ -31,6 +32,11 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
       - name: Configure private Go modules
         shell: bash
         env:
@@ -38,15 +44,27 @@ jobs:
         run: |
           if [ -z "$GO_MODULE_TOKEN" ]; then
             echo "GO_MODULE_TOKEN secret missing — required to fetch private github.com/lagzap/* modules" >&2
+            echo "Add a fine-grained PAT with Contents:Read on lagzap/echo, lagzap/lagzap, lagzap/zap, etc." >&2
             exit 1
           fi
+          # Go on Windows reads %USERPROFILE%\_netrc (not only ~/.netrc from bash).
+          printf 'machine github.com login x-access-token password %s\n' "$GO_MODULE_TOKEN" > "$USERPROFILE/_netrc"
+          chmod 600 "$USERPROFILE/_netrc"
+          printf 'machine github.com login x-access-token password %s\n' "$GO_MODULE_TOKEN" > "$HOME/.netrc"
+          chmod 600 "$HOME/.netrc"
           git config --global url."https://x-access-token:${GO_MODULE_TOKEN}@github.com/".insteadOf "https://github.com/"
           git config --global url."https://x-access-token:${GO_MODULE_TOKEN}@github.com/".insteadOf "git@github.com:"
+          go env -w GOPRIVATE=github.com/lagzap/*
+          go env -w GONOSUMDB=github.com/lagzap/*
+          # Drop stale VCS metadata from earlier failed unauthenticated fetches.
+          rm -rf "$(go env GOPATH)/pkg/mod/cache/vcs" 2>/dev/null || true
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
+      - name: Verify private Go modules
+        shell: bash
+        run: |
+          go mod download github.com/lagzap/echo@v1.0.2
+          go mod download github.com/lagzap/lagzap@v0.1.0-beta.8
+          go mod download github.com/lagzap/zap@v0.5.0-rc.4
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -128,6 +146,9 @@ jobs:
           RELEASES_REPO: ${{ env.RELEASES_REPO }}
           CORE_VERSION: unknown
           BUILD_TYPE: production
+          GOPRIVATE: github.com/lagzap/*
+          GONOSUMDB: github.com/lagzap/*
+          GIT_TERMINAL_PROMPT: "0"
         run: |
           task release:windows \
             VERSION="$VERSION" \
