@@ -10,7 +10,6 @@ tasks:
       - task: common:go:mod:tidy
       - task: common:build:frontend
         vars:
-          GARBLE_SEED: 'test'
           BUILD_TYPE: '{{.BUILD_TYPE | default "beta"}}'
       - task: common:generate:icons
     cmds:

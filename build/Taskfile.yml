@@ -79,7 +79,7 @@ tasks:
       - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true
 
   generate:bindings:obfuscated:
-    summary: Generates obfuscated bindings + wails_obfuscated.gen.go (commit the gen file)
+    summary: (optional) Obfuscated bindings for future Garble builds — not used in CI
     deps:
       - task: go:mod:tidy
     cmds:

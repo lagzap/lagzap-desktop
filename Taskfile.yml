@@ -25,7 +25,6 @@ vars:
       else
         echo unknown
       fi
-  GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
 
 tasks:
   sync:version:
@@ -45,7 +44,6 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
-          GARBLE_SEED: '{{.GARBLE_SEED}}'
 
   build:backend:
     summary: Builds the Go backend only (used by wails dev)
@@ -68,7 +66,6 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
-          GARBLE_SEED: '{{.GARBLE_SEED}}'
 
   release:windows:
     summary: Build Windows release artifacts (setup, zip, checksums)
@@ -82,7 +79,6 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
-          GARBLE_SEED: '{{.GARBLE_SEED}}'
 
   run:
     summary: Runs the application

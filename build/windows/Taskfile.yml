@@ -28,7 +28,6 @@ tasks:
           VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
-          GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
       - cmd: powershell Remove-Item -ErrorAction SilentlyContinue *.syso
         platforms: [windows]
       - cmd: rm -f *.syso
@@ -38,7 +37,6 @@ tasks:
       CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
       BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
       RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
-      GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
     env:
       GOOS: windows
@@ -49,23 +47,18 @@ tasks:
       CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
       BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
       RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
-      GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
 
   compile:
-    summary: Compile Cyrex.exe (Garble when GARBLE_SEED is set on production builds)
+    summary: Compile Cyrex.exe
     cmds:
-      - '{{.COMPILE_CMD}} {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe'
+      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
     vars:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
       RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
-      GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
-      COMPILE_CMD: '{{if and (eq .BUILD_TYPE "production") (ne .GARBLE_SEED "")}}garble -seed={{.GARBLE_SEED}} -literals -tiny build{{else}}go build{{end}}'
       BUILD_FLAGS: >-
-        {{if and (eq .BUILD_TYPE "production") (ne .GARBLE_SEED "")}}
-        -tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0,wails_obfuscated -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui -checklinkname=0"
-        {{else if eq .BUILD_TYPE "production"}}
+        {{if eq .BUILD_TYPE "production"}}
         -tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui -checklinkname=0"
         {{else}}
         -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -checklinkname=0" -gcflags=all="-l"
@@ -75,7 +68,6 @@ tasks:
       CGO_ENABLED: 0
       GOARCH: '{{.ARCH | default ARCH}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
-      GARBLE_SEED: '{{.GARBLE_SEED | default ""}}'
 
   build:backend:
     summary: Builds the Go backend only (dev — skips production frontend build)
@@ -117,7 +109,6 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
-          GARBLE_SEED: '{{.GARBLE_SEED}}'
       - task: rename:artifacts
       - task: create:update:zip
       - task: create:checksums
@@ -174,7 +165,6 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
-          GARBLE_SEED: '{{.GARBLE_SEED}}'
     cmds:
       - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"
       - makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}\\{{.BIN_DIR}}\\{{.APP_NAME}}.exe" project.nsi

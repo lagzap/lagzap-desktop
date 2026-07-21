@@ -18,8 +18,6 @@ env:
   APP_NAME: Cyrex
   RELEASES_REPO: lagzap/cyrex-releases
   GO_VERSION: "1.25.0"
-  WAILS3_VERSION: "v3.0.0-alpha2.116"
-  GARBLE_VERSION: "v0.15.0"
   GOPRIVATE: github.com/lagzap/*
   GONOSUMDB: github.com/lagzap/*
   GIT_TERMINAL_PROMPT: "0"
@@ -90,28 +88,8 @@ jobs:
         with:
           version: 3.x
 
-      - name: Cache Wails + Garble
-        uses: actions/cache@v4
-        id: cache-gotools
-        with:
-          path: |
-            ~\go\bin\wails3.exe
-            ~\go\bin\garble.exe
-          key: ${{ runner.os }}-wails3-${{ env.WAILS3_VERSION }}-garble-${{ env.GARBLE_VERSION }}
-
-      # Official pattern: go install → ~/go/bin (setup-go adds it to PATH).
-      # Cache restores the .exe files; skip compile on cache hit.
-      - name: Install Wails + Garble
-        shell: bash
-        run: |
-          if [ "${{ steps.cache-gotools.outputs.cache-hit }}" != "true" ]; then
-            go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS3_VERSION}"
-            go install "mvdan.cc/garble@${GARBLE_VERSION}"
-          else
-            echo "Restored wails3 and garble from cache"
-          fi
-          wails3 version
-          garble version
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.116
 
       - name: Derive version
         id: ver
@@ -157,15 +135,6 @@ jobs:
             -public-repo "${{ env.RELEASES_REPO }}" \
             -output release-body.md
 
-      - name: Generate Garble seed
-        id: seed
-        shell: bash
-        run: |
-          SEED=$(openssl rand -hex 32)
-          echo "seed=${SEED}" >> "$GITHUB_OUTPUT"
-          echo "${{ steps.ver.outputs.version }} ${SEED}" > garble-seed.txt
-          echo "::add-mask::${SEED}"
-
       # Respect go.sum — do not run go mod tidy in release CI (CI_SKIP_GO_MOD_TIDY).
       - name: Prepare frontend dependencies
         shell: bash
@@ -176,7 +145,6 @@ jobs:
         env:
           VERSION: ${{ steps.ver.outputs.version }}
           BUILD_NUMBER: ${{ steps.ver.outputs.build_number }}
-          GARBLE_SEED: ${{ steps.seed.outputs.seed }}
           RELEASES_REPO: ${{ env.RELEASES_REPO }}
           CORE_VERSION: unknown
           BUILD_TYPE: production
@@ -188,7 +156,6 @@ jobs:
           task release:windows \
             VERSION="$VERSION" \
             BUILD_NUMBER="$BUILD_NUMBER" \
-            GARBLE_SEED="$GARBLE_SEED" \
             RELEASES_REPO="$RELEASES_REPO" \
             CORE_VERSION="$CORE_VERSION" \
             BUILD_TYPE=production
@@ -216,13 +183,6 @@ jobs:
             -o bin/update.manifest.json \
             "$ZIP"
           rm -f updater.key
-
-      - name: Upload Garble seed (private artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: garble-seed-${{ steps.ver.outputs.version }}
-          path: garble-seed.txt
-          retention-days: 90
 
       - name: Publish to public releases repo
         uses: softprops/action-gh-release@v2
