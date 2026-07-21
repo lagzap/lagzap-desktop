@@ -18,11 +18,12 @@ tasks:
       - go work sync
 
   go:mod:tidy:only:
-    summary: Runs `go mod tidy` when go.work is absent
+    summary: Runs `go mod tidy` when go.work is absent (skipped when CI_SKIP_GO_MOD_TIDY is set)
     internal: true
     run: once
     status:
       - test -f go.work
+      - test -n "${CI_SKIP_GO_MOD_TIDY}"
     cmds:
       - go mod tidy
 

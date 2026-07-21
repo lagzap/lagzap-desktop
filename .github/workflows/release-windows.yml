@@ -18,9 +18,12 @@ env:
   APP_NAME: Cyrex
   RELEASES_REPO: lagzap/cyrex-releases
   GO_VERSION: "1.25.0"
+  WAILS3_VERSION: "v3.0.0-alpha2.116"
+  GARBLE_VERSION: "v0.14.2"
   GOPRIVATE: github.com/lagzap/*
   GONOSUMDB: github.com/lagzap/*
   GIT_TERMINAL_PROMPT: "0"
+  CI_SKIP_GO_MOD_TIDY: "1"
 
 jobs:
   windows:
@@ -36,6 +39,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Configure private Go modules
         shell: bash
@@ -59,6 +64,21 @@ jobs:
           # Drop stale VCS metadata from earlier failed unauthenticated fetches.
           rm -rf "$(go env GOPATH)/pkg/mod/cache/vcs" 2>/dev/null || true
 
+      - name: Verify private Go modules (go.mod pins)
+        shell: bash
+        run: |
+          set -e
+          go mod download
+          go mod verify
+          modules=(
+            "github.com/lagzap/lagzap@$(go list -m -f '{{.Version}}' github.com/lagzap/lagzap)"
+            "github.com/lagzap/zap@$(go list -m -f '{{.Version}}' github.com/lagzap/zap)"
+            "github.com/lagzap/echo@$(go list -m -f '{{.Version}}' github.com/lagzap/echo)"
+          )
+          for mod in "${modules[@]}"; do
+            echo "Resolved $mod"
+          done
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
@@ -70,12 +90,27 @@ jobs:
         with:
           version: 3.x
 
+      - name: Cache Wails + Garble
+        uses: actions/cache@v4
+        id: cache-gotools
+        with:
+          path: ${{ runner.tool_cache }}/go-tools
+          key: ${{ runner.os }}-go-tools-wails3-${{ env.WAILS3_VERSION }}-garble-${{ env.GARBLE_VERSION }}
+
       - name: Install Wails + Garble
         shell: bash
         run: |
-          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.116
-          go install mvdan.cc/garble@latest
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          TOOL_DIR="${RUNNER_TOOL_CACHE}/go-tools"
+          mkdir -p "$TOOL_DIR"
+          if [ ! -f "$TOOL_DIR/wails3.exe" ]; then
+            GOBIN="$TOOL_DIR" go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS3_VERSION}"
+          fi
+          if [ ! -f "$TOOL_DIR/garble.exe" ]; then
+            GOBIN="$TOOL_DIR" go install "mvdan.cc/garble@${GARBLE_VERSION}"
+          fi
+          echo "$TOOL_DIR" >> "$GITHUB_PATH"
+          wails3 version
+          garble version
 
       - name: Derive version
         id: ver
@@ -111,70 +146,6 @@ jobs:
             echo "channel=stable" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout private dependency repos (for go.work replaces)
-        uses: actions/checkout@v4
-        with:
-          repository: lagzap/lagzap
-          path: _deps/lagzap
-          token: ${{ secrets.GO_MODULE_TOKEN }}
-          fetch-depth: 0
-
-      - name: Checkout private dependency repos (echo)
-        uses: actions/checkout@v4
-        with:
-          repository: lagzap/echo
-          path: _deps/echo
-          token: ${{ secrets.GO_MODULE_TOKEN }}
-          fetch-depth: 0
-
-      - name: Checkout private dependency repos (zap)
-        uses: actions/checkout@v4
-        with:
-          repository: lagzap/zap
-          path: _deps/zap
-          token: ${{ secrets.GO_MODULE_TOKEN }}
-          fetch-depth: 0
-
-      - name: Checkout private dependency repos (lagzap-tun)
-        uses: actions/checkout@v4
-        with:
-          repository: lagzap/lagzap-tun
-          path: _deps/lagzap-tun
-          token: ${{ secrets.GO_MODULE_TOKEN }}
-          fetch-depth: 0
-
-      - name: Checkout private dependency repos (geoip)
-        uses: actions/checkout@v4
-        with:
-          repository: lagzap/geoip
-          path: _deps/geoip
-          token: ${{ secrets.GO_MODULE_TOKEN }}
-          fetch-depth: 0
-
-      - name: Checkout private dependency repos (lagzaprd)
-        uses: actions/checkout@v4
-        with:
-          repository: lagzap/lagzaprd
-          path: _deps/lagzaprd
-          token: ${{ secrets.GO_MODULE_TOKEN }}
-          fetch-depth: 0
-
-      - name: Create go.work using private dependency replaces
-        shell: bash
-        run: |
-          cat > go.work <<'EOF'
-          go 1.25.0
-
-          use .
-
-          replace github.com/lagzap/lagzap => ./_deps/lagzap
-          replace github.com/lagzap/echo => ./_deps/echo
-          replace github.com/lagzap/zap => ./_deps/zap
-          replace github.com/lagzap/lagzap-tun => ./_deps/lagzap-tun
-          replace github.com/lagzap/geoip => ./_deps/geoip
-          replace github.com/lagzap/lagzaprd => ./_deps/lagzaprd
-          EOF
-
       - name: Render release notes
         shell: bash
         run: |
@@ -194,13 +165,10 @@ jobs:
           echo "${{ steps.ver.outputs.version }} ${SEED}" > garble-seed.txt
           echo "::add-mask::${SEED}"
 
-      # go mod tidy walks the module tree; bun install locks frontend/node_modules.
-      # Task runs those in parallel during windows:build — serialize here for CI.
-      - name: Prepare Go and frontend dependencies
+      # Respect go.sum — do not run go mod tidy in release CI (CI_SKIP_GO_MOD_TIDY).
+      - name: Prepare frontend dependencies
         shell: bash
-        run: |
-          go mod tidy
-          bun install --cwd frontend
+        run: bun install --cwd frontend
 
       - name: Build release artifacts
         shell: bash
@@ -214,6 +182,7 @@ jobs:
           GOPRIVATE: github.com/lagzap/*
           GONOSUMDB: github.com/lagzap/*
           GIT_TERMINAL_PROMPT: "0"
+          CI_SKIP_GO_MOD_TIDY: "1"
         run: |
           task release:windows \
             VERSION="$VERSION" \
