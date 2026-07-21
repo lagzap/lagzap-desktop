@@ -59,13 +59,6 @@ jobs:
           # Drop stale VCS metadata from earlier failed unauthenticated fetches.
           rm -rf "$(go env GOPATH)/pkg/mod/cache/vcs" 2>/dev/null || true
 
-      - name: Verify private Go modules
-        shell: bash
-        run: |
-          go mod download github.com/lagzap/echo@v1.0.2
-          go mod download github.com/lagzap/lagzap@v0.1.0-beta.8
-          go mod download github.com/lagzap/zap@v0.5.0-rc.4
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
