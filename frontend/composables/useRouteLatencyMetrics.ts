@@ -1,4 +1,5 @@
 import { computed, ref, watch } from "vue";
+import { debounce } from "es-toolkit";
 import { Latency, PingPoint, type Profile } from "~/bindings/github.com/lagzap/zap/data";
 import {
   type MultiInterfaceLatency,
@@ -8,6 +9,7 @@ import {
   routeRelayLatency,
   useProfileDisplayRoutes,
 } from "~/composables/useProfileDisplayRoutes";
+import { isPingTimeout, PING_TIMEOUT_MS } from "~/constants/pingChart";
 import type {
   Connection,
   NetworkSpeedPoint,
@@ -17,6 +19,9 @@ import type {
 const MAX_PROFILE_SPEED_HISTORY = 120;
 const MAX_ROUTE_RAW_HISTORY = 120;
 const MIN_FLOWING_TRAFFIC_SPEED = 100;
+const PROFILE_SPEED_PUSH_MS = 1000;
+/** Profile line chart Y max — samples at/above this gap as timeouts instead of roof spikes. */
+const ROUTE_CHART_SPIKE_MS = 500;
 
 /**
  * One logical flow can be mirrored across route×iface legs. Keep a single
@@ -113,6 +118,15 @@ type RoutePingSample = {
   timestamp: number;
 };
 
+function isUsableRouteSample(latency: number, ok = true): boolean {
+  if (!ok || isPingTimeout(latency, ok)) {
+    return false;
+  }
+  // Line chart Y is capped at 500 — treat spikes as timeouts so lines gap
+  // instead of drawing vertical lines into the roof.
+  return latency > 0 && latency < ROUTE_CHART_SPIKE_MS;
+}
+
 function appendRouteSample(
   history: RoutePingSample[],
   sample: RoutePingSample
@@ -135,10 +149,12 @@ export function useRouteLatencyMetrics(profileId: string) {
       }) as Profile
   );
 
-  const { routeSeries, primaryRelayNodeId, numberOfRoutes, profileInterfaces } =
+  const { routeSeries, primaryRelayNodeId, profileInterfaces } =
     useProfileDisplayRoutes(
       computed(() => profile.value ?? emptyProfile.value)
     );
+  // All active routes across every selected NIC — not "Best Internet" only.
+  const chartRouteSeries = computed(() => routeSeries.value);
   const { connections, routeProbeHistory, routeProbeReceivedCount } =
     useMonitoringStore();
   const {
@@ -198,51 +214,23 @@ export function useRouteLatencyMetrics(profileId: string) {
   }
 
   function resolveSeriesKey(slot: RouteProbeSlotMetric): string | null {
-    const seriesList = routeSeries.value;
+    const seriesList = chartRouteSeries.value;
     if (seriesList.length === 0) {
       return null;
-    }
-
-    // Strongest identity: interface + path (same hop list on two NICs = two lines).
-    if (slot.iface && slot.path_key) {
-      const byIfacePath = seriesList.find(
-        (series) =>
-          series.iface === slot.iface &&
-          nodeRoutePathKey(series.route) === slot.path_key
-      );
-      if (byIfacePath) {
-        return byIfacePath.key;
-      }
-    }
-
-    // Stable iface + global probe slot index (backend slot is global across ifaces).
-    if (slot.slot >= 0) {
-      const byGlobalIndex = seriesList.find((series) => {
-        if (series.index !== slot.slot) {
-          return false;
-        }
-        if (slot.iface && series.iface && series.iface !== slot.iface) {
-          return false;
-        }
-        return true;
-      });
-      if (byGlobalIndex) {
-        return byGlobalIndex.key;
-      }
     }
 
     if (slot.path_key) {
       const matches = seriesList.filter(
         (series) => nodeRoutePathKey(series.route) === slot.path_key
       );
-      if (matches.length === 1) {
-        return matches[0].key;
-      }
-      if (matches.length > 1 && slot.iface) {
+      if (slot.iface) {
         const ifaceMatch = matches.find((series) => series.iface === slot.iface);
         if (ifaceMatch) {
           return ifaceMatch.key;
         }
+      }
+      if (matches.length === 1) {
+        return matches[0].key;
       }
     }
 
@@ -251,27 +239,59 @@ export function useRouteLatencyMetrics(profileId: string) {
 
   function slotMapForEvent(slots: RouteProbeSlotMetric[]) {
     const bySeriesKey = new Map<string, RouteProbeSlotMetric>();
+    const assigned = new Set<RouteProbeSlotMetric>();
+    const seriesList = chartRouteSeries.value;
+
+    // 1) Exact path matches (success or timeout — PathKey is set either way).
     for (const slot of slots) {
       const key = resolveSeriesKey(slot);
       if (!key) {
         continue;
       }
+      assigned.add(slot);
       const existing = bySeriesKey.get(key);
       if (!existing) {
         bySeriesKey.set(key, slot);
         continue;
       }
-      if (slot.latency > 0) {
-        if (existing.latency <= 0 || slot.latency < existing.latency) {
-          bySeriesKey.set(key, slot);
-        }
+      const slotOk = isUsableRouteSample(slot.latency ?? 0);
+      const existingOk = isUsableRouteSample(existing.latency ?? 0);
+      if (slotOk && (!existingOk || slot.latency < existing.latency)) {
+        bySeriesKey.set(key, slot);
       }
     }
+
+    // 2) Remaining probes zip by local order within each NIC (legs may rotate;
+    //    slot index is the stable identity). Include failed probes (latency 0).
+    const unused = slots.filter((slot) => !assigned.has(slot));
+    const byIface = new Map<string, RouteProbeSlotMetric[]>();
+    for (const slot of unused) {
+      const iface = slot.iface || "";
+      const list = byIface.get(iface) ?? [];
+      list.push(slot);
+      byIface.set(iface, list);
+    }
+
+    for (const [iface, ifaceSlots] of byIface) {
+      const orderedProbes = ifaceSlots
+        .slice()
+        .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
+      const orderedSeries = seriesList
+        .filter((series) => (series.iface || "") === iface)
+        .slice()
+        .sort((a, b) => a.slot - b.slot)
+        .filter((series) => !bySeriesKey.has(series.key));
+
+      for (let i = 0; i < orderedProbes.length && i < orderedSeries.length; i++) {
+        bySeriesKey.set(orderedSeries[i].key, orderedProbes[i]);
+      }
+    }
+
     return bySeriesKey;
   }
 
   function seedRouteHistoryFromRoutes() {
-    const seriesList = routeSeries.value.slice(0, numberOfRoutes.value);
+    const seriesList = chartRouteSeries.value;
     if (seriesList.length === 0) {
       return;
     }
@@ -284,7 +304,7 @@ export function useRouteLatencyMetrics(profileId: string) {
         continue;
       }
       const baseline = routeRelayLatency(series.route);
-      if (baseline <= 0) {
+      if (!isUsableRouteSample(baseline)) {
         continue;
       }
       nextHistory[series.key] = [
@@ -317,7 +337,7 @@ export function useRouteLatencyMetrics(profileId: string) {
     }
     const { key, events } = resolved;
 
-    const seriesList = routeSeries.value.slice(0, numberOfRoutes.value);
+    const seriesList = chartRouteSeries.value;
     if (seriesList.length === 0) {
       return;
     }
@@ -348,31 +368,50 @@ export function useRouteLatencyMetrics(profileId: string) {
         ? new Date(event.timestamp).getTime()
         : Date.now();
 
-      const slotByKey = slotMapForEvent(event.slots ?? []);
+      const slots = event.slots ?? [];
+      const slotByKey = slotMapForEvent(slots);
 
       for (const series of seriesList) {
         const slot = slotByKey.get(series.key);
         const history = nextHistory[series.key] ?? [];
 
-        if (slot && slot.latency > 0) {
-          nextHistory[series.key] = appendRouteSample(history, {
-            latency: slot.latency,
-            ok: true,
-            packet_loss: slot.packet_loss ?? 0,
-            jitter: slot.jitter ?? 0,
-            score: slot.score ?? 0,
-            timestamp,
-          });
+        if (slot) {
+          const latency = slot.latency ?? 0;
+          if (isUsableRouteSample(latency)) {
+            nextHistory[series.key] = appendRouteSample(history, {
+              latency,
+              ok: true,
+              packet_loss: slot.packet_loss ?? 0,
+              jitter: slot.jitter ?? 0,
+              score: slot.score ?? 0,
+              timestamp,
+            });
+          } else {
+            // Failed / timed-out / spike probe — gap the line.
+            nextHistory[series.key] = appendRouteSample(history, {
+              latency: PING_TIMEOUT_MS,
+              ok: false,
+              packet_loss: slot.packet_loss ?? 1,
+              jitter: slot.jitter ?? 0,
+              score: slot.score ?? 0,
+              timestamp,
+            });
+          }
           continue;
         }
 
-        // Side-probe miss (latency 0 / absent) is NOT game lag. The live
-        // session can be healthy at ~100ms while a probe budget cancels.
-        // Carry the last good sample — never paint fake Timeout markers.
-        const last = history[history.length - 1];
-        if (last?.ok && last.latency > 0) {
+        // Probe tick covered this NIC but not this series — gap. Never hold the
+        // last good RTT (that painted a fake flat ~109ms line forever).
+        const ifaceProbed = slots.some(
+          (item) => !item.iface || item.iface === series.iface
+        );
+        if (ifaceProbed) {
           nextHistory[series.key] = appendRouteSample(history, {
-            ...last,
+            latency: PING_TIMEOUT_MS,
+            ok: false,
+            packet_loss: 1,
+            jitter: 0,
+            score: 0,
             timestamp,
           });
         }
@@ -392,10 +431,21 @@ export function useRouteLatencyMetrics(profileId: string) {
     };
   }
 
-  watch(routeProbeHistory, appendProbeSamples, { deep: true, immediate: true });
-  watch(routeProbeReceivedCount, appendProbeSamples, { deep: true });
+  const probeAppendKey = computed(() => {
+    const tag = primaryRelayNodeId.value;
+    if (!tag) {
+      return "";
+    }
+    const resolved = resolveProbeHistory(tag);
+    const key = resolved?.key ?? tag;
+    const received = routeProbeReceivedCount.value[key] ?? 0;
+    const eventCount = resolved?.events.length ?? 0;
+    return `${key}:${received}:${eventCount}`;
+  });
+
+  watch(probeAppendKey, () => appendProbeSamples(), { immediate: true });
   watch(
-    () => [routeSeries.value.length, numberOfRoutes.value] as const,
+    () => chartRouteSeries.value.map((series) => series.key).join("|"),
     () => {
       seedRouteHistoryFromRoutes();
       appendProbeSamples();
@@ -427,14 +477,14 @@ export function useRouteLatencyMetrics(profileId: string) {
   });
 
   const latency = computed<MultiInterfaceLatency | null>(() => {
-    if (routeSeries.value.length === 0) {
+    if (chartRouteSeries.value.length === 0) {
       return null;
     }
 
     const interfaces: Record<string, Latency> = {};
     let bestScore = 0;
 
-    for (const series of routeSeries.value) {
+    for (const series of chartRouteSeries.value) {
       const history = routePingHistory.value[series.key] ?? [];
 
       if (history.length === 0) {
@@ -450,7 +500,7 @@ export function useRouteLatencyMetrics(profileId: string) {
       }));
       const last = history[history.length - 1];
       const okLatencies = pings
-        .filter((point) => point.ok)
+        .filter((point) => point.ok && isUsableRouteSample(point.latency ?? 0, true))
         .map((point) => point.latency);
 
       interfaces[series.key] = buildLatency(series.label, pings, {
@@ -477,6 +527,29 @@ export function useRouteLatencyMetrics(profileId: string) {
    * reported usage and an iface with 1 route carries 100KB. Stack one band per
    * internet using traffic × routes_on_that_iface (from profile / global settings).
    */
+  const pushProfileSpeedSample = debounce((profileConnections: Connection[]) => {
+    const { download, upload } = uniqueFlowSpeeds(profileConnections);
+    if (download + upload < MIN_FLOWING_TRAFFIC_SPEED) {
+      return;
+    }
+
+    const ifaces = (profileInterfaces.value ?? []).filter((name) => !!name);
+    const names = ifaces.length > 0 ? ifaces : ["Default"];
+    const interfaces: NetworkSpeedPoint["interfaces"] = {};
+    for (const name of names) {
+      const routes = routeWeightForInterface(name);
+      interfaces[name] = {
+        download: download * routes,
+        upload: upload * routes,
+      };
+    }
+
+    profileSpeedHistory.value = [
+      ...profileSpeedHistory.value,
+      { interfaces },
+    ].slice(-MAX_PROFILE_SPEED_HISTORY);
+  }, PROFILE_SPEED_PUSH_MS);
+
   watch(
     connections,
     (items) => {
@@ -486,27 +559,7 @@ export function useRouteLatencyMetrics(profileId: string) {
       if (profileConnections.length === 0) {
         return;
       }
-
-      const { download, upload } = uniqueFlowSpeeds(profileConnections);
-      if (download + upload < MIN_FLOWING_TRAFFIC_SPEED) {
-        return;
-      }
-
-      const ifaces = (profileInterfaces.value ?? []).filter((name) => !!name);
-      const names = ifaces.length > 0 ? ifaces : ["Default"];
-      const interfaces: NetworkSpeedPoint["interfaces"] = {};
-      for (const name of names) {
-        const routes = routeWeightForInterface(name);
-        interfaces[name] = {
-          download: download * routes,
-          upload: upload * routes,
-        };
-      }
-
-      profileSpeedHistory.value = [
-        ...profileSpeedHistory.value,
-        { interfaces },
-      ].slice(-MAX_PROFILE_SPEED_HISTORY);
+      pushProfileSpeedSample(profileConnections);
     },
     { deep: true }
   );
@@ -514,7 +567,7 @@ export function useRouteLatencyMetrics(profileId: string) {
   const hasLatencyData = computed(() => {
     // Always show the chart once route series exist so used-route lines stay
     // mounted instead of unmounting when history briefly looks empty.
-    if (routeSeries.value.length > 0) {
+    if (chartRouteSeries.value.length > 0) {
       return true;
     }
     for (const history of Object.values(routePingHistory.value)) {
@@ -534,6 +587,6 @@ export function useRouteLatencyMetrics(profileId: string) {
     latency,
     hasLatencyData,
     profileSpeedHistory: computed(() => profileSpeedHistory.value),
-    routeSeries,
+    chartRouteSeries,
   };
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/lagzap/lagzap"
 	"github.com/lagzap/lagzap-desktop/constant"
 	"github.com/lagzap/lagzap-desktop/localproxy"
+	lagzapConstant "github.com/lagzap/lagzap/constant"
 	"github.com/lagzap/lagzap/adapter"
 	"github.com/lagzap/lagzap/common/device"
 	"github.com/lagzap/lagzap/include"
@@ -39,11 +40,13 @@ const (
 )
 
 func (s *Service) New(ctx context.Context, app *application.App) {
+	lagzapConstant.SetShellVersion(constant.SemVer())
 	s.ctx = lagzap.Context(ctx, include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry(), include.DNSTransportRegistry(), include.ServiceRegistry())
 	s.app = app
 }
 
 func (s *Service) ReloadService() error {
+	lagzapConstant.SetShellVersion(constant.SemVer())
 	if s.lagzap != nil {
 		_ = s.StopProxy()
 		_ = s.StopService()

@@ -81,6 +81,7 @@ func initUpdater(app *application.App) {
 		PublicKey:      updaterPublicKey,
 		Channel:        constant.Channel(),
 		Window:         updater.BYOWindow(updateWin.AsUpdaterWindow()),
+		CheckInterval:  constant.UpdateCheckInterval(),
 	}); err != nil {
 		slog.Error("updater: init", "error", err)
 		return
@@ -90,6 +91,7 @@ func initUpdater(app *application.App) {
 		"repo", repo,
 		"prerelease", constant.IsPrerelease(),
 		"channel", constant.Channel(),
+		"check_interval", constant.UpdateCheckInterval(),
 	)
 }
 
@@ -127,6 +129,9 @@ func preferUpdateZip(req updater.CheckRequest, assets []github.ReleaseAsset) int
 }
 
 func checkForUpdates(app *application.App) error {
+	if constant.IsDevBuild() {
+		return fmt.Errorf("updates are not available in development builds")
+	}
 	if app == nil || app.Updater == nil {
 		return fmt.Errorf("updater unavailable")
 	}

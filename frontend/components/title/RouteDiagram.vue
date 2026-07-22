@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, computed, watch } from "vue";
+import { debounce } from "es-toolkit";
 import { Call } from "@wailsio/runtime";
 import { useStore } from "~/stores";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
@@ -10,7 +11,12 @@ import {
   routeRelayLatency,
   routeRelayMetrics,
   bestRouteRelayLatency,
+  pickBestInterfaceGroup,
 } from "~/composables/useProfileDisplayRoutes";
+import {
+  BEST_INTERFACE,
+  useProfileViewInterface,
+} from "~/composables/useProfileViewInterface";
 import {
   interfaceConnectionColor,
 } from "~/composables/useLatencyMetrics";
@@ -35,42 +41,12 @@ const {
   primaryRelayNodeId,
 } = useProfileDisplayRoutes(computed(() => props.profile));
 
-/** "best" = Best Internet (pick lowest-latency interface group). */
-const BEST_INTERFACE = "best";
-const selectedInterfaceKey = ref<string>(BEST_INTERFACE);
-const showInterfaceSelector = computed(() => interfaceRouteGroups.value.length > 1);
+const { selectedInterfaceKey } = useProfileViewInterface(props.profile.id);
 const probingEstimatedPing = ref(false);
 const probedBestOverride = ref<{ ping: number; score: number } | null>(null);
 
-const interfaceSelectItems = computed(() => [
-  {
-    title: t("$vuetify.title.profile.bestInternet"),
-    value: BEST_INTERFACE,
-  },
-  ...interfaceRouteGroups.value.map((group) => ({
-    title: group.name,
-    value: group.name,
-  })),
-]);
-
 function bestInterfaceGroup() {
-  const groups = interfaceRouteGroups.value;
-  if (groups.length === 0) {
-    return null;
-  }
-  let best = groups[0];
-  let bestPing = 0;
-  for (const group of groups) {
-    const ping = bestRouteRelayLatency(group.routes).ping;
-    if (ping <= 0) {
-      continue;
-    }
-    if (bestPing === 0 || ping < bestPing) {
-      best = group;
-      bestPing = ping;
-    }
-  }
-  return best;
+  return pickBestInterfaceGroup(interfaceRouteGroups.value);
 }
 
 const resolvedInterfaceGroup = computed(() => {
@@ -115,6 +91,39 @@ watch(
 
 const chartRef = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
+
+function fingerprintDiagramRoute(route: NodeRouteType): string {
+  const hops = route.hops ?? [];
+  const hopPart = hops
+    .map(
+      (hop) =>
+        `${hop.ip ?? ""}:${Math.round(hop.latency ?? 0)}:${hop.status ?? ""}`
+    )
+    .join("|");
+  return `${Math.round(route.avg_latency ?? 0)}:${route.score ?? 0}:${hopPart}`;
+}
+
+/** Stable key — avoids deep-watching the entire routes store on every probe tick. */
+const diagramChartFingerprint = computed(() => {
+  const routes = activeDiagramRoutes.value;
+  return [
+    shouldShowDiagram.value,
+    numberOfRoutes.value,
+    selectedInterfaceKey.value,
+    selectedAdapterName.value,
+    theme.current.value.dark,
+    routes.map((route, index) => `${index}:${fingerprintDiagramRoute(route)}`).join(";"),
+  ].join("\0");
+});
+
+const scheduleDiagramUpdate = debounce(() => {
+  updateChart();
+  chart?.resize();
+}, 400);
+
+const debouncedResize = debounce(() => {
+  chart?.resize();
+}, 150);
 
 function routeDiagramColor(routeIndex: number): string {
   const group = resolvedInterfaceGroup.value ?? interfaceRouteGroups.value[0];
@@ -1054,31 +1063,23 @@ function updateChart() {
     backgroundColor: "transparent",
   };
 
-  chart.setOption(option);
-  
-  // Force resize and center the chart after data update
-  setTimeout(() => {
-    if (chart) {
-      chart.resize();
-    }
-  }, 100);
+  chart.setOption(option, {
+    lazyUpdate: true,
+    replaceMerge: ["series"],
+  });
 }
 
 async function initChart() {
   if (!chartRef.value) return;
-  chart = echarts.init(chartRef.value as HTMLDivElement);
+  chart = echarts.init(chartRef.value as HTMLDivElement, null, {
+    useDirtyRect: true,
+  });
   updateChart();
   window.addEventListener("resize", onResize);
 }
 
 function onResize() {
-  if (chart) {
-    chart.resize();
-    // Force a small delay to ensure proper centering
-    setTimeout(() => {
-      if (chart) chart.resize();
-    }, 50);
-  }
+  debouncedResize();
 }
 
 onMounted(() => {
@@ -1086,6 +1087,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  scheduleDiagramUpdate.cancel();
+  debouncedResize.cancel();
   window.removeEventListener("resize", onResize);
   if (chart) {
     chart.dispose();
@@ -1098,6 +1101,7 @@ const estimatedPingDisplay = computed(() => {
   if (probedBestOverride.value && probedBestOverride.value.ping > 0) {
     return probedBestOverride.value;
   }
+
   const best = bestRouteRelayLatency(activeDiagramRoutes.value);
   return { ping: best.ping, score: best.score };
 });
@@ -1159,24 +1163,11 @@ watch(
 );
 
 watch(
-  [
-    shouldShowDiagram,
-    numberOfRoutes,
-    activeDiagramRoutes,
-    selectedInterfaceKey,
-    selectedAdapterName,
-    () => store.routes,
-    () => theme.current.value.dark,
-  ],
+  diagramChartFingerprint,
   () => {
-    updateChart();
-    setTimeout(() => {
-      if (chart) {
-        chart.resize();
-      }
-    }, 200);
+    scheduleDiagramUpdate();
   },
-  { immediate: true, deep: true }
+  { immediate: true }
 );
 </script>
 
@@ -1209,21 +1200,6 @@ watch(
         {{ estimatedPingDisplay.ping || '—' }}{{ estimatedPingDisplay.ping ? 'ms' : '' }}
       </div>
     </button>
-    <div
-      v-if="showInterfaceSelector"
-      class="route-diagram-interface"
-      style="position: absolute; top: 1rem; left: 1rem;"
-    >
-      <v-select
-        v-model="selectedInterfaceKey"
-        :items="interfaceSelectItems"
-        :label="t('$vuetify.title.profile.interface')"
-        density="compact"
-        hide-details
-        single-line
-        variant="plain"
-      />
-    </div>
   </div>
   <div v-else class="text-center pa-4 text-grey">
     Route diagram not available for this profile
@@ -1238,11 +1214,6 @@ watch(
 
 .route-diagram-chart :deep(canvas) {
   overflow: visible;
-}
-
-.route-diagram-interface {
-  min-width: 140px;
-  max-width: 220px;
 }
 
 .estimated-ping-badge {

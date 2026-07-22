@@ -1,6 +1,6 @@
 export const PING_TIMEOUT_MS = 1000;
 export const PING_SAMPLES_PER_SECOND = 2;
-export const PING_RAW_CAP = 240;
+export const PING_RAW_CAP = 120;
 export const PING_CHART_SLOTS = 120;
 
 export const CHART_TIME_RANGE_SECONDS = {

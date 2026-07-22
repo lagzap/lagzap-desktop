@@ -1,5 +1,5 @@
 import { clearAuthSession, redirectToAuth } from "~/composables/useAuthSession";
-import { isAuthHttpStatus } from "~/utils/httpError";
+import { isAuthHttpStatus, isForceUpdateError } from "~/utils/httpError";
 
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook("sanctum:login", () => {
@@ -26,6 +26,11 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook("sanctum:error", async (response) => {
     const status = response?.status;
     if (!isAuthHttpStatus(status)) {
+      return;
+    }
+
+    const payload = response?._data as { message?: string } | undefined;
+    if (isForceUpdateError(payload?.message ?? response)) {
       return;
     }
 

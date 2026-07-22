@@ -251,7 +251,7 @@ func (h requestHeaders) apply(out, in *http.Request) {
 	if ct := in.Header.Get("Content-Type"); ct != "" {
 		out.Header.Set("Content-Type", ct)
 	}
-	out.Header.Set("User-Agent", constant.UserAgent)
+	out.Header.Set("User-Agent", constant.UserAgent())
 	out.Header.Del("Accept-Encoding")
 	out.Header.Set("X-Forwarded-Host", in.Host)
 	out.Header.Set("X-Forwarded-Proto", h.target.Scheme)

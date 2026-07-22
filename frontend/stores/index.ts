@@ -45,6 +45,9 @@ import { clearAuthSession } from "~/composables/useAuthSession";
 import { useMonitoringStore } from "~/stores/monitoring";
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/constants/status";
+import { getErrorMessage } from "~/composables/alert";
+import { isForceUpdateError } from "~/utils/httpError";
+import { useForceUpdate } from "~/composables/useForceUpdate";
 import type { Interface } from "~/bindings/github.com/lagzap/zap/common/control";
 import type { MultiInterfaceLatency } from "~/composables/useLatencyMetrics";
 import {
@@ -55,6 +58,7 @@ import { PING_RAW_CAP } from "~/constants/pingChart";
 
 export const useStore = defineStore("index", () => {
   const locale = useLocale();
+  const { handleForceUpdate } = useForceUpdate();
   // State
   const status = ref<ConnectionStatus>(ConnectionStatus.StatusDisconnected);
   const abilities = ref<string[]>([]);
@@ -66,6 +70,8 @@ export const useStore = defineStore("index", () => {
   const error = ref<boolean>(false);
   const optimizeProgress = ref<Optimize | null>(null);
   const optimizeMinimized = ref(false);
+  const initializingApp = ref(false);
+  const startupOptimizeDone = ref(false);
   const serviceReady = ref<boolean>(false);
   const appReady = ref<boolean>(false);
   const ndisRunning = ref<boolean>(false);
@@ -179,6 +185,7 @@ export const useStore = defineStore("index", () => {
     if (startupCanceled.value) {
       return;
     }
+    initializingApp.value = true;
     loading.value = true;
     error.value = false;
 
@@ -202,16 +209,16 @@ export const useStore = defineStore("index", () => {
         return;
       }
 
-      if (optimizeProgress.value) {
-        statusMessage.value = `${optimizeProgress.value.completed_tests || 0} / ${optimizeProgress.value.total_tests || 0}`;
-      }
+      startupOptimizeDone.value = true;
+      statusMessage.value = locale.t("$vuetify.service.ready");
+      optimizeProgress.value = null;
       await nextTick();
       await StartProxy();
       await check();
       await ClearDNSCache();
 
-      statusMessage.value = locale.t("$vuetify.service.ready");
       appReady.value = true;
+      startupOptimizeDone.value = false;
       if (callback !== undefined) {
         callback();
       }
@@ -219,11 +226,13 @@ export const useStore = defineStore("index", () => {
       if (startupCanceled.value) {
         return;
       }
+      startupOptimizeDone.value = false;
       console.dir(err);
 
       error.value = true;
       throw err;
     } finally {
+      initializingApp.value = false;
       loading.value = false;
     }
   };
@@ -280,30 +289,48 @@ export const useStore = defineStore("index", () => {
         ...(data as Record<string, RelayRoute>),
       };
     });
-    Events.On("optimize", async ({ data }) => {
-      // Ignore stale in-flight updates that race after completion and leave
-      // the UI stuck at 99% with is_complete=false.
+    Events.On("optimize", ({ data }) => {
+      // Ignore only true post-completion stragglers (same run still emitting
+      // near-done progress). A new run always resets completed_tests and must
+      // open the panel — the old guard dropped those events while is_complete
+      // lingered for ~900ms after the previous run.
       if (
         optimizeProgress.value?.is_complete &&
         data &&
-        !data.is_complete &&
-        (data.progress ?? 0) > 0
+        !data.is_complete
       ) {
-        return;
+        const prevDone = optimizeProgress.value.completed_tests ?? 0;
+        const nextDone = data.completed_tests ?? 0;
+        const looksLikeNewRun =
+          nextDone < prevDone ||
+          (data.progress ?? 0) === 0 ||
+          (data.total_tests ?? 0) === 0;
+        if (!looksLikeNewRun && (data.progress ?? 0) > 0) {
+          return;
+        }
       }
+
       optimizeProgress.value = data;
+
+      if (data && !data.is_complete) {
+        // Manual Optimize (and any active run) must show the popup, not stay
+        // stuck on a previously minimized FAB.
+        optimizeMinimized.value = false;
+      }
+
       if (data?.is_complete) {
         optimizeMinimized.value = false;
-        statusMessage.value = `${data.completed_tests || 0} / ${data.total_tests || 0}`;
-        // Dismiss the panel shortly after completion.
-        window.setTimeout(() => {
-          if (optimizeProgress.value?.is_complete) {
-            optimizeProgress.value = null;
-          }
-        }, 900);
+        if (!initializingApp.value) {
+          statusMessage.value = `${data.completed_tests || 0} / ${data.total_tests || 0}`;
+          window.setTimeout(() => {
+            if (optimizeProgress.value?.is_complete) {
+              optimizeProgress.value = null;
+            }
+          }, 900);
+        }
         return;
       }
-      if (data) {
+      if (data && !initializingApp.value) {
         statusMessage.value = `${data.completed_tests || 0} / ${data.total_tests || 0}`;
       }
     });
@@ -534,19 +561,25 @@ export const useStore = defineStore("index", () => {
       return;
     }
     connecting.value = true;
-    statusMessage.value = locale.t("$vuetify.service.connecting");
+    if (!initializingApp.value) {
+      statusMessage.value = locale.t("$vuetify.service.connecting");
+    }
     await updateInterfaces();
     await check();
     if (connected.value) {
       connecting.value = false;
-      loading.value = false;
+      if (appReady.value) {
+        loading.value = false;
+      }
       return;
     }
     if (startupCanceled.value) {
       connecting.value = false;
       return;
     }
-    statusMessage.value = locale.t("$vuetify.service.fetchingData");
+    if (!initializingApp.value) {
+      statusMessage.value = locale.t("$vuetify.service.fetchingData");
+    }
 
     try {
       const { user, isAuthenticated } = useSanctumAuth<DataResponse>();
@@ -571,8 +604,14 @@ export const useStore = defineStore("index", () => {
       if (startupCanceled.value) {
         return;
       }
+      if (isForceUpdateError(e)) {
+        error.value = true;
+        statusMessage.value = getErrorMessage(e, locale);
+        await handleForceUpdate();
+        throw e;
+      }
       error.value = true;
-      statusMessage.value = e.message;
+      statusMessage.value = (e as Error).message;
 
       console.error(e);
       throw e;
@@ -593,6 +632,8 @@ export const useStore = defineStore("index", () => {
     appReady.value = false;
     optimizeProgress.value = null;
     optimizeMinimized.value = false;
+    initializingApp.value = false;
+    startupOptimizeDone.value = false;
 
     try {
       await CancelConnect();
@@ -845,6 +886,8 @@ export const useStore = defineStore("index", () => {
     startupCanceled,
     statusMessage,
     error,
+    initializingApp,
+    startupOptimizeDone,
     optimizing,
     optimizeProgress,
     optimizeMinimized,

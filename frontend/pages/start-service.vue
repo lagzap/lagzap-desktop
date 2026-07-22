@@ -1,25 +1,42 @@
 <script lang="ts" setup>
 import { onMounted } from "vue";
 import { useLocale } from "vuetify";
-import { Connect, InstallDriver, IsDriverInstalled, IsLocalProxyRunning, ReloadService, UninstallDriver } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import { getHttpStatus, isAuthError } from "~/utils/httpError";
+import { Connect, InstallDriver, IsDriverInstalled, IsLocalProxyRunning, ReloadService, UninstallDriver, CheckForUpdates } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { getHttpStatus, isAuthError, isForceUpdateError } from "~/utils/httpError";
 import { getToken } from "~/utils/indexedDB";
 import { handleAuthFailure } from "~/composables/useAuthSession";
+import { useForceUpdate } from "~/composables/useForceUpdate";
+import { getErrorMessage } from "~/composables/alert";
 
 const router = useRouter();
 const route = useRoute();
 const store = useStore();
-const { t } = useLocale();
+const locale = useLocale();
+const { t } = locale;
 const { settings } = useSettings();
 /** Open splash without ReloadService — use ?preview=1 from the app menu. */
 const isPreview = computed(
   () => route.query.preview === "1" || route.query.preview === "true"
 );
+/** Keep optimize UI through completion fade until startup finishes. */
+const showStartupOptimize = computed(
+  () =>
+    !isPreview.value &&
+    !store.appReady &&
+    !store.startupOptimizeDone &&
+    store.optimizeProgress != null
+);
+
+const showStartupReady = computed(
+  () => !isPreview.value && store.startupOptimizeDone && !store.appReady
+);
+
 const logoLoading = computed(
   () =>
-    store.optimizing ||
+    showStartupOptimize.value ||
     (!isPreview.value &&
       !store.appReady &&
+      !store.startupOptimizeDone &&
       !store.error &&
       !store.startupCanceled)
 );
@@ -35,7 +52,7 @@ const optimizeRealPct = computed(() => {
 });
 const optimizeDisplayPct = usePsychoProgress(
   optimizeRealPct,
-  computed(() => store.optimizing)
+  showStartupOptimize
 );
 definePageMeta({
   layout: "start",
@@ -49,6 +66,7 @@ const errorStatusCode = ref<number | null>(null);
 const errorStatusText = ref<string | null>(null);
 
 const { init, refreshIdentity, isAuthenticated, logout } = useSanctumAuth();
+const { forceUpdateRequired, handleForceUpdate } = useForceUpdate();
 
 onMounted(async () => {
   await nextTick();
@@ -107,7 +125,12 @@ async function retryInstallDriver() {
 const redirecting = ref(false);
 
 const showCancelStartup = computed(
-  () => store.loading && !store.error && !store.optimizing && !redirecting.value,
+  () =>
+    store.loading &&
+    !store.error &&
+    !showStartupOptimize.value &&
+    !showStartupReady.value &&
+    !redirecting.value,
 );
 
 async function handleCancelStartup() {
@@ -154,6 +177,12 @@ async function start() {
       return;
     }
     await waitForLocalProxy();
+    store.statusMessage = t("$vuetify.startService.checkingForUpdates");
+    try {
+      await CheckForUpdates();
+    } catch {
+      // Dev builds and missing updater config are expected to no-op.
+    }
     store.statusMessage = t("$vuetify.startService.loggingIntoOnlineService");
 
     const token = await getToken("lz.access_token");
@@ -171,6 +200,12 @@ async function start() {
     }
   } catch (e) {
     if (store.startupCanceled) {
+      return;
+    }
+    if (isForceUpdateError(e)) {
+      store.error = true;
+      store.statusMessage = getErrorMessage(e, locale);
+      await handleForceUpdate();
       return;
     }
     if (isAuthError(e)) {
@@ -216,6 +251,12 @@ async function initApp() {
     await init();
   } catch (e) {
     if (store.startupCanceled) {
+      return;
+    }
+    if (isForceUpdateError(e)) {
+      store.error = true;
+      store.statusMessage = getErrorMessage(e, locale);
+      await handleForceUpdate();
       return;
     }
     if (isAuthError(e)) {
@@ -268,11 +309,16 @@ async function initApp() {
       </v-card-title>
 
       <!-- Optimizing state content -->
-      <template v-if="store.optimizing">
+      <template v-if="showStartupOptimize">
         <v-card-subtitle class="text-subtitle-1 text-accent text-center">
           {{ t("$vuetify.startService.advancedRoutingAnalysisInProgress") }}
         </v-card-subtitle>
         <v-progress-linear color="primary" :model-value="optimizeDisplayPct" rounded height="4" class="mt-2" />
+      </template>
+      <template v-else-if="showStartupReady">
+        <v-card-subtitle class="text-subtitle-1 text-success text-center">
+          {{ t("$vuetify.service.ready") }}
+        </v-card-subtitle>
       </template>
       <!-- Non-optimizing state content -->
       <template v-else>
@@ -302,6 +348,9 @@ async function initApp() {
         <v-card-subtitle v-else-if="store.error && !isAuthenticated" class="text-subtitle-1 text-warning text-center">
           {{ t("$vuetify.status.connectionFailed") }}
           {{ errorName }}
+        </v-card-subtitle>
+        <v-card-subtitle v-else-if="forceUpdateRequired" class="text-subtitle-1 text-warning text-center">
+          {{ t("$vuetify.startService.updateRequired") }}
         </v-card-subtitle>
         <v-card-subtitle v-else class="text-subtitle-1 text-center" :class="{
           'text-error': store.error,

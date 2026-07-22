@@ -1,12 +1,12 @@
 <script lang="ts" setup>
 import { useLocale } from 'vuetify'
-import { CheckForUpdates, GetVersion } from '~/bindings/github.com/lagzap/lagzap-desktop/service';
+import { GetVersion } from '~/bindings/github.com/lagzap/lagzap-desktop/service';
 
 const locale = useLocale()
 const { t } = locale
 
 const version = ref('…')
-const checking = ref(false)
+const { checking, error, checkForUpdate } = useUpdateCheck(t)
 
 onMounted(async () => {
   try {
@@ -15,16 +15,6 @@ onMounted(async () => {
     version.value = 'unknown'
   }
 })
-
-async function checkForUpdate() {
-  if (checking.value) return
-  checking.value = true
-  try {
-    await CheckForUpdates()
-  } finally {
-    checking.value = false
-  }
-}
 </script>
 
 <template>
@@ -39,11 +29,22 @@ async function checkForUpdate() {
         {{ t('$vuetify.settings.versionDescription', version) }}
       </v-card-subtitle>
 
+      <v-alert
+        v-if="error"
+        type="error"
+        variant="tonal"
+        density="compact"
+        class="mb-3"
+      >
+        {{ error }}
+      </v-alert>
+
       <v-btn
         variant="tonal"
         color="default"
         class="mb-3"
         :loading="checking"
+        :disabled="checking"
         @click="checkForUpdate"
       >{{ t('$vuetify.settings.checkForUpdate') }}</v-btn>
     </v-card-text>

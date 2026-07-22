@@ -241,7 +241,7 @@ function expandOptimize() {
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 2000;
+  z-index: 11000;
   width: min(420px, calc(100vw - 32px));
   background-color: rgb(var(--v-theme-surface)) !important;
   opacity: 1 !important;
@@ -255,7 +255,7 @@ function expandOptimize() {
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 2000;
+  z-index: 11000;
   text-transform: none;
 }
 </style>

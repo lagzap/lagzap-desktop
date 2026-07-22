@@ -4,7 +4,7 @@ import QuickAccess from "./QuickAccess.vue";
 import { Application, Events, Window } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/bindings/github.com/lagzap/lagzap/adapter";
-import { CheckForUpdates, StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import DiscordIcon from "~/components/icons/DiscordIcon.vue";
 import XIcon from "~/components/icons/XIcon.vue";
 import TelegramIcon from "~/components/icons/TelegramIcon.vue";
@@ -65,16 +65,13 @@ onActivated(async () => {
 });
 
 const quiting = ref(false)
+const { checking: updateChecking, checkForUpdate } = useUpdateCheck(t)
 
 async function exit() {
   quiting.value = true;
   await StopService();
   await Window.Close();
   await Application.Quit();
-}
-
-async function checkForUpdates() {
-  await CheckForUpdates();
 }
 </script>
 
@@ -201,9 +198,16 @@ async function checkForUpdates() {
                 <span class="text-caption">{{ t('$vuetify.navigation.settings') }}</span>
               </template>
             </v-list-item>
-            <v-list-item prepend-icon="mdi-update" @click="checkForUpdates">
+            <v-list-item
+              prepend-icon="mdi-update"
+              :disabled="updateChecking"
+              @click="checkForUpdate"
+            >
               <template #title>
                 <span class="text-caption">Check Update</span>
+              </template>
+              <template v-if="updateChecking" #append>
+                <v-progress-circular indeterminate size="16" width="2" />
               </template>
             </v-list-item>
             <v-list-item prepend-icon="mdi-bug" @click="''">

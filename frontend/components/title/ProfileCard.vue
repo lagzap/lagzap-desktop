@@ -9,12 +9,18 @@ import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.
 import ProfilePingUsage from "~/components/title/ProfilePingUsage.vue";
 import { ProfileFlag } from "~/constants/profile";
 import { useProfileDisplayRoutes } from "~/composables/useProfileDisplayRoutes";
+import {
+  BEST_INTERFACE,
+  useProfileViewInterface,
+} from "~/composables/useProfileViewInterface";
+import { useLocale } from "vuetify";
 
 const props = defineProps<{
   profile: Profile;
 }>();
 
 const { connections } = useMonitoringStore();
+const { t } = useLocale();
 
 const hasProfileConnections = computed(() =>
   (connections.value ?? []).some(
@@ -30,7 +36,24 @@ const showProfileSections = computed(
 );
 
 const store = useStore();
-const { numberOfRoutes } = useProfileDisplayRoutes(computed(() => props.profile));
+const { numberOfRoutes, interfaceRouteGroups, shouldShowRoutes } =
+  useProfileDisplayRoutes(computed(() => props.profile));
+const { selectedInterfaceKey } = useProfileViewInterface(props.profile.id);
+
+const showInterfaceSelector = computed(
+  () => shouldShowRoutes.value && interfaceRouteGroups.value.length > 1
+);
+
+const interfaceSelectItems = computed(() => [
+  {
+    title: t("$vuetify.title.profile.bestInternet"),
+    value: BEST_INTERFACE,
+  },
+  ...interfaceRouteGroups.value.map((group) => ({
+    title: group.name,
+    value: group.name,
+  })),
+]);
 
 const toggleProfile = async (profile: any) => {
   if (store.isProfileActive(profile.id)) {
@@ -130,6 +153,21 @@ const routeSettingsText = computed(() => {
 
     <v-card-text v-if="showProfileSections" class="pt-0 profile-sections">
       <RouteDiagram :profile="props.profile" />
+      <div
+        v-if="showInterfaceSelector"
+        class="profile-interface-selector d-flex justify-start mt-2 mb-2"
+      >
+        <v-select
+          v-model="selectedInterfaceKey"
+          :items="interfaceSelectItems"
+          :label="t('$vuetify.title.profile.interface')"
+          density="compact"
+          hide-details
+          single-line
+          variant="outlined"
+          class="profile-interface-selector__select"
+        />
+      </div>
       <v-divider class="my-4" />
       <ProfilePingUsage :profile-id="props.profile.id" class="mb-4" />
       <ProfileConnectionsTable
@@ -140,3 +178,10 @@ const routeSettingsText = computed(() => {
     </v-card-text>
   </v-card>
 </template>
+
+<style scoped>
+.profile-interface-selector__select {
+  min-width: 180px;
+  max-width: 260px;
+}
+</style>

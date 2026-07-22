@@ -236,6 +236,13 @@ watch(visibleRegions, (regions) => {
 });
 
 async function optimize() {
+  // Clear a lingering completed state and force the popup open before the
+  // backend events arrive — otherwise the stale-complete guard / minimized FAB
+  // can swallow the new run's UI.
+  store.optimizeMinimized = false;
+  if (store.optimizeProgress?.is_complete) {
+    store.optimizeProgress = null;
+  }
   await StartOptimizing();
 }
 </script>

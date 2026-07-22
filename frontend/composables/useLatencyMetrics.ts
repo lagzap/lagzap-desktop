@@ -417,7 +417,11 @@ function rollingPingSamplesForInterface(
   const maxSamples = windowSeconds * samplesPerSecond;
   const slice = pings.slice(-maxSamples).slice(-displaySlots);
   const slotValues: BucketedPingSlot[] = slice.map((ping) => {
-    const failed = !ping.ok || isPingTimeout(ping.latency, ping.ok);
+    const failed =
+      !ping.ok ||
+      isPingTimeout(ping.latency, ping.ok) ||
+      // Profile line Y is fixed at 500 — gap roof spikes instead of drawing them.
+      (typeof ping.latency === "number" && ping.latency >= 500);
     return {
       value: failed ? null : ping.latency,
       failed,
@@ -644,6 +648,8 @@ export function useLatencyMetrics(
     pingCache?: MaybeRef<LatencyPingCache | undefined>;
     /** Probe cadence; route watchers emit ~1/sec, global internet ping is 2/sec. */
     probeSamplesPerSecond?: MaybeRef<number>;
+    /** Wall-clock tick so long-window chart slots advance even without new samples. */
+    chartTick?: MaybeRef<number>;
   } = {}
 ) {
   const chartWindowSize = computed(
@@ -659,6 +665,7 @@ export function useLatencyMetrics(
   const probeSamplesPerSecond = computed(
     () => toValue(options.probeSamplesPerSecond) ?? PING_SAMPLES_PER_SECOND
   );
+  const chartTick = computed(() => toValue(options.chartTick) ?? 0);
   const interfacePings = computed(() => {
     const interfaceData: Record<string, any[]> = {};
 
@@ -738,6 +745,7 @@ export function useLatencyMetrics(
   });
 
   const chartData = computed(() => {
+    void chartTick.value;
     const interfaceData = interfacePings.value;
     const rankedInterfaces = latency.value?.interfaces
       ? rollingSamples.value

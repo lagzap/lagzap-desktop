@@ -3,6 +3,7 @@ package constant
 import (
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Version is injected at build time via ldflags (e.g. "v0.2.0-beta.3" or "0.2.0").
@@ -50,7 +51,20 @@ func Channel() string {
 	}
 }
 
-// IsPrerelease reports whether this build should consider GitHub prereleases
+// UpdateCheckInterval returns how often the background updater should poll for releases.
+// Alpha: 10m, beta/rc/dev: 30m, production: 1h.
+func UpdateCheckInterval() time.Duration {
+	v := strings.ToLower(SemVer())
+	switch {
+	case strings.Contains(v, "-alpha"):
+		return 10 * time.Minute
+	case strings.Contains(v, "-beta"), strings.Contains(v, "-rc"), strings.Contains(v, "-dev"):
+		return 30 * time.Minute
+	default:
+		return time.Hour
+	}
+}
+
 // when checking for updates (dev / beta / alpha / rc).
 func IsPrerelease() bool {
 	v := strings.ToLower(SemVer())

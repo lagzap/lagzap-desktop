@@ -63,6 +63,8 @@ const props = withDefaults(
 );
 
 const chartTimeRange = ref<ChartTimeRange>("1m");
+const chartFrameTick = ref(0);
+let chartFrameTimer: ReturnType<typeof setInterval> | null = null;
 
 const chartWindowSize = computed(() =>
   props.compact ? CHART_DISPLAY_SLOTS_SMALL : CHART_DISPLAY_SLOTS
@@ -80,8 +82,16 @@ let hoverDataIndex: number | null = null;
 let pointerInsideChart = false;
 let renderTimer: ReturnType<typeof setTimeout> | null = null;
 const CHART_RENDER_INTERVAL_MS = 1000;
+const ROLLING_CHART_RENDER_INTERVAL_MS = 500;
+let chartHasFullOption = false;
 let tooltipCacheKey = "";
 let tooltipCacheHtml = "";
+
+function renderIntervalMs() {
+  return props.rollingSamples
+    ? ROLLING_CHART_RENDER_INTERVAL_MS
+    : CHART_RENDER_INTERVAL_MS;
+}
 
 function chartRenderFingerprint() {
   const data = chartData.value;
@@ -569,7 +579,24 @@ function buildLatencyBarSeries() {
     type: "bar",
     stack: LATENCY_STACK,
     yAxisIndex: 0,
-    data: (interfaceBands[name] ?? []).map((delta) => {
+    data: (chartData.value.seriesData[name] ?? []).map((value, index) => {
+      if (isInterfaceSlotTimeout(index, name, value)) {
+        const best = bestSeries[index];
+        if (best === null || best === undefined) {
+          return null;
+        }
+
+        return {
+          value: Math.max(0, yMax - best),
+          itemStyle: {
+            color: PING_TIMEOUT_COLOR,
+            opacity: TIMEOUT_BAR_OPACITY,
+            borderWidth: 0,
+          },
+        };
+      }
+
+      const delta = interfaceBands[name]?.[index];
       if (delta === null || delta === undefined || delta <= 0) {
         return null;
       }
@@ -603,12 +630,36 @@ function buildLatencyLineSeries() {
         name,
         uniqueInterfaceOrder(chartData.value.rankedInterfaces)
       );
+    const timeoutMarks: Array<{
+      coord: [number, number];
+      symbol: string;
+      symbolSize: number;
+      symbolRotate?: number;
+      itemStyle: { color: string };
+    }> = [];
     const data = chartData.value.times.map((_, slotIndex) => {
       const value = chartData.value.seriesData[name]?.[slotIndex];
       if (value === null || value === undefined) {
+        if (isInterfaceSlotTimeout(slotIndex, name, value)) {
+          timeoutMarks.push({
+            coord: [slotIndex, CHART_Y_DEFAULT_MAX],
+            symbol: "diamond",
+            symbolSize: 7,
+            itemStyle: { color: PING_TIMEOUT_COLOR },
+          });
+        }
         return null;
       }
-      if (isInterfaceSlotTimeout(slotIndex, name, value)) {
+      if (
+        isInterfaceSlotTimeout(slotIndex, name, value) ||
+        value >= CHART_Y_DEFAULT_MAX
+      ) {
+        timeoutMarks.push({
+          coord: [slotIndex, CHART_Y_DEFAULT_MAX],
+          symbol: "diamond",
+          symbolSize: 7,
+          itemStyle: { color: PING_TIMEOUT_COLOR },
+        });
         return null;
       }
       return value;
@@ -630,6 +681,15 @@ function buildLatencyLineSeries() {
       itemStyle: {
         color,
       },
+      markPoint:
+        timeoutMarks.length > 0
+          ? {
+              data: timeoutMarks,
+              animation: false,
+              silent: true,
+              label: { show: false },
+            }
+          : undefined,
       // Avoid focus/blur — it warps the usage area series into a solid wedge
       // under the cursor and leaves it stuck until the next data refresh.
       emphasis: {
@@ -660,6 +720,7 @@ const {
   pingCache: computed(() => props.pingCache),
   rollingSamples: computed(() => props.rollingSamples),
   probeSamplesPerSecond: computed(() => props.probeSamplesPerSecond),
+  chartTick: props.rollingSamples ? undefined : chartFrameTick,
 });
 
 const visibleInterfaceLegend = computed(() =>
@@ -820,15 +881,26 @@ function formatTooltipContent(axisIndex: number) {
   visible.forEach((interfaceName) => {
     const value = chartData.value.seriesData[interfaceName]?.[axisIndex];
     const color = getPingInterfaceColor(interfaceName);
+    const timedOut =
+      timedOutNames.has(interfaceName) ||
+      (value !== null &&
+        value !== undefined &&
+        (isPingTimeout(value, true) ||
+          (isLinesChart() && value >= CHART_Y_DEFAULT_MAX)));
 
-    if (value !== null && value !== undefined && !isPingTimeout(value, true)) {
+    if (
+      value !== null &&
+      value !== undefined &&
+      !timedOut &&
+      !isPingTimeout(value, true)
+    ) {
       latencyRows.push(
         tooltipInterfaceRow(color, interfaceName, formatLatencyValue(value))
       );
       return;
     }
 
-    if (timedOutNames.has(interfaceName)) {
+    if (timedOut) {
       latencyRows.push(
         tooltipInterfaceRow(color, interfaceName, formatTimeoutValue())
       );
@@ -996,7 +1068,7 @@ function scheduleRenderChart() {
   renderTimer = setTimeout(() => {
     renderTimer = null;
     renderChart();
-  }, CHART_RENDER_INTERVAL_MS);
+  }, renderIntervalMs());
 }
 
 function ensureChartInstance() {
@@ -1005,7 +1077,7 @@ function ensureChartInstance() {
   }
 
   chartInstance = echarts.init(chartRef.value, null, {
-    useDirtyRect: false,
+    useDirtyRect: true,
     useCoarsePointer: true,
     pointerSize: 4,
   });
@@ -1027,6 +1099,24 @@ function renderChart() {
 
   ensureChartInstance();
   if (!chartInstance) {
+    return;
+  }
+
+  if (props.rollingSamples) {
+    if (!chartHasFullOption) {
+      invalidateTooltipCache();
+      chartInstance.setOption(buildChartOption(), {
+        replaceMerge: ["series", "yAxis", "xAxis"],
+        lazyUpdate: true,
+      });
+      chartHasFullOption = true;
+      return;
+    }
+
+    chartInstance.setOption(buildChartDataOption(), {
+      replaceMerge: ["series", "yAxis", "xAxis"],
+      lazyUpdate: true,
+    });
     return;
   }
 
@@ -1078,6 +1168,7 @@ const disposeChart = () => {
     clearTimeout(renderTimer);
     renderTimer = null;
   }
+  chartHasFullOption = false;
   if (chartInstance) {
     chartInstance.dispose();
     chartInstance = null;
@@ -1127,6 +1218,7 @@ watch(
 watch(
   () => chartTimeRange.value,
   () => {
+    chartHasFullOption = false;
     if (props.active && allPings.value.length > 0) {
       renderChart();
     }
@@ -1135,6 +1227,7 @@ watch(
 
 watch(isDarkTheme, () => {
   invalidateTooltipCache();
+  chartHasFullOption = false;
   if (props.active && allPings.value.length > 0) {
     renderChart();
   }
@@ -1154,6 +1247,11 @@ watch(
 );
 
 onMounted(() => {
+  if (!props.rollingSamples) {
+    chartFrameTimer = setInterval(() => {
+      chartFrameTick.value += 1;
+    }, CHART_RENDER_INTERVAL_MS);
+  }
   if (props.active) {
     refreshChart();
   }
@@ -1162,6 +1260,10 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (chartFrameTimer !== null) {
+    clearInterval(chartFrameTimer);
+    chartFrameTimer = null;
+  }
   window.removeEventListener("resize", handleWindowResize);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   disposeChart();
