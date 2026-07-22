@@ -3,7 +3,7 @@ module github.com/lagzap/lagzap-desktop
 go 1.25.0
 
 require (
-	github.com/lagzap/lagzap v0.1.0-beta.49
+	github.com/lagzap/lagzap v0.1.0-beta.51
 	github.com/lagzap/zap v0.1.0-beta.9
 	github.com/miekg/dns v1.1.67
 	github.com/wailsapp/wails/v3 v3.0.0-alpha2.116
