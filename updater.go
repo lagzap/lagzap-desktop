@@ -9,12 +9,21 @@ import (
 
 	"github.com/lagzap/lagzap-desktop/constant"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
 
+const (
+	updaterWindowWidth  = 460
+	updaterWindowHeight = 580
+)
+
 //go:embed updater.key.pub
 var updaterPublicKey []byte
+
+//go:embed assets/updater/window.html
+var updaterWindowHTML string
 
 func initUpdater(app *application.App) {
 	if constant.IsDevBuild() {
@@ -36,11 +45,42 @@ func initUpdater(app *application.App) {
 		slog.Error("updater: github provider", "error", err)
 		return
 	}
+
+	updateWin := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:                       "updater",
+		Title:                      "Cyrex Update",
+		Width:                      updaterWindowWidth,
+		Height:                     updaterWindowHeight,
+		MinWidth:                   updaterWindowWidth,
+		MaxWidth:                   updaterWindowWidth,
+		MinHeight:                  updaterWindowHeight,
+		MaxHeight:                  updaterWindowHeight,
+		DisableResize:              true,
+		DefaultContextMenuDisabled: true,
+		ZoomControlEnabled:         false,
+		HTML:                       updaterWindowHTML,
+		AllowSimpleEventEmit:       true,
+		BackgroundColour:           application.NewRGBA(18, 18, 18, 255),
+		Windows: application.WindowsWindow{
+			Theme: application.SystemDefault,
+		},
+	})
+	updateWin.Hide()
+	updateWin.OnWindowEvent(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		updateWin.Hide()
+		e.Cancel()
+	})
+	app.Event.On("wails:updater:check-started", func(*application.CustomEvent) {
+		updateWin.Show()
+		updateWin.Focus()
+	})
+
 	if err := app.Updater.Init(updater.Config{
 		CurrentVersion: constant.SemVer(),
 		Providers:      []updater.Provider{gh},
 		PublicKey:      updaterPublicKey,
 		Channel:        constant.Channel(),
+		Window:         updater.BYOWindow(updateWin.AsUpdaterWindow()),
 	}); err != nil {
 		slog.Error("updater: init", "error", err)
 		return

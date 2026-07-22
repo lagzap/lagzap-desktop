@@ -56,7 +56,6 @@ tasks:
     cmds:
       - task: create:app:bundle
 
-
   create:app:bundle:
     summary: Creates an `.app` bundle
     cmds:
