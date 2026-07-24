@@ -2,6 +2,8 @@ export const PING_TIMEOUT_MS = 1000;
 export const PING_SAMPLES_PER_SECOND = 2;
 export const PING_RAW_CAP = 120;
 export const PING_CHART_SLOTS = 120;
+/** Chart header / summary packet loss — short bursts shouldn't read as 50% then 0%. */
+export const SUMMARY_LOSS_WINDOW_SECONDS = 30;
 
 export const CHART_TIME_RANGE_SECONDS = {
   "1m": 60,

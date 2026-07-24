@@ -38,11 +38,12 @@ type LegRow = {
   iface: string;
   network: string;
   latency: number | null;
+  lastGood: number | null;
   loss: number;
   jitter: number;
   score: number;
   ageMs: number | null;
-  status: "fresh" | "warm" | "stale" | "dead" | "missing";
+  status: "fresh" | "warm" | "stale" | "dead" | "missing" | "miss";
 };
 
 type RelayBoard = {
@@ -107,6 +108,7 @@ function statusColor(status: LegRow["status"]): string {
     case "stale":
       return "orange";
     case "dead":
+    case "miss":
       return "error";
     default:
       return "grey";
@@ -128,6 +130,7 @@ function lastGoodLatencyForSlot(
   for (let i = events.length - 1; i >= 0; i--) {
     for (const candidate of events[i]?.slots ?? []) {
       if (!(candidate.latency > 0)) continue;
+      if ((candidate.packet_loss ?? 0) >= 100) continue;
       if (slot.path_key && candidate.path_key === slot.path_key) {
         if (slot.iface && candidate.iface && slot.iface !== candidate.iface) {
           continue;
@@ -151,10 +154,11 @@ function buildLegs(event: RouteProbeEvent | null): LegRow[] {
   const tag = event.route_tag || "";
   const slots = event.slots ?? [];
   return slots.map((slot: RouteProbeSlotMetric, index: number) => {
-    const latency =
-      slot.latency > 0
-        ? slot.latency
-        : lastGoodLatencyForSlot(tag, slot);
+    const loss = slot.packet_loss ?? 0;
+    const missed = !(slot.latency > 0) || loss >= 100;
+    // Never invent latency on a miss — show "—" and keep lastGood separate.
+    const latency = missed ? null : slot.latency;
+    const lastGood = missed ? lastGoodLatencyForSlot(tag, slot) : null;
     return {
       key: `${slot.slot}-${slot.path_key ?? index}-${slot.iface ?? ""}-${slot.network ?? ""}`,
       slot: slot.slot,
@@ -162,11 +166,12 @@ function buildLegs(event: RouteProbeEvent | null): LegRow[] {
       iface: slot.iface || "default",
       network: slot.network || "—",
       latency,
-      loss: slot.packet_loss ?? 0,
+      lastGood,
+      loss,
       jitter: slot.jitter ?? 0,
       score: slot.score ?? 0,
       ageMs: eventAge,
-      status: legStatus(eventAge, latency),
+      status: missed ? "miss" : legStatus(eventAge, latency),
     };
   });
 }
@@ -253,8 +258,8 @@ const boards = computed<RelayBoard[]>(() => {
     board.probeAgeMs = ageMs(parseTs(probe?.timestamp));
     board.legs = buildLegs(probe);
     const live = board.legs
-      .map((leg) => leg.latency)
-      .filter((ms): ms is number => ms != null && ms > 0);
+      .filter((leg) => leg.latency != null && leg.latency > 0 && leg.loss < 100)
+      .map((leg) => leg.latency as number);
     board.bestMs = live.length ? Math.min(...live) : board.meta?.avg_latency || null;
     if (probe) {
       board.upload = Math.max(board.upload, Math.abs(probe.upload || 0));
@@ -456,7 +461,20 @@ function processName(path?: string): string {
                         {{ leg.status }}
                       </v-chip>
                     </td>
-                    <td class="font-weight-medium">{{ formatMs(leg.latency) }}</td>
+                    <td class="font-weight-medium">
+                      <template v-if="leg.latency != null && leg.latency > 0">
+                        {{ formatMs(leg.latency) }}
+                      </template>
+                      <template v-else>
+                        —
+                        <span
+                          v-if="leg.lastGood"
+                          class="text-caption text-medium-emphasis d-block"
+                        >
+                          last {{ formatMs(leg.lastGood) }}
+                        </span>
+                      </template>
+                    </td>
                     <td>{{ formatAge(leg.ageMs) }}</td>
                     <td
                       :class="

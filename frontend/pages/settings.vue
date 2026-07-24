@@ -8,9 +8,13 @@ import ClearDNSCache from "~/components/settings/ClearDNSCache.vue";
 import Version from "~/components/settings/Version.vue";
 import UninstallDriver from "~/components/settings/UninstallDriver.vue";
 import Other from "~/components/settings/Other.vue";
+import NetworkReport from "~/components/settings/NetworkReport.vue";
+import { useStore } from "~/stores";
 
 const locale = useLocale();
-const { t } = locale
+const { t } = locale;
+const store = useStore();
+const isAdmin = computed(() => store.abilities.includes("admin"));
 </script>
 
 <template>
@@ -30,6 +34,10 @@ const { t } = locale
       <ClearDNSCache  />
       <v-divider class="mx-4" />
       <Other  />
+      <template v-if="isAdmin">
+        <v-divider class="mx-4" />
+        <NetworkReport />
+      </template>
       <v-divider class="mx-4" />
       <UninstallDriver  />
       <v-divider class="mx-4" />

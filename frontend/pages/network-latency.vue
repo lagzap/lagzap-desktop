@@ -2,8 +2,8 @@
 import Container from "~/components/layout/Container.vue";
 import CountryFlag from "vue-country-flag-next";
 import Ping from "~/components/network/Ping.vue";
-import { useLocale } from "vuetify";
-import { StartOptimizing } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { useDisplay, useLocale } from "vuetify";
+import { StartOptimizing, GetOptimizeProgress } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import ContinentIcon from "~/components/icons/ContinentIcon.vue";
 import type { Node } from "~/bindings/github.com/lagzap/zap/data";
 import type { DataTableHeader } from "vuetify";
@@ -12,8 +12,10 @@ import country from "country-list-js";
 
 const locale = useLocale();
 const { t } = locale;
+const { mobile } = useDisplay();
 const store = useStore();
 const filterMode = ref("all");
+const showFilters = ref(false);
 
 const {
   stackFilter,
@@ -27,6 +29,14 @@ const {
   getNodeRouteTableRows,
 } = useNetworkLatencyGrid();
 const { getNodeLabel } = useNodeLocationLabel();
+
+const filtersActive = computed(() => {
+  return (
+    interfaceFilter.value !== "best" ||
+    stackFilter.value !== "all" ||
+    transportFilter.value !== "all"
+  );
+});
 
 const routeTableHeaders = computed<DataTableHeader[]>(() => [
   {
@@ -236,15 +246,70 @@ watch(visibleRegions, (regions) => {
 });
 
 async function optimize() {
-  // Clear a lingering completed state and force the popup open before the
-  // backend events arrive — otherwise the stale-complete guard / minimized FAB
-  // can swallow the new run's UI.
   store.optimizeMinimized = false;
-  if (store.optimizeProgress?.is_complete) {
-    store.optimizeProgress = null;
-  }
+  store.optimizeProgress = {
+    total_tests: 100,
+    completed_tests: 0,
+    is_complete: false,
+    progress: 0,
+    phase: "probe",
+    probe_total: 0,
+    probe_completed: 0,
+    verify_total: 0,
+    verify_completed: 0,
+    interfaces: [],
+  } as any;
+
   await StartOptimizing();
+  store.optimizeMinimized = false;
+
+  // Poll RPC — Wails may wrap event payloads; this keeps the bar moving.
+  const deadline = Date.now() + 180_000;
+  while (Date.now() < deadline) {
+    try {
+      const progress = await GetOptimizeProgress();
+      if (progress) {
+        const isComplete = !!(
+          progress.is_complete ?? (progress as any).isComplete
+        );
+        store.optimizeProgress = {
+          total_tests:
+            progress.total_tests ?? (progress as any).totalTests ?? 100,
+          completed_tests:
+            progress.completed_tests ?? (progress as any).completedTests ?? 0,
+          is_complete: isComplete,
+          progress: progress.progress ?? 0,
+          phase: progress.phase || "probe",
+          probe_total:
+            progress.probe_total ?? (progress as any).probeTotal ?? 0,
+          probe_completed:
+            progress.probe_completed ?? (progress as any).probeCompleted ?? 0,
+          verify_total:
+            progress.verify_total ?? (progress as any).verifyTotal ?? 0,
+          verify_completed:
+            progress.verify_completed ??
+            (progress as any).verifyCompleted ??
+            0,
+          interfaces: progress.interfaces ?? [],
+        } as any;
+        store.optimizeMinimized = false;
+        if (isComplete) {
+          break;
+        }
+      }
+    } catch {
+      // ignore transient RPC errors
+    }
+    if (
+      !store.optimizing &&
+      (store.optimizeProgress as any)?.probe_total > 0
+    ) {
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
 }
+
 </script>
 
 <template>
@@ -255,45 +320,80 @@ async function optimize() {
           {{ t("$vuetify.networkLatency.latencyGrid") }}
         </v-app-bar-title>
       </template>
+      <template #toolbar>
+        <v-tooltip
+          :text="t('$vuetify.networkLatency.filters.toggle')"
+          location="bottom"
+        >
+          <template #activator="{ props: tipProps }">
+            <v-btn
+              v-bind="tipProps"
+              icon
+              :color="showFilters || filtersActive ? 'primary' : undefined"
+              :density="mobile ? 'comfortable' : 'default'"
+              @click="showFilters = !showFilters"
+            >
+              <v-badge
+                :model-value="filtersActive"
+                color="primary"
+                dot
+                floating
+                offset-x="6"
+                offset-y="6"
+              >
+                <v-icon
+                  :icon="showFilters ? 'mdi-filter' : 'mdi-filter-outline'"
+                />
+              </v-badge>
+            </v-btn>
+          </template>
+        </v-tooltip>
+      </template>
       <v-card-text>
-        <v-row dense class="mb-3">
-          <v-col cols="12" sm="4">
-            <v-select
-              v-model="interfaceFilter"
-              :items="interfaceFilterItems"
-              item-value="value"
-              item-title="title"
-              :label="t('$vuetify.networkLatency.filters.interface')"
-              density="compact"
-              variant="outlined"
-              hide-details
-            />
-          </v-col>
-          <v-col cols="12" sm="4">
-            <v-select
-              v-model="stackFilter"
-              :items="stackFilterItems"
-              item-value="value"
-              item-title="title"
-              :label="t('$vuetify.networkLatency.filters.stack')"
-              density="compact"
-              variant="outlined"
-              hide-details
-            />
-          </v-col>
-          <v-col cols="12" sm="4">
-            <v-select
-              v-model="transportFilter"
-              :items="transportFilterItems"
-              item-value="value"
-              item-title="title"
-              :label="t('$vuetify.networkLatency.filters.transport')"
-              density="compact"
-              variant="outlined"
-              hide-details
-            />
-          </v-col>
-        </v-row>
+        <v-expand-transition>
+          <v-row
+            v-if="showFilters"
+            dense
+            class="mb-3"
+          >
+            <v-col cols="12" sm="4">
+              <v-select
+                v-model="interfaceFilter"
+                :items="interfaceFilterItems"
+                item-value="value"
+                item-title="title"
+                :label="t('$vuetify.networkLatency.filters.interface')"
+                density="compact"
+                variant="outlined"
+                hide-details
+              />
+            </v-col>
+            <v-col cols="12" sm="4">
+              <v-select
+                v-model="stackFilter"
+                :items="stackFilterItems"
+                item-value="value"
+                item-title="title"
+                :label="t('$vuetify.networkLatency.filters.stack')"
+                density="compact"
+                variant="outlined"
+                hide-details
+              />
+            </v-col>
+            <v-col cols="12" sm="4">
+              <v-select
+                v-model="transportFilter"
+                :items="transportFilterItems"
+                item-value="value"
+                item-title="title"
+                :label="t('$vuetify.networkLatency.filters.transport')"
+                density="compact"
+                variant="outlined"
+                hide-details
+              />
+            </v-col>
+          </v-row>
+        </v-expand-transition>
 
         <v-chip-group
           v-model="filterMode"

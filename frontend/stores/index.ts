@@ -45,9 +45,6 @@ import { clearAuthSession } from "~/composables/useAuthSession";
 import { useMonitoringStore } from "~/stores/monitoring";
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/constants/status";
-import { getErrorMessage } from "~/composables/alert";
-import { isForceUpdateError } from "~/utils/httpError";
-import { useForceUpdate } from "~/composables/useForceUpdate";
 import type { Interface } from "~/bindings/github.com/lagzap/zap/common/control";
 import type { MultiInterfaceLatency } from "~/composables/useLatencyMetrics";
 import {
@@ -58,7 +55,6 @@ import { PING_RAW_CAP } from "~/constants/pingChart";
 
 export const useStore = defineStore("index", () => {
   const locale = useLocale();
-  const { handleForceUpdate } = useForceUpdate();
   // State
   const status = ref<ConnectionStatus>(ConnectionStatus.StatusDisconnected);
   const abilities = ref<string[]>([]);
@@ -190,13 +186,12 @@ export const useStore = defineStore("index", () => {
     error.value = false;
 
     try {
-      statusMessage.value = locale.t("$vuetify.service.preparing");
+      // Startup splash owns these strings; connect() must not clobber them.
+      statusMessage.value = locale.t("$vuetify.service.fetchingData");
       await check();
       if (startupCanceled.value) {
         return;
       }
-
-      await check();
       if (!connected.value) {
         await connect();
       }
@@ -204,6 +199,7 @@ export const useStore = defineStore("index", () => {
         return;
       }
 
+      statusMessage.value = locale.t("$vuetify.service.preparing");
       await waitForOptimizeComplete();
       if (startupCanceled.value) {
         return;
@@ -290,38 +286,31 @@ export const useStore = defineStore("index", () => {
       };
     });
     Events.On("optimize", ({ data }) => {
-      // Ignore only true post-completion stragglers (same run still emitting
-      // near-done progress). A new run always resets completed_tests and must
-      // open the panel — the old guard dropped those events while is_complete
-      // lingered for ~900ms after the previous run.
-      if (
-        optimizeProgress.value?.is_complete &&
-        data &&
-        !data.is_complete
-      ) {
-        const prevDone = optimizeProgress.value.completed_tests ?? 0;
-        const nextDone = data.completed_tests ?? 0;
-        const looksLikeNewRun =
-          nextDone < prevDone ||
-          (data.progress ?? 0) === 0 ||
-          (data.total_tests ?? 0) === 0;
-        if (!looksLikeNewRun && (data.progress ?? 0) > 0) {
-          return;
-        }
+      // Wails Event.Emit packs args into an array — single-arg payloads land at data[0].
+      const raw = Array.isArray(data) ? data[0] : data;
+      if (!raw || typeof raw !== "object") {
+        return;
       }
 
-      optimizeProgress.value = data;
+      const normalized = {
+        total_tests: raw.total_tests ?? raw.totalTests ?? 0,
+        completed_tests: raw.completed_tests ?? raw.completedTests ?? 0,
+        is_complete: !!(raw.is_complete ?? raw.isComplete),
+        progress: raw.progress ?? 0,
+        phase: raw.phase || "probe",
+        probe_total: raw.probe_total ?? raw.probeTotal ?? 0,
+        probe_completed: raw.probe_completed ?? raw.probeCompleted ?? 0,
+        verify_total: raw.verify_total ?? raw.verifyTotal ?? 0,
+        verify_completed: raw.verify_completed ?? raw.verifyCompleted ?? 0,
+        interfaces: raw.interfaces ?? [],
+      };
 
-      if (data && !data.is_complete) {
-        // Manual Optimize (and any active run) must show the popup, not stay
-        // stuck on a previously minimized FAB.
-        optimizeMinimized.value = false;
-      }
+      optimizeProgress.value = normalized;
+      optimizeMinimized.value = false;
 
-      if (data?.is_complete) {
-        optimizeMinimized.value = false;
+      if (normalized.is_complete) {
         if (!initializingApp.value) {
-          statusMessage.value = `${data.completed_tests || 0} / ${data.total_tests || 0}`;
+          statusMessage.value = `${normalized.progress ?? 0}%`;
           window.setTimeout(() => {
             if (optimizeProgress.value?.is_complete) {
               optimizeProgress.value = null;
@@ -330,8 +319,8 @@ export const useStore = defineStore("index", () => {
         }
         return;
       }
-      if (data && !initializingApp.value) {
-        statusMessage.value = `${data.completed_tests || 0} / ${data.total_tests || 0}`;
+      if (!initializingApp.value) {
+        statusMessage.value = `${normalized.progress ?? 0}%`;
       }
     });
     Events.On("interfaces-updated", async ({ data }) => {
@@ -604,12 +593,6 @@ export const useStore = defineStore("index", () => {
       if (startupCanceled.value) {
         return;
       }
-      if (isForceUpdateError(e)) {
-        error.value = true;
-        statusMessage.value = getErrorMessage(e, locale);
-        await handleForceUpdate();
-        throw e;
-      }
       error.value = true;
       statusMessage.value = (e as Error).message;
 
@@ -713,6 +696,7 @@ export const useStore = defineStore("index", () => {
   const checkNDIS = async () => {
     ndisRunning.value = await IsProxyRunning();
   };
+  const ndisToggling = ref(false);
   const startProxy = async () => {
     const isRunning = await IsProxyRunning();
     if (isRunning) {
@@ -728,13 +712,32 @@ export const useStore = defineStore("index", () => {
     ndisRunning.value = await IsProxyRunning();
     useMonitoringStore().resetNetworkSpeedHistory();
   };
-  const toggleNDIS = async () => {
-    ndisRunning.value = await IsProxyRunning();
-    if (ndisRunning.value) {
-      await stopProxy();
-    } else {
-      await startProxy();
+  /** Drive the overall routing switch — optimistic UI, then sync from Go. */
+  const setNDIS = async (wantOn: boolean) => {
+    if (ndisToggling.value || !serviceReady.value) {
+      return;
     }
+    ndisToggling.value = true;
+    const previous = ndisRunning.value;
+    ndisRunning.value = wantOn;
+    try {
+      if (wantOn) {
+        await StartProxy();
+      } else {
+        await StopProxy();
+        useMonitoringStore().resetNetworkSpeedHistory();
+      }
+      ndisRunning.value = await IsProxyRunning();
+    } catch {
+      ndisRunning.value = previous;
+      throw new Error("Failed to toggle routing");
+    } finally {
+      ndisToggling.value = false;
+    }
+  };
+  const toggleNDIS = async () => {
+    const running = await IsProxyRunning();
+    await setNDIS(!running);
   };
 
   // network analysis
@@ -950,7 +953,9 @@ export const useStore = defineStore("index", () => {
     checkNDIS,
     startProxy,
     stopProxy,
+    setNDIS,
     toggleNDIS,
+    ndisToggling,
     updateEcho,
     pingNode,
     applyLatencyUpdate,

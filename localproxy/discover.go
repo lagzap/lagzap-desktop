@@ -12,7 +12,7 @@ import (
 	mDNS "github.com/miekg/dns"
 )
 
-const lagZapRoot = "lagzap.network"
+const lagZapRoot = "cyrex.network"
 
 func ChannelHost(version string) string {
 	v := strings.ToLower(strings.TrimSpace(version))
@@ -31,9 +31,10 @@ func ChannelHost(version string) string {
 }
 
 // channelFallbackHosts are known alternates when TXT discovery is unavailable.
+// Must match ChannelHost() return values (currently *.cyrex.network).
 func channelFallbackHosts(version string) []string {
 	switch ChannelHost(version) {
-	case "dev.lagzap.network":
+	case "dev.cyrex.network":
 		return []string{"dev.lagzap-network.ir"}
 	default:
 		return nil

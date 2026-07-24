@@ -57,7 +57,12 @@ go run ./build/scripts/releasenotes \
 
 ## Artifacts (per Windows release)
 
-Published to the **public** repo `lagzap/cyrex-releases` (override with `RELEASES_REPO`):
+Published to a releases repo based on channel (override with `RELEASES_REPO`):
+
+| Channel | Repo |
+|---------|------|
+| `dev`, `alpha` | `lagzap/current` (internal) |
+| `beta`, `rc`, stable | `lagzap/cyrex-releases` (public) |
 
 | File | Purpose |
 |------|---------|
@@ -68,7 +73,7 @@ Published to the **public** repo `lagzap/cyrex-releases` (override with `RELEASE
 
 ## Auto-updater
 
-- In-app: Wails GitHub provider → `constant.ReleasesRepo` (default `lagzap/cyrex-releases`).
+- In-app: Wails GitHub provider → `constant.ReleasesRepo` (baked at build: `lagzap/current` for alpha/dev, `lagzap/cyrex-releases` for beta/public).
 - Download integrity: `SHA256SUMS` asset (digest verification).
 - Ed25519 keypair (`updater.key` / `updater.key.pub`): CI signs `update.manifest.json` for stronger / future endpoint-based updates. The public key is embedded in the app.
 - Beta/dev/rc builds set `Prerelease: true` so they see GitHub prereleases.
@@ -148,16 +153,21 @@ Self-signed certs are only for dry-running this pipeline — not for beta distri
 | Secret | Purpose |
 |--------|---------|
 | `GO_MODULE_TOKEN` | Fine-grained PAT with **Contents: Read** on every private module repo. Must include at least `lagzap/echo`, `lagzap/lagzap`, `lagzap/zap`, and any other `github.com/lagzap/*` in `go.mod`. CI writes this to `%USERPROFILE%\_netrc` for Windows `go mod` / Task subprocesses. |
-| `RELEASES_TOKEN` | PAT / GitHub App token with `contents: write` on `lagzap/cyrex-releases` |
+| `RELEASES_TOKEN` | PAT / GitHub App token with `contents: write` on **both** `lagzap/cyrex-releases` and `lagzap/current` |
 | `UPDATER_PRIVATE_KEY` | Ed25519 private key PEM for update signing |
 | `WINDOWS_CERT_PFX` | (later) Base64 PFX for Authenticode |
 | `WAILS_WINDOWS_CERT_PASSWORD` | (later) PFX password |
 
-`GO_MODULE_TOKEN` can be the same fine-grained PAT as `RELEASES_TOKEN` if you grant it read on private module repos **and** write on `cyrex-releases`. Locally you use `go.work` replaces; CI has no `go.work` (gitignored) so it downloads modules from GitHub.
+`GO_MODULE_TOKEN` can be the same fine-grained PAT as `RELEASES_TOKEN` if you grant it read on private module repos **and** write on both release repos. Locally you use `go.work` replaces; CI has no `go.work` (gitignored) so it downloads modules from GitHub.
 
-## Public releases repo
+## Releases repos
 
-Create empty public repo `lagzap/cyrex-releases` (no source). CI creates Releases there from tags on the private repo.
+| Repo | Audience | Channels |
+|------|----------|----------|
+| `lagzap/cyrex-releases` | Public | beta, rc, stable |
+| `lagzap/current` | Internal | alpha, dev |
+
+Create each as an empty releases-only repo (no source). CI creates Releases there from tags on the private desktop repo. The chosen repo is also baked into the binary via `constant.ReleasesRepo` so the updater polls the same place.
 
 ## Tag → release flow
 
@@ -167,7 +177,7 @@ Create empty public repo `lagzap/cyrex-releases` (no source). CI creates Release
 4. Workflow `.github/workflows/release-windows.yml`:
    - Renders notes from CHANGELOG + template
    - Builds Windows artifacts
-   - Publishes **public** release on `cyrex-releases` (notes + setup.exe + zip + checksums)
+   - Publishes release binaries to `lagzap/current` (alpha/dev) or `lagzap/cyrex-releases` (beta/public)
    - Mirrors the same notes on **private** `lagzap-desktop` Releases (no binaries)
 5. Testers install `*-setup.exe` from the public repo; installed apps update from the zip via Check for Updates.
 

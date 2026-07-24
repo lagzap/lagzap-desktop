@@ -6,6 +6,7 @@ import {
   isPingTimeout,
   PING_SAMPLES_PER_SECOND,
   PING_TIMEOUT_MS,
+  SUMMARY_LOSS_WINDOW_SECONDS,
   type ChartTimeRange,
 } from "~/constants/pingChart";
 import {
@@ -20,6 +21,7 @@ export {
   isPingTimeout,
   PING_SAMPLES_PER_SECOND,
   PING_TIMEOUT_MS,
+  SUMMARY_LOSS_WINDOW_SECONDS,
 };
 
 export const CHART_TIME_RANGE_OPTIONS: ChartTimeRange[] = [
@@ -347,6 +349,259 @@ export function getBestInterfaceName(
 ): string | null {
   const ranked = rankInterfacesByAvgLatency(interfaces);
   return ranked[0] ?? null;
+}
+
+function pingFailed(ping: { latency?: number | null; ok?: boolean }): boolean {
+  return !ping.ok || isPingTimeout(ping.latency, ping.ok);
+}
+
+/** Packet loss over the last ~N seconds of samples (stable header % vs last-tick flicker). */
+export function interfaceWindowLoss(
+  iface: Latency | undefined,
+  windowSeconds = SUMMARY_LOSS_WINDOW_SECONDS,
+  samplesPerSecond = PING_SAMPLES_PER_SECOND
+): number {
+  if (!iface) {
+    return 0;
+  }
+  const pings = iface.pings ?? [];
+  if (pings.length === 0) {
+    return iface.packet_loss ?? 0;
+  }
+
+  const cutoff = Date.now() - windowSeconds * 1000;
+  let recent = pings.filter(
+    (ping) => typeof ping.t === "number" && ping.t >= cutoff
+  );
+  if (recent.length < 3) {
+    const maxSamples = Math.max(
+      1,
+      Math.round(windowSeconds * samplesPerSecond)
+    );
+    recent = pings.slice(-maxSamples);
+  }
+  if (recent.length === 0) {
+    return iface.packet_loss ?? 0;
+  }
+  const failed = recent.filter(pingFailed).length;
+  return (failed / recent.length) * 100;
+}
+
+/**
+ * Multipath-effective loss over the window: a tick only counts as loss when
+ * every route missed. One clean path that second → no user-visible loss.
+ */
+export function effectiveWindowPacketLoss(
+  interfaces: Record<string, Latency>,
+  windowSeconds = SUMMARY_LOSS_WINDOW_SECONDS,
+  samplesPerSecond = PING_SAMPLES_PER_SECOND
+): number {
+  const names = Object.keys(interfaces);
+  if (names.length === 0) {
+    return 0;
+  }
+  if (names.length === 1) {
+    return interfaceWindowLoss(
+      interfaces[names[0]],
+      windowSeconds,
+      samplesPerSecond
+    );
+  }
+
+  const maxSamples = Math.max(1, Math.round(windowSeconds * samplesPerSecond));
+  const series = names.map((name) =>
+    (interfaces[name]?.pings ?? []).slice(-maxSamples)
+  );
+  const len = Math.min(...series.map((s) => s.length));
+  if (len <= 0) {
+    return Math.min(
+      ...names.map((name) =>
+        interfaceWindowLoss(interfaces[name], windowSeconds, samplesPerSecond)
+      )
+    );
+  }
+
+  let failedTicks = 0;
+  let considered = 0;
+  for (let i = 0; i < len; i++) {
+    const ticks = series.map((samples) => samples[samples.length - len + i]);
+    // Skip aligned slots where every series has no sample (shouldn't happen).
+    if (ticks.every((ping) => !ping)) {
+      continue;
+    }
+    considered++;
+    const allFailed = ticks.every((ping) => !ping || pingFailed(ping));
+    if (allFailed) {
+      failedTicks++;
+    }
+  }
+  if (considered <= 0) {
+    return Math.min(
+      ...names.map((name) =>
+        interfaceWindowLoss(interfaces[name], windowSeconds, samplesPerSecond)
+      )
+    );
+  }
+  return (failedTicks / considered) * 100;
+}
+
+/**
+ * Header / summary metrics: prefer a path that is clean over the recent window.
+ * If route A has bursts of loss but route B is fine, ignore A for the chart header
+ * (diagram can still show per-route loss).
+ */
+export function getEffectiveInterfaceName(
+  interfaces: Record<string, Latency>
+): string | null {
+  const names = Object.keys(interfaces);
+  if (names.length === 0) {
+    return null;
+  }
+
+  const lossByName = new Map(
+    names.map((name) => [name, interfaceWindowLoss(interfaces[name])] as const)
+  );
+
+  let bestLoss = Infinity;
+  for (const loss of lossByName.values()) {
+    if (loss < bestLoss) {
+      bestLoss = loss;
+    }
+  }
+
+  // Keep peers within a small band of the cleanest path so a 0% and 1%
+  // route still compete on RTT, while a 50%+ spare is dropped.
+  const lossCeiling = Math.max(bestLoss, 0) + 2;
+  const healthy = names.filter(
+    (name) => (lossByName.get(name) ?? 0) <= lossCeiling
+  );
+  const pool = healthy.length > 0 ? healthy : names;
+
+  return (
+    pool.slice().sort((a, b) => {
+      const lossA = lossByName.get(a) ?? 0;
+      const lossB = lossByName.get(b) ?? 0;
+      if (lossA !== lossB) {
+        return lossA - lossB;
+      }
+      const avgA = effectiveAvgLatency(interfaces[a]);
+      const avgB = effectiveAvgLatency(interfaces[b]);
+      if (avgA !== avgB) {
+        return avgA - avgB;
+      }
+      return a.localeCompare(b);
+    })[0] ?? null
+  );
+}
+
+export type RouteProtectionInsight = {
+  /** True when multipath / lag-fix hid path problems from the session. */
+  active: boolean;
+  effectiveLoss: number;
+  worstPathLoss: number;
+  /** How much path loss was absorbed (worst − effective), percentage points. */
+  absorbedLoss: number;
+  pathCount: number;
+  lossyPathCount: number;
+  recentInterventions: number;
+  windowSeconds: number;
+};
+
+const PROTECTION_WORST_LOSS_MIN = 8;
+const PROTECTION_EFFECTIVE_LOSS_MAX = 3;
+const PROTECTION_ABSORBED_MIN = 5;
+const PROTECTION_LOOKBACK_MS = 5 * 60 * 1000;
+
+/**
+ * “We fixed it for you” signal: some legs were bad over the window, but
+ * effective (multipath) loss stayed low — and/or lag-fix intervened recently.
+ */
+export function computeRouteProtectionInsight(
+  interfaces: Record<string, Latency> | null | undefined,
+  options?: {
+    lagFixes?: Array<{
+      status?: string;
+      reason?: string;
+      timestamp?: string;
+      user_side_lag?: boolean;
+    }>;
+    windowSeconds?: number;
+    samplesPerSecond?: number;
+  }
+): RouteProtectionInsight | null {
+  if (!interfaces) {
+    return null;
+  }
+  const names = Object.keys(interfaces);
+  if (names.length < 2) {
+    return null;
+  }
+
+  const windowSeconds = options?.windowSeconds ?? SUMMARY_LOSS_WINDOW_SECONDS;
+  const samplesPerSecond =
+    options?.samplesPerSecond ?? PING_SAMPLES_PER_SECOND;
+
+  const pathLosses = names.map((name) =>
+    interfaceWindowLoss(interfaces[name], windowSeconds, samplesPerSecond)
+  );
+  const worstPathLoss = Math.max(...pathLosses);
+  const effectiveLoss = effectiveWindowPacketLoss(
+    interfaces,
+    windowSeconds,
+    samplesPerSecond
+  );
+  const absorbedLoss = Math.max(0, worstPathLoss - effectiveLoss);
+  const lossyPathCount = pathLosses.filter(
+    (loss) => loss >= PROTECTION_WORST_LOSS_MIN
+  ).length;
+
+  const cutoff = Date.now() - PROTECTION_LOOKBACK_MS;
+  const recentInterventions = (options?.lagFixes ?? []).filter((fix) => {
+    const ts = fix.timestamp ? new Date(fix.timestamp).getTime() : 0;
+    if (!ts || ts < cutoff) {
+      return false;
+    }
+    const reason = (fix.reason || "").toLowerCase();
+    const status = (fix.status || "").toLowerCase();
+    if (status === "verified") {
+      return true;
+    }
+    if (status !== "skipped" && status !== "pending" && status !== "failed") {
+      return false;
+    }
+    return (
+      reason.includes("severe_lag") ||
+      reason.includes("latency_spike") ||
+      reason.includes("relay_loss") ||
+      reason.includes("relay_jitter") ||
+      reason.includes("relay_score")
+    );
+  }).length;
+
+  const multipathCovered =
+    worstPathLoss >= PROTECTION_WORST_LOSS_MIN &&
+    effectiveLoss <= PROTECTION_EFFECTIVE_LOSS_MAX &&
+    absorbedLoss >= PROTECTION_ABSORBED_MIN;
+
+  // Never claim "Protected" when effective loss is still terrible — interventions
+  // alone are not enough if the session is still losing most probes.
+  const active =
+    multipathCovered ||
+    (recentInterventions > 0 && effectiveLoss <= PROTECTION_EFFECTIVE_LOSS_MAX);
+  if (!active) {
+    return null;
+  }
+
+  return {
+    active: true,
+    effectiveLoss,
+    worstPathLoss,
+    absorbedLoss,
+    pathCount: names.length,
+    lossyPathCount: Math.max(lossyPathCount, multipathCovered ? 1 : 0),
+    recentInterventions,
+    windowSeconds,
+  };
 }
 
 interface PingSample {
@@ -728,19 +983,66 @@ export function useLatencyMetrics(
     }
 
     const interfaces = latency.value.interfaces;
-    const bestName = getBestInterfaceName(interfaces);
-    const bestIface = bestName ? interfaces[bestName] : null;
+    const samplesPerSecond =
+      probeSamplesPerSecond.value || PING_SAMPLES_PER_SECOND;
+
+    // Prefer a clean path; if that path has no successful samples, fall back to
+    // any path that still has real RTTs (avoid Min/Max/Avg stuck at 0ms).
+    let bestName = getEffectiveInterfaceName(interfaces);
+    let bestIface = bestName ? interfaces[bestName] : null;
+    if (!bestIface || effectiveAvgLatency(bestIface) === Infinity) {
+      const fallback = getBestInterfaceName(interfaces);
+      if (fallback) {
+        bestName = fallback;
+        bestIface = interfaces[fallback];
+      }
+    }
 
     if (!bestIface) {
       return { min: 0, max: 0, avg: 0, jitter: 0, loss: 0 };
     }
 
+    const okLatencies = (bestIface.pings ?? [])
+      .filter(
+        (ping) => ping.ok && !isPingTimeout(ping.latency, ping.ok)
+      )
+      .map((ping) => ping.latency ?? 0)
+      .filter((ms) => ms > 0);
+
+    const min =
+      okLatencies.length > 0
+        ? Math.min(...okLatencies)
+        : bestIface.min_latency || 0;
+    const max =
+      okLatencies.length > 0
+        ? Math.max(...okLatencies)
+        : bestIface.max_latency || 0;
+    const avg =
+      okLatencies.length > 0
+        ? okLatencies.reduce((sum, ms) => sum + ms, 0) / okLatencies.length
+        : bestIface.avg_latency || 0;
+
+    const pathLosses = Object.values(interfaces).map((iface) =>
+      interfaceWindowLoss(iface, SUMMARY_LOSS_WINDOW_SECONDS, samplesPerSecond)
+    );
+    const bestPathLoss =
+      pathLosses.length > 0 ? Math.min(...pathLosses) : 0;
+    // Multipath-effective loss cannot exceed the cleanest path's loss.
+    const effectiveLoss = Math.min(
+      bestPathLoss,
+      effectiveWindowPacketLoss(
+        interfaces,
+        SUMMARY_LOSS_WINDOW_SECONDS,
+        samplesPerSecond
+      )
+    );
+
     return {
-      min: bestIface.min_latency || 0,
-      max: bestIface.max_latency || 0,
-      avg: bestIface.avg_latency || 0,
+      min,
+      max,
+      avg,
       jitter: bestIface.jitter || 0,
-      loss: bestIface.packet_loss || 0,
+      loss: effectiveLoss,
     };
   });
 

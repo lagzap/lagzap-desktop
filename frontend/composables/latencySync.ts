@@ -29,7 +29,9 @@ export function isLatencyOverlayRoute(): boolean {
   if (typeof window === "undefined") {
     return false;
   }
-  return window.location.pathname.startsWith("/latency-overlay");
+  // Hash mode: path is always "/" — route lives in the hash.
+  const hash = window.location.hash.replace(/^#/, "") || "/";
+  return hash.startsWith("/latency-overlay");
 }
 
 export function publishLatencyUpdate(latency: MultiInterfaceLatency) {

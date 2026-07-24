@@ -1,48 +1,25 @@
 import type { NodeRoute, RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
 import {
   bestRouteRelayLatency,
+  isPlausibleProbeForRoute,
   nodeRoutePathKey,
+  routeHopFloorMs,
   routeRelayLatency,
 } from "~/composables/useProfileDisplayRoutes";
 import type { RouteProbeEvent } from "~/types/monitoring";
 
-/** Prefer measured RTT; hop-sum only when no min/avg is available. */
+/** Prefer hop-floor-safe RTT from routeRelayLatency. */
 export function routeDisplayLatency(route: NodeRoute | null | undefined): number {
-  if (!route) {
-    return 0;
-  }
-  const measured = route.min_latency || route.avg_latency || 0;
-  if (measured > 0) {
-    return measured;
-  }
   return routeRelayLatency(route);
 }
 
 export function bestRouteDisplayLatency(
   routes: NodeRoute[] | null | undefined
-): { ping: number; score: number; route: NodeRoute | null } {
-  let best: { ping: number; score: number; route: NodeRoute | null } = {
-    ping: 0,
-    score: 0,
-    route: null,
-  };
+): { ping: number; score: number; loss: number; route: NodeRoute | null } {
   if (!routes?.length) {
-    return best;
+    return { ping: 0, score: 0, loss: 0, route: null };
   }
-  for (const route of routes) {
-    const ping = routeDisplayLatency(route);
-    if (ping <= 0) {
-      continue;
-    }
-    if (best.ping === 0 || ping < best.ping) {
-      best = { ping, score: route.score || 0, route };
-    }
-  }
-  // Fall back to hop-sum helper if nothing measured.
-  if (best.ping <= 0) {
-    return bestRouteRelayLatency(routes);
-  }
-  return best;
+  return bestRouteRelayLatency(routes);
 }
 
 export function bestLiveProbeMsForRelay(
@@ -70,6 +47,7 @@ export function bestLiveProbeMsForRelay(
   if (routes.length > 0) {
     for (const route of routes) {
       const pathKey = nodeRoutePathKey(route);
+      const floor = routeHopFloorMs(route);
       for (const slot of slots) {
         if (!(slot.latency > 0)) {
           continue;
@@ -77,20 +55,23 @@ export function bestLiveProbeMsForRelay(
         if (slot.path_key && pathKey && slot.path_key !== pathKey) {
           continue;
         }
-        if (best == null || slot.latency < best) {
-          best = slot.latency;
+        if (!isPlausibleProbeForRoute(slot.latency, route, floor)) {
+          continue;
         }
+        best = slot.latency;
       }
     }
   }
   if (best == null) {
     for (const slot of slots) {
-      if (!(slot.latency > 0)) {
+      if (!(slot.latency > 0) || slot.latency >= 500) {
         continue;
       }
-      if (best == null || slot.latency < best) {
-        best = slot.latency;
+      // No topology floor — still reject absurdly low LAN-like probes for relays.
+      if (slot.latency < 20) {
+        continue;
       }
+      best = slot.latency;
     }
   }
   return best != null ? Math.round(best) : null;

@@ -4,6 +4,7 @@ import { useStore } from "@/stores";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
 import ProfileRouteSettings from "~/components/title/ProfileRouteSettings.vue";
 import ProfileRegionSelection from "~/components/title/ProfileRegionSelection.vue";
+import ProfileActivityChip from "~/components/title/ProfileActivityChip.vue";
 import RouteDiagram from "~/components/title/RouteDiagram.vue";
 import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.vue";
 import ProfilePingUsage from "~/components/title/ProfilePingUsage.vue";
@@ -55,11 +56,18 @@ const interfaceSelectItems = computed(() => [
   })),
 ]);
 
-const toggleProfile = async (profile: any) => {
-  if (store.isProfileActive(profile.id)) {
-    await store.deactivateProfile(profile.id);
+const toggleProfile = async (wantOn: boolean | null) => {
+  if (wantOn == null || !store.appReady) {
+    return;
+  }
+  const active = store.isProfileActive(props.profile.id);
+  if (wantOn === active) {
+    return;
+  }
+  if (active) {
+    await store.deactivateProfile(props.profile.id);
   } else {
-    await store.activateProfile(profile.id);
+    await store.activateProfile(props.profile.id);
   }
 };
 
@@ -138,11 +146,12 @@ const routeSettingsText = computed(() => {
         hide-details
         color="cyan"
         :disabled="!store.appReady"
-        @click.stop.prevent="toggleProfile(props.profile)"
+        @update:model-value="toggleProfile"
       />
     </template>
 
     <template #append>
+      <ProfileActivityChip :profile="props.profile" />
       <ProfileRegionSelection :profile="props.profile" />
       <ProfileRouteSettings :profile="props.profile" />
     </template>

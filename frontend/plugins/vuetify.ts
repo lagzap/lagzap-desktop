@@ -9,7 +9,6 @@ import { Hct, MaterialDynamicColors, argbFromHex, hexFromArgb, sourceColorFromIm
 import kebabCase from "just-kebab-case";
 import en from "~/i18n/locales/en";
 import fa from "~/i18n/locales/fa";
-import {System} from "@wailsio/runtime";
 
 function getDynamicColors(scheme: DynamicScheme) {
   const tokens = Object.keys(
@@ -67,6 +66,22 @@ async function vuetifyThemeFromImage(
 
 // const primaryColor = 0xFFAB00;
 
+/** Semantic status colors — applied after createVuetify so MD3 defaults cannot win. */
+const statusColors = {
+  dark: {
+    warning: "#FFEB3B",
+    error: "#F44336",
+    info: "#00BCD4",
+    success: "#81C784",
+  },
+  light: {
+    warning: "#F9A825",
+    error: "#E53935",
+    info: "#00ACC1",
+    success: "#66BB6A",
+  },
+} as const;
+
 export default defineNuxtPlugin({
   name: "vuetify",
   async setup(app) {
@@ -95,7 +110,8 @@ export default defineNuxtPlugin({
       }
     },
     theme: {
-      defaultTheme: await System.IsDarkMode() ? "dark" : "light",
+      // Default dark for SSR/prerender; client settings plugin syncs from System/prefs.
+      defaultTheme: "dark",
       themes: {
         dark: vuetifyThemeFromColor(
           primaryColor,
@@ -105,6 +121,7 @@ export default defineNuxtPlugin({
           {
             primary: false ? '#ffc107' : '#e6d785',
             background: "#121212",
+            ...statusColors.dark,
           }
         ),
         light: vuetifyThemeFromColor(
@@ -125,13 +142,23 @@ export default defineNuxtPlugin({
             surface: "#FFFFFF",
             "on-surface": "#171717",
             "on-surface-variant": "#3A3A3A",
-            success: "#1B7A2E",
             accent: "#2E2E2E",
+            ...statusColors.light,
           }
         ),
       },
     },
   });
+
+  // Force status roles onto the live theme (MD3/dynamic palette otherwise leaves
+  // Vuetify defaults — e.g. warning #FB8C00 orange).
+  for (const name of ["dark", "light"] as const) {
+    const theme = vuetify.theme.themes.value[name];
+    if (theme?.colors) {
+      Object.assign(theme.colors, statusColors[name]);
+    }
+  }
+
   app.vueApp.use(vuetify);
   },
 });

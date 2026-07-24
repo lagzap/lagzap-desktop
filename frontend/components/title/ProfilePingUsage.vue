@@ -22,6 +22,7 @@ const { latency, hasLatencyData, profileSpeedHistory } =
     show-network-speed
     show-legend
     dense-time-range
-    :show-summary-metrics="false"
+    show-summary-metrics
+    show-protection-insight
   />
 </template>

@@ -4,6 +4,21 @@ body {
   overflow: hidden !important;
 }
 
+/* Semantic status colors (rgb channels for Vuetify `rgb(var(--v-theme-*))`). */
+.v-theme--dark {
+  --v-theme-warning: 255, 235, 59;
+  --v-theme-error: 244, 67, 54;
+  --v-theme-info: 0, 188, 212;
+  --v-theme-success: 129, 199, 132;
+}
+
+.v-theme--light {
+  --v-theme-warning: 249, 168, 37;
+  --v-theme-error: 229, 57, 53;
+  --v-theme-info: 0, 172, 193;
+  --v-theme-success: 102, 187, 106;
+}
+
 *:not(.selectable) {
   -webkit-user-drag: none !important;
   user-select: none !important;

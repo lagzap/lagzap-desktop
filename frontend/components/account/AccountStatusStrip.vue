@@ -11,10 +11,24 @@ const { t } = useLocale();
 const store = useStore();
 
 const routingOn = computed(() => store.ndisRunning);
+const switchBusy = computed(
+  () => store.ndisToggling || store.loading || !store.serviceReady
+);
 const avatarLetter = computed(() => {
   const raw = user.value?.name || user.value?.email || "";
   return raw.length ? raw[0].toUpperCase() : "";
 });
+
+async function onRoutingToggle(wantOn: boolean | null) {
+  if (wantOn == null || wantOn === store.ndisRunning || store.ndisToggling) {
+    return;
+  }
+  try {
+    await store.setNDIS(wantOn);
+  } catch (error) {
+    console.warn("Routing toggle failed:", error);
+  }
+}
 </script>
 
 <template>
@@ -26,10 +40,10 @@ const avatarLetter = computed(() => {
         hide-details
         density="comfortable"
         :color="store.error ? 'red' : 'green'"
-        :disabled="!store.serviceReady"
-        :loading="store.loading"
+        :disabled="!store.serviceReady || store.ndisToggling"
+        :loading="switchBusy"
         class="account-strip__switch"
-        @click.stop.prevent="store.toggleNDIS()"
+        @update:model-value="onRoutingToggle"
       />
       <span class="account-strip__label">
         {{ t("$vuetify.accountStatus.serviceStatus") }}
@@ -102,6 +116,7 @@ const avatarLetter = computed(() => {
 
 .account-strip__switch :deep(.v-switch__track) {
   opacity: 1;
+  background-color: rgba(var(--v-theme-on-surface), 0.22) !important;
 }
 
 .account-strip__switch :deep(.v-switch__thumb) {

@@ -5,7 +5,6 @@ import { Connect, InstallDriver, IsDriverInstalled, IsLocalProxyRunning, ReloadS
 import { getHttpStatus, isAuthError, isForceUpdateError } from "~/utils/httpError";
 import { getToken } from "~/utils/indexedDB";
 import { handleAuthFailure } from "~/composables/useAuthSession";
-import { useForceUpdate } from "~/composables/useForceUpdate";
 import { getErrorMessage } from "~/composables/alert";
 
 const router = useRouter();
@@ -18,7 +17,6 @@ const { settings } = useSettings();
 const isPreview = computed(
   () => route.query.preview === "1" || route.query.preview === "true"
 );
-/** Keep optimize UI through completion fade until startup finishes. */
 const showStartupOptimize = computed(
   () =>
     !isPreview.value &&
@@ -31,14 +29,14 @@ const showStartupReady = computed(
   () => !isPreview.value && store.startupOptimizeDone && !store.appReady
 );
 
+/** Spin/arcs only until optimize/analysis finishes — not through StartProxy. */
 const logoLoading = computed(
   () =>
-    showStartupOptimize.value ||
-    (!isPreview.value &&
-      !store.appReady &&
-      !store.startupOptimizeDone &&
-      !store.error &&
-      !store.startupCanceled)
+    !isPreview.value &&
+    !store.appReady &&
+    !store.startupOptimizeDone &&
+    !store.error &&
+    !store.startupCanceled
 );
 
 const optimizeRealPct = computed(() => {
@@ -66,7 +64,16 @@ const errorStatusCode = ref<number | null>(null);
 const errorStatusText = ref<string | null>(null);
 
 const { init, refreshIdentity, isAuthenticated, logout } = useSanctumAuth();
-const { forceUpdateRequired, handleForceUpdate } = useForceUpdate();
+
+/** Server rejected this build — open the updater window (startup check lives in Go). */
+async function openUpdaterForForceUpdate() {
+  store.statusMessage = t("$vuetify.startService.updateRequired");
+  try {
+    await CheckForUpdates();
+  } catch {
+    // Dev builds / missing updater config no-op.
+  }
+}
 
 onMounted(async () => {
   await nextTick();
@@ -171,18 +178,12 @@ async function start() {
   try {
     store.error = false;
     store.loading = true;
-    store.statusMessage = t("$vuetify.startService.startingService");
+    store.statusMessage = t("$vuetify.startService.connecting");
     await ReloadService();
     if (store.startupCanceled) {
       return;
     }
     await waitForLocalProxy();
-    store.statusMessage = t("$vuetify.startService.checkingForUpdates");
-    try {
-      await CheckForUpdates();
-    } catch {
-      // Dev builds and missing updater config are expected to no-op.
-    }
     store.statusMessage = t("$vuetify.startService.loggingIntoOnlineService");
 
     const token = await getToken("lz.access_token");
@@ -203,9 +204,8 @@ async function start() {
       return;
     }
     if (isForceUpdateError(e)) {
-      store.error = true;
-      store.statusMessage = getErrorMessage(e, locale);
-      await handleForceUpdate();
+      store.loading = false;
+      await openUpdaterForForceUpdate();
       return;
     }
     if (isAuthError(e)) {
@@ -254,9 +254,8 @@ async function initApp() {
       return;
     }
     if (isForceUpdateError(e)) {
-      store.error = true;
-      store.statusMessage = getErrorMessage(e, locale);
-      await handleForceUpdate();
+      store.loading = false;
+      await openUpdaterForForceUpdate();
       return;
     }
     if (isAuthError(e)) {
@@ -348,9 +347,6 @@ async function initApp() {
         <v-card-subtitle v-else-if="store.error && !isAuthenticated" class="text-subtitle-1 text-warning text-center">
           {{ t("$vuetify.status.connectionFailed") }}
           {{ errorName }}
-        </v-card-subtitle>
-        <v-card-subtitle v-else-if="forceUpdateRequired" class="text-subtitle-1 text-warning text-center">
-          {{ t("$vuetify.startService.updateRequired") }}
         </v-card-subtitle>
         <v-card-subtitle v-else class="text-subtitle-1 text-center" :class="{
           'text-error': store.error,

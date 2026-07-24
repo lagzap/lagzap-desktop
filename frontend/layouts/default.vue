@@ -10,13 +10,33 @@ provide("sidebar", sidebar);
 
 const store = useStore();
 
-import { computed, onMounted } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import { useStore } from "@/stores";
 import { GetNodes, GetProfiles, GetProfileStates, GetRegions, GetRoutes, GetTitles, GetTitleStates } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { useNetworkHistoryRecorder } from "~/composables/useNetworkHistoryRecorder";
+import { useNetworkHistoryConsent } from "~/composables/useNetworkHistoryConsent";
+import { useMonitoringStore } from "~/stores/monitoring";
+
+// Ensure monitoring event listeners (and IDB persistence) are active.
+useMonitoringStore();
+const networkHistoryRecorder = useNetworkHistoryRecorder();
+const { canRecord } = useNetworkHistoryConsent();
 
 function isEmpty(obj: any) {
   return !obj || (typeof obj === "object" && Object.keys(obj).length === 0);
 }
+
+watch(
+  canRecord,
+  (ok) => {
+    if (ok) {
+      networkHistoryRecorder.start();
+    } else {
+      networkHistoryRecorder.stop();
+    }
+  },
+  { immediate: true }
+);
 
 onMounted(async () => {
   if (isEmpty(store.regions)) {
@@ -55,62 +75,61 @@ onMounted(async () => {
   }
 });
 
+onUnmounted(() => {
+  networkHistoryRecorder.stop();
+});
+
 const optimize = computed(() => store.optimizeProgress);
 const showOptimizePanel = computed(() => store.optimizing && !!optimize.value);
+
+/** Overall 0–100: probe is first 50%, verify is second 50%. */
 const globalProgress = computed(() => {
-  const o = optimize.value;
+  const o = optimize.value as any;
   if (!o) return 0;
   if (o.is_complete) return 100;
-  const measureTotal = o.probe_total ?? 0;
-  const measureDone = o.probe_completed ?? 0;
-  const confirmTotal = o.verify_total ?? 0;
-  const confirmDone = o.verify_completed ?? 0;
+
+  const measureTotal = Number(o.probe_total ?? o.probeTotal ?? 0);
+  const measureDone = Number(o.probe_completed ?? o.probeCompleted ?? 0);
+  const confirmTotal = Number(o.verify_total ?? o.verifyTotal ?? 0);
+  const confirmDone = Number(o.verify_completed ?? o.verifyCompleted ?? 0);
+
   let measurePct = 0;
   if (measureTotal > 0) {
-    measurePct = Math.min(50, (measureDone * 50) / measureTotal);
+    measurePct = (measureDone * 50) / measureTotal;
+    if (measureDone > 0 && measurePct < 1) measurePct = 1;
+    measurePct = Math.min(50, measurePct);
   } else if (o.phase === "verify" || o.phase === "done") {
     measurePct = 50;
   }
+
   let confirmPct = 0;
   if (confirmTotal > 0) {
-    confirmPct = Math.min(50, (confirmDone * 50) / confirmTotal);
+    confirmPct = (confirmDone * 50) / confirmTotal;
+    if (confirmDone > 0 && confirmPct < 1) confirmPct = 1;
+    confirmPct = Math.min(50, confirmPct);
+  } else if (o.phase === "done") {
+    confirmPct = 50;
   }
-  const total = Math.round(measurePct + confirmPct);
-  return Math.min(99, Math.max(0, total));
+
+  if (measureTotal > 0 || confirmTotal > 0) {
+    return Math.min(99, Math.max(0, Math.round(measurePct + confirmPct)));
+  }
+
+  const backend = Number(o.progress ?? 0);
+  if (Number.isFinite(backend) && backend > 0) {
+    return Math.min(99, Math.round(backend));
+  }
+  return 0;
 });
+
 const phaseLabel = computed(() => {
   const phase = optimize.value?.phase || "probe";
   if (phase === "verify") return t("$vuetify.routeAnalysis.phaseVerifying");
   if (phase === "done") return t("$vuetify.routeAnalysis.phaseComplete");
   return t("$vuetify.routeAnalysis.phaseAnalyzing");
 });
-const globalSubtitle = computed(() => {
-  const o = optimize.value;
-  if (!o) return t("$vuetify.routeAnalysis.initializing");
-  const analyzeDone =
-    (o.probe_completed ?? 0) >= (o.probe_total ?? 0) && (o.probe_total ?? 0) > 0;
-  const analyzeCompleted = o.probe_completed ?? o.completed_tests ?? 0;
-  const analyzeTotal = o.probe_total ?? o.total_tests ?? 0;
-  if ((o.phase || "probe") === "verify" || analyzeDone) {
-    return t(
-      "$vuetify.routeAnalysis.subtitleVerifying",
-      analyzeCompleted,
-      analyzeTotal
-    );
-  }
-  return t(
-    "$vuetify.routeAnalysis.subtitleAnalyzing",
-    analyzeCompleted,
-    analyzeTotal
-  );
-});
-const interfaceRows = computed(() => optimize.value?.interfaces ?? []);
 
-function ifacePhaseLabel(phase?: string) {
-  if (phase === "verify") return t("$vuetify.routeAnalysis.ifaceVerifying");
-  if (phase === "done") return t("$vuetify.routeAnalysis.ifaceDone");
-  return t("$vuetify.routeAnalysis.ifaceAnalyzing");
-}
+const interfaceRows = computed(() => optimize.value?.interfaces ?? []);
 
 function minimizeOptimize() {
   store.optimizeMinimized = true;
@@ -134,114 +153,110 @@ function expandOptimize() {
       }"
     />
 
-    <v-btn
-      v-if="showOptimizePanel && store.optimizeMinimized"
-      class="optimize-fab"
-      color="primary"
-      rounded="lg"
-      elevation="10"
-      @click="expandOptimize"
-    >
-      <v-progress-circular
-        class="me-2"
-        color="white"
-        size="18"
-        width="2"
-        :model-value="globalProgress"
-        :indeterminate="globalProgress <= 0"
-      />
-      {{
-        t(
-          "$vuetify.routeAnalysis.fabProgress",
-          Math.round(globalProgress),
-          phaseLabel
-        )
-      }}
-    </v-btn>
-
-    <v-card
-      v-if="showOptimizePanel && !store.optimizeMinimized"
-      class="optimize-panel"
-      color="surface"
-      variant="elevated"
-      density="compact"
-      elevation="16"
-      border
-      max-width="420"
-      style="--wails-draggable: drag"
-    >
-      <v-card-item class="pb-1">
-        <template #prepend>
-          <v-avatar size="32">
-            <CyrexLogo />
-          </v-avatar>
-        </template>
-        <v-card-title class="text-subtitle-1">{{
-          t("$vuetify.routeAnalysis.title")
-        }}</v-card-title>
-        <v-card-subtitle>{{ globalSubtitle }}</v-card-subtitle>
-        <template #append>
-          <v-btn
-            icon="mdi-window-minimize"
-            size="small"
-            variant="text"
-            :aria-label="t('$vuetify.routeAnalysis.minimize')"
-            @click="minimizeOptimize"
-          />
-        </template>
-      </v-card-item>
-
-      <v-divider />
-
-      <v-card-text class="pt-3">
-        <div class="d-flex align-center justify-space-between mb-1">
-          <span class="text-caption text-medium-emphasis">{{ phaseLabel }}</span>
-          <span class="text-caption font-weight-medium">{{ Math.round(globalProgress) }}%</span>
-        </div>
-        <v-progress-linear
-          color="primary"
-          height="8"
-          rounded
+    <Teleport to="body">
+      <v-btn
+        v-if="showOptimizePanel && store.optimizeMinimized"
+        class="optimize-fab"
+        color="primary"
+        rounded="lg"
+        elevation="10"
+        @click="expandOptimize"
+      >
+        <v-progress-circular
+          class="me-2"
+          color="white"
+          size="18"
+          width="2"
           :model-value="globalProgress"
-          :indeterminate="(optimize?.total_tests ?? 0) === 0 && globalProgress <= 0"
-          class="mb-4"
+          :indeterminate="false"
         />
+        {{
+          t(
+            "$vuetify.routeAnalysis.fabProgress",
+            Math.round(globalProgress),
+            phaseLabel
+          )
+        }}
+      </v-btn>
 
-        <div
-          v-for="iface in interfaceRows"
-          :key="iface.name"
-          class="mb-3"
-        >
+      <v-card
+        v-if="showOptimizePanel && !store.optimizeMinimized"
+        class="optimize-panel"
+        color="surface"
+        variant="elevated"
+        density="compact"
+        elevation="16"
+        border
+        max-width="420"
+        style="--wails-draggable: drag"
+      >
+        <v-card-item class="pb-1">
+          <template #prepend>
+            <v-avatar size="32">
+              <CyrexLogo />
+            </v-avatar>
+          </template>
+          <v-card-title class="text-subtitle-1">{{
+            t("$vuetify.routeAnalysis.title")
+          }}</v-card-title>
+          <template #append>
+            <v-btn
+              icon="mdi-window-minimize"
+              size="small"
+              variant="text"
+              :aria-label="t('$vuetify.routeAnalysis.minimize')"
+              @click="minimizeOptimize"
+            />
+          </template>
+        </v-card-item>
+
+        <v-divider />
+
+        <v-card-text class="pt-3">
           <div class="d-flex align-center justify-space-between mb-1">
-            <span class="text-body-2">{{
-              iface.name || t("$vuetify.routeAnalysis.defaultInterface")
-            }}</span>
-            <span class="text-caption text-medium-emphasis">
-              {{ ifacePhaseLabel(iface.phase) }}
-              <template v-if="iface.phase !== 'verify'">
-                · {{ iface.completed ?? 0 }}/{{ iface.total ?? 0 }}
-              </template>
-            </span>
+            <span class="text-caption text-medium-emphasis">{{ phaseLabel }}</span>
+            <span class="text-caption font-weight-medium">{{ Math.round(globalProgress) }}%</span>
           </div>
           <v-progress-linear
-            :color="iface.phase === 'verify' ? 'secondary' : iface.phase === 'done' ? 'success' : 'primary'"
-            height="6"
+            color="primary"
+            height="8"
             rounded
-            :model-value="iface.progress ?? 0"
-            :indeterminate="(iface.total ?? 0) === 0 && (iface.progress ?? 0) <= 0 && iface.phase !== 'done'"
+            :model-value="globalProgress"
+            class="mb-4"
           />
-        </div>
-      </v-card-text>
-    </v-card>
+
+          <div
+            v-for="iface in interfaceRows"
+            :key="iface.name"
+            class="mb-3"
+          >
+            <div class="d-flex align-center justify-space-between mb-1">
+              <span class="text-body-2">{{
+                iface.name || t("$vuetify.routeAnalysis.defaultInterface")
+              }}</span>
+              <span class="text-caption font-weight-medium"
+                >{{ Math.round(iface.progress ?? 0) }}%</span
+              >
+            </div>
+            <v-progress-linear
+              :color="iface.phase === 'done' ? 'success' : 'primary'"
+              height="6"
+              rounded
+              :model-value="iface.progress ?? 0"
+            />
+          </div>
+        </v-card-text>
+      </v-card>
+    </Teleport>
   </v-app>
 </template>
 
-<style scoped>
+<style>
 .optimize-panel {
-  position: fixed;
+  position: fixed !important;
   right: 24px;
   bottom: 24px;
-  z-index: 11000;
+  z-index: 20000 !important;
   width: min(420px, calc(100vw - 32px));
   background-color: rgb(var(--v-theme-surface)) !important;
   opacity: 1 !important;
@@ -252,10 +267,10 @@ function expandOptimize() {
 }
 
 .optimize-fab {
-  position: fixed;
+  position: fixed !important;
   right: 24px;
   bottom: 24px;
-  z-index: 11000;
+  z-index: 20000 !important;
   text-transform: none;
 }
 </style>

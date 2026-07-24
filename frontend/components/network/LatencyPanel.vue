@@ -19,6 +19,8 @@ import {
   uniqueInterfaceOrder,
   alignPerInterfaceSpeedToPingWindow,
   useLatencyMetrics,
+  getLossAccent,
+  computeRouteProtectionInsight,
   type ChartTimeRange,
   type MultiInterfaceLatency,
 } from "~/composables/useLatencyMetrics";
@@ -45,6 +47,8 @@ const props = withDefaults(
     rollingSamples?: boolean;
     /** Probe cadence; route watchers emit ~1/sec. */
     probeSamplesPerSecond?: number;
+    /** Shield tooltip when multipath absorbed path loss / lag-fix helped. */
+    showProtectionInsight?: boolean;
   }>(),
   {
     active: true,
@@ -59,6 +63,7 @@ const props = withDefaults(
     chartVariant: "bars",
     rollingSamples: false,
     probeSamplesPerSecond: 2,
+    showProtectionInsight: false,
   }
 );
 
@@ -723,6 +728,70 @@ const {
   chartTick: props.rollingSamples ? undefined : chartFrameTick,
 });
 
+const lossSummaryColor = computed(() => {
+  const loss = combinedMetrics.value.loss || 0;
+  if (loss <= 0) {
+    return undefined;
+  }
+  return (
+    getLossAccent(loss, isDarkTheme.value) ??
+    (isDarkTheme.value ? "#EF5350" : "#C62828")
+  );
+});
+
+const { lagFixHistory } = useMonitoringStore();
+
+const protectionInsight = computed(() => {
+  if (!props.showProtectionInsight || !props.latency?.interfaces) {
+    return null;
+  }
+  return computeRouteProtectionInsight(props.latency.interfaces, {
+    lagFixes: lagFixHistory.value ?? [],
+    samplesPerSecond: props.probeSamplesPerSecond,
+  });
+});
+
+const protectionTooltipBody = computed(() => {
+  const insight = protectionInsight.value;
+  if (!insight) {
+    return "";
+  }
+  const worst = Math.round(insight.worstPathLoss);
+  const effective = Math.round(insight.effectiveLoss);
+  const windowSec = insight.windowSeconds;
+  const interventions = insight.recentInterventions;
+
+  // Vuetify t() rewrites {0} to "undefined" when called without args.
+  // Locale strings use $0$, $1$, … which we fill here.
+  const fill = (key: string, ...values: Array<string | number>) =>
+    String(t(key)).replace(/\$(\d+)\$/g, (_, index) =>
+      String(values[Number(index)] ?? "")
+    );
+
+  if (interventions > 0 && insight.worstPathLoss >= 8) {
+    return fill(
+      "$vuetify.networkLatency.lossProtectedHintWithFixes",
+      interventions,
+      worst,
+      effective,
+      windowSec
+    );
+  }
+  if (interventions > 0) {
+    return fill(
+      "$vuetify.networkLatency.lossProtectedHintFixesOnly",
+      interventions,
+      effective
+    );
+  }
+  return fill(
+    "$vuetify.networkLatency.lossProtectedHint",
+    worst,
+    windowSec,
+    effective
+  );
+});
+
 const visibleInterfaceLegend = computed(() =>
   interfaceLegend.value.map((item) => ({
     ...item,
@@ -1330,6 +1399,52 @@ function handleVisibilityChange() {
           {{ combinedMetrics.avg.toFixed(1) }}{{ t("$vuetify.ms") }}
         </div>
       </div>
+      <div class="flex-grow-1">
+        <div class="text-caption text-grey d-flex align-center ga-1">
+          <span>{{ t("$vuetify.networkLatency.loss") }}</span>
+          <v-tooltip
+            v-if="protectionInsight"
+            location="top"
+            max-width="300"
+            open-delay="200"
+          >
+            <template #activator="{ props: tipProps }">
+              <button
+                v-bind="tipProps"
+                type="button"
+                class="loss-protected-trigger"
+                :aria-label="t('$vuetify.networkLatency.lossProtectedTitle')"
+              >
+                <v-icon
+                  icon="mdi-shield-check"
+                  size="14"
+                  color="success"
+                />
+              </button>
+            </template>
+            <div class="loss-protected-tooltip">
+              <div class="loss-protected-tooltip__title">
+                {{ t("$vuetify.networkLatency.lossProtectedTitle") }}
+              </div>
+              <div class="loss-protected-tooltip__body">
+                {{ protectionTooltipBody }}
+              </div>
+            </div>
+          </v-tooltip>
+        </div>
+        <div
+          class="text-body-2 font-weight-medium d-flex align-center ga-1"
+          :style="combinedMetrics.loss > 0 ? { color: lossSummaryColor } : undefined"
+        >
+          <span>{{ Math.round(combinedMetrics.loss || 0) }}%</span>
+          <span
+            v-if="protectionInsight"
+            class="loss-protected-chip"
+          >
+            {{ t("$vuetify.networkLatency.lossProtected") }}
+          </span>
+        </div>
+      </div>
     </div>
 
     <div v-if="allPings.length > 0">
@@ -1413,5 +1528,39 @@ function handleVisibilityChange() {
   font-size: 0.7rem;
   letter-spacing: 0.02em;
   text-transform: lowercase;
+}
+
+.loss-protected-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: help;
+  line-height: 1;
+}
+
+.loss-protected-chip {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(76, 175, 80, 0.16);
+  color: #81c784;
+  line-height: 1.35;
+}
+
+.loss-protected-tooltip__title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.loss-protected-tooltip__body {
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.92;
 }
 </style>

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useDisplay, useTheme, useLocale } from "vuetify";
-import { Events, Window } from "@wailsio/runtime";
 import { useMessagesStore } from "~/stores/messages";
 import OptimizeParticles from "~/components/effects/OptimizeParticles.vue";
 import InterfaceReconnectOverlay from "~/components/network/InterfaceReconnectOverlay.vue";
@@ -11,17 +10,6 @@ import {
 
 const store = useStore();
 const messages = useMessagesStore();
-window.addEventListener(
-  "auxclick",
-  (e) => {
-    if (e.button === 1) {
-      // Middle click
-      e.preventDefault();
-      e.stopImmediatePropagation();
-    }
-  },
-  true
-);
 
 const theme = useTheme();
 const locale = useLocale();
@@ -31,11 +19,6 @@ const { settings, isLoaded } = useSettings(locale, theme);
 const isMaximized = ref<boolean>(false);
 const loaded = ref(false);
 const route = useRoute();
-/** First paint after spa-loading-template → start-service: fade, not zoom. */
-const isStartServiceBoot = computed(
-  () =>
-    route.meta.layout === "start" || route.path.startsWith("/start-service")
-);
 /** Pop-out latency window uses its own chrome; hide main title-bar buttons. */
 const isOverlayWindow = computed(
   () =>
@@ -44,6 +27,19 @@ const isOverlayWindow = computed(
 );
 
 onMounted(async () => {
+  const { Events, Window } = await import("@wailsio/runtime");
+
+  window.addEventListener(
+    "auxclick",
+    (e) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    },
+    true
+  );
+
   if (isLoaded.value) {
     await syncThemeFromSetting(settings.value.theme ?? "system", theme);
   }
@@ -51,48 +47,46 @@ onMounted(async () => {
     loaded.value = true;
   }, 300);
   isMaximized.value = await Window.IsMaximised();
+
+  Events.On("app-theme-changed", ({ data }) => {
+    syncThemeFromSetting(data as AppThemeSetting, theme);
+  });
+
+  Events.On("theme", ({ data }) => {
+    if (!settings.value.theme || settings.value.theme === "system") {
+      theme.change(data);
+    }
+  });
+
+  Events.On("WindowMaximised", async () => {
+    isMaximized.value = await Window.IsMaximised();
+  });
 });
 
-watch(isLoaded, async (loaded) => {
-  if (!loaded) {
+watch(isLoaded, async (value) => {
+  if (!value) {
     return;
   }
   await syncThemeFromSetting(settings.value.theme ?? "system", theme);
 });
 
-Events.On("app-theme-changed", ({ data }) => {
-  syncThemeFromSetting(data as AppThemeSetting, theme);
-});
-
-Events.On("theme", ({ data }) => {
-  if (!settings.value.theme || settings.value.theme === "system") {
-    theme.change(data);
-  }
-});
-
-Events.On("WindowMaximised", async ({ data }) => {
-  isMaximized.value = await Window.IsMaximised();
-});
-
 async function minimize() {
+  const { Window } = await import("@wailsio/runtime");
   await Window.Minimise();
 }
 async function toggleMaximise() {
+  const { Window } = await import("@wailsio/runtime");
   await Window.ToggleMaximise();
   isMaximized.value = await Window.IsMaximised();
 }
 async function close() {
+  const { Window } = await import("@wailsio/runtime");
   await Window.Hide();
 }
 </script>
 
 <template>
-  <NuxtLayout
-    :class="{
-      'layout-enter-active': !loaded && !isStartServiceBoot,
-      'layout-fade-enter-active': !loaded && isStartServiceBoot,
-    }"
-  >
+  <NuxtLayout :class="{ 'layout-enter-active': !loaded }">
     <NuxtPage />
   </NuxtLayout>
   <div

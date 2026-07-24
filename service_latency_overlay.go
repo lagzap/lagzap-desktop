@@ -42,7 +42,7 @@ func (s *Service) OpenLatencyOverlay() {
 		Frameless:        true,
 		BackgroundType:   application.BackgroundTypeTransparent,
 		BackgroundColour: application.NewRGBA(18, 18, 18, 230),
-		URL:              "/latency-overlay",
+		URL:              "/#/latency-overlay",
 		ZoomControlEnabled: false,
 		Windows: application.WindowsWindow{
 			DisableIcon:                      true,

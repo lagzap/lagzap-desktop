@@ -16,7 +16,9 @@ permissions:
 
 env:
   APP_NAME: Cyrex
-  RELEASES_REPO: lagzap/cyrex-releases
+  # Default public channel repo; alpha/dev override to INTERNAL_RELEASES_REPO below.
+  PUBLIC_RELEASES_REPO: lagzap/cyrex-releases
+  INTERNAL_RELEASES_REPO: lagzap/current
   GO_VERSION: "1.25.0"
   GOPRIVATE: github.com/lagzap/*
   GONOSUMDB: github.com/lagzap/*
@@ -125,16 +127,29 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
           if [[ "$SEMVER" == *"-dev"* ]]; then
-            echo "channel=dev" >> "$GITHUB_OUTPUT"
+            CHANNEL=dev
           elif [[ "$SEMVER" == *"-alpha"* ]]; then
-            echo "channel=alpha" >> "$GITHUB_OUTPUT"
+            CHANNEL=alpha
           elif [[ "$SEMVER" == *"-beta"* ]]; then
-            echo "channel=beta" >> "$GITHUB_OUTPUT"
+            CHANNEL=beta
           elif [[ "$SEMVER" == *"-rc"* ]]; then
-            echo "channel=rc" >> "$GITHUB_OUTPUT"
+            CHANNEL=rc
           else
-            echo "channel=stable" >> "$GITHUB_OUTPUT"
+            CHANNEL=stable
           fi
+          echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
+
+          # Internal channels land on lagzap/current; beta + public/stable/rc on cyrex-releases.
+          case "$CHANNEL" in
+            alpha|dev)
+              RELEASES_REPO="${{ env.INTERNAL_RELEASES_REPO }}"
+              ;;
+            *)
+              RELEASES_REPO="${{ env.PUBLIC_RELEASES_REPO }}"
+              ;;
+          esac
+          echo "releases_repo=${RELEASES_REPO}" >> "$GITHUB_OUTPUT"
+          echo "Publishing channel=${CHANNEL} → ${RELEASES_REPO}"
 
       - name: Render release notes
         shell: bash
@@ -143,7 +158,7 @@ jobs:
             -version "${{ steps.ver.outputs.version }}" \
             -build "${{ steps.ver.outputs.build_number }}" \
             -channel "${{ steps.ver.outputs.channel }}" \
-            -public-repo "${{ env.RELEASES_REPO }}" \
+            -public-repo "${{ steps.ver.outputs.releases_repo }}" \
             -output release-body.md
 
       # Respect go.sum — do not run go mod tidy in release CI (CI_SKIP_GO_MOD_TIDY).
@@ -156,7 +171,7 @@ jobs:
         env:
           VERSION: ${{ steps.ver.outputs.version }}
           BUILD_NUMBER: ${{ steps.ver.outputs.build_number }}
-          RELEASES_REPO: ${{ env.RELEASES_REPO }}
+          RELEASES_REPO: ${{ steps.ver.outputs.releases_repo }}
           CORE_VERSION: unknown
           BUILD_TYPE: production
           GOPRIVATE: github.com/lagzap/*
@@ -195,11 +210,11 @@ jobs:
             "$ZIP"
           rm -f updater.key
 
-      - name: Publish to public releases repo
+      - name: Publish to releases repo
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.RELEASES_TOKEN }}
-          repository: ${{ env.RELEASES_REPO }}
+          repository: ${{ steps.ver.outputs.releases_repo }}
           tag_name: ${{ steps.ver.outputs.version }}
           name: Cyrex ${{ steps.ver.outputs.semver }}
           body_path: release-body.md

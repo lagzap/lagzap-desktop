@@ -12,6 +12,58 @@ import type {
   LagFixStats,
   RelayPathEvent,
 } from "~/types/monitoring";
+import {
+  lagFixToHistoryEvent,
+  putNetworkHistoryEvent,
+  putNetworkHistoryEvents,
+  relayPathToHistoryEvent,
+} from "~/utils/networkHistoryDB";
+import { isNetworkHistoryConsentGranted } from "~/utils/networkHistoryConsent";
+import { useStore } from "~/stores";
+
+function canPersistNetworkHistory(): boolean {
+  try {
+    const store = useStore();
+    return (
+      store.abilities.includes("admin") && isNetworkHistoryConsentGranted()
+    );
+  } catch {
+    return false;
+  }
+}
+
+function persistHistoryEvent(
+  promise: Promise<unknown>
+): void {
+  if (!canPersistNetworkHistory()) {
+    return;
+  }
+  void promise.catch(() => undefined);
+}
+
+function historyNodesContext(): {
+  nodes: Record<string, any> | null;
+  localizeCity: (city: unknown) => string;
+} {
+  try {
+    const store = useStore();
+    return {
+      nodes: store.nodes ?? null,
+      localizeCity: (city) => {
+        try {
+          if (!city || typeof city !== "object") {
+            return "";
+          }
+          return (store.localized(city as Record<string, string>) as string) || "";
+        } catch {
+          return "";
+        }
+      },
+    };
+  } catch {
+    return { nodes: null, localizeCity: () => "" };
+  }
+}
 
 const MAX_LOGS = 1000;
 const MAX_SPEED_HISTORY = SPEED_HISTORY_SECONDS;
@@ -109,16 +161,31 @@ function createMonitoringStore() {
       const next = [...lagFixHistory.value];
       next[existingIndex] = fix;
       lagFixHistory.value = next;
-      return;
+    } else {
+      lagFixHistory.value = [...lagFixHistory.value, fix].slice(-MAX_LAG_FIX_HISTORY);
     }
-    lagFixHistory.value = [...lagFixHistory.value, fix].slice(-MAX_LAG_FIX_HISTORY);
+    const ctx = historyNodesContext();
+    persistHistoryEvent(
+      putNetworkHistoryEvent(
+        lagFixToHistoryEvent(fix, ctx.nodes, ctx.localizeCity)
+      )
+    );
   });
 
   Events.On("lag-fix-history", ({ data }: any) => {
     if (!data || !Array.isArray(data)) {
       return;
     }
-    lagFixHistory.value = (data as LagFixEvent[]).slice(-MAX_LAG_FIX_HISTORY);
+    const fixes = (data as LagFixEvent[]).slice(-MAX_LAG_FIX_HISTORY);
+    lagFixHistory.value = fixes;
+    const ctx = historyNodesContext();
+    persistHistoryEvent(
+      putNetworkHistoryEvents(
+        fixes.map((fix) =>
+          lagFixToHistoryEvent(fix, ctx.nodes, ctx.localizeCity)
+        )
+      )
+    );
   });
 
   Events.On("relay-path", ({ data }: any) => {
@@ -127,6 +194,12 @@ function createMonitoringStore() {
     }
     const event = data as RelayPathEvent;
     relayPathEvents.value = [...relayPathEvents.value, event].slice(-MAX_RELAY_PATH_EVENTS);
+    const ctx = historyNodesContext();
+    persistHistoryEvent(
+      putNetworkHistoryEvent(
+        relayPathToHistoryEvent(event, ctx.nodes, ctx.localizeCity)
+      )
+    );
   });
 
   Events.On("lag-fix-stats", ({ data }: any) => {

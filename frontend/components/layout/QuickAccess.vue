@@ -4,15 +4,29 @@ import { useLocale } from "vuetify";
 import type { Title } from "~/bindings/github.com/lagzap/zap/data";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
+import TitleActiveToggle from "~/components/title/TitleActiveToggle.vue";
 
 const { t } = useLocale();
 const store = useStore();
 const router = useRouter();
+const route = useRoute();
 const {
   favoriteTitles,
   recentTitlesExcludingFavorites,
   reorderFavoriteTitles,
 } = useFavoriteTitles();
+
+const activeTitleId = computed(() => {
+  if (route.name !== "title-id") {
+    return null;
+  }
+  const id = route.params.id;
+  return id == null ? null : String(id);
+});
+
+function isFavoriteActive(title: Title) {
+  return activeTitleId.value != null && activeTitleId.value === String(title.id);
+}
 
 const favoritesListEl = ref<HTMLElement | null>(null);
 const localFavorites = ref<Title[]>([]);
@@ -44,7 +58,7 @@ watch(
 
 function isInteractiveTarget(target: EventTarget | null) {
   return !!(target as HTMLElement | null)?.closest?.(
-    "button, .qa-favorite-btn, .v-btn, .v-selection-control, input"
+    "button, .qa-favorite-btn, .v-btn, .v-chip, .v-selection-control, input"
   );
 }
 
@@ -199,6 +213,7 @@ onBeforeUnmount(() => {
             class="qa-fav-row"
             :class="{ 'qa-fav-row--dragging': draggingId === title.id }"
             :title="store.localized(title.name)"
+            :active="isFavoriteActive(title)"
             rounded="xl"
             lines="one"
             @pointerdown="onRowPointerDown(index, $event)"
@@ -234,29 +249,7 @@ onBeforeUnmount(() => {
                   <TitleFavoriteButton :title-id="title.id" size="x-small" />
                 </span>
 
-                <v-tooltip
-                  :text="
-                    store.isTitleActive(title.id)
-                      ? store.ndisRunning
-                        ? t('$vuetify.status.active')
-                        : t('$vuetify.status.serviceNotRunning')
-                      : t('$vuetify.status.inactive')
-                  "
-                >
-                  <template #activator="{ props }">
-                    <v-btn
-                      v-bind="props"
-                      :color="store.isTitleActive(title.id) ? 'green' : 'secondary'"
-                      :icon="
-                        store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'
-                      "
-                      variant="text"
-                      size="md"
-                      :disabled="!store.appReady"
-                      @click.stop.prevent="store.toggleTitleState(title)"
-                    />
-                  </template>
-                </v-tooltip>
+                <TitleActiveToggle :title="title" />
               </div>
             </template>
           </v-list-item>
@@ -308,29 +301,7 @@ onBeforeUnmount(() => {
               <TitleFavoriteButton :title-id="title.id" size="x-small" />
             </span>
 
-            <v-tooltip
-              :text="
-                store.isTitleActive(title.id)
-                  ? store.ndisRunning
-                    ? t('$vuetify.status.active')
-                    : t('$vuetify.status.serviceNotRunning')
-                  : t('$vuetify.status.inactive')
-              "
-            >
-              <template #activator="{ props }">
-                <v-btn
-                  v-bind="props"
-                  :color="store.isTitleActive(title.id) ? 'green' : 'secondary'"
-                  :icon="
-                    store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'
-                  "
-                  variant="text"
-                  size="md"
-                  :disabled="!store.appReady"
-                  @click.stop.prevent="store.toggleTitleState(title)"
-                />
-              </template>
-            </v-tooltip>
+            <TitleActiveToggle :title="title" />
           </div>
         </template>
       </v-list-item>

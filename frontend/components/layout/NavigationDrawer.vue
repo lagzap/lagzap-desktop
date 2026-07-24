@@ -27,6 +27,17 @@ const model = defineModel<boolean>({
   default: false,
 });
 
+async function onRoutingToggle(wantOn: boolean | null) {
+  if (wantOn == null || wantOn === store.ndisRunning || store.ndisToggling) {
+    return;
+  }
+  try {
+    await store.setNDIS(wantOn);
+  } catch (error) {
+    console.warn("Routing toggle failed:", error);
+  }
+}
+
 const showConnectedCheck = ref(false);
 let connectedTimer: NodeJS.Timeout | null = null;
 
@@ -180,9 +191,9 @@ async function exit() {
                         hide-details
                         density="comfortable"
                         :color="store.error ? 'red' : 'green'"
-                        :disabled="!store.serviceReady"
-                        :loading="store.loading"
-                        @click.stop.prevent="store.toggleNDIS()"
+                        :disabled="!store.serviceReady || store.ndisToggling"
+                        :loading="store.ndisToggling || store.loading"
+                        @update:model-value="onRoutingToggle"
                       />
                     </div>
                   </template>
@@ -331,6 +342,13 @@ async function exit() {
         :to="{ name: 'admin-lag-fix' }"
         title="Lag Fix Events"
         prepend-icon="mdi-swap-horizontal"
+        rounded="xl"
+        density="compact"
+      />
+      <v-list-item
+        :to="{ name: 'network-report' }"
+        :title="t('$vuetify.navigation.networkReport')"
+        prepend-icon="mdi-file-chart-outline"
         rounded="xl"
         density="compact"
       />

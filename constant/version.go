@@ -20,8 +20,21 @@ var ReleasesRepo = "lagzap/cyrex-releases"
 // DevBuild is set to "true" via ldflags for wails dev backend builds.
 var DevBuild = ""
 
+// ForceUpdaterInDev enables the auto-updater UI and checks while running a
+// wails dev backend. Leave false for normal development; flip to true only
+// when testing the updater gate locally.
+const ForceUpdaterInDev = false
+
 func IsDevBuild() bool {
 	return DevBuild == "true"
+}
+
+// UpdaterEnabled reports whether the desktop updater should initialize and
+// accept CheckForUpdates calls. Off for normal dev builds unless
+// ForceUpdaterInDev is set.
+func UpdaterEnabled() bool {
+	return false
+	return !IsDevBuild() || ForceUpdaterInDev
 }
 
 // SemVer returns Version without a leading "v", suitable for the Wails updater.

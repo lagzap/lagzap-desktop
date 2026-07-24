@@ -315,6 +315,25 @@ watch(progressPct, (p) => {
   }
 });
 
+/** Parent stops loading when ready — drop arcs/pulse immediately. */
+watch(
+  () => props.loading,
+  (on) => {
+    if (on) return;
+    fadeToken += 1;
+    showOptimizeUi.value = false;
+    fadeInner.value = false;
+    fadeOuter.value = false;
+    holdComplete.value = false;
+    if (raf) {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
+    clearDots();
+    lastTs = 0;
+  }
+);
+
 onUnmounted(() => {
   fadeToken += 1;
   if (raf) cancelAnimationFrame(raf);
@@ -425,7 +444,7 @@ onUnmounted(() => {
       <CyrexLogo
         :class="{
           'animated-logo': loading,
-          'animated-logo--light': !isDark,
+          'animated-logo--light': loading && !isDark,
         }"
       />
     </div>
@@ -565,8 +584,9 @@ onUnmounted(() => {
   animation: logoGlow 1.4s ease-in-out infinite;
 }
 
-/* Light mode: badge disc already isolates the mark — no extra glow */
-.animated-logo--light {
+/* Light mode: badge disc already isolates the mark — no extra glow.
+   Must nest under .animated-logo so pulse only runs while loading. */
+.animated-logo.animated-logo--light {
   filter: none;
   animation: logoPulse 1.4s ease-in-out infinite;
 }

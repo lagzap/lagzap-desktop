@@ -31,12 +31,16 @@ func main() {
 	var window *application.WebviewWindow
 	var systray *application.SystemTray
 	var app *application.App
+	quiting := false
 	app = application.New(application.Options{
 		LogLevel:    slog.Level(log.LevelDebug),
 		Name:        "Cyrex",
 		Description: "Cyrex",
 		Linux:       application.LinuxOptions{},
-		Windows:     application.WindowsOptions{},
+		Windows: application.WindowsOptions{
+			// Tray app: closing/hiding windows must not terminate the process.
+			DisableQuitOnLastWindowClosed: true,
+		},
 		Services: []application.Service{
 			application.NewService(service),
 		},
@@ -45,13 +49,20 @@ func main() {
 		},
 
 		ShouldQuit: func() bool {
-			window.Hide()
+			// OS / Alt+F4 style quit requests: stay in tray unless tray Quit was used.
+			if quiting {
+				return true
+			}
+			if window != nil {
+				window.Hide()
+			}
 			return false
 		},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "com.lagzap",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				if window != nil {
+					window.Show()
 					window.Restore()
 					window.Focus()
 				}
@@ -81,7 +92,13 @@ func main() {
 		},
 	})
 	service.New(ctx, app)
-	initUpdater(app)
+	for _, arg := range os.Args[1:] {
+		if arg == startupMinimizeArg {
+			startMinimized = true
+			break
+		}
+	}
+	updaterActive := initUpdater(app)
 	disableAutostartIfDev(app)
 
 	// PrtScn is swallowed by WebView2 while focused; bridge opens Snipping Tool.
@@ -112,7 +129,8 @@ func main() {
 		MinHeight:          640,
 		ZoomControlEnabled: false,
 		Frameless:          true,
-		BackgroundColour:   application.NewRGBA(18, 18, 18, 255),
+		Hidden:             updaterActive || startMinimized,
+		BackgroundColour:   application.NewRGBA(10, 10, 10, 255),
 		Windows: application.WindowsWindow{
 			DisableIcon:             true,
 			BackdropType:            application.Mica,
@@ -147,24 +165,17 @@ func main() {
 		Linux: application.LinuxWindow{
 			WebviewGpuPolicy: application.WebviewGpuPolicyAlways,
 		},
-		URL: "/start-service/",
+		URL: "/#/start-service",
 	})
-	startMinimized := false
-	for _, arg := range os.Args[1:] {
-		if arg == startupMinimizeArg {
-			startMinimized = true
-			break
+	// Hook (sync) on Common.WindowClosing — OnWindowEvent listeners are async and
+	// cannot reliably Cancel before Wails' default destroy handler runs. Taskbar
+	// Close / Alt+F4 must hide to tray, not destroy the window.
+	window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		if quiting {
+			return
 		}
-	}
-	if startMinimized {
 		window.Hide()
-	}
-	quiting := false
-	window.OnWindowEvent(events.Windows.WindowClosing, func(e *application.WindowEvent) {
-		if !quiting {
-			window.Hide()
-			e.Cancel()
-		}
+		e.Cancel()
 	})
 	window.OnWindowEvent(events.Windows.WindowActive, func(e *application.WindowEvent) {
 		service.SetWindow(window)
@@ -198,10 +209,12 @@ func main() {
 		os.Exit(0)
 	})
 	systray.OnClick(func() {
+		window.Show()
 		window.Focus()
 	})
 	systray.OnDoubleClick(func() {
 		window.Show()
+		window.Focus()
 	})
 	systray.SetMenu(menu)
 

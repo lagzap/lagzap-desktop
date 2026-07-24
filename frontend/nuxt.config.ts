@@ -25,7 +25,9 @@ const optimizeDepsInclude = [
 ];
 
 export default defineNuxtConfig({
+  // SPA + hash routes: Wails AssetFileServerFS only serves real files; /#/... always hits index.html.
   ssr: false,
+  spaLoadingTemplate: false,
   devtools: { enabled: false },
 
   components: [
@@ -55,7 +57,11 @@ export default defineNuxtConfig({
     },
   },
 
-  
+  router: {
+    options: {
+      hashMode: true,
+    },
+  },
 
   css: [
     "~/assets/fonts/style.css",
@@ -76,9 +82,8 @@ export default defineNuxtConfig({
   ],
 
   nitro: {
-    preset: 'static'
+    preset: "static",
   },
-
   devServer: {
     port: 9245,
     // Wails dev proxy dials tcp4 → 127.0.0.1; "localhost" on Windows often binds [::1] only.

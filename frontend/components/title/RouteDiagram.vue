@@ -10,6 +10,8 @@ import {
   useProfileDisplayRoutes,
   routeRelayLatency,
   routeRelayMetrics,
+  routeHopFloorMs,
+  isPlausibleProbeForRoute,
   bestRouteRelayLatency,
   pickBestInterfaceGroup,
 } from "~/composables/useProfileDisplayRoutes";
@@ -43,7 +45,7 @@ const {
 
 const { selectedInterfaceKey } = useProfileViewInterface(props.profile.id);
 const probingEstimatedPing = ref(false);
-const probedBestOverride = ref<{ ping: number; score: number } | null>(null);
+const probedBestOverride = ref<{ ping: number; score: number; loss: number } | null>(null);
 
 function bestInterfaceGroup() {
   return pickBestInterfaceGroup(interfaceRouteGroups.value);
@@ -100,7 +102,7 @@ function fingerprintDiagramRoute(route: NodeRouteType): string {
         `${hop.ip ?? ""}:${Math.round(hop.latency ?? 0)}:${hop.status ?? ""}`
     )
     .join("|");
-  return `${Math.round(route.avg_latency ?? 0)}:${route.score ?? 0}:${hopPart}`;
+  return `${Math.round(route.avg_latency ?? 0)}:${route.score ?? 0}:${Math.round(route.packet_loss ?? 0)}:${hopPart}`;
 }
 
 /** Stable key — avoids deep-watching the entire routes store on every probe tick. */
@@ -142,12 +144,17 @@ function locationForRouteHop(hop: { ip?: string | null } | null | undefined): st
 
 type HopTransport = "TCP" | "UDP";
 
-/** Route-level tcp/udp flags (Hop has no transport field yet). */
+/** Route-level transport for hop chips — respect exclusive tcp/udp tags. */
 function resolveHopTransport(route: NodeRoute): HopTransport {
   if (route.tcp_available && !route.udp_available) {
     return "TCP";
   }
   if (route.udp_available && !route.tcp_available) {
+    return "UDP";
+  }
+  // Both (or neither) advertised as capability — prefer UDP for multipath games.
+  // Route Settings stamps exclusive flags; this is only a fallback.
+  if (route.udp_available) {
     return "UDP";
   }
   if (route.tcp_available) {
@@ -351,10 +358,19 @@ function addPingLabelNode(
   y1: number,
   x2: number,
   y2: number,
-  latencyMs: number
+  latencyMs: number,
+  lossPct = 0
 ) {
   const labelColors = resolveDiagramLabelColors();
-  const text = `${latencyMs}ms`;
+  const loss = Math.round(lossPct);
+  const text =
+    loss > 0 ? `${latencyMs}ms · ${loss}% loss` : `${latencyMs}ms`;
+  const textColor =
+    loss >= 8
+      ? getScoreColor(10)
+      : loss > 0
+        ? getScoreColor(35)
+        : labelColors.text;
 
   nodes.push({
     id,
@@ -371,9 +387,9 @@ function addPingLabelNode(
       formatter: `{a|${text}}`,
       rich: {
         a: {
-          color: labelColors.text,
+          color: textColor,
           backgroundColor: labelColors.bg,
-          borderColor: labelColors.border,
+          borderColor: loss >= 8 ? textColor : labelColors.border,
           borderWidth: 1,
           borderRadius: 1.5,
           padding: [3, 5, 2, 5],
@@ -397,6 +413,7 @@ type RouteTooltipPayload = {
   min: number;
   max: number;
   score: number;
+  loss: number;
 };
 
 /** Destination / exit-node tip — no “relay” wording, no server IP. */
@@ -432,6 +449,7 @@ function buildRouteTooltipPayload(
     min: metrics.min,
     max: metrics.max,
     score: metrics.score,
+    loss: route.packet_loss || 0,
   };
 }
 
@@ -488,6 +506,15 @@ function formatRouteTooltip(payload: RouteTooltipPayload): string {
     diagramTooltipRow("Min", `${payload.min}ms`),
     diagramTooltipRow("Max", `${payload.max}ms`),
   ];
+  if (payload.loss > 0) {
+    rows.push(
+      diagramTooltipRow(
+        "Loss",
+        `${Math.round(payload.loss)}%`,
+        payload.loss >= 8 ? getScoreColor(10) : undefined
+      )
+    );
+  }
   if (payload.score > 0) {
     rows.push(diagramTooltipRow("Score", String(payload.score), scoreColor));
   }
@@ -677,7 +704,8 @@ function updateChart() {
           routeY,
           hopNodeX,
           routeY,
-          firstHopLatency
+          firstHopLatency,
+          route.packet_loss || 0
         );
       } else {
         const prevHopId = `route-${routeIndex}-hop-${hopIndex - 1}`;
@@ -1098,12 +1126,36 @@ onBeforeUnmount(() => {
 
 // Latency for the currently shown interface group (Best → winning NIC).
 const estimatedPingDisplay = computed(() => {
-  if (probedBestOverride.value && probedBestOverride.value.ping > 0) {
-    return probedBestOverride.value;
+  const routes = activeDiagramRoutes.value;
+  const best = bestRouteRelayLatency(routes);
+  const floor = Math.max(
+    routeHopFloorMs(best.route),
+    ...routes.map((route) => routeHopFloorMs(route))
+  );
+  const loss = best.loss || best.route?.packet_loss || 0;
+
+  let ping = best.ping;
+  const override = probedBestOverride.value;
+  if (
+    override &&
+    override.ping > 0 &&
+    isPlausibleProbeForRoute(override.ping, best.route, floor)
+  ) {
+    ping = override.ping;
   }
 
-  const best = bestRouteRelayLatency(activeDiagramRoutes.value);
-  return { ping: best.ping, score: best.score };
+  // Never show an Estimated Ping that undercuts the hop labels (~98ms).
+  if (floor >= 40 && ping > 0 && ping < floor * 0.5) {
+    ping = Math.round(floor);
+  } else if (floor >= 40 && ping > 0) {
+    ping = Math.max(ping, Math.round(floor * 0.85));
+  }
+
+  return {
+    ping,
+    score: override?.score || best.score,
+    loss: override?.loss ?? loss,
+  };
 });
 
 function normalizeProbedRoutes(raw: unknown): NodeRouteType[] {
@@ -1140,8 +1192,23 @@ async function probeEstimatedPingNow() {
     );
     const probed = normalizeProbedRoutes(raw);
     const best = bestRouteRelayLatency(probed);
-    if (best.ping > 0) {
-      probedBestOverride.value = { ping: best.ping, score: best.score };
+    const floor = Math.max(
+      ...activeDiagramRoutes.value.map((route) => routeHopFloorMs(route)),
+      routeHopFloorMs(best.route)
+    );
+    if (best.ping > 0 && isPlausibleProbeForRoute(best.ping, best.route, floor)) {
+      probedBestOverride.value = {
+        ping: best.ping,
+        score: best.score,
+        loss: best.loss || 0,
+      };
+    } else if (best.loss > 0 || (best.route?.packet_loss ?? 0) > 0) {
+      // Keep hop-floor ping; still surface loss from the probe round.
+      probedBestOverride.value = {
+        ping: best.ping > 0 ? Math.max(best.ping, Math.round(floor * 0.85 || best.ping)) : Math.round(floor),
+        score: best.score,
+        loss: best.loss || best.route?.packet_loss || 0,
+      };
     }
 
     const relayId = primaryRelayNodeId.value;
@@ -1199,6 +1266,13 @@ watch(
       >
         {{ estimatedPingDisplay.ping || '—' }}{{ estimatedPingDisplay.ping ? 'ms' : '' }}
       </div>
+      <div
+        v-if="(estimatedPingDisplay.loss ?? 0) > 0"
+        class="estimated-ping-badge__loss"
+        :style="{ color: getScoreColor(Math.max(5, 100 - (estimatedPingDisplay.loss ?? 0))) }"
+      >
+        {{ Math.round(estimatedPingDisplay.loss ?? 0) }}% {{ t('$vuetify.networkLatency.loss') }}
+      </div>
     </button>
   </div>
   <div v-else class="text-center pa-4 text-grey">
@@ -1249,6 +1323,13 @@ watch(
   font-size: 1.1rem;
   font-weight: bold;
   line-height: 16px;
+  padding-bottom: 2px;
+}
+
+.estimated-ping-badge__loss {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
   padding-bottom: 4px;
 }
 

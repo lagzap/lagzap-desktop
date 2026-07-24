@@ -6,6 +6,7 @@ const locale = useLocale();
 const { t } = locale
 const store = useStore();
 const router = useRouter();
+const route = useRoute();
 const { mobile, height } = useDisplay();
 const sidebar = inject<Ref<boolean>>("sidebar");
 
@@ -46,6 +47,8 @@ onMounted(() => {
         <div v-if="!searchMode" class="v-toolbar__content">
           <v-app-bar-nav-icon @click="sidebar = !sidebar" />
           <slot name="header" />
+
+          <slot name="toolbar" />
 
           <v-btn
             icon="mdi-magnify"

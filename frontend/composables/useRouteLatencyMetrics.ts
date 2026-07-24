@@ -7,8 +7,13 @@ import {
 import {
   nodeRoutePathKey,
   routeRelayLatency,
+  isPlausibleProbeForRoute,
   useProfileDisplayRoutes,
 } from "~/composables/useProfileDisplayRoutes";
+import {
+  BEST_INTERFACE,
+  useProfileViewInterface,
+} from "~/composables/useProfileViewInterface";
 import { isPingTimeout, PING_TIMEOUT_MS } from "~/constants/pingChart";
 import type {
   Connection,
@@ -22,6 +27,9 @@ const MIN_FLOWING_TRAFFIC_SPEED = 100;
 const PROFILE_SPEED_PUSH_MS = 1000;
 /** Profile line chart Y max — samples at/above this gap as timeouts instead of roof spikes. */
 const ROUTE_CHART_SPIKE_MS = 500;
+/** Per-series loss for chart objects — same window as the header summary. */
+const ROUTE_LOSS_WINDOW_SECONDS = 30;
+const ROUTE_PROBE_SAMPLES_PER_SECOND = 2;
 
 /**
  * One logical flow can be mirrored across route×iface legs. Keep a single
@@ -149,12 +157,19 @@ export function useRouteLatencyMetrics(profileId: string) {
       }) as Profile
   );
 
-  const { routeSeries, primaryRelayNodeId, profileInterfaces } =
+  const { chartSeriesForInterface, primaryRelayNodeId, profileInterfaces } =
     useProfileDisplayRoutes(
       computed(() => profile.value ?? emptyProfile.value)
     );
-  // All active routes across every selected NIC — not "Best Internet" only.
-  const chartRouteSeries = computed(() => routeSeries.value);
+  const { selectedInterfaceKey } = useProfileViewInterface(profileId);
+  // Best Internet → all selected NICs; a named NIC → that NIC only.
+  const chartRouteSeries = computed(() =>
+    chartSeriesForInterface(
+      selectedInterfaceKey.value === BEST_INTERFACE
+        ? "best"
+        : selectedInterfaceKey.value
+    )
+  );
   const { connections, routeProbeHistory, routeProbeReceivedCount } =
     useMonitoringStore();
   const {
@@ -256,7 +271,13 @@ export function useRouteLatencyMetrics(profileId: string) {
       }
       const slotOk = isUsableRouteSample(slot.latency ?? 0);
       const existingOk = isUsableRouteSample(existing.latency ?? 0);
-      if (slotOk && (!existingOk || slot.latency < existing.latency)) {
+      // Prefer a usable sample; among usable, keep the later/higher slot identity
+      // (do not prefer lucky minimum — that drew 4–20ms spikes).
+      if (slotOk && !existingOk) {
+        bySeriesKey.set(key, slot);
+      } else if (slotOk && existingOk) {
+        bySeriesKey.set(key, slot);
+      } else if (!slotOk && !existingOk && (slot.packet_loss ?? 0) >= (existing.packet_loss ?? 0)) {
         bySeriesKey.set(key, slot);
       }
     }
@@ -377,44 +398,35 @@ export function useRouteLatencyMetrics(profileId: string) {
 
         if (slot) {
           const latency = slot.latency ?? 0;
-          if (isUsableRouteSample(latency)) {
+          const loss = slot.packet_loss ?? 0;
+          const floor = series.hopFloorMs ?? 0;
+          const plausible =
+            isUsableRouteSample(latency) &&
+            isPlausibleProbeForRoute(latency, series.route, floor);
+          if (plausible) {
             nextHistory[series.key] = appendRouteSample(history, {
               latency,
               ok: true,
-              packet_loss: slot.packet_loss ?? 0,
+              packet_loss: loss,
               jitter: slot.jitter ?? 0,
               score: slot.score ?? 0,
               timestamp,
             });
           } else {
-            // Failed / timed-out / spike probe — gap the line.
+            // Timeout, spike, or impossibly-fast probe — gap the line and mark loss.
             nextHistory[series.key] = appendRouteSample(history, {
               latency: PING_TIMEOUT_MS,
               ok: false,
-              packet_loss: slot.packet_loss ?? 1,
+              packet_loss: loss > 0 ? loss : 100,
               jitter: slot.jitter ?? 0,
               score: slot.score ?? 0,
               timestamp,
             });
           }
-          continue;
         }
-
-        // Probe tick covered this NIC but not this series — gap. Never hold the
-        // last good RTT (that painted a fake flat ~109ms line forever).
-        const ifaceProbed = slots.some(
-          (item) => !item.iface || item.iface === series.iface
-        );
-        if (ifaceProbed) {
-          nextHistory[series.key] = appendRouteSample(history, {
-            latency: PING_TIMEOUT_MS,
-            ok: false,
-            packet_loss: 1,
-            jitter: 0,
-            score: 0,
-            timestamp,
-          });
-        }
+        // No matching probe this tick: do not invent timeouts or hold last RTT.
+        // Invented timeouts painted permanent red diamond lines for healthy
+        // padded slots; hold-last froze the chart at a flat ms value.
       }
 
       lastEventTs = timestamp;
@@ -502,9 +514,19 @@ export function useRouteLatencyMetrics(profileId: string) {
       const okLatencies = pings
         .filter((point) => point.ok && isUsableRouteSample(point.latency ?? 0, true))
         .map((point) => point.latency);
+      const windowSamples = Math.max(
+        1,
+        Math.round(ROUTE_LOSS_WINDOW_SECONDS * ROUTE_PROBE_SAMPLES_PER_SECOND)
+      );
+      const recent = history.slice(-windowSamples);
+      const windowLoss =
+        recent.length === 0
+          ? 0
+          : (recent.filter((point) => !point.ok).length / recent.length) * 100;
 
       interfaces[series.key] = buildLatency(series.label, pings, {
-        packet_loss: last.packet_loss,
+        // Rolling ~30s rate — not last-tick 0%/100% flicker.
+        packet_loss: windowLoss,
         jitter: last.jitter,
         score: last.score,
         min_latency:
