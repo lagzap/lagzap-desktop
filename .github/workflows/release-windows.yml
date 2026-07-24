@@ -16,9 +16,8 @@ permissions:
 
 env:
   APP_NAME: Cyrex
-  # Default public channel repo; alpha/dev override to INTERNAL_RELEASES_REPO below.
   PUBLIC_RELEASES_REPO: lagzap/cyrex-releases
-  INTERNAL_RELEASES_REPO: lagzap/current
+  INTERNAL_RELEASES_REPO: lagzap/lagzap-desktop
   GO_VERSION: "1.25.0"
   GOPRIVATE: github.com/lagzap/*
   GONOSUMDB: github.com/lagzap/*
