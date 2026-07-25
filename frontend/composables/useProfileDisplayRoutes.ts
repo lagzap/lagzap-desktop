@@ -1,4 +1,4 @@
-import { computed, type MaybeRef, toValue } from "vue";
+import { computed, ref, watch, type MaybeRef, toValue } from "vue";
 import type { Profile, NodeRoute, RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
 import { RoutingMode } from "~/bindings/github.com/lagzap/zap/data";
 import { ProfileFlag } from "~/constants/profile";
@@ -12,17 +12,39 @@ import {
   DEFAULT_TCP_ROUTES,
   DEFAULT_UDP_ROUTES,
 } from "~/composables/routeCountUtils";
+import { useProfileChartConnection } from "~/composables/useProfileViewInterface";
 
 const ROUTE_VARIANTS = ["ipv4-udp", "ipv4-tcp", "ipv6-udp", "ipv6-tcp"] as const;
 const MAX_ROUTE_SLOTS = 4;
+/** Stick with the current top flow unless another pulls ahead on total usage. */
+const TOP_CONN_USAGE_SWITCH_RATIO = 1.25;
+const TOP_CONN_USAGE_SWITCH_BYTES = 256 * 1024;
 
-function connectionTraffic(connection: Connection) {
-  return (connection.download_speed || 0) + (connection.upload_speed || 0);
+/** Total bytes transferred — preferred rank for “top” game flow. */
+export function connectionUsageBytes(connection: Connection) {
+  return Math.abs(connection.download || 0) + Math.abs(connection.upload || 0);
 }
 
+function connectionSpeed(connection: Connection) {
+  return (
+    Math.abs(connection.download_speed || 0) +
+    Math.abs(connection.upload_speed || 0)
+  );
+}
+
+function connectionHasChartRelay(connection: Connection) {
+  return !!(connection.relay_route?.tag || connection.node_id);
+}
+
+/**
+ * Pick the profile connection that should drive the latency chart / route
+ * diagram. Rank by total usage (bytes), not instantaneous speed — games often
+ * hold two equal-rate flows; the heavier session is the one to chart.
+ */
 export function pickTopProfileConnection(
   profileId: string,
-  connections: Connection[]
+  connections: Connection[],
+  previousId?: string | null
 ): Connection | null {
   const profileConnections = connections.filter(
     (connection) => connection.profile_id === profileId
@@ -31,15 +53,53 @@ export function pickTopProfileConnection(
     return null;
   }
 
-  return [...profileConnections].sort((a, b) => {
-    const trafficDelta = connectionTraffic(b) - connectionTraffic(a);
-    if (trafficDelta !== 0) {
-      return trafficDelta;
+  const ranked = [...profileConnections].sort((a, b) => {
+    const usageDelta = connectionUsageBytes(b) - connectionUsageBytes(a);
+    if (usageDelta !== 0) {
+      return usageDelta;
+    }
+    // Prefer a flow that can actually feed relay probes / chart series.
+    const chartDelta =
+      Number(connectionHasChartRelay(b)) - Number(connectionHasChartRelay(a));
+    if (chartDelta !== 0) {
+      return chartDelta;
+    }
+    const speedDelta = connectionSpeed(b) - connectionSpeed(a);
+    if (speedDelta !== 0) {
+      return speedDelta;
     }
     const latencyA = a.min_latency || a.avg_latency || Infinity;
     const latencyB = b.min_latency || b.avg_latency || Infinity;
     return latencyA - latencyB;
-  })[0];
+  });
+
+  const best = ranked[0];
+  if (!previousId || best.id === previousId) {
+    return best;
+  }
+
+  const previous = profileConnections.find(
+    (connection) => connection.id === previousId
+  );
+  if (!previous) {
+    return best;
+  }
+
+  const bestUsage = connectionUsageBytes(best);
+  const previousUsage = connectionUsageBytes(previous);
+  const usageAhead =
+    bestUsage >= previousUsage * TOP_CONN_USAGE_SWITCH_RATIO &&
+    bestUsage >= previousUsage + TOP_CONN_USAGE_SWITCH_BYTES;
+  if (usageAhead) {
+    return best;
+  }
+
+  // Stick while the previous flow is still alive and chartable — avoids
+  // wiping latency history when two peers trade the speed lead.
+  if (connectionHasChartRelay(previous)) {
+    return previous;
+  }
+  return best;
 }
 
 function resolveRelayRouteForNode(
@@ -702,8 +762,69 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
     return resolvedGlobalUdp.value ?? DEFAULT_UDP_ROUTES;
   });
 
-  const topConnection = computed(() =>
-    pickTopProfileConnection(profileRef.value?.id ?? "", connections.value ?? [])
+  const stickyTopConnectionId = ref<string | null>(null);
+  const { selectedConnectionId } = useProfileChartConnection(
+    () => profileRef.value?.id ?? ""
+  );
+
+  watch(
+    () => profileRef.value?.id,
+    () => {
+      stickyTopConnectionId.value = null;
+    }
+  );
+
+  const topConnection = computed(() => {
+    const profileId = profileRef.value?.id ?? "";
+    const list = (connections.value ?? []).filter(
+      (connection) => connection.profile_id === profileId
+    );
+    const manualId = selectedConnectionId.value;
+    if (manualId) {
+      const manual = list.find((connection) => connection.id === manualId);
+      if (manual) {
+        return manual;
+      }
+      return pickTopProfileConnection(
+        profileId,
+        connections.value ?? [],
+        stickyTopConnectionId.value
+      );
+    }
+    return pickTopProfileConnection(
+      profileId,
+      connections.value ?? [],
+      stickyTopConnectionId.value
+    );
+  });
+
+  watch(
+    [() => selectedConnectionId.value, connections, () => profileRef.value?.id],
+    () => {
+      const manualId = selectedConnectionId.value;
+      if (!manualId) {
+        return;
+      }
+      const profileId = profileRef.value?.id ?? "";
+      const stillLive = (connections.value ?? []).some(
+        (connection) =>
+          connection.profile_id === profileId && connection.id === manualId
+      );
+      if (!stillLive) {
+        selectedConnectionId.value = null;
+      }
+    }
+  );
+
+  watch(
+    topConnection,
+    (picked) => {
+      if (selectedConnectionId.value) {
+        return;
+      }
+      stickyTopConnectionId.value = picked?.id ?? null;
+    },
+    { immediate: true }
   );
 
   const primaryRelayNodeId = computed(() => {

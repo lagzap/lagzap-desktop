@@ -36,6 +36,10 @@ const showProfileSections = computed(
     0
 );
 
+const isHighTrafficProfile = computed(
+  () => (props.profile.flags & ProfileFlag.HIGH_TRAFFIC) !== 0
+);
+
 const store = useStore();
 const { numberOfRoutes, interfaceRouteGroups, shouldShowRoutes } =
   useProfileDisplayRoutes(computed(() => props.profile));
@@ -160,27 +164,35 @@ const routeSettingsText = computed(() => {
       {{ store.localized(props.profile.description) }}
     </v-card-subtitle>
 
-    <v-card-text v-if="showProfileSections" class="pt-0 profile-sections">
-      <RouteDiagram :profile="props.profile" />
-      <div
-        v-if="showInterfaceSelector"
-        class="profile-interface-selector d-flex justify-start mt-2 mb-2"
-      >
-        <v-select
-          v-model="selectedInterfaceKey"
-          :items="interfaceSelectItems"
-          :label="t('$vuetify.title.profile.interface')"
-          density="compact"
-          hide-details
-          single-line
-          variant="outlined"
-          class="profile-interface-selector__select"
-        />
-      </div>
-      <v-divider class="my-4" />
+    <v-card-text
+      v-if="
+        showProfileSections ||
+        (isHighTrafficProfile && store.isProfileActive(props.profile.id))
+      "
+      class="pt-0 profile-sections"
+    >
+      <template v-if="showProfileSections">
+        <RouteDiagram :profile="props.profile" />
+        <div
+          v-if="showInterfaceSelector"
+          class="profile-interface-selector d-flex justify-start mt-2 mb-2"
+        >
+          <v-select
+            v-model="selectedInterfaceKey"
+            :items="interfaceSelectItems"
+            :label="t('$vuetify.title.profile.interface')"
+            density="compact"
+            hide-details
+            single-line
+            variant="outlined"
+            class="profile-interface-selector__select"
+          />
+        </div>
+        <v-divider class="my-4" />
+      </template>
       <ProfilePingUsage :profile-id="props.profile.id" class="mb-4" />
       <ProfileConnectionsTable
-        v-if="hasProfileConnections"
+        v-if="showProfileSections && hasProfileConnections"
         :profile-id="props.profile.id"
         :limit="5"
       />

@@ -376,6 +376,7 @@
             pingUsage: 'Ping & usage',
             activityLive: 'Live',
             activityIdle: 'Idle',
+            activityUsage: 'Usage',
             speedChartEmpty: 'Collecting speed…',
             interface: 'Interface',
             bestInternet: 'Best Internet',
@@ -406,6 +407,7 @@
         latency: 'Latency',
         upload: 'Upload',
         download: 'Download',
+        showOnLatencyChart: 'Show this connection on the latency chart (click again for auto)',
     },
     ms: 'ms',
     networkReport: {

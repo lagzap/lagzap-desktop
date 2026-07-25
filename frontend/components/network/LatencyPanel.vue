@@ -153,8 +153,8 @@ const CHART_Y_DEFAULT_MAX = 500;
 const CHART_Y_EXPANDED_MAX = PING_TIMEOUT_MS;
 const SPEED_DOWNLOAD_STACK = "speed";
 const SPEED_AREA_OPACITY = 0.72;
-/** Soft fill behind profile latency lines — per-NIC color, quieter than overview. */
-const SPEED_BACKGROUND_OPACITY = 0.22;
+/** Soft fill behind profile latency lines — per-NIC color. */
+const SPEED_BACKGROUND_OPACITY = 0.42;
 const ROUTE_LINE_WIDTH = 1;
 const LATENCY_STACK = "latency";
 const PING_BAR_OPACITY = 0.9;
@@ -219,10 +219,22 @@ function isSpeedInterfaceVisible(ifaceName: string) {
   if (isInterfaceVisible(ifaceName)) {
     return true;
   }
-  return chartData.value.rankedInterfaces.some((key) => {
+  const matched = chartData.value.rankedInterfaces.some((key) => {
     const { iface } = parseSeriesInterfaceKey(key);
     return iface === ifaceName && isInterfaceVisible(key);
   });
+  if (matched) {
+    return true;
+  }
+  // Speed history keyed as "Default" (or a NIC not in route keys) still plots
+  // when any latency series is visible.
+  const latencyIfaces = uniqueInterfaceOrder(chartData.value.rankedInterfaces);
+  if (latencyIfaces.length === 0) {
+    return true;
+  }
+  return (
+    !latencyIfaces.includes(ifaceName) && getVisibleInterfaces().length > 0
+  );
 }
 
 function getAlignedSpeedData() {
@@ -257,7 +269,7 @@ function getSpeedYMax() {
       uploadTotal += uploadByInterface[name]?.[index] ?? 0;
     });
 
-    max = Math.max(max, downloadTotal, uploadTotal);
+    max = Math.max(max, downloadTotal + uploadTotal, downloadTotal, uploadTotal);
   }
 
   if (max === 0) {
@@ -280,7 +292,7 @@ function toStackedAreaData(values: (number | null | undefined)[]) {
 }
 
 function buildSpeedBackgroundSeries() {
-  const { downloadByInterface } = getAlignedSpeedData();
+  const { downloadByInterface, uploadByInterface } = getAlignedSpeedData();
   const ifaceOrder = uniqueInterfaceOrder([
     ...chartData.value.rankedInterfaces,
     ...getSpeedInterfaceNames(),
@@ -292,13 +304,19 @@ function buildSpeedBackgroundSeries() {
       name,
       ifaceIndexInOrder(name, ifaceOrder)
     );
+    const download = downloadByInterface[name] ?? [];
+    const upload = uploadByInterface[name] ?? [];
+    const combined = download.map((down, index) => {
+      const total = (down ?? 0) + (upload[index] ?? 0);
+      return total > 0 ? total : null;
+    });
 
     return {
       name: `__speed__${name}`,
       type: "line",
       stack: SPEED_DOWNLOAD_STACK,
       yAxisIndex: 1,
-      data: toStackedAreaData(downloadByInterface[name] ?? []),
+      data: toStackedAreaData(combined),
       smooth: false,
       showSymbol: false,
       connectNulls: false,
@@ -727,6 +745,13 @@ const {
   probeSamplesPerSecond: computed(() => props.probeSamplesPerSecond),
   chartTick: props.rollingSamples ? undefined : chartFrameTick,
 });
+
+/** Route pings or a time axis ready for the speed overlay (high-traffic). */
+const hasChartData = computed(
+  () =>
+    allPings.value.length > 0 ||
+    (props.showNetworkSpeed && chartData.value.times.length > 0)
+);
 
 const lossSummaryColor = computed(() => {
   const loss = combinedMetrics.value.loss || 0;
@@ -1162,7 +1187,7 @@ function buildChartDataOption() {
 }
 
 function renderChart() {
-  if (!chartRef.value || !props.active || allPings.value.length === 0) {
+  if (!chartRef.value || !props.active || !hasChartData.value) {
     return;
   }
 
@@ -1220,7 +1245,7 @@ const initChart = async () => {
 
   await nextTick();
 
-  if (allPings.value.length === 0) {
+  if (!hasChartData.value) {
     disposeChart();
     return;
   }
@@ -1251,7 +1276,7 @@ const refreshChart = () => {
 
   nextTick(() => {
     setTimeout(() => {
-      if (allPings.value.length > 0) {
+      if (hasChartData.value) {
         initChart();
         chartInstance?.resize();
       } else {
@@ -1268,7 +1293,7 @@ function handleWindowResize() {
 watch(
   chartRenderFingerprint,
   () => {
-    if (props.active && allPings.value.length > 0) {
+    if (props.active && hasChartData.value) {
       scheduleRenderChart();
     }
   }
@@ -1278,7 +1303,7 @@ watch(
   () => Object.keys(props.latency?.interfaces || {}).length,
   () => {
     hiddenInterfaces.value = new Set();
-    if (props.active && allPings.value.length > 0) {
+    if (props.active && hasChartData.value) {
       renderChart();
     }
   }
@@ -1288,7 +1313,7 @@ watch(
   () => chartTimeRange.value,
   () => {
     chartHasFullOption = false;
-    if (props.active && allPings.value.length > 0) {
+    if (props.active && hasChartData.value) {
       renderChart();
     }
   }
@@ -1297,8 +1322,16 @@ watch(
 watch(isDarkTheme, () => {
   invalidateTooltipCache();
   chartHasFullOption = false;
-  if (props.active && allPings.value.length > 0) {
+  if (props.active && hasChartData.value) {
     renderChart();
+  }
+});
+
+watch(hasChartData, (ready) => {
+  if (props.active && ready) {
+    refreshChart();
+  } else if (!ready) {
+    disposeChart();
   }
 });
 
@@ -1344,7 +1377,7 @@ function handleVisibilityChange() {
   }
   pointerInsideChart = false;
   hoverDataIndex = null;
-  if (props.active && allPings.value.length > 0) {
+  if (props.active && hasChartData.value) {
     chartInstance?.resize();
     scheduleRenderChart();
   }
@@ -1361,7 +1394,7 @@ function handleVisibilityChange() {
       </div>
 
       <v-btn-toggle
-        v-if="!compact && allPings.length > 0"
+        v-if="!compact && hasChartData"
         v-model="chartTimeRange"
         density="compact"
         variant="outlined"
@@ -1447,7 +1480,7 @@ function handleVisibilityChange() {
       </div>
     </div>
 
-    <div v-if="allPings.length > 0">
+    <div v-if="hasChartData">
       <div
         ref="chartRef"
         :style="{ width: '100%', height: `${chartHeight}px` }"

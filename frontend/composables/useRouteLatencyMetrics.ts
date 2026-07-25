@@ -1,7 +1,7 @@
-import { computed, ref, watch } from "vue";
-import { debounce } from "es-toolkit";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { Latency, PingPoint, type Profile } from "~/bindings/github.com/lagzap/zap/data";
 import {
+  uniqueInterfaceOrder,
   type MultiInterfaceLatency,
 } from "~/composables/useLatencyMetrics";
 import {
@@ -15,6 +15,7 @@ import {
   useProfileViewInterface,
 } from "~/composables/useProfileViewInterface";
 import { isPingTimeout, PING_TIMEOUT_MS } from "~/constants/pingChart";
+import { ProfileFlag } from "~/constants/profile";
 import type {
   Connection,
   NetworkSpeedPoint,
@@ -23,7 +24,8 @@ import type {
 
 const MAX_PROFILE_SPEED_HISTORY = 120;
 const MAX_ROUTE_RAW_HISTORY = 120;
-const MIN_FLOWING_TRAFFIC_SPEED = 100;
+/** Keep sampling once traffic was seen so the speed band does not vanish on idle. */
+const MIN_FLOWING_TRAFFIC_SPEED = 1;
 const PROFILE_SPEED_PUSH_MS = 1000;
 /** Profile line chart Y max — samples at/above this gap as timeouts instead of roof spikes. */
 const ROUTE_CHART_SPIKE_MS = 500;
@@ -146,6 +148,14 @@ export function useRouteLatencyMetrics(profileId: string) {
   const store = useStore();
   const profile = computed(
     () => store.profiles.find((item) => item.id === profileId) ?? null
+  );
+  const isHighTraffic = computed(
+    () => ((profile.value?.flags ?? 0) & ProfileFlag.HIGH_TRAFFIC) !== 0
+  );
+  const profileActive = computed(() => store.isProfileActive(profileId));
+  /** Always-on LatencyPanel for high-traffic while the profile switch is on. */
+  const showSpeedChart = computed(
+    () => isHighTraffic.value && profileActive.value
   );
 
   const emptyProfile = computed(
@@ -490,7 +500,26 @@ export function useRouteLatencyMetrics(profileId: string) {
 
   const latency = computed<MultiInterfaceLatency | null>(() => {
     if (chartRouteSeries.value.length === 0) {
-      return null;
+      // High-traffic stays mounted with an empty axis while idle (0 B/s, no
+      // connections). Other profiles still need traffic or probe history.
+      const hasConnections = (connections.value ?? []).some(
+        (connection) => connection.profile_id === profileId
+      );
+      if (
+        !showSpeedChart.value &&
+        !hasConnections &&
+        profileSpeedHistory.value.length === 0
+      ) {
+        return null;
+      }
+      const interfaces: Record<string, Latency> = {};
+      for (const name of speedInterfaceNames()) {
+        interfaces[name] = buildLatency(name, []);
+      }
+      return {
+        interfaces,
+        best_score: 0,
+      };
     }
 
     const interfaces: Record<string, Latency> = {};
@@ -537,6 +566,16 @@ export function useRouteLatencyMetrics(profileId: string) {
       bestScore = Math.max(bestScore, last.score ?? 0);
     }
 
+    // Speed band needs a time axis even before the first probe lands.
+    if (
+      Object.keys(interfaces).length === 0 &&
+      (profileSpeedHistory.value.length > 0 || showSpeedChart.value)
+    ) {
+      for (const name of speedInterfaceNames()) {
+        interfaces[name] = buildLatency(name, []);
+      }
+    }
+
     return {
       interfaces,
       best_score: bestScore,
@@ -544,19 +583,62 @@ export function useRouteLatencyMetrics(profileId: string) {
   });
 
   /**
-   * Connection speed is exact once (e.g. game ↓100KB). Multipath mirrors that
-   * full rate on every route leg, so an iface with 2 routes "carries" 200KB of
-   * reported usage and an iface with 1 route carries 100KB. Stack one band per
-   * internet using traffic × routes_on_that_iface (from profile / global settings).
+   * Per-profile throughput from live connections (same source as the activity
+   * chip). Multipath mirrors one flow across legs — uniqueFlowSpeeds keeps a
+   * single rate, then we weight by routes-per-NIC for the stacked speed band.
    */
-  const pushProfileSpeedSample = debounce((profileConnections: Connection[]) => {
-    const { download, upload } = uniqueFlowSpeeds(profileConnections);
-    if (download + upload < MIN_FLOWING_TRAFFIC_SPEED) {
+  function speedInterfaceNames(): string[] {
+    const fromSeries = uniqueInterfaceOrder(
+      chartRouteSeries.value.map((series) => series.key)
+    );
+    if (fromSeries.length > 0) {
+      return fromSeries;
+    }
+    const fromProfile = (profileInterfaces.value ?? []).filter(
+      (name) => !!name && name !== "Default"
+    );
+    if (fromProfile.length > 0) {
+      return fromProfile;
+    }
+    if (store.defaultInterface) {
+      return [store.defaultInterface];
+    }
+    const first = store.interfaces?.[0]?.Name;
+    return first ? [first] : ["Default"];
+  }
+
+  let lastSpeedSampleAt = 0;
+
+  function pushProfileSpeedSample(force = false) {
+    const profileConnections = (connections.value ?? []).filter(
+      (connection) => connection.profile_id === profileId
+    );
+    // High-traffic: keep a 0 B/s trail while the profile is on so the chart
+    // stays alive with an empty speed band until traffic appears.
+    if (profileConnections.length === 0 && !showSpeedChart.value) {
       return;
     }
 
-    const ifaces = (profileInterfaces.value ?? []).filter((name) => !!name);
-    const names = ifaces.length > 0 ? ifaces : ["Default"];
+    const { download, upload } =
+      profileConnections.length > 0
+        ? uniqueFlowSpeeds(profileConnections)
+        : { download: 0, upload: 0 };
+    const total = download + upload;
+    if (
+      total < MIN_FLOWING_TRAFFIC_SPEED &&
+      profileSpeedHistory.value.length === 0 &&
+      !showSpeedChart.value
+    ) {
+      return;
+    }
+
+    const now = Date.now();
+    if (!force && now - lastSpeedSampleAt < PROFILE_SPEED_PUSH_MS) {
+      return;
+    }
+    lastSpeedSampleAt = now;
+
+    const names = speedInterfaceNames();
     const interfaces: NetworkSpeedPoint["interfaces"] = {};
     for (const name of names) {
       const routes = routeWeightForInterface(name);
@@ -570,26 +652,46 @@ export function useRouteLatencyMetrics(profileId: string) {
       ...profileSpeedHistory.value,
       { interfaces },
     ].slice(-MAX_PROFILE_SPEED_HISTORY);
-  }, PROFILE_SPEED_PUSH_MS);
+  }
 
   watch(
-    connections,
-    (items) => {
-      const profileConnections = (items ?? []).filter(
+    () => {
+      const profileConnections = (connections.value ?? []).filter(
         (connection) => connection.profile_id === profileId
       );
-      if (profileConnections.length === 0) {
-        return;
-      }
-      pushProfileSpeedSample(profileConnections);
+      const { download, upload } = uniqueFlowSpeeds(profileConnections);
+      return [
+        profileConnections.length,
+        download,
+        upload,
+        chartRouteSeries.value.map((series) => series.key).join("|"),
+      ] as const;
     },
-    { deep: true }
+    () => pushProfileSpeedSample()
   );
+
+  let speedSampleTimer: ReturnType<typeof setInterval> | undefined;
+
+  onMounted(() => {
+    speedSampleTimer = setInterval(() => {
+      pushProfileSpeedSample(true);
+    }, PROFILE_SPEED_PUSH_MS);
+  });
+
+  onUnmounted(() => {
+    if (speedSampleTimer != null) {
+      clearInterval(speedSampleTimer);
+    }
+  });
 
   const hasLatencyData = computed(() => {
     // Always show the chart once route series exist so used-route lines stay
     // mounted instead of unmounting when history briefly looks empty.
     if (chartRouteSeries.value.length > 0) {
+      return true;
+    }
+    // Downloads & Updates etc: chart while the profile is on, even at 0 B/s.
+    if (showSpeedChart.value) {
       return true;
     }
     for (const history of Object.values(routePingHistory.value)) {
@@ -602,7 +704,9 @@ export function useRouteLatencyMetrics(profileId: string) {
       return true;
     }
 
-    return false;
+    return (connections.value ?? []).some(
+      (connection) => connection.profile_id === profileId
+    );
   });
 
   return {

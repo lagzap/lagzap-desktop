@@ -359,6 +359,7 @@ export default {
             pingUsage: 'پینگ و مصرف',
             activityLive: 'فعال',
             activityIdle: 'بدون ترافیک',
+            activityUsage: 'مصرف',
             speedChartEmpty: 'در حال جمع‌آوری سرعت…',
             interface: 'رابط',
             city: 'شهر',
@@ -385,6 +386,7 @@ export default {
         latency: 'تاخیر',
         upload: 'بارگذاری',
         download: 'دانلود',
+        showOnLatencyChart: 'نمایش این اتصال روی نمودار تاخیر (کلیک دوباره برای خودکار)',
     },
     ms: 'م.ث',
     networkReport: {
