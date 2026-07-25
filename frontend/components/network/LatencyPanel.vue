@@ -200,7 +200,7 @@ function getPingInterfaceColor(name: string) {
 
 function getSpeedInterfaceNames() {
   // Prefer bare NIC names from traffic history (overview-style). Fall back to
-  // unique ifaces parsed from route series keys (`Ethernet::0` → `Ethernet`).
+  // unique ifaces parsed from route series keys (`iface::0` → iface name).
   const fromHistory = new Set<string>();
   props.networkSpeedHistory.forEach((point) => {
     Object.keys(point.interfaces ?? {}).forEach((name) => {
@@ -1137,7 +1137,7 @@ function buildChartOption() {
       padding: [8, 10],
       textStyle: { color: chrome.textColor, fontSize: 12 },
       extraCssText:
-        `border-radius:8px;box-shadow:${chrome.shadow};`,
+        `border-radius:8px;box-shadow:${chrome.shadow};pointer-events:none;`,
       formatter: (params: any) => {
         const dataIndex = params[0]?.dataIndex;
         if (dataIndex === undefined || dataIndex < 0) {
@@ -1145,8 +1145,8 @@ function buildChartOption() {
         }
         return formatTooltipContent(dataIndex);
       },
-      enterable: true,
-      hideDelay: 80,
+      enterable: false,
+      hideDelay: 0,
       showDelay: 0,
       transitionDuration: 0,
       confine: true,
@@ -1300,9 +1300,15 @@ watch(
 );
 
 watch(
-  () => Object.keys(props.latency?.interfaces || {}).length,
+  () =>
+    Object.keys(props.latency?.interfaces || {})
+      .slice()
+      .sort()
+      .join("|"),
   () => {
     hiddenInterfaces.value = new Set();
+    chartHasFullOption = false;
+    invalidateTooltipCache();
     if (props.active && hasChartData.value) {
       renderChart();
     }

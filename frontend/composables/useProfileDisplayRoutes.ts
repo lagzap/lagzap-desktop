@@ -2,7 +2,7 @@ import { computed, ref, watch, type MaybeRef, toValue } from "vue";
 import type { Profile, NodeRoute, RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
 import { RoutingMode } from "~/bindings/github.com/lagzap/zap/data";
 import { ProfileFlag } from "~/constants/profile";
-import type { Connection, RouteProbeSlotMetric } from "~/types/monitoring";
+import type { Connection, RouteProbeEvent, RouteProbeSlotMetric } from "~/types/monitoring";
 import {
   buildNodeLocationLabelMap,
   nodeCityGroupKey,
@@ -11,6 +11,7 @@ import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettin
 import {
   DEFAULT_TCP_ROUTES,
   DEFAULT_UDP_ROUTES,
+  resolveProfileRouteCounts,
 } from "~/composables/routeCountUtils";
 import { useProfileChartConnection } from "~/composables/useProfileViewInterface";
 
@@ -220,19 +221,21 @@ export function routeHopFloorMs(route: NodeRoute | null | undefined): number {
     return 0;
   }
   const hops = route.hops ?? [];
-  const hop0 = hops[0]?.latency || 0;
+  const hop0 = hops[0]?.latency ?? 0;
+  // Unknown (−1) or direct (0) entry: path-matrix exit stubs (0–7ms) are NOT a floor.
+  if (!(hop0 > 0)) {
+    const measured = route.avg_latency || route.min_latency || 0;
+    return measured > 0 ? measured : 0;
+  }
   // Prefer the largest measured hop leg — entry cities (~100ms) beat exit stubs (0–7ms).
   let bestHop = hop0;
   for (const hop of hops) {
-    const ms = hop.latency || 0;
+    const ms = hop.latency ?? 0;
     if (ms > bestHop) {
       bestHop = ms;
     }
   }
-  if (bestHop > 0) {
-    return bestHop;
-  }
-  return route.avg_latency || route.min_latency || 0;
+  return bestHop;
 }
 
 /**
@@ -257,23 +260,143 @@ export function isPlausibleProbeForRoute(
   return true;
 }
 
-/** Apply one interface's probe RTT onto a cloned route — never another NIC's data. */
+/** Case-insensitive iface|nodeId|ipv4|udp lookup (no IP addresses). */
+export function lookupIfaceEntryRttMs(
+  entryRtt: Record<string, number> | null | undefined,
+  iface: string,
+  nodeId: string,
+  ipVersion: "ipv4" | "ipv6" | "all" = "all",
+  networks: readonly ("udp" | "tcp" | "icmp")[] = ["udp", "tcp", "icmp"]
+): number {
+  if (!entryRtt || !iface || !nodeId) {
+    return 0;
+  }
+  const wantIface = iface.trim().toLowerCase();
+  const wantNode = nodeId.trim().toLowerCase();
+  const versions =
+    ipVersion === "all" ? (["ipv4", "ipv6"] as const) : ([ipVersion] as const);
+  let best = 0;
+  for (const [key, sample] of Object.entries(entryRtt)) {
+    if (!(typeof sample === "number" && sample > 0)) {
+      continue;
+    }
+    const parts = key.split("|");
+    if (parts.length < 4) {
+      continue;
+    }
+    const [keyIface, keyNode, keyVer, keyNet] = parts;
+    if ((keyIface || "").trim().toLowerCase() !== wantIface) {
+      continue;
+    }
+    if ((keyNode || "").trim().toLowerCase() !== wantNode) {
+      continue;
+    }
+    const ver = (keyVer || "").toLowerCase();
+    if (!(versions as readonly string[]).includes(ver)) {
+      continue;
+    }
+    const net = (keyNet || "").toLowerCase();
+    if (!(networks as readonly string[]).includes(net)) {
+      continue;
+    }
+    if (best <= 0 || sample < best) {
+      best = sample;
+    }
+  }
+  return best;
+}
+
+/** Resolve hop IP → node id using the nodes store (RTT keys never use IPs). */
+export function nodeIdForHopIp(
+  nodes: Record<string, { id?: string; ipv4?: string; ipv6?: string } | null | undefined>,
+  ip: string | null | undefined
+): { nodeId: string; ipVersion: "ipv4" | "ipv6" } | null {
+  const want = (ip || "").trim();
+  if (!want || !nodes) {
+    return null;
+  }
+  for (const node of Object.values(nodes)) {
+    if (!node) {
+      continue;
+    }
+    if (node.ipv4 && node.ipv4 === want) {
+      return { nodeId: node.id || "", ipVersion: "ipv4" };
+    }
+    if (node.ipv6 && node.ipv6 === want) {
+      return { nodeId: node.id || "", ipVersion: "ipv6" };
+    }
+  }
+  return null;
+}
+
+/**
+ * Topology without shared client RTT. Clears hop0 + avg so a named NIC never
+ * inherits another NIC's measurement. Hop0 stays unset (not painted as 0ms) —
+ * callers should overlay last-known per-NIC RTT when available.
+ */
+export function blankIfaceRouteMetrics(route: NodeRoute): NodeRoute {
+  const cloned = cloneNodeRoute(route);
+  cloned.avg_latency = 0;
+  cloned.min_latency = 0;
+  cloned.max_latency = 0;
+  cloned.packet_loss = 0;
+  const hops = cloned.hops ?? [];
+  if (hops[0]) {
+    // Use -1 as "unknown" so the diagram does not flash a fake 0ms ping.
+    hops[0].latency = -1;
+  }
+  return cloned;
+}
+
+/**
+ * Apply one interface's probe RTT onto a cloned route — never another NIC's data.
+ * With a probe: replace live avg/loss/hop0 from that sample only.
+ * Without a probe: keep source topology metrics (do not zero hop0 / avg).
+ */
 export function applyIfaceProbeToRoute(
   route: NodeRoute,
   probe: { latency?: number; packet_loss?: number; jitter?: number; score?: number } | null | undefined,
   topologyFloorMs?: number
 ): NodeRoute {
   const cloned = cloneNodeRoute(route);
-  const floor = topologyFloorMs && topologyFloorMs > 0
-    ? topologyFloorMs
-    : routeHopFloorMs(cloned);
-  const latency = probe?.latency ?? 0;
-  const loss = probe?.packet_loss ?? 0;
+  if (!probe) {
+    // Live routes sometimes carry E2E avg with hop0 unset — fill client→entry
+    // for the diagram without inventing a new measurement.
+    const hops = cloned.hops ?? [];
+    const measured = cloned.avg_latency || cloned.min_latency || 0;
+    if (hops[0] && !(hops[0].latency > 0) && measured > 0) {
+      const rest = hops
+        .slice(1)
+        .reduce((sum, hop) => sum + (hop.latency || 0), 0);
+      hops[0].latency = Math.max(
+        1,
+        rest > 0 && measured > rest + 5
+          ? Math.round(measured - rest)
+          : Math.round(measured)
+      );
+    }
+    return cloned;
+  }
 
-  // Always surface loss from this probe round (including 100% timeouts).
+  const floor =
+    topologyFloorMs && topologyFloorMs > 0
+      ? topologyFloorMs
+      : routeHopFloorMs(cloned);
+  const latency = probe.latency ?? 0;
+  const loss = probe.packet_loss ?? 0;
+
+  // Drop metrics that may have been merged from a preferred NIC onto the
+  // shared RelayRoute — only this iface's probe may refill them.
+  cloned.packet_loss = 0;
+  cloned.avg_latency = 0;
+  cloned.min_latency = 0;
+  cloned.max_latency = 0;
+
+  // Always surface loss from this probe round only as a hint — callers overwrite
+  // with a recent-window rate so one miss is not painted as permanent 100%.
   if (loss > 0) {
     cloned.packet_loss = loss;
-  } else if (probe && !(latency > 0)) {
+  } else if (!(latency > 0)) {
     cloned.packet_loss = 100;
   }
 
@@ -284,18 +407,28 @@ export function applyIfaceProbeToRoute(
 
   cloned.avg_latency = latency;
   cloned.min_latency = Math.round(latency);
-  if (!cloned.max_latency || cloned.max_latency < latency) {
-    cloned.max_latency = Math.round(latency);
-  }
-  if (probe?.jitter != null) {
+  cloned.max_latency = Math.round(latency);
+  if (probe.jitter != null) {
     cloned.jitter = probe.jitter;
   }
-  if (probe?.score != null && probe.score > 0) {
+  if (probe.score != null && probe.score > 0) {
     cloned.score = probe.score;
   }
-  // Multi-hop: keep topology legs (98ms Frankfurt). Only direct routes sync the hop.
-  if ((cloned.hops?.length ?? 0) <= 1) {
+
+  const hops = cloned.hops ?? [];
+  if (hops.length <= 1) {
     syncRouteHopLatencies(cloned, latency);
+  } else if (hops[0]) {
+    // Diagram first-leg label is client→entry — stamp this NIC's measured RTT
+    // (minus downstream path-matrix legs when that still leaves a positive hop0).
+    const rest = hops
+      .slice(1)
+      .reduce((sum, hop) => sum + (hop.latency || 0), 0);
+    const hop0 =
+      rest > 0 && latency > rest + 5
+        ? Math.round(latency - rest)
+        : Math.round(latency);
+    hops[0].latency = Math.max(1, hop0);
   }
   return cloned;
 }
@@ -303,6 +436,20 @@ export function applyIfaceProbeToRoute(
 /** End-to-end RTT to the relay — never report below the client→entry hop floor. */
 export function routeRelayLatency(route: NodeRoute | null | undefined): number {
   if (!route) {
+    return 0;
+  }
+
+  const hops = route.hops ?? [];
+  const hop0Raw = hops[0]?.latency;
+  // Unknown client→entry (−1 / missing): do NOT invent ping from exit stubs (6ms).
+  const hop0Unknown =
+    hops.length > 0 &&
+    (hop0Raw == null || Number.isNaN(hop0Raw) || hop0Raw < 0);
+  if (hop0Unknown) {
+    const measured = route.avg_latency || route.min_latency || 0;
+    if (measured > 0 && isPlausibleProbeForRoute(measured, route, 0)) {
+      return Math.round(measured);
+    }
     return 0;
   }
 
@@ -322,15 +469,38 @@ export function routeRelayLatency(route: NodeRoute | null | undefined): number {
     return clampToFloor(measured);
   }
 
-  const hops = route.hops ?? [];
   if (hops.length === 0) {
     return floor > 0 ? Math.round(floor) : 0;
   }
   if (hops.length === 1) {
-    return clampToFloor(hops[0]?.latency || floor || 0);
+    const only = hops[0]?.latency ?? 0;
+    // Direct single-hop with true 0 is not a useful E2E ping.
+    if (!(only > 0)) {
+      return floor > 0 ? Math.round(floor) : 0;
+    }
+    return clampToFloor(only);
   }
 
-  const hopSum = hops.reduce((sum, hop) => sum + (hop.latency || 0), 0);
+  const hopSum = hops.reduce((sum, hop) => {
+    const ms = hop.latency ?? 0;
+    return sum + (ms > 0 ? ms : 0);
+  }, 0);
+  const hop0 = hop0Raw != null && hop0Raw > 0 ? hop0Raw : 0;
+  // All-stub path matrix (tiny hop0 + tiny edges) without a real E2E sample.
+  if (
+    hops.length > 1 &&
+    hop0 > 0 &&
+    hop0 < 20 &&
+    hopSum > 0 &&
+    hopSum < 40 &&
+    !(measured > 0 && isPlausibleProbeForRoute(measured, route, floor))
+  ) {
+    return 0;
+  }
+  // hop0 is known 0 (direct entry=relay) + only stub downstream → not a ping.
+  if (!(hop0 > 0) && hopSum > 0 && hopSum < 40) {
+    return 0;
+  }
   if (floor > 0) {
     return clampToFloor(hopSum > 0 ? hopSum : floor);
   }
@@ -631,6 +801,82 @@ export function expandRoutesForTransportCounts(
   return out.slice(0, MAX_ROUTE_SLOTS);
 }
 
+/**
+ * Simple/unified mode: per path keep the better of TCP vs UDP (UDP on tie),
+ * then take the top `cap` paths — mirrors coordinator.PickBestTransportMix.
+ */
+export function expandRoutesForBestMix(pool: NodeRoute[], cap: number): NodeRoute[] {
+  const limit = Math.max(1, Math.min(MAX_ROUTE_SLOTS, Math.round(cap) || 1));
+  if (!pool.length) {
+    return [];
+  }
+
+  type Cand = { route: NodeRoute; network: "tcp" | "udp"; latency: number; path: string };
+  const cands: Cand[] = [];
+  for (const route of pool) {
+    const latency =
+      typeof route.min_latency === "number" && route.min_latency > 0
+        ? route.min_latency
+        : typeof route.avg_latency === "number" && route.avg_latency > 0
+          ? route.avg_latency
+          : Number.POSITIVE_INFINITY;
+    const path = nodeRoutePathKey(route);
+    const tcpOnly = !!route.tcp_available && !route.udp_available;
+    const udpOnly = !!route.udp_available && !route.tcp_available;
+    if (tcpOnly) {
+      cands.push({ route, network: "tcp", latency, path });
+    } else if (udpOnly) {
+      cands.push({ route, network: "udp", latency, path });
+    } else {
+      if (route.tcp_available !== false) {
+        cands.push({ route, network: "tcp", latency, path });
+      }
+      if (route.udp_available !== false) {
+        cands.push({ route, network: "udp", latency, path });
+      }
+    }
+  }
+
+  const better = (a: Cand, b: Cand) => {
+    if (a.latency !== b.latency) return a.latency < b.latency;
+    if (a.network !== b.network) return a.network === "udp";
+    return a.path < b.path;
+  };
+
+  // One winner per path — better transport; UDP when equal.
+  const byPath = new Map<string, Cand>();
+  for (const c of cands) {
+    const prev = byPath.get(c.path);
+    if (!prev || better(c, prev)) {
+      byPath.set(c.path, c);
+    }
+  }
+  const winners = [...byPath.values()].sort((a, b) => (better(a, b) ? -1 : 1));
+
+  const out: NodeRoute[] = [];
+  const usedPath = new Set<string>();
+  const usedHop = new Set<string>();
+
+  const tryPick = (c: Cand, requireNewHop: boolean) => {
+    if (usedPath.has(c.path)) return;
+    const hop = c.path.split("->")[0] || c.path;
+    if (requireNewHop && hop && usedHop.has(hop)) return;
+    usedPath.add(c.path);
+    if (hop) usedHop.add(hop);
+    out.push(tagRouteNetwork(c.route, c.network));
+  };
+
+  for (const c of winners) {
+    if (out.length >= limit) break;
+    tryPick(c, true);
+  }
+  for (const c of winners) {
+    if (out.length >= limit) break;
+    tryPick(c, false);
+  }
+  return out.slice(0, limit);
+}
+
 export function buildMultipathRoutesFromPool(
   matchingNodes: any[],
   routes: Record<string, RelayRoute>,
@@ -661,6 +907,25 @@ export function buildMultipathRoutesFromPool(
   }
 
   return out.slice(0, MAX_ROUTE_SLOTS);
+}
+
+/** Unified cap: merge TCP+UDP relay pools and pick the best mix. */
+export function buildBestMixRoutesFromPool(
+  matchingNodes: any[],
+  routes: Record<string, RelayRoute>,
+  cap: number
+): NodeRoute[] {
+  const nodeId = findBestNodeId(matchingNodes, routes);
+  if (!nodeId) {
+    return [];
+  }
+  const tcpRoutes = relayRoutesForNode(routes, nodeId, "tcp").map((r) =>
+    tagRouteNetwork(r, "tcp")
+  );
+  const udpRoutes = relayRoutesForNode(routes, nodeId, "udp").map((r) =>
+    tagRouteNetwork(r, "udp")
+  );
+  return expandRoutesForBestMix([...tcpRoutes, ...udpRoutes], cap);
 }
 
 function findBestRelayRoute(
@@ -735,7 +1000,8 @@ function collectConnectionRoutes(
 
 export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
   const store = useStore();
-  const { connections, routeProbeHistory } = useMonitoringStore();
+  const { connections, routeProbeHistory, routeProbeReceivedCount } =
+    useMonitoringStore();
   const { getNodeLabelByIp } = useNodeLocationLabel();
   const {
     resolvedGlobalTcp,
@@ -750,17 +1016,17 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
   );
 
   /** Profile override, else network-adapter settings defaults. */
-  const resolvedTcpConnections = computed(() => {
-    const custom = profileState.value?.tcp_connections;
-    if (custom != null) return custom;
-    return resolvedGlobalTcp.value ?? DEFAULT_TCP_ROUTES;
-  });
+  const resolvedRouteCounts = computed(() =>
+    resolveProfileRouteCounts(profileState.value, {
+      tcp: resolvedGlobalTcp.value ?? DEFAULT_TCP_ROUTES,
+      udp: resolvedGlobalUdp.value ?? DEFAULT_UDP_ROUTES,
+    })
+  );
 
-  const resolvedUdpConnections = computed(() => {
-    const custom = profileState.value?.udp_connections;
-    if (custom != null) return custom;
-    return resolvedGlobalUdp.value ?? DEFAULT_UDP_ROUTES;
-  });
+  const resolvedTcpConnections = computed(() => resolvedRouteCounts.value.tcp);
+  const resolvedUdpConnections = computed(() => resolvedRouteCounts.value.udp);
+  const resolvedRouteCap = computed(() => resolvedRouteCounts.value.total);
+  const usesUnifiedRoutes = computed(() => resolvedRouteCounts.value.unified);
 
   const stickyTopConnectionId = ref<string | null>(null);
   const { selectedConnectionId } = useProfileChartConnection(
@@ -846,6 +1112,18 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
       return 0;
     }
 
+    const flags = profileRef.value?.flags ?? 0;
+    const preventDisconnect =
+      (flags & ProfileFlag.PREVENT_DISCONNECT) !== 0 &&
+      (flags & ProfileFlag.MULTIPATH) === 0;
+    if (preventDisconnect) {
+      return 1;
+    }
+
+    if (usesUnifiedRoutes.value) {
+      return Math.min(MAX_ROUTE_SLOTS, Math.max(1, resolvedRouteCap.value));
+    }
+
     return Math.min(
       MAX_ROUTE_SLOTS,
       Math.max(1, resolvedTcpConnections.value + resolvedUdpConnections.value)
@@ -905,8 +1183,6 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
       return [];
     }
 
-    const tcpCount = resolvedTcpConnections.value;
-    const udpCount = resolvedUdpConnections.value;
     const profileId = profileRef.value?.id ?? "";
     const fromConnections = collectConnectionRoutes(
       profileId,
@@ -918,6 +1194,12 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
         ? fromConnections
         : routesFromRelayRoute(connectionRelayRoute.value, slots);
 
+    if (usesUnifiedRoutes.value) {
+      return expandRoutesForBestMix(pool, slots);
+    }
+
+    const tcpCount = resolvedTcpConnections.value;
+    const udpCount = resolvedUdpConnections.value;
     // Always re-apply TCP/UDP counts from Route Settings so labels match the
     // panel (0 TCP / 2 UDP → UDP chips), not optimizer dual-capability flags.
     return expandRoutesForTransportCounts(pool, tcpCount, udpCount);
@@ -932,6 +1214,14 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
     }
     if (matchingRelayNodes.value.length === 0) {
       return [];
+    }
+
+    if (usesUnifiedRoutes.value) {
+      return buildBestMixRoutesFromPool(
+        matchingRelayNodes.value,
+        store.routes ?? {},
+        resolvedRouteCap.value
+      );
     }
 
     const tcpCount = resolvedTcpConnections.value;
@@ -986,22 +1276,92 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
     // re-sorting after probe apply would reshuffle chart series identities.
     const sourceRoutes = sortRoutesByLatency(displayRoutes.value).slice(0, slots);
     const probeSlots = latestRelayProbeSlots();
+    const recentEvents = recentRelayProbeEvents();
+    const entryRtt = store.ifaceEntryRtt ?? {};
 
     return profileInterfaces.value.map((name, index) => {
       const routes = sourceRoutes.map((route, slotIndex) => {
         const globalIndex = index * slots + slotIndex;
         const pathKey = nodeRoutePathKey(route);
-        const topologyFloor = routeHopFloorMs(route);
-        const probe = pickIfaceProbeSlot(
+        // Do NOT use shared hop0 as floor — that hop0 is often another NIC's
+        // (or "best") stamp and rejects this NIC's real probe as "too fast".
+        const matrixFloor = (route.hops ?? [])
+          .slice(1)
+          .reduce((sum, hop) => sum + (hop.latency || 0), 0);
+        let probe: {
+          latency?: number;
+          packet_loss?: number;
+          jitter?: number;
+          score?: number;
+        } | null = pickIfaceProbeSlot(
           probeSlots,
           name,
           pathKey,
           slotIndex,
           globalIndex,
           route,
-          topologyFloor
+          matrixFloor
         );
-        return applyIfaceProbeToRoute(route, probe, topologyFloor);
+        // 100% loss miss must not stick as "live" — fall through to this NIC's last good.
+        if (probe && (probe.packet_loss ?? 0) >= 100) {
+          probe = null;
+        }
+        // Current tick miss (MCI 100% loss) — use this NIC's last good only.
+        if ((!probe || !(probe.latency > 0)) && name) {
+          const lastGood = lastGoodIfaceProbeMs(recentEvents, name, pathKey);
+          if (lastGood > 0) {
+            probe = { latency: lastGood, packet_loss: 0 };
+          }
+        }
+        // No live probe yet — overlay this NIC's optimize entry RTT (node id key).
+        if (!probe || !(probe.latency > 0)) {
+          const entryIp = route.hops?.[0]?.ip;
+          const resolved = nodeIdForHopIp(store.nodes ?? {}, entryIp);
+          if (resolved?.nodeId && name) {
+            const hop0 = lookupIfaceEntryRttMs(
+              entryRtt,
+              name,
+              resolved.nodeId,
+              resolved.ipVersion
+            );
+            if (hop0 > 0) {
+              const rest = (route.hops ?? [])
+                .slice(1)
+                .reduce((sum, hop) => sum + (hop.latency || 0), 0);
+              probe = {
+                latency: hop0 + rest,
+                packet_loss: probe?.packet_loss ?? 0,
+                score: probe?.score,
+                jitter: probe?.jitter,
+              };
+            }
+          }
+          // Relay node itself (direct / live E2E sample for this NIC only).
+          if ((!probe || !(probe.latency > 0)) && name && primaryRelayNodeId.value) {
+            const e2e = lookupIfaceEntryRttMs(
+              entryRtt,
+              name,
+              primaryRelayNodeId.value,
+              "all"
+            );
+            if (e2e > 0) {
+              probe = {
+                latency: e2e,
+                packet_loss: probe?.packet_loss ?? 0,
+                score: probe?.score,
+                jitter: probe?.jitter,
+              };
+            }
+          }
+        }
+        // Without a per-NIC sample, clear shared hop0 — never paint PTP onto MCI.
+        const applied =
+          probe && probe.latency > 0
+            ? applyIfaceProbeToRoute(route, probe, matrixFloor)
+            : blankIfaceRouteMetrics(route);
+        // Diagram loss = recent window, not the latest probe tick (that stuck at 100%).
+        applied.packet_loss = recentIfacePathLoss(recentEvents, name, pathKey);
+        return applied;
       });
       return {
         index,
@@ -1012,12 +1372,104 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
     });
   });
 
-  function latestRelayProbeSlots(): RouteProbeSlotMetric[] {
+  /** Last ~30s of probe events for the primary relay (for rolling path loss). */
+  function recentRelayProbeEvents(): RouteProbeEvent[] {
     const tag = primaryRelayNodeId.value;
     if (!tag) {
       return [];
     }
     const history = routeProbeHistory.value;
+    const candidates = [
+      tag,
+      `${tag}-ipv4-udp`,
+      `${tag}-ipv4-tcp`,
+      `${tag}-ipv6-udp`,
+      `${tag}-ipv6-tcp`,
+    ];
+    let events: RouteProbeEvent[] | undefined;
+    for (const key of candidates) {
+      if (history[key]?.length) {
+        events = history[key];
+        break;
+      }
+    }
+    if (!events) {
+      for (const [key, list] of Object.entries(history)) {
+        if (!list?.length) continue;
+        if (key === tag || key.startsWith(`${tag}-`)) {
+          events = list;
+          break;
+        }
+      }
+    }
+    if (!events?.length) {
+      return [];
+    }
+    const cutoff = Date.now() - 30_000;
+    const recent = events.filter((event) => {
+      const ts = event.timestamp ? new Date(event.timestamp).getTime() : 0;
+      return ts >= cutoff;
+    });
+    // Fallback: last ~60 samples (~30s at 2Hz) when timestamps are missing.
+    return recent.length > 0 ? recent : events.slice(-60);
+  }
+
+  function recentIfacePathLoss(
+    events: RouteProbeEvent[],
+    iface: string,
+    pathKey: string
+  ): number {
+    if (!events.length) {
+      return 0;
+    }
+    let total = 0;
+    let failed = 0;
+    for (const event of events) {
+      for (const slot of event.slots ?? []) {
+        if (iface && slot.iface && slot.iface !== iface) {
+          continue;
+        }
+        if (pathKey) {
+          if (!slot.path_key || slot.path_key !== pathKey) {
+            continue;
+          }
+        }
+        total++;
+        const latency = slot.latency ?? 0;
+        const loss = slot.packet_loss ?? 0;
+        if (loss >= 100 || !(latency > 0) || latency >= 500) {
+          failed++;
+        }
+      }
+    }
+    if (total === 0) {
+      return 0;
+    }
+    return (failed / total) * 100;
+  }
+
+  function latestRelayProbeSlots(): RouteProbeSlotMetric[] {
+    const tag = primaryRelayNodeId.value;
+    // Touch received-count so interface groups recompute when probes arrive.
+    void routeProbeReceivedCount.value;
+    const history = routeProbeHistory.value;
+    if (!tag) {
+      // Fall back to whichever relay has the newest probe event.
+      let newest: RouteProbeSlotMetric[] = [];
+      let newestTs = 0;
+      for (const events of Object.values(history)) {
+        if (!events?.length) {
+          continue;
+        }
+        const last = events[events.length - 1];
+        const ts = last?.timestamp ? new Date(last.timestamp).getTime() : 0;
+        if (ts >= newestTs && (last.slots?.length ?? 0) > 0) {
+          newestTs = ts;
+          newest = last.slots ?? [];
+        }
+      }
+      return newest;
+    }
     const candidates = [
       tag,
       `${tag}-ipv4-udp`,
@@ -1035,7 +1487,7 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
       if (!events?.length) {
         continue;
       }
-      if (key === tag || key.startsWith(`${tag}-`)) {
+      if (key === tag || key.startsWith(`${tag}-`) || tag.startsWith(`${key}-`)) {
         return events[events.length - 1]?.slots ?? [];
       }
     }
@@ -1046,8 +1498,8 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
     slots: RouteProbeSlotMetric[],
     iface: string,
     pathKey: string,
-    _slotIndex: number,
-    globalSlot: number,
+    slotIndex: number,
+    _globalSlot: number,
     route: NodeRoute | null,
     topologyFloorMs?: number
   ): RouteProbeSlotMetric | null {
@@ -1055,57 +1507,98 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
       return null;
     }
 
+    const want = (iface || "").trim().toLowerCase();
+    // Named NIC view: ONLY this NIC's slots — never legacy index packing (that
+    // assigned PTP's slot 0 onto MCI when iface tags were briefly missing).
+    if (!want) {
+      return null;
+    }
+
     const pickBest = (candidates: RouteProbeSlotMetric[]) => {
-      const udp = candidates.filter(
+      if (!candidates.length) {
+        return null;
+      }
+      const alive = candidates.filter((slot) => (slot.packet_loss ?? 0) < 100);
+      const poolSource = alive.length > 0 ? alive : candidates;
+      const udp = poolSource.filter(
         (slot) => !slot.network || slot.network === "udp"
       );
-      const pool = udp.length > 0 ? udp : candidates;
-      // Latest plausible sample — never the lucky minimum (that produced 20ms).
+      const tcp = poolSource.filter((slot) => slot.network === "tcp");
+      const pools =
+        udp.length > 0 && tcp.length > 0
+          ? [udp, tcp, poolSource]
+          : udp.length > 0
+            ? [udp, poolSource]
+            : [poolSource];
+
       let best: RouteProbeSlotMetric | null = null;
-      for (const slot of pool) {
-        const latency = slot.latency ?? 0;
-        if (!isPlausibleProbeForRoute(latency, route, topologyFloorMs)) {
-          continue;
+      for (const pool of pools) {
+        for (const slot of pool) {
+          if ((slot.packet_loss ?? 0) >= 100) {
+            continue;
+          }
+          const latency = slot.latency ?? 0;
+          if (!isPlausibleProbeForRoute(latency, route, topologyFloorMs)) {
+            continue;
+          }
+          best = slot;
         }
-        best = slot;
+        if (best) {
+          return best;
+        }
       }
-      return best;
+      return null;
     };
 
-    const hasNamed = slots.some((slot) => !!slot.iface);
-    const ifaceSlots = hasNamed
-      ? slots
-          .filter((slot) => slot.iface === iface)
-          .slice()
-          .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0))
-      : [];
+    const ifaceSlots = slots
+      .filter((slot) => (slot.iface || "").trim().toLowerCase() === want)
+      .slice()
+      .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
+    if (!ifaceSlots.length) {
+      return null;
+    }
 
-    // Prefer exact path when the current leg is still being probed.
-    if (hasNamed && pathKey) {
+    if (pathKey) {
       const pathSlots = ifaceSlots.filter((slot) => slot.path_key === pathKey);
       const byPath = pickBest(pathSlots);
       if (byPath) {
         return byPath;
       }
-      // Timeout / nonsense RTT — still return so packet_loss paints on the diagram.
-      const miss = pathSlots.find((slot) => (slot.packet_loss ?? 0) > 0 || !(slot.latency > 0));
-      if (miss) {
-        return miss;
-      }
-      return null;
     }
-
-    // Legacy flat-packed slots: iface0 → slots 0..n-1, iface1 → n..2n-1.
-    const legacy = pickBest(slots.filter((slot) => slot.slot === globalSlot));
-    if (legacy) {
-      return legacy;
-    }
-    const legacyMiss = slots.find(
-      (slot) =>
-        slot.slot === globalSlot &&
-        ((slot.packet_loss ?? 0) > 0 || !(slot.latency > 0))
+    const bySlotIndex = pickBest(
+      ifaceSlots.filter((slot) => slot.slot === slotIndex)
     );
-    return legacyMiss ?? null;
+    if (bySlotIndex) {
+      return bySlotIndex;
+    }
+    return pickBest(ifaceSlots);
+  }
+
+  /** Last good latency for this NIC+path from recent probe history (not another NIC). */
+  function lastGoodIfaceProbeMs(
+    events: RouteProbeEvent[],
+    iface: string,
+    pathKey: string
+  ): number {
+    const want = (iface || "").trim().toLowerCase();
+    if (!want || !events.length) {
+      return 0;
+    }
+    for (let i = events.length - 1; i >= 0; i--) {
+      for (const slot of events[i]?.slots ?? []) {
+        if ((slot.iface || "").trim().toLowerCase() !== want) {
+          continue;
+        }
+        if (pathKey && slot.path_key && slot.path_key !== pathKey) {
+          continue;
+        }
+        const latency = slot.latency ?? 0;
+        if (latency > 0 && (slot.packet_loss ?? 0) < 100) {
+          return latency;
+        }
+      }
+    }
+    return 0;
   }
 
   const numberOfRoutes = computed(() => routeSlotCount.value);
@@ -1159,8 +1652,8 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
 
   /**
    * Chart series for the interface selector.
-   * - Best Internet → every selected NIC (so Ethernet + Ethernet 2 both appear).
-   * - A named NIC → that group's route slots only.
+   * - Best Internet → every selected NIC.
+   * - A named NIC → that group's route slots only (never silently fall back to all).
    */
   function chartSeriesForInterface(selectedKey: string) {
     const all = routeSeries.value;
@@ -1168,18 +1661,23 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
     if (all.length === 0 || groups.length === 0) {
       return [];
     }
-    if (selectedKey === "best" || !selectedKey || groups.length === 1) {
+    if (selectedKey === "best" || !selectedKey) {
+      return all;
+    }
+    if (groups.length === 1) {
       return all;
     }
 
-    const group =
-      groups.find((item) => item.name === selectedKey) ??
-      pickBestInterfaceGroup(groups);
-
+    const want = selectedKey.trim().toLowerCase();
+    const group = groups.find(
+      (item) => (item.name || "").trim().toLowerCase() === want
+    );
     if (!group) {
-      return all;
+      return [];
     }
-    return all.filter((series) => series.iface === group.name);
+    return all.filter(
+      (series) => (series.iface || "").trim().toLowerCase() === want
+    );
   }
 
   /** Default chart series when no selector is wired (all profile NICs). */

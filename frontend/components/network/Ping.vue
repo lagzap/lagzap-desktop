@@ -43,8 +43,13 @@ const relayRoute = computed<RelayRoute | null>(() => {
 });
 
 const displayLatencyMs = computed(() => {
-  if (props.latencyMs != null && props.latencyMs > 0) {
-    return Math.round(props.latencyMs);
+  // Explicit filtered/override value from parent — never fall back to the
+  // shared optimize cache (that ignored the Network Latency interface filter).
+  if (props.latencyMs !== undefined) {
+    if (props.latencyMs != null && props.latencyMs > 0) {
+      return Math.round(props.latencyMs);
+    }
+    return null;
   }
   return displayPingMsForRelay(
     props.tag,

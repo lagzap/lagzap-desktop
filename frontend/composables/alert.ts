@@ -1,5 +1,6 @@
 import type { LocaleInstance } from "vuetify";
 import { useMessagesStore } from "~/stores/messages";
+import { getNetworkFailureKind } from "~/utils/httpError";
 
 export const displayAlert = (
   text: string,
@@ -10,7 +11,38 @@ export const displayAlert = (
   messagesStore.add({ text, color, timeout });
 };
 
+function networkFailureMessage(
+  error: unknown,
+  locale: LocaleInstance | undefined
+): string | null {
+  const kind = getNetworkFailureKind(error);
+  if (!kind) {
+    return null;
+  }
+  if (locale) {
+    if (kind === "timeout") {
+      return locale.t("$vuetify.startService.serverUnreachableTimeout");
+    }
+    if (kind === "proxy") {
+      return locale.t("$vuetify.startService.localProxyNotReady");
+    }
+    return locale.t("$vuetify.startService.serverUnreachable");
+  }
+  if (kind === "timeout") {
+    return "Can't reach Cyrex servers (timed out). Check your internet and try again.";
+  }
+  if (kind === "proxy") {
+    return "Local connection helper is not ready. Retry in a moment.";
+  }
+  return "Can't reach Cyrex servers. Check your internet and try again.";
+}
+
 export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined = undefined) => {
+  const networkMsg = networkFailureMessage(error, locale);
+  if (networkMsg) {
+    return networkMsg;
+  }
+
   const source = error?.value ?? error
   const payload = source?.response?._data ?? source?._data ?? source
   const statusCode = source?.statusCode ?? source?.status ?? source?.response?.status
@@ -67,13 +99,17 @@ export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined
     default: {
       const rawMessage = typeof message === "string" ? message : ""
       if (rawMessage.includes("<no response>") || rawMessage.includes("FetchError")) {
-        message = "Network error. Please check your connection."
+        message = locale
+          ? locale.t("$vuetify.startService.serverUnreachable")
+          : "Can't reach Cyrex servers. Check your internet and try again."
         break
       }
       if (rawMessage && rawMessage !== "An error occurred") {
         break
       }
-      message = "An error occurred. Code: 0x00000"
+      message = locale
+        ? locale.t("$vuetify.startService.serverUnreachable")
+        : "Can't reach Cyrex servers. Check your internet and try again."
       break
     }
   }

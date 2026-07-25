@@ -200,6 +200,13 @@ func (s *Service) GetOptimizeProgress() *D.Optimize {
 	return s.coordinator.GetOptimize()
 }
 
+func (s *Service) GetIfaceEntryRTTs() map[string]float32 {
+	if !s.IsReady() {
+		return nil
+	}
+	return s.coordinator.SnapshotIfaceEntryRTTs()
+}
+
 func (s *Service) TestSpecificNode(nodeId string) (map[string]*D.RelayRoute, error) {
 	if !s.IsReady() {
 		return nil, E.New("coordinator_not_ready")

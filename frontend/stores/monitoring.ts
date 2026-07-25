@@ -122,8 +122,9 @@ function createMonitoringStore() {
     if (!data) {
       return;
     }
-    const probe = data as RouteProbeEvent;
-    const tag = probe.route_tag;
+    // Wails Event.Emit packs args into an array — single-arg payloads land at data[0].
+    const probe = (Array.isArray(data) ? data[0] : data) as RouteProbeEvent;
+    const tag = probe?.route_tag;
     if (!tag) {
       return;
     }

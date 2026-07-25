@@ -126,6 +126,19 @@ const interfaceFilterItems = computed(() => [
   })),
 ]);
 
+function onInterfaceFilterSelect(value: unknown) {
+  if (typeof value === "string" && value) {
+    interfaceFilter.value = value;
+    return;
+  }
+  if (value && typeof value === "object" && "value" in value) {
+    const v = (value as { value: unknown }).value;
+    if (typeof v === "string" && v) {
+      interfaceFilter.value = v;
+    }
+  }
+}
+
 const showRouteDialog = ref(false);
 const selectedNode = ref<Node | null>(null);
 
@@ -211,6 +224,10 @@ const areasByRegion = computed(() => {
 });
 
 const regionLatencyByTag = computed(() => {
+  // Touch filters so switching NIC/stack/transport always recomputes cards.
+  void interfaceFilter.value;
+  void stackFilter.value;
+  void transportFilter.value;
   const result: Record<string, ReturnType<typeof getFilteredLatencyForRegion>> = {};
   for (const region of visibleRegions.value) {
     result[region.tag] = getFilteredLatencyForRegion(region.tag, areasByRegion.value);
@@ -219,6 +236,9 @@ const regionLatencyByTag = computed(() => {
 });
 
 const areaLatencyByKey = computed(() => {
+  void interfaceFilter.value;
+  void stackFilter.value;
+  void transportFilter.value;
   const result: Record<string, ReturnType<typeof getFilteredLatencyForNodes>> = {};
   for (const [area, nodes] of Object.entries(areas.value)) {
     result[area] = getFilteredLatencyForNodes(nodes);
@@ -227,6 +247,9 @@ const areaLatencyByKey = computed(() => {
 });
 
 const nodeLatencyById = computed(() => {
+  void interfaceFilter.value;
+  void stackFilter.value;
+  void transportFilter.value;
   const result: Record<string, ReturnType<typeof getFilteredLatencyForNode>> = {};
   for (const node of Object.values(store.nodes)) {
     if (hasRelayFlag(node)) {
@@ -261,38 +284,50 @@ async function optimize() {
   } as any;
 
   await StartOptimizing();
-  store.optimizeMinimized = false;
 
   // Poll RPC — Wails may wrap event payloads; this keeps the bar moving.
+  // Ignore a premature is_complete until we've seen real work from this run
+  // (stale completed snapshot from the previous optimize used to flash the panel).
+  // Do not touch optimizeMinimized here — progress events used to force-expand.
+  let sawLiveWork = false;
   const deadline = Date.now() + 180_000;
   while (Date.now() < deadline) {
     try {
       const progress = await GetOptimizeProgress();
       if (progress) {
+        const probeTotal =
+          progress.probe_total ?? (progress as any).probeTotal ?? 0;
+        const probeDone =
+          progress.probe_completed ?? (progress as any).probeCompleted ?? 0;
+        const verifyTotal =
+          progress.verify_total ?? (progress as any).verifyTotal ?? 0;
+        const verifyDone =
+          progress.verify_completed ?? (progress as any).verifyCompleted ?? 0;
+        const pct = progress.progress ?? 0;
+        if (probeTotal > 0 || probeDone > 0 || verifyTotal > 0 || verifyDone > 0 || pct > 0) {
+          sawLiveWork = true;
+        }
         const isComplete = !!(
           progress.is_complete ?? (progress as any).isComplete
         );
+        if (isComplete && !sawLiveWork) {
+          await new Promise((r) => setTimeout(r, 250));
+          continue;
+        }
         store.optimizeProgress = {
           total_tests:
             progress.total_tests ?? (progress as any).totalTests ?? 100,
           completed_tests:
             progress.completed_tests ?? (progress as any).completedTests ?? 0,
           is_complete: isComplete,
-          progress: progress.progress ?? 0,
+          progress: pct,
           phase: progress.phase || "probe",
-          probe_total:
-            progress.probe_total ?? (progress as any).probeTotal ?? 0,
-          probe_completed:
-            progress.probe_completed ?? (progress as any).probeCompleted ?? 0,
-          verify_total:
-            progress.verify_total ?? (progress as any).verifyTotal ?? 0,
-          verify_completed:
-            progress.verify_completed ??
-            (progress as any).verifyCompleted ??
-            0,
+          probe_total: probeTotal,
+          probe_completed: probeDone,
+          verify_total: verifyTotal,
+          verify_completed: verifyDone,
           interfaces: progress.interfaces ?? [],
         } as any;
-        store.optimizeMinimized = false;
         if (isComplete) {
           break;
         }
@@ -358,7 +393,7 @@ async function optimize() {
           >
             <v-col cols="12" sm="4">
               <v-select
-                v-model="interfaceFilter"
+                :model-value="interfaceFilter"
                 :items="interfaceFilterItems"
                 item-value="value"
                 item-title="title"
@@ -366,6 +401,7 @@ async function optimize() {
                 density="compact"
                 variant="outlined"
                 hide-details
+                @update:model-value="onInterfaceFilterSelect"
               />
             </v-col>
             <v-col cols="12" sm="4">
@@ -481,7 +517,13 @@ async function optimize() {
                           :tag="areaLatencyByKey[area].routeTag"
                           :latency-ms="areaLatencyByKey[area].latencyMs"
                         />
-                        <Ping v-else :tag="firstNodeIdForArea(nodes)" />
+                        <Ping
+                          v-else-if="interfaceFilter === 'best'"
+                          :tag="firstNodeIdForArea(nodes)"
+                        />
+                        <span v-else class="text-caption text-medium-emphasis"
+                          >-</span
+                        >
                       </template>
                     </v-card>
                   </template>
@@ -501,7 +543,17 @@ async function optimize() {
                           :tag="nodeLatencyById[node.id].routeTag"
                           :latency-ms="nodeLatencyById[node.id].latencyMs"
                         />
-                        <Ping v-else-if="hasRelayFlag(node)" :tag="node.id" />
+                        <Ping
+                          v-else-if="
+                            interfaceFilter === 'best' && hasRelayFlag(node)
+                          "
+                          :tag="node.id"
+                        />
+                        <span
+                          v-else-if="hasRelayFlag(node)"
+                          class="text-caption text-medium-emphasis"
+                          >-</span
+                        >
                       </template>
                     </v-list-item>
                   </v-list>
@@ -544,7 +596,13 @@ async function optimize() {
                         :tag="areaLatencyByKey[area].routeTag"
                         :latency-ms="areaLatencyByKey[area].latencyMs"
                       />
-                      <Ping v-else :tag="firstNodeIdForArea(nodes)" />
+                      <Ping
+                        v-else-if="interfaceFilter === 'best'"
+                        :tag="firstNodeIdForArea(nodes)"
+                      />
+                      <span v-else class="text-caption text-medium-emphasis"
+                        >-</span
+                      >
                     </template>
                   </v-card>
                 </template>
@@ -564,7 +622,17 @@ async function optimize() {
                         :tag="nodeLatencyById[node.id].routeTag"
                         :latency-ms="nodeLatencyById[node.id].latencyMs"
                       />
-                      <Ping v-else-if="hasRelayFlag(node)" :tag="node.id" />
+                      <Ping
+                        v-else-if="
+                          interfaceFilter === 'best' && hasRelayFlag(node)
+                        "
+                        :tag="node.id"
+                      />
+                      <span
+                        v-else-if="hasRelayFlag(node)"
+                        class="text-caption text-medium-emphasis"
+                        >-</span
+                      >
                     </template>
                   </v-list-item>
                 </v-list>

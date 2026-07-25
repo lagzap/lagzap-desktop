@@ -1160,7 +1160,7 @@ export function useLatencyMetrics(
     chartData.value.rankedInterfaces.map((name) => {
       const { iface, slot } = parseSeriesInterfaceKey(name);
       const routeLabel = latency.value?.interfaces?.[name]?.target_ip?.trim();
-      // Profile series keys are `iface::slot` — prefer the route label, else "Ethernet · 2".
+      // Profile series keys are `iface::slot` — prefer the route label, else iface · slot.
       // ICMP series keys are bare iface names.
       const label = name.includes("::")
         ? routeLabel || `${iface} · ${slot + 1}`

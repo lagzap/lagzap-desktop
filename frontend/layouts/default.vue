@@ -112,7 +112,18 @@ const globalProgress = computed(() => {
   }
 
   if (measureTotal > 0 || confirmTotal > 0) {
-    return Math.min(99, Math.max(0, Math.round(measurePct + confirmPct)));
+    const total = Math.round(measurePct + confirmPct);
+    // When verify units are fully done, show 100 even before is_complete —
+    // progress was hard-capped at 99 and looked stuck while adapters were green.
+    if (
+      measureTotal > 0 &&
+      measureDone >= measureTotal &&
+      confirmTotal > 0 &&
+      confirmDone >= confirmTotal
+    ) {
+      return 100;
+    }
+    return Math.min(99, Math.max(0, total));
   }
 
   const backend = Number(o.progress ?? 0);

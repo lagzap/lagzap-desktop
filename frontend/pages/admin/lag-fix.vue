@@ -145,7 +145,7 @@ const howToRead = [
   },
   {
     title: "user_side_lag / high Internet ms",
-    text: "Your uplink (Ethernet/Ethernet 2) is lagging. Changing game legs cannot fix that.",
+    text: "Your uplink adapter is lagging. Changing game legs cannot fix that.",
   },
   {
     title: "silent-redial",

@@ -7,7 +7,6 @@ import {
 import {
   nodeRoutePathKey,
   routeRelayLatency,
-  isPlausibleProbeForRoute,
   useProfileDisplayRoutes,
 } from "~/composables/useProfileDisplayRoutes";
 import {
@@ -167,12 +166,12 @@ export function useRouteLatencyMetrics(profileId: string) {
       }) as Profile
   );
 
-  const { chartSeriesForInterface, primaryRelayNodeId, profileInterfaces } =
+  const { chartSeriesForInterface, primaryRelayNodeId, profileInterfaces, routeSeries } =
     useProfileDisplayRoutes(
       computed(() => profile.value ?? emptyProfile.value)
     );
   const { selectedInterfaceKey } = useProfileViewInterface(profileId);
-  // Best Internet → all selected NICs; a named NIC → that NIC only.
+  // Best Internet → all selected NICs; a named NIC → that NIC only (display).
   const chartRouteSeries = computed(() =>
     chartSeriesForInterface(
       selectedInterfaceKey.value === BEST_INTERFACE
@@ -180,6 +179,8 @@ export function useRouteLatencyMetrics(profileId: string) {
         : selectedInterfaceKey.value
     )
   );
+  // Always ingest probes for every NIC series — filtering is display-only.
+  const allRouteSeries = computed(() => routeSeries.value);
   const { connections, routeProbeHistory, routeProbeReceivedCount } =
     useMonitoringStore();
   const {
@@ -188,6 +189,10 @@ export function useRouteLatencyMetrics(profileId: string) {
     ensureLoaded: ensureNetworkAdapterSettingsLoaded,
   } = useNetworkAdapterSettings();
   void ensureNetworkAdapterSettingsLoaded();
+
+  watch(selectedInterfaceKey, () => {
+    seedRouteHistoryFromRoutes();
+  });
 
   const profileSpeedHistory = ref<NetworkSpeedPoint[]>([]);
   const routePingHistory = ref<Record<string, RoutePingSample[]>>({});
@@ -198,7 +203,10 @@ export function useRouteLatencyMetrics(profileId: string) {
   /** Legs this NIC actually dials — profile override, else per-iface global settings. */
   function routeWeightForInterface(iface: string): number {
     const state = store.profileStates[profileId];
-    if (state?.tcp_connections != null || state?.udp_connections != null) {
+    if (state?.tcp_connections != null || state?.udp_connections != null || state?.route_connections != null) {
+      if (state.route_connections != null) {
+        return Math.max(1, state.route_connections);
+      }
       return Math.max(
         1,
         (state.tcp_connections ?? 0) + (state.udp_connections ?? 0)
@@ -239,7 +247,7 @@ export function useRouteLatencyMetrics(profileId: string) {
   }
 
   function resolveSeriesKey(slot: RouteProbeSlotMetric): string | null {
-    const seriesList = chartRouteSeries.value;
+    const seriesList = allRouteSeries.value;
     if (seriesList.length === 0) {
       return null;
     }
@@ -265,7 +273,7 @@ export function useRouteLatencyMetrics(profileId: string) {
   function slotMapForEvent(slots: RouteProbeSlotMetric[]) {
     const bySeriesKey = new Map<string, RouteProbeSlotMetric>();
     const assigned = new Set<RouteProbeSlotMetric>();
-    const seriesList = chartRouteSeries.value;
+    const seriesList = allRouteSeries.value;
 
     // 1) Exact path matches (success or timeout — PathKey is set either way).
     for (const slot of slots) {
@@ -322,7 +330,7 @@ export function useRouteLatencyMetrics(profileId: string) {
   }
 
   function seedRouteHistoryFromRoutes() {
-    const seriesList = chartRouteSeries.value;
+    const seriesList = allRouteSeries.value;
     if (seriesList.length === 0) {
       return;
     }
@@ -368,7 +376,7 @@ export function useRouteLatencyMetrics(profileId: string) {
     }
     const { key, events } = resolved;
 
-    const seriesList = chartRouteSeries.value;
+    const seriesList = allRouteSeries.value;
     if (seriesList.length === 0) {
       return;
     }
@@ -410,10 +418,10 @@ export function useRouteLatencyMetrics(profileId: string) {
           const latency = slot.latency ?? 0;
           const loss = slot.packet_loss ?? 0;
           const floor = series.hopFloorMs ?? 0;
-          const plausible =
-            isUsableRouteSample(latency) &&
-            isPlausibleProbeForRoute(latency, series.route, floor);
-          if (plausible) {
+          if (isUsableRouteSample(latency)) {
+            // Accept real RTTs even when they undercut the hop floor — painting
+            // those as Timeout flooded the multipath chart while game traffic
+            // was fine on another leg.
             nextHistory[series.key] = appendRouteSample(history, {
               latency,
               ok: true,
@@ -423,7 +431,7 @@ export function useRouteLatencyMetrics(profileId: string) {
               timestamp,
             });
           } else {
-            // Timeout, spike, or impossibly-fast probe — gap the line and mark loss.
+            // Genuine timeout / roof spike — gap the line.
             nextHistory[series.key] = appendRouteSample(history, {
               latency: PING_TIMEOUT_MS,
               ok: false,
@@ -467,12 +475,19 @@ export function useRouteLatencyMetrics(profileId: string) {
 
   watch(probeAppendKey, () => appendProbeSamples(), { immediate: true });
   watch(
-    () => chartRouteSeries.value.map((series) => series.key).join("|"),
+    () => allRouteSeries.value.map((series) => series.key).join("|"),
     () => {
       seedRouteHistoryFromRoutes();
       appendProbeSamples();
     },
     { immediate: true }
+  );
+  // Re-seed display when the adapter filter changes (history already held per NIC).
+  watch(
+    () => chartRouteSeries.value.map((series) => series.key).join("|"),
+    () => {
+      seedRouteHistoryFromRoutes();
+    }
   );
   watch(primaryRelayNodeId, (tag, previousTag) => {
     // Keep history when the same relay tag is re-emitted; only clear on change.
@@ -526,12 +541,25 @@ export function useRouteLatencyMetrics(profileId: string) {
     let bestScore = 0;
 
     for (const series of chartRouteSeries.value) {
-      const history = routePingHistory.value[series.key] ?? [];
+      let history = routePingHistory.value[series.key] ?? [];
 
+      // Filter switched to a NIC with no ingested samples yet — seed one point
+      // from the diagram route so the panel is not stuck on the previous NIC.
       if (history.length === 0) {
-        // No samples yet for this iface×path — omit from chart/legend so
-        // empty labels (e.g. "Tehran 01 (Ethernet 2)" with no line) do not appear.
-        continue;
+        const baseline = routeRelayLatency(series.route);
+        if (!isUsableRouteSample(baseline)) {
+          continue;
+        }
+        history = [
+          {
+            latency: baseline,
+            ok: true,
+            packet_loss: series.route.packet_loss ?? 0,
+            jitter: series.route.jitter ?? 0,
+            score: series.route.score ?? 0,
+            timestamp: Date.now(),
+          },
+        ];
       }
 
       const pings = history.map((point) => ({

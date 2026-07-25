@@ -2,7 +2,11 @@ import type { Node, NodeRoute, RelayRoute } from "~/bindings/github.com/lagzap/z
 import { NodeFlag } from "~/bindings/github.com/lagzap/zap/data";
 import type { RouteProbeSlotMetric } from "~/types/monitoring";
 import {
+  isPlausibleProbeForRoute,
+  lookupIfaceEntryRttMs,
+  nodeIdForHopIp,
   nodeRoutePathKey,
+  routeHopFloorMs,
   routeRelayLatency,
 } from "~/composables/useProfileDisplayRoutes";
 
@@ -62,7 +66,78 @@ function slotMatchesInterface(
   if (iface === "best") {
     return true;
   }
-  return !!slot.iface && slot.iface === iface;
+  if (!slot.iface) {
+    return false;
+  }
+  return slot.iface.trim().toLowerCase() === String(iface).trim().toLowerCase();
+}
+
+/** Card/table latency — same rules as the routes dialog (never raw min alone). */
+function routeDisplayLatencyMs(route: NodeRoute | null | undefined): number | null {
+  if (!route) {
+    return null;
+  }
+  const ms = routeRelayLatency(route);
+  if (!(ms > 0)) {
+    return null;
+  }
+  // Reject impossible EU-sub-20ms stamps from bad hop sums / wrong NIC merge.
+  if (!isPlausibleProbeForRoute(ms, route)) {
+    const floor = routeHopFloorMs(route);
+    if (floor >= 40) {
+      return Math.round(floor);
+    }
+    return null;
+  }
+  return Math.round(ms);
+}
+
+/**
+ * Rebuild E2E latency for a named NIC using that NIC's optimize/live entry RTT
+ * (keyed by node id + ipv4/ipv6) plus shared path-matrix downstream hops.
+ */
+function routeLatencyForInterface(
+  route: NodeRoute | null | undefined,
+  iface: string,
+  entryRtt: Record<string, number>,
+  transport: "tcp" | "udp" | "all",
+  nodes: Record<string, { id?: string; ipv4?: string; ipv6?: string } | null | undefined>,
+  relayNodeId?: string
+): number | null {
+  if (!route || !iface) {
+    return null;
+  }
+  const hops = route.hops ?? [];
+  const networks: ReadonlyArray<"udp" | "tcp" | "icmp"> =
+    transport === "all" ? ["udp", "tcp", "icmp"] : [transport];
+
+  let hop0 = 0;
+  const entry = nodeIdForHopIp(nodes, hops[0]?.ip);
+  if (entry?.nodeId) {
+    hop0 = lookupIfaceEntryRttMs(
+      entryRtt,
+      iface,
+      entry.nodeId,
+      entry.ipVersion,
+      networks
+    );
+  }
+  // Direct / single-hop: sample is against the relay node id.
+  if (!(hop0 > 0) && relayNodeId) {
+    hop0 = lookupIfaceEntryRttMs(entryRtt, iface, relayNodeId, "all", networks);
+  }
+  if (!(hop0 > 0)) {
+    return null;
+  }
+
+  const rest = hops
+    .slice(1)
+    .reduce((sum, hop) => sum + (hop.latency || 0), 0);
+  const total = hops.length <= 1 ? hop0 : hop0 + rest;
+  if (!isPlausibleProbeForRoute(total, route, hop0)) {
+    return Math.round(Math.max(total, hop0));
+  }
+  return Math.round(total);
 }
 
 export function useNetworkLatencyGrid() {
@@ -125,9 +200,16 @@ export function useNetworkLatencyGrid() {
       routeTag: nodeId,
       relayRoute: null,
     };
+    const namedIface =
+      interfaceFilter.value !== "best" ? interfaceFilter.value : "";
+    const entryRtt = store.ifaceEntryRtt ?? {};
 
     for (const variant of routeVariants.value) {
       const routeTag = `${nodeId}-${variant}`;
+      const routeData = store.routes[routeTag];
+      const transport = variant.endsWith("tcp")
+        ? ("tcp" as const)
+        : ("udp" as const);
       const probeEvents = routeProbeHistory.value[routeTag];
       if (probeEvents?.length) {
         const latest = probeEvents[probeEvents.length - 1];
@@ -141,22 +223,42 @@ export function useNetworkLatencyGrid() {
           if (!slotMatchesInterface(slot, interfaceFilter.value)) {
             continue;
           }
-          best = considerLatency(best, slot.latency, routeTag, null);
+          const pathRoute =
+            routeData?.routes?.find(
+              (route) => route && nodeRoutePathKey(route) === slot.path_key
+            ) ??
+            routeData?.routes?.[0] ??
+            null;
+          if (
+            pathRoute &&
+            !isPlausibleProbeForRoute(slot.latency, pathRoute)
+          ) {
+            continue;
+          }
+          best = considerLatency(best, slot.latency, routeTag, routeData);
         }
       }
 
-      if (interfaceFilter.value !== "best") {
-        continue;
-      }
-
-      const routeData = store.routes[routeTag];
       if (!routeData?.routes?.length) {
         continue;
       }
 
       for (const route of routeData.routes) {
-        const latency = route?.min_latency;
-        if (typeof latency !== "number" || latency <= 0) {
+        let latency: number | null = null;
+        if (namedIface) {
+          // Per-NIC entry RTT from optimize + shared downstream legs.
+          latency = routeLatencyForInterface(
+            route,
+            namedIface,
+            entryRtt,
+            transportFilter.value === "all" ? "all" : transport,
+            store.nodes ?? {},
+            nodeId
+          );
+        } else {
+          latency = routeDisplayLatencyMs(route);
+        }
+        if (latency == null) {
           continue;
         }
         best = considerLatency(best, latency, routeTag, routeData);
@@ -307,10 +409,25 @@ export function useNetworkLatencyGrid() {
         }
 
         const pathKey = nodeRoutePathKey(route);
-        const latencyFromRoute = routeRelayLatency(route) || null;
+        const namedIface =
+          interfaceFilter.value !== "best" ? interfaceFilter.value : "";
+        const latencyFromRoute = namedIface
+          ? routeLatencyForInterface(
+              route,
+              namedIface,
+              store.ifaceEntryRtt ?? {},
+              transportFilterValue,
+              store.nodes ?? {},
+              nodeId
+            )
+          : routeDisplayLatencyMs(route);
         const probe = probeForRoute(probeSlots, pathKey, transportFilterValue);
         const liveProbeMs =
-          probe && probe.latency > 0 ? Math.round(probe.latency) : null;
+          probe &&
+          probe.latency > 0 &&
+          isPlausibleProbeForRoute(probe.latency, route)
+            ? Math.round(probe.latency)
+            : null;
         // Prefer this interface's live probe — shared route hops may lag behind.
         const latencyMs = liveProbeMs ?? latencyFromRoute;
 

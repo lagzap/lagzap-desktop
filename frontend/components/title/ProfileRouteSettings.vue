@@ -8,7 +8,10 @@ import { ProfileFlag } from "~/constants/profile";
 import { debounce } from "es-toolkit";
 import {
   MAX_ROUTES,
+  DEFAULT_TCP_ROUTES,
+  DEFAULT_UDP_ROUTES,
   normalizeRouteCounts,
+  resolveProfileRouteCounts,
 } from "~/composables/routeCountUtils";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 
@@ -29,10 +32,36 @@ const {
 const defaultTcpRoutes = resolvedGlobalTcp;
 const defaultUdpRoutes = resolvedGlobalUdp;
 
+const showAdvancedRouteOptions = ref(false);
+
 const profileUsesCustomRoutes = computed(() => {
   const state = store.profileStates[props.profile.id];
-  return state?.tcp_connections != null || state?.udp_connections != null;
+  return (
+    state?.route_connections != null ||
+    state?.tcp_connections != null ||
+    state?.udp_connections != null
+  );
 });
+
+/** Simple mode: persist unified cap; coordinator allocates TCP/UDP. */
+function applySimpleRouteCap(total: number | null) {
+  const state = store.profileStates[props.profile.id];
+  if (!state) return;
+
+  delete state.tcp_connections;
+  delete state.udp_connections;
+  delete state.relay_transport_fallback;
+
+  if (total === null) {
+    delete state.route_connections;
+    return;
+  }
+
+  state.route_connections = Math.max(
+    1,
+    Math.min(MAX_ROUTES, Math.round(total) || 1)
+  );
+}
 
 const applyRouteCounts = (
   tcp: number | null,
@@ -41,6 +70,9 @@ const applyRouteCounts = (
 ) => {
   const state = store.profileStates[props.profile.id];
   if (!state) return;
+
+  // Advanced explicit split replaces unified cap.
+  delete state.route_connections;
 
   if (changed === "tcp" && tcp === null) {
     delete state.tcp_connections;
@@ -66,11 +98,24 @@ const applyRouteCounts = (
   }
 };
 
+const resolvedCounts = computed(() =>
+  resolveProfileRouteCounts(store.profileStates[props.profile.id], {
+    tcp: defaultTcpRoutes.value ?? DEFAULT_TCP_ROUTES,
+    udp: defaultUdpRoutes.value ?? DEFAULT_UDP_ROUTES,
+  })
+);
+
+/** Simple mode: one cap backed by route_connections. */
+const totalRouteCap = computed({
+  get: () => resolvedCounts.value.total,
+  set: (value: number | null) => {
+    applySimpleRouteCap(value);
+  },
+});
+
 /** Always show effective counts (profile override or settings default). */
 const tcpRoutes = computed({
-  get: () =>
-    store.profileStates[props.profile.id]?.tcp_connections ??
-    defaultTcpRoutes.value,
+  get: () => resolvedCounts.value.tcp,
   set: (value: number | null) => {
     if (value === null) {
       applyRouteCounts(null, store.profileStates[props.profile.id]?.udp_connections ?? null, "tcp");
@@ -84,9 +129,7 @@ const tcpRoutes = computed({
 });
 
 const udpRoutes = computed({
-  get: () =>
-    store.profileStates[props.profile.id]?.udp_connections ??
-    defaultUdpRoutes.value,
+  get: () => resolvedCounts.value.udp,
   set: (value: number | null) => {
     if (value === null) {
       applyRouteCounts(store.profileStates[props.profile.id]?.tcp_connections ?? null, null, "udp");
@@ -109,10 +152,32 @@ const udpRoutesMin = computed(() =>
   profileUsesCustomRoutes.value && tcpRoutes.value === 0 ? 1 : 0,
 );
 
-const totalRoutes = computed(
-  () => resolvedTcpDisplay.value + resolvedUdpDisplay.value,
-);
+const totalRoutes = computed(() => resolvedCounts.value.total);
 const showMultiPathRouteWarnings = computed(() => totalRoutes.value <= 1);
+
+function enterAdvancedRouteOptions() {
+  showAdvancedRouteOptions.value = true;
+}
+
+function exitAdvancedRouteOptions() {
+  applySimpleRouteCap(totalRoutes.value);
+  showAdvancedRouteOptions.value = false;
+}
+
+function syncAdvancedRouteVisibility() {
+  const state = store.profileStates[props.profile.id];
+  // Explicit TCP/UDP split (no unified cap) → Advanced.
+  showAdvancedRouteOptions.value =
+    state?.route_connections == null &&
+    (state?.tcp_connections != null || state?.udp_connections != null) &&
+    (state?.tcp_connections ?? 0) > 0;
+}
+
+watch(
+  () => props.profile.id,
+  () => syncAdvancedRouteVisibility(),
+  { immediate: true }
+);
 
 const transportFallbackMode = computed({
   get: () => {
@@ -211,13 +276,32 @@ const orphanedInterfaces = computed(() =>
   store.getUnavailableInterfaces(props.profile.id)
 );
 
-const removeOrphanedInterface = (interfaceName: string) => {
-  const current =
-    store.profileStates[props.profile.id]?.network_interfaces || [];
-  store.profileStates[props.profile.id].network_interfaces = current.filter(
-    (name) => name !== interfaceName
-  );
+/** Available NICs plus orphans so missing adapters still show as closable chips. */
+const interfaceSelectItems = computed(() => {
+  const available = interfaces.value ?? [];
+  const names = new Set(available.map((item) => item.Name));
+  const extras = orphanedInterfaces.value
+    .filter((name) => name && !names.has(name))
+    .map((name) => ({ Name: name }));
+  return [...available, ...extras];
+});
+
+const removeOrphanedInterface = async (interfaceName: string) => {
+  const state = store.profileStates[props.profile.id];
+  if (!state) {
+    return;
+  }
+  const current = state.network_interfaces || [];
+  state.network_interfaces = current.filter((name) => name !== interfaceName);
+  if (state.default_interface === interfaceName) {
+    state.default_interface = "";
+  }
   store.updateProfileUnavailableInterfaces(props.profile.id);
+  await store.saveProfileState(props.profile.id);
+};
+
+const clearOrphanedInterfaces = async () => {
+  await store.clearUnavailableInterfaces(props.profile.id);
 };
 
 const loadingInterfaces = ref(false);
@@ -280,35 +364,113 @@ onMounted(async () => {
               profile.route_action == 'route'
             "
           >
-            <v-col>
-              <v-number-input
-                :key="`tcp-${resolvedUdpDisplay}`"
-                v-model="tcpRoutes"
-                :label="t('$vuetify.title.profile.tcpRoutes')"
-                variant="outlined"
-                density="comfortable"
-                control-variant="split"
-                inset
-                clearable
-                :min="tcpRoutesMin"
-                :max="MAX_ROUTES"
-                :disabled="!store.appReady"
-              />
-            </v-col>
-            <v-col>
-              <v-number-input
-                :key="`udp-${resolvedTcpDisplay}`"
-                v-model="udpRoutes"
-                :label="t('$vuetify.title.profile.udpRoutes')"
-                variant="outlined"
-                density="comfortable"
-                control-variant="split"
-                inset
-                clearable
-                :min="udpRoutesMin"
-                :max="MAX_ROUTES"
-                :disabled="!store.appReady"
-              />
+            <v-col cols="12">
+              <div class="d-flex align-center justify-space-between mb-1">
+                <span class="text-body-2 text-medium-emphasis">
+                  {{ t("$vuetify.title.profile.routes") }}
+                </span>
+                <div class="d-flex align-center">
+                  <v-btn
+                    v-if="!showAdvancedRouteOptions"
+                    variant="text"
+                    size="small"
+                    density="comfortable"
+                    :disabled="!store.appReady"
+                    @click="enterAdvancedRouteOptions"
+                  >
+                    {{ t("$vuetify.title.profile.routeOptionsAdvanced") }}
+                  </v-btn>
+                  <v-btn
+                    v-else
+                    variant="text"
+                    size="small"
+                    density="comfortable"
+                    :disabled="!store.appReady"
+                    @click="exitAdvancedRouteOptions"
+                  >
+                    {{ t("$vuetify.title.profile.routeOptionsSimple") }}
+                  </v-btn>
+                  <v-tooltip location="top" max-width="280">
+                    <template #activator="{ props: tipProps }">
+                      <v-btn
+                        v-bind="tipProps"
+                        icon
+                        variant="text"
+                        density="compact"
+                        size="small"
+                        :aria-label="t('$vuetify.title.profile.multiPathBandwidthInfo')"
+                      >
+                        <v-icon size="small">mdi-help-circle-outline</v-icon>
+                      </v-btn>
+                    </template>
+                    <span>{{ t("$vuetify.title.profile.multiPathBandwidthInfo") }}</span>
+                  </v-tooltip>
+                </div>
+              </div>
+
+              <template v-if="!showAdvancedRouteOptions">
+                <v-number-input
+                  v-model="totalRouteCap"
+                  :hint="t('$vuetify.title.profile.routesHint')"
+                  persistent-hint
+                  variant="outlined"
+                  density="comfortable"
+                  control-variant="split"
+                  inset
+                  clearable
+                  :min="1"
+                  :max="MAX_ROUTES"
+                  :disabled="!store.appReady"
+                  hide-details="auto"
+                />
+              </template>
+
+              <template v-else>
+                <v-row dense>
+                  <v-col cols="6">
+                    <v-number-input
+                      :key="`tcp-${resolvedUdpDisplay}`"
+                      v-model="tcpRoutes"
+                      :label="t('$vuetify.title.profile.tcpRoutes')"
+                      variant="outlined"
+                      density="comfortable"
+                      control-variant="split"
+                      inset
+                      clearable
+                      :min="tcpRoutesMin"
+                      :max="MAX_ROUTES"
+                      :disabled="!store.appReady"
+                    />
+                  </v-col>
+                  <v-col cols="6">
+                    <v-number-input
+                      :key="`udp-${resolvedTcpDisplay}`"
+                      v-model="udpRoutes"
+                      :label="t('$vuetify.title.profile.udpRoutes')"
+                      variant="outlined"
+                      density="comfortable"
+                      control-variant="split"
+                      inset
+                      clearable
+                      :min="udpRoutesMin"
+                      :max="MAX_ROUTES"
+                      :disabled="!store.appReady"
+                    />
+                  </v-col>
+                  <v-col cols="12">
+                    <v-checkbox
+                      :model-value="transportFallbackMode === 'on'"
+                      :indeterminate="transportFallbackMode === 'default'"
+                      :label="t('$vuetify.title.profile.transportFallback')"
+                      :hint="transportFallbackHintText"
+                      persistent-hint
+                      hide-details="auto"
+                      :disabled="!store.appReady"
+                      @click.prevent="cycleTransportFallback"
+                    />
+                  </v-col>
+                </v-row>
+              </template>
             </v-col>
             <v-col cols="12">
               <v-scale-transition>
@@ -332,29 +494,6 @@ onMounted(async () => {
                   </div>
                 </v-alert>
               </v-scale-transition>
-              <v-alert
-                v-if="!showMultiPathRouteWarnings"
-                type="info"
-                variant="tonal"
-                density="compact"
-                class="mb-2"
-              >
-                <div class="text-body-2">
-                  {{ t("$vuetify.title.profile.multiPathBandwidthInfo") }}
-                </div>
-              </v-alert>
-            </v-col>
-            <v-col cols="12">
-              <v-checkbox
-                :model-value="transportFallbackMode === 'on'"
-                :indeterminate="transportFallbackMode === 'default'"
-                :label="t('$vuetify.title.profile.transportFallback')"
-                :hint="transportFallbackHintText"
-                persistent-hint
-                hide-details="auto"
-                :disabled="!store.appReady"
-                @click.prevent="cycleTransportFallback"
-              />
             </v-col>
           </template>
           <v-col
@@ -366,47 +505,57 @@ onMounted(async () => {
             "
             cols="12"
           >
-            <v-select
-              v-if="(profile.flags & ProfileFlag.MULTIPATH) !== 0"
-              v-model:model-value="
-                store.profileStates[profile.id].network_interfaces
-              "
-              :label="t('$vuetify.title.profile.multiInternet')"
-              :hint="t('$vuetify.title.profile.networkAdaptersHint')"
-              :placeholder="
-                t('$vuetify.title.profile.networkAdaptersPlaceholder')
-              "
-              :items="interfaces"
-              clearable
-              item-value="Name"
-              item-title="Name"
-              variant="outlined"
-              density="comfortable"
-              multiple
-              min-width="175"
-              append-inner-icon="mdi-refresh"
-              :disabled="!store.appReady"
-              :loading="loadingInterfaces"
-              :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
-              @click:append-inner="updateInterfaces"
-            >
-              <template #selection="{ item }">
-                <v-chip
-                  :key="item.value"
-                  rounded
-                  closable
-                  :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
-                  @click:close="
-                    store.profileStates[profile.id].network_interfaces = (
-                      store.profileStates[profile.id].network_interfaces || []
-                    ).filter((name) => name !== item.value);
-                    store.updateProfileUnavailableInterfaces(profile.id);
-                  "
+            <template v-if="(profile.flags & ProfileFlag.MULTIPATH) !== 0">
+              <v-select
+                v-model:model-value="
+                  store.profileStates[profile.id].network_interfaces
+                "
+                :label="t('$vuetify.title.profile.multiInternet')"
+                :hint="t('$vuetify.title.profile.networkAdaptersHint')"
+                :placeholder="
+                  t('$vuetify.title.profile.networkAdaptersPlaceholder')
+                "
+                :items="interfaceSelectItems"
+                clearable
+                item-value="Name"
+                item-title="Name"
+                variant="outlined"
+                density="comfortable"
+                multiple
+                min-width="175"
+                append-inner-icon="mdi-refresh"
+                :disabled="!store.appReady"
+                :loading="loadingInterfaces"
+                :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
+                @click:append-inner="updateInterfaces"
+              >
+                <template #selection="{ item }">
+                  <v-chip
+                    :key="item.value"
+                    rounded
+                    closable
+                    :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
+                    @click:close="removeOrphanedInterface(item.value)"
+                  >
+                    {{ item.value }}
+                  </v-chip>
+                </template>
+              </v-select>
+              <div
+                v-if="orphanedInterfaces.length > 0"
+                class="d-flex align-center flex-wrap ga-2 mt-1 mb-2"
+              >
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="warning"
+                  :disabled="!store.appReady"
+                  @click="clearOrphanedInterfaces"
                 >
-                  {{ item.value }}
-                </v-chip>
-              </template>
-            </v-select>
+                  {{ t("$vuetify.title.profile.clearUnavailableInterfaces") }}
+                </v-btn>
+              </div>
+            </template>
             <template
               v-else-if="(profile.flags & ProfileFlag.PREVENT_DISCONNECT) !== 0"
             >
@@ -419,7 +568,7 @@ onMounted(async () => {
                 :placeholder="
                   t('$vuetify.title.profile.networkAdaptersPlaceholder')
                 "
-                :items="interfaces"
+                :items="interfaceSelectItems"
                 clearable
                 item-value="Name"
                 item-title="Name"
@@ -441,7 +590,7 @@ onMounted(async () => {
                 :placeholder="
                   t('$vuetify.title.profile.networkAdaptersPlaceholder')
                 "
-                :items="interfaces"
+                :items="interfaceSelectItems"
                 clearable
                 item-value="Name"
                 item-title="Name"
@@ -461,59 +610,78 @@ onMounted(async () => {
                     rounded
                     closable
                     :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
-                    @click:close="
-                      store.profileStates[profile.id].network_interfaces = (
-                        store.profileStates[profile.id].network_interfaces || []
-                      ).filter((name) => name !== item.value);
-                      store.updateProfileUnavailableInterfaces(profile.id);
-                    "
+                    @click:close="removeOrphanedInterface(item.value)"
                   >
                     {{ item.value }}
                   </v-chip>
                 </template>
               </v-select>
-            </template>
-            <v-select
-              v-else-if="(profile.flags & ProfileFlag.GAME_PACKET) !== 0"
-              v-model:model-value="
-                store.profileStates[profile.id].network_interfaces
-              "
-              :label="t('$vuetify.title.profile.multiInternet')"
-              :hint="t('$vuetify.title.profile.networkAdaptersHint')"
-              :placeholder="
-                t('$vuetify.title.profile.networkAdaptersPlaceholder')
-              "
-              :items="interfaces"
-              clearable
-              item-value="Name"
-              item-title="Name"
-              variant="outlined"
-              density="comfortable"
-              multiple
-              min-width="175"
-              append-inner-icon="mdi-refresh"
-              :disabled="!store.appReady"
-              :loading="loadingInterfaces"
-              :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
-              @click:append-inner="updateInterfaces"
-            >
-              <template #selection="{ item }">
-                <v-chip
-                  :key="item.value"
-                  rounded
-                  closable
-                  :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
-                  @click:close="
-                    store.profileStates[profile.id].network_interfaces = (
-                      store.profileStates[profile.id].network_interfaces || []
-                    ).filter((name) => name !== item.value);
-                    store.updateProfileUnavailableInterfaces(profile.id);
-                  "
+              <div
+                v-if="orphanedInterfaces.length > 0"
+                class="d-flex align-center flex-wrap ga-2 mt-1 mb-2"
+              >
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="warning"
+                  :disabled="!store.appReady"
+                  @click="clearOrphanedInterfaces"
                 >
-                  {{ item.value }}
-                </v-chip>
-              </template>
-            </v-select>
+                  {{ t("$vuetify.title.profile.clearUnavailableInterfaces") }}
+                </v-btn>
+              </div>
+            </template>
+            <template v-else-if="(profile.flags & ProfileFlag.GAME_PACKET) !== 0">
+              <v-select
+                v-model:model-value="
+                  store.profileStates[profile.id].network_interfaces
+                "
+                :label="t('$vuetify.title.profile.multiInternet')"
+                :hint="t('$vuetify.title.profile.networkAdaptersHint')"
+                :placeholder="
+                  t('$vuetify.title.profile.networkAdaptersPlaceholder')
+                "
+                :items="interfaceSelectItems"
+                clearable
+                item-value="Name"
+                item-title="Name"
+                variant="outlined"
+                density="comfortable"
+                multiple
+                min-width="175"
+                append-inner-icon="mdi-refresh"
+                :disabled="!store.appReady"
+                :loading="loadingInterfaces"
+                :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
+                @click:append-inner="updateInterfaces"
+              >
+                <template #selection="{ item }">
+                  <v-chip
+                    :key="item.value"
+                    rounded
+                    closable
+                    :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
+                    @click:close="removeOrphanedInterface(item.value)"
+                  >
+                    {{ item.value }}
+                  </v-chip>
+                </template>
+              </v-select>
+              <div
+                v-if="orphanedInterfaces.length > 0"
+                class="d-flex align-center flex-wrap ga-2 mt-1 mb-2"
+              >
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="warning"
+                  :disabled="!store.appReady"
+                  @click="clearOrphanedInterfaces"
+                >
+                  {{ t("$vuetify.title.profile.clearUnavailableInterfaces") }}
+                </v-btn>
+              </div>
+            </template>
           </v-col>
           <v-col
             v-else-if="profile.route_action != 'block'"
@@ -528,7 +696,7 @@ onMounted(async () => {
               :placeholder="
                 t('$vuetify.title.profile.networkAdaptersPlaceholder')
               "
-              :items="interfaces"
+              :items="interfaceSelectItems"
               append-inner-icon="mdi-refresh"
               clearable
               item-value="Name"
@@ -540,6 +708,20 @@ onMounted(async () => {
               :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterface'): undefined"
               @click:append-inner="updateInterfaces"
             />
+            <div
+              v-if="orphanedInterfaces.length > 0"
+              class="d-flex align-center flex-wrap ga-2 mt-1"
+            >
+              <v-btn
+                size="small"
+                variant="tonal"
+                color="warning"
+                :disabled="!store.appReady"
+                @click="clearOrphanedInterfaces"
+              >
+                {{ t("$vuetify.title.profile.clearUnavailableInterfaces") }}
+              </v-btn>
+            </div>
           </v-col>
         </v-row>
 

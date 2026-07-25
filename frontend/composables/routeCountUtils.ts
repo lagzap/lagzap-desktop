@@ -8,6 +8,43 @@ export interface RouteCountPair {
   udp: number | null
 }
 
+export interface ResolvedRouteCounts {
+  tcp: number
+  udp: number
+  total: number
+  /** Simple mode: coordinator ranks path×TCP and path×UDP and picks top N. */
+  unified: boolean
+}
+
+function clampRouteCap(cap: number): number {
+  let n = Math.round(cap) || 0
+  if (n <= 0) n = 1
+  if (n > MAX_ROUTES) n = MAX_ROUTES
+  return n
+}
+
+/**
+ * UI never invents a TCP/UDP split for simple mode.
+ * total = route cap; tcp/udp stay 0 until live routes show the scored mix.
+ */
+export function resolveProfileRouteCounts(
+  state: {
+    route_connections?: number | null
+    tcp_connections?: number | null
+    udp_connections?: number | null
+  } | null | undefined,
+  defaults: { tcp: number; udp: number },
+): ResolvedRouteCounts {
+  if (state?.route_connections != null) {
+    const total = clampRouteCap(state.route_connections)
+    return { tcp: 0, udp: 0, total, unified: true }
+  }
+  const tcp = state?.tcp_connections ?? defaults.tcp
+  const udp = state?.udp_connections ?? defaults.udp
+  const total = Math.max(1, tcp + udp)
+  return { tcp, udp, total, unified: false }
+}
+
 export function normalizeRouteCounts(
   tcp: number | null,
   udp: number | null,

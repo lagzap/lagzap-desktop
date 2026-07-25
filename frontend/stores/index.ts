@@ -66,6 +66,9 @@ export const useStore = defineStore("index", () => {
   const error = ref<boolean>(false);
   const optimizeProgress = ref<Optimize | null>(null);
   const optimizeMinimized = ref(false);
+  /** Bumped on each optimize start/event so a stale "clear after complete" timer
+   * cannot wipe a newly started run. */
+  let optimizeClearGeneration = 0;
   const initializingApp = ref(false);
   const startupOptimizeDone = ref(false);
   const serviceReady = ref<boolean>(false);
@@ -81,6 +84,8 @@ export const useStore = defineStore("index", () => {
   const titleStates = ref<Record<string, TitleState>>({});
   const profileStates = ref<Record<string, ProfileState>>({});
   const routes = ref<Record<string, RelayRoute>>({});
+  /** Optimize client→entry RTT per NIC: key = `${iface}|${ip}|${tcp|udp|icmp}`. */
+  const ifaceEntryRtt = ref<Record<string, number>>({});
   const clientInfo = ref<ClientInfo | null>(null);
 
   const defaultInterface = ref<string | null>(null);
@@ -285,6 +290,108 @@ export const useStore = defineStore("index", () => {
         ...(data as Record<string, RelayRoute>),
       };
     });
+    Events.On("iface-entry-rtt", ({ data }) => {
+      const raw = Array.isArray(data) ? data[0] : data;
+      if (!raw || typeof raw !== "object") {
+        return;
+      }
+      const next: Record<string, number> = {};
+      for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+        const n = typeof value === "number" ? value : Number(value);
+        if (key && Number.isFinite(n) && n > 0) {
+          next[key] = n;
+        }
+      }
+      ifaceEntryRtt.value = next;
+    });
+    Events.On("route-probe", ({ data }) => {
+      const raw = Array.isArray(data) ? data[0] : data;
+      if (raw && typeof raw === "object") {
+        const event = raw as {
+          route_tag?: string;
+          slots?: Array<{
+            iface?: string;
+            path_key?: string;
+            network?: string;
+            latency?: number;
+            packet_loss?: number;
+          }>;
+        };
+        const slots = event.slots;
+        let relayNodeId = (event.route_tag || "").trim();
+        for (const suffix of [
+          "-ipv4-udp",
+          "-ipv4-tcp",
+          "-ipv6-udp",
+          "-ipv6-tcp",
+        ]) {
+          if (relayNodeId.endsWith(suffix)) {
+            relayNodeId = relayNodeId.slice(0, -suffix.length);
+            break;
+          }
+        }
+        if (slots?.length) {
+          let changed = false;
+          const next = { ...ifaceEntryRtt.value };
+          const write = (key: string, latency: number) => {
+            const prev = next[key];
+            if (!(prev > 0) || latency < prev) {
+              next[key] = latency;
+              changed = true;
+            }
+          };
+          for (const slot of slots) {
+            const iface = (slot.iface || "").trim();
+            const latency = Number(slot.latency);
+            if (!iface || !(latency > 0) || (slot.packet_loss ?? 0) >= 100) {
+              continue;
+            }
+            const hop = (slot.path_key || "").split("->")[0]?.trim();
+            const network = (slot.network || "udp").toLowerCase();
+            let entryId = "";
+            let ipVersion = "ipv4";
+            if (hop) {
+              for (const node of Object.values(nodes.value ?? {})) {
+                if (!node) continue;
+                if (node.ipv4 === hop) {
+                  entryId = node.id;
+                  ipVersion = "ipv4";
+                  break;
+                }
+                if (node.ipv6 === hop) {
+                  entryId = node.id;
+                  ipVersion = "ipv6";
+                  break;
+                }
+              }
+            }
+            if (entryId) {
+              write(`${iface}|${entryId}|${ipVersion}|${network}`, latency);
+            }
+            if (relayNodeId) {
+              write(
+                `${iface}|${relayNodeId}|${ipVersion}|${network}`,
+                latency
+              );
+            }
+          }
+          if (changed) {
+            ifaceEntryRtt.value = next;
+          }
+        }
+      }
+      // Probes arrive ~2/sec for game routes — debounce iface availability
+      // so we do not recompute every profile on every tick.
+      if (unavailableIfaceTimer != null) {
+        return;
+      }
+      unavailableIfaceTimer = setTimeout(() => {
+        unavailableIfaceTimer = null;
+        Object.keys(profileStates.value).forEach((profileId) => {
+          updateProfileUnavailableInterfaces(profileId);
+        });
+      }, 1000);
+    });
     Events.On("optimize", ({ data }) => {
       // Wails Event.Emit packs args into an array — single-arg payloads land at data[0].
       const raw = Array.isArray(data) ? data[0] : data;
@@ -305,39 +412,41 @@ export const useStore = defineStore("index", () => {
         interfaces: raw.interfaces ?? [],
       };
 
+      const wasRunning =
+        optimizeProgress.value != null && !optimizeProgress.value.is_complete;
       optimizeProgress.value = normalized;
-      optimizeMinimized.value = false;
+      // Only force-expand on a fresh run — every progress tick used to reset
+      // minimize and immediately reopen the panel.
+      if (!wasRunning && !normalized.is_complete) {
+        optimizeMinimized.value = false;
+        // New run clears prior NIC entry samples until fresh probes arrive.
+        ifaceEntryRtt.value = {};
+      }
 
       if (normalized.is_complete) {
+        const clearGen = ++optimizeClearGeneration;
         if (!initializingApp.value) {
           statusMessage.value = `${normalized.progress ?? 0}%`;
           window.setTimeout(() => {
-            if (optimizeProgress.value?.is_complete) {
+            // Only clear if nothing newer started / arrived since this complete.
+            if (
+              clearGen === optimizeClearGeneration &&
+              optimizeProgress.value?.is_complete
+            ) {
               optimizeProgress.value = null;
             }
           }, 900);
         }
         return;
       }
+      // Incomplete event = a live run; invalidate any pending clear timer.
+      optimizeClearGeneration++;
       if (!initializingApp.value) {
         statusMessage.value = `${normalized.progress ?? 0}%`;
       }
     });
     Events.On("interfaces-updated", async ({ data }) => {
       await updateInterfaces()
-    });
-    Events.On("route-probe", () => {
-      // Probes arrive ~2/sec for game routes — debounce iface availability
-      // so we do not recompute every profile on every tick.
-      if (unavailableIfaceTimer != null) {
-        return;
-      }
-      unavailableIfaceTimer = setTimeout(() => {
-        unavailableIfaceTimer = null;
-        Object.keys(profileStates.value).forEach((profileId) => {
-          updateProfileUnavailableInterfaces(profileId);
-        });
-      }, 1000);
     });
 
     const { user, isAuthenticated, init: sanctumInit } = useSanctumAuth<DataResponse>();
@@ -836,6 +945,39 @@ export const useStore = defineStore("index", () => {
     return [...new Set(allUnavailableInterfaces)]; // Remove duplicates
   };
 
+  const clearUnavailableInterfaces = async (profileId: string) => {
+    const profileState = profileStates.value[profileId];
+    if (!profileState) {
+      return;
+    }
+    const unavailable = new Set(getUnavailableInterfaces(profileId));
+    if (unavailable.size === 0) {
+      return;
+    }
+    if (profileState.network_interfaces?.length) {
+      profileState.network_interfaces = profileState.network_interfaces.filter(
+        (name) => !unavailable.has(name)
+      );
+    }
+    if (
+      profileState.default_interface &&
+      unavailable.has(profileState.default_interface)
+    ) {
+      profileState.default_interface = "";
+    }
+    updateProfileUnavailableInterfaces(profileId);
+    await saveProfileState(profileId);
+  };
+
+  const clearTitleUnavailableInterfaces = async (titleId: string) => {
+    const titleProfiles = profiles.value.filter(
+      (profile) => profile.title_id === titleId
+    );
+    for (const profile of titleProfiles) {
+      await clearUnavailableInterfaces(profile.id);
+    }
+  };
+
   const applyLatencyUpdate = (incoming: MultiInterfaceLatency) => {
     latencyPingCache.value = mergeLatencyPingCache(
       latencyPingCache.value,
@@ -904,6 +1046,7 @@ export const useStore = defineStore("index", () => {
     profileStates,
     clientInfo,
     routes,
+    ifaceEntryRtt,
     latency,
     latencyPingCache,
 
@@ -965,6 +1108,8 @@ export const useStore = defineStore("index", () => {
     
     // Unavailable interfaces helpers
     updateProfileUnavailableInterfaces,
+    clearUnavailableInterfaces,
+    clearTitleUnavailableInterfaces,
     hasUnavailableInterfaces,
     getUnavailableInterfaces,
     hasTitleUnavailableInterfaces,

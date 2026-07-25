@@ -87,8 +87,8 @@ github.com/lagzap/lagzap-tun v0.1.0-beta.4 h1:PG+0b+CAc5xd0k6KOsXJ8cH4FUhAwQtnyh
 github.com/lagzap/lagzap-tun v0.1.0-beta.4/go.mod h1:HpYOoQAdHvPudpP/C7zrxThM7vSIcRj8ngWMoYJySLo=
 github.com/lagzap/lagzaprd v1.0.1 h1:+v7F18uawmJI4Gj7sy8REswArs8rNjZ6V1PBr2qdYj8=
 github.com/lagzap/lagzaprd v1.0.1/go.mod h1:AMZ9Hh4vG76MjuXnKuGX95QHTc94w72B899yB+r/3rE=
-github.com/lagzap/zap v0.1.0-beta.9 h1:BrlaY8WFSs80Z/s8Ct7STIZGwROp/WkloOqQs7JAx2Q=
-github.com/lagzap/zap v0.1.0-beta.9/go.mod h1:vpKaTCBLYfManx7cI5B2IoZOagFZh30pIze000dX/qA=
+github.com/lagzap/zap v0.1.0-beta.10 h1:duYUUl/dyckNzVV8VKxMm/DFfCKDeJ1jxMKrRTd3Az0=
+github.com/lagzap/zap v0.1.0-beta.10/go.mod h1:vpKaTCBLYfManx7cI5B2IoZOagFZh30pIze000dX/qA=
 github.com/logrusorgru/aurora v2.0.3+incompatible h1:tOpm7WcpBTn4fjmVfgpQq0EfczGlG91VSDkswnjF5A8=
 github.com/logrusorgru/aurora v2.0.3+incompatible/go.mod h1:7rIyQOR62GCctdiQpZ/zOJlFyk6y+94wXzv6RNZgaR4=
 github.com/matryer/is v1.4.1 h1:55ehd8zaGABKLXQUe2awZ99BD/PTc2ls+KV/dXphgEQ=

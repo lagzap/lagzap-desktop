@@ -2,7 +2,7 @@
 import { onMounted } from "vue";
 import { useLocale } from "vuetify";
 import { Connect, InstallDriver, IsDriverInstalled, IsLocalProxyRunning, ReloadService, UninstallDriver, CheckForUpdates } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import { getHttpStatus, isAuthError, isForceUpdateError } from "~/utils/httpError";
+import { getHttpStatus, isAuthError, isForceUpdateError, getNetworkFailureKind } from "~/utils/httpError";
 import { getToken } from "~/utils/indexedDB";
 import { handleAuthFailure } from "~/composables/useAuthSession";
 import { getErrorMessage } from "~/composables/alert";
@@ -148,6 +148,9 @@ async function retryStartup() {
   const wasCanceled = store.startupCanceled;
   store.resetStartupCancel();
   store.error = false;
+  errorName.value = null;
+  errorStatusCode.value = null;
+  errorStatusText.value = null;
   if (wasCanceled || !isAuthenticated.value) {
     await start();
   } else {
@@ -216,12 +219,20 @@ async function start() {
     }
     console.error(e);
     console.dir(e);
-    errorName.value = (e as Error).name;
-    errorStatusCode.value = getHttpStatus(e) ?? 0;
-    errorStatusText.value = (e as { statusMessage?: string; response?: { statusText?: string } }).statusMessage
-      ?? (e as { response?: { statusText?: string } }).response?.statusText
-      ?? "unknown";
-    store.statusMessage = getErrorMessage(e);
+    errorName.value = (e as Error).name || "Error";
+    const status = getHttpStatus(e);
+    const networkKind = getNetworkFailureKind(e);
+    errorStatusCode.value = status;
+    if (networkKind === "timeout") {
+      errorStatusText.value = t("$vuetify.startService.serverUnreachableTimeout");
+    } else if (networkKind === "proxy") {
+      errorStatusText.value = t("$vuetify.startService.localProxyNotReady");
+    } else if (networkKind) {
+      errorStatusText.value = t("$vuetify.startService.serverUnreachable");
+    } else {
+      errorStatusText.value = getErrorMessage(e, locale);
+    }
+    store.statusMessage = errorStatusText.value;
     try {
       await store.resetToPreStartup();
     } catch {
@@ -264,9 +275,21 @@ async function initApp() {
       await handleAuthFailure();
       return;
     }
-    errorName.value = (e as Error).name;
+    errorName.value = (e as Error).name || "Error";
+    const status = getHttpStatus(e);
+    const networkKind = getNetworkFailureKind(e);
+    errorStatusCode.value = status;
+    if (networkKind === "timeout") {
+      errorStatusText.value = t("$vuetify.startService.serverUnreachableTimeout");
+    } else if (networkKind === "proxy") {
+      errorStatusText.value = t("$vuetify.startService.localProxyNotReady");
+    } else if (networkKind) {
+      errorStatusText.value = t("$vuetify.startService.serverUnreachable");
+    } else {
+      errorStatusText.value = getErrorMessage(e, locale);
+    }
     store.error = true;
-    store.statusMessage = getErrorMessage(e);
+    store.statusMessage = errorStatusText.value;
     return;
   } finally {
     if (store.startupCanceled || redirecting.value) {
@@ -335,18 +358,18 @@ async function initApp() {
           </div>
         </template>
         <template v-else>
-        <v-card-subtitle v-if="store.serviceReady && store.error && errorName != 'FetchError'"
-          class="text-subtitle-1 text-error text-center">
+        <v-card-subtitle
+          v-if="store.error && errorStatusText"
+          class="text-subtitle-1 text-center"
+          :class="isAuthenticated ? 'text-error' : 'text-warning'"
+        >
+          <template v-if="errorStatusCode">{{ errorStatusCode }} · </template>{{ errorStatusText }}
+        </v-card-subtitle>
+        <v-card-subtitle
+          v-else-if="store.serviceReady && store.error"
+          class="text-subtitle-1 text-error text-center"
+        >
           {{ t("$vuetify.status.coordinationFailed") }}
-        </v-card-subtitle>
-        <v-card-subtitle v-else-if="store.error && !isAuthenticated && errorName == 'FetchError'"
-          class="text-subtitle-1 text-warning text-center">
-          {{ errorStatusCode }}
-          {{ errorStatusText }}
-        </v-card-subtitle>
-        <v-card-subtitle v-else-if="store.error && !isAuthenticated" class="text-subtitle-1 text-warning text-center">
-          {{ t("$vuetify.status.connectionFailed") }}
-          {{ errorName }}
         </v-card-subtitle>
         <v-card-subtitle v-else class="text-subtitle-1 text-center" :class="{
           'text-error': store.error,

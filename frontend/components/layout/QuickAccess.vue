@@ -231,17 +231,22 @@ onBeforeUnmount(() => {
               <div class="d-flex align-center qa-no-drag">
                 <v-tooltip
                   v-if="store.hasTitleUnavailableInterfaces(title.id)"
-                  :text="`${t('$vuetify.title.profile.unavailableInterfaces')}: ${store.getTitleUnavailableInterfaces(title.id).join(', ')}`"
+                  :text="`${t('$vuetify.title.profile.unavailableInterfaces')}: ${store.getTitleUnavailableInterfaces(title.id).join(', ')}. ${t('$vuetify.title.profile.clearUnavailableInterfacesHint')}`"
                 >
                   <template #activator="{ props }">
-                    <v-icon
+                    <v-btn
                       v-bind="props"
+                      icon
+                      variant="text"
+                      density="compact"
                       color="warning"
                       size="small"
                       class="mr-1"
+                      :aria-label="t('$vuetify.title.profile.clearUnavailableInterfaces')"
+                      @click.stop="store.clearTitleUnavailableInterfaces(title.id)"
                     >
-                      mdi-alert
-                    </v-icon>
+                      <v-icon size="small">mdi-alert</v-icon>
+                    </v-btn>
                   </template>
                 </v-tooltip>
 
@@ -283,17 +288,22 @@ onBeforeUnmount(() => {
           <div class="d-flex align-center">
             <v-tooltip
               v-if="store.hasTitleUnavailableInterfaces(title.id)"
-              :text="`${t('$vuetify.title.profile.unavailableInterfaces')}: ${store.getTitleUnavailableInterfaces(title.id).join(', ')}`"
+              :text="`${t('$vuetify.title.profile.unavailableInterfaces')}: ${store.getTitleUnavailableInterfaces(title.id).join(', ')}. ${t('$vuetify.title.profile.clearUnavailableInterfacesHint')}`"
             >
               <template #activator="{ props }">
-                <v-icon
+                <v-btn
                   v-bind="props"
+                  icon
+                  variant="text"
+                  density="compact"
                   color="warning"
                   size="small"
                   class="mr-1"
+                  :aria-label="t('$vuetify.title.profile.clearUnavailableInterfaces')"
+                  @click.stop="store.clearTitleUnavailableInterfaces(title.id)"
                 >
-                  mdi-alert
-                </v-icon>
+                  <v-icon size="small">mdi-alert</v-icon>
+                </v-btn>
               </template>
             </v-tooltip>
 

@@ -12,6 +12,32 @@ function errorPayload(error: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/** Flatten nested error fields into one searchable string. */
+export function getErrorRawText(error: unknown): string {
+  if (typeof error === "string") {
+    return error;
+  }
+  if (!error || typeof error !== "object") {
+    return "";
+  }
+  const err = error as Record<string, unknown>;
+  const payload = errorPayload(error);
+  const parts = [
+    err.message,
+    err.statusMessage,
+    err.statusText,
+    err.cause && typeof err.cause === "object"
+      ? (err.cause as { message?: string }).message
+      : err.cause,
+    payload?.message,
+    (err.response as { statusText?: string } | undefined)?.statusText,
+  ];
+  return parts
+    .filter((part) => typeof part === "string" && part.trim())
+    .join(" | ")
+    .toLowerCase();
+}
+
 export function getErrorCode(error: unknown): string | null {
   if (typeof error === "string") {
     return error.trim() || null;
@@ -20,6 +46,9 @@ export function getErrorCode(error: unknown): string | null {
   const message = payload?.message;
   if (typeof message === "string" && message.trim()) {
     return message.trim();
+  }
+  if (error && typeof error !== "object") {
+    return null;
   }
   if (error && typeof error === "object") {
     const err = error as Record<string, unknown>;
@@ -60,7 +89,72 @@ export function getHttpStatus(error: unknown): number | null {
     response?.status ??
     response?.statusCode;
 
-  return typeof status === "number" ? status : null;
+  return typeof status === "number" && status > 0 ? status : null;
+}
+
+export type NetworkFailureKind =
+  | "timeout"
+  | "unreachable"
+  | "proxy"
+  | "offline"
+  | "unknown";
+
+/** Classify dial/proxy/fetch failures that have no useful HTTP status. */
+export function getNetworkFailureKind(error: unknown): NetworkFailureKind | null {
+  const text = getErrorRawText(error);
+  const name =
+    error && typeof error === "object"
+      ? String((error as { name?: string }).name ?? "")
+      : "";
+
+  if (
+    text.includes("i/o timeout") ||
+    text.includes("timeout") ||
+    text.includes("deadline exceeded") ||
+    text.includes("etimedout") ||
+    text.includes("context deadline")
+  ) {
+    return "timeout";
+  }
+  if (
+    text.includes("local auth proxy") ||
+    text.includes("localproxy") ||
+    text.includes("proxy not ready")
+  ) {
+    return "proxy";
+  }
+  if (
+    text.includes("no response") ||
+    text.includes("fetcherror") ||
+    text.includes("network error") ||
+    text.includes("econnrefused") ||
+    text.includes("econnreset") ||
+    text.includes("enotfound") ||
+    text.includes("dial tcp") ||
+    text.includes("connection refused") ||
+    text.includes("network is unreachable") ||
+    text.includes("no such host") ||
+    text.includes("invalid argument") ||
+    name === "FetchError"
+  ) {
+    return "unreachable";
+  }
+  if (text.includes("offline") || text.includes("internet")) {
+    return "offline";
+  }
+
+  // No HTTP status and empty/useless message → treat as unreachable.
+  if (getHttpStatus(error) == null) {
+    const code = getErrorCode(error);
+    if (!code || code === "An error occurred" || /^unknown$/i.test(code)) {
+      return "unreachable";
+    }
+  }
+  return null;
+}
+
+export function isNetworkFailure(error: unknown): boolean {
+  return getNetworkFailureKind(error) != null;
 }
 
 export function isAuthHttpStatus(status: number | null): status is 401 | 403 {
