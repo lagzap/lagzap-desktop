@@ -1345,8 +1345,6 @@ export class ProfileState {
         }
         if (/** @type {any} */(false)) {
             /**
-             * Unified route cap (simple mode). When set, the client allocates TCP/UDP
-             * from this total; tcp_connections/udp_connections should be unset.
              * @member
              * @type {number | null | undefined}
              */
