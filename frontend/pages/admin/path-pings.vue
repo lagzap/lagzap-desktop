@@ -273,9 +273,15 @@ onMounted(() => {
               size="small"
             />
             <div class="d-flex flex-column">
-              <span class="text-body-2">{{ item.from_name || "—" }}</span>
+              <span class="text-body-2">{{
+                item.kind === "user_edge" && item.iface
+                  ? item.iface
+                  : item.from_name || "—"
+              }}</span>
               <span class="text-caption text-medium-emphasis">{{
-                item.from_city
+                item.kind === "user_edge" && item.iface
+                  ? "Your NIC"
+                  : item.from_city
               }}</span>
             </div>
           </div>

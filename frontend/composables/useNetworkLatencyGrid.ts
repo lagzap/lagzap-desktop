@@ -1,6 +1,6 @@
 import type { Node, NodeRoute, RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
 import { NodeFlag } from "~/bindings/github.com/lagzap/zap/data";
-import type { RouteProbeSlotMetric } from "~/types/monitoring";
+import type { RouteProbeEvent, RouteProbeSlotMetric } from "~/types/monitoring";
 import {
   isPlausibleProbeForRoute,
   lookupIfaceEntryRttMs,
@@ -93,8 +93,12 @@ function routeDisplayLatencyMs(route: NodeRoute | null | undefined): number | nu
 }
 
 /**
- * Rebuild E2E latency for a named NIC using that NIC's optimize/live entry RTT
- * (keyed by node id + ipv4/ipv6) plus shared path-matrix downstream hops.
+ * Rebuild E2E latency for a named NIC:
+ * 1) hop0 = that NIC's user→edge RTT + shared matrix downstream (preferred)
+ * 2) else live/optimize E2E keyed by relay id (never added to matrix again)
+ *
+ * Live E2E must not be treated as hop0 — that paints one session onto every
+ * NIC filter and double-counts multi-hop paths.
  */
 function routeLatencyForInterface(
   route: NodeRoute | null | undefined,
@@ -122,27 +126,91 @@ function routeLatencyForInterface(
       networks
     );
   }
-  // Direct / single-hop: sample is against the relay node id.
-  if (!(hop0 > 0) && relayNodeId) {
-    hop0 = lookupIfaceEntryRttMs(entryRtt, iface, relayNodeId, "all", networks);
-  }
-  if (!(hop0 > 0)) {
-    return null;
-  }
 
   const rest = hops
     .slice(1)
     .reduce((sum, hop) => sum + (hop.latency || 0), 0);
-  const total = hops.length <= 1 ? hop0 : hop0 + rest;
-  if (!isPlausibleProbeForRoute(total, route, hop0)) {
-    return Math.round(Math.max(total, hop0));
+
+  if (hop0 > 0) {
+    const total = hops.length <= 1 ? hop0 : hop0 + rest;
+    if (!isPlausibleProbeForRoute(total, route, hop0 > 0 ? rest : undefined)) {
+      return Math.round(Math.max(total, hop0));
+    }
+    return Math.round(total);
   }
-  return Math.round(total);
+
+  // No per-NIC hop0 yet — fall back to relay-keyed E2E for this NIC only.
+  if (relayNodeId) {
+    const e2e = lookupIfaceEntryRttMs(
+      entryRtt,
+      iface,
+      relayNodeId,
+      "all",
+      networks
+    );
+    if (e2e > 0) {
+      return Math.round(e2e);
+    }
+  }
+  return null;
+}
+
+/** Probe events are keyed by node id and/or node-ipv4-udp — resolve both. */
+function resolveProbeEventsForNode(
+  history: Record<string, RouteProbeEvent[]>,
+  nodeId: string,
+  variant?: string
+): RouteProbeEvent[] {
+  if (!nodeId) {
+    return [];
+  }
+  const candidates = variant
+    ? [
+        `${nodeId}-${variant}`,
+        nodeId,
+        `${nodeId}-ipv4-udp`,
+        `${nodeId}-ipv4-tcp`,
+        `${nodeId}-ipv6-udp`,
+        `${nodeId}-ipv6-tcp`,
+      ]
+    : [
+        nodeId,
+        `${nodeId}-ipv4-udp`,
+        `${nodeId}-ipv4-tcp`,
+        `${nodeId}-ipv6-udp`,
+        `${nodeId}-ipv6-tcp`,
+      ];
+  for (const key of candidates) {
+    const events = history[key];
+    if (events?.length) {
+      return events;
+    }
+  }
+  for (const [key, events] of Object.entries(history)) {
+    if (!events?.length) {
+      continue;
+    }
+    if (key === nodeId || key.startsWith(`${nodeId}-`)) {
+      return events;
+    }
+  }
+  return [];
+}
+
+function ifacesFromEntryRtt(entryRtt: Record<string, number>): string[] {
+  const names = new Set<string>();
+  for (const key of Object.keys(entryRtt)) {
+    const iface = key.split("|")[0]?.trim();
+    if (iface) {
+      names.add(iface);
+    }
+  }
+  return [...names];
 }
 
 export function useNetworkLatencyGrid() {
   const store = useStore();
-  const { routeProbeHistory } = useMonitoringStore();
+  const { routeProbeHistory, probedInterfaceNames } = useMonitoringStore();
   const { getNodeLabelByIp } = useNodeLocationLabel();
 
   const stackFilter = ref<LatencyStackFilter>("all");
@@ -203,6 +271,7 @@ export function useNetworkLatencyGrid() {
     const namedIface =
       interfaceFilter.value !== "best" ? interfaceFilter.value : "";
     const entryRtt = store.ifaceEntryRtt ?? {};
+    let usedProbedOrIfaceSample = false;
 
     for (const variant of routeVariants.value) {
       const routeTag = `${nodeId}-${variant}`;
@@ -210,11 +279,17 @@ export function useNetworkLatencyGrid() {
       const transport = variant.endsWith("tcp")
         ? ("tcp" as const)
         : ("udp" as const);
-      const probeEvents = routeProbeHistory.value[routeTag];
-      if (probeEvents?.length) {
+
+      // Live probes (iface-tagged) — primary source of truth for the selector.
+      const probeEvents = resolveProbeEventsForNode(
+        routeProbeHistory.value,
+        nodeId,
+        variant
+      );
+      if (probeEvents.length) {
         const latest = probeEvents[probeEvents.length - 1];
         for (const slot of latest.slots ?? []) {
-          if (slot.latency <= 0) {
+          if (!(slot.latency > 0) || (slot.packet_loss ?? 0) >= 100) {
             continue;
           }
           if (!slotMatchesTransport(slot, transportFilter.value)) {
@@ -229,12 +304,17 @@ export function useNetworkLatencyGrid() {
             ) ??
             routeData?.routes?.[0] ??
             null;
+          // Matrix floor only (not shared hop0 from another NIC).
+          const matrixFloor = (pathRoute?.hops ?? [])
+            .slice(1)
+            .reduce((sum, hop) => sum + (hop.latency || 0), 0);
           if (
             pathRoute &&
-            !isPlausibleProbeForRoute(slot.latency, pathRoute)
+            !isPlausibleProbeForRoute(slot.latency, pathRoute, matrixFloor)
           ) {
             continue;
           }
+          usedProbedOrIfaceSample = true;
           best = considerLatency(best, slot.latency, routeTag, routeData);
         }
       }
@@ -244,10 +324,9 @@ export function useNetworkLatencyGrid() {
       }
 
       for (const route of routeData.routes) {
-        let latency: number | null = null;
         if (namedIface) {
-          // Per-NIC entry RTT from optimize + shared downstream legs.
-          latency = routeLatencyForInterface(
+          // Named NIC: only that NIC's entry RTT — never shared optimize avg.
+          const latency = routeLatencyForInterface(
             route,
             namedIface,
             entryRtt,
@@ -255,13 +334,55 @@ export function useNetworkLatencyGrid() {
             store.nodes ?? {},
             nodeId
           );
-        } else {
-          latency = routeDisplayLatencyMs(route);
-        }
-        if (latency == null) {
+          if (latency == null) {
+            continue;
+          }
+          usedProbedOrIfaceSample = true;
+          best = considerLatency(best, latency, routeTag, routeData);
           continue;
         }
-        best = considerLatency(best, latency, routeTag, routeData);
+
+        // Best Internet: rebuild per known NIC from ifaceEntryRtt / probed names,
+        // then take the winner — do not stamp shared relayRoutes avg.
+        const ifaces = [
+          ...new Set([
+            ...(probedInterfaceNames.value ?? []),
+            ...ifacesFromEntryRtt(entryRtt),
+          ]),
+        ];
+        for (const iface of ifaces) {
+          const latency = routeLatencyForInterface(
+            route,
+            iface,
+            entryRtt,
+            transportFilter.value === "all" ? "all" : transport,
+            store.nodes ?? {},
+            nodeId
+          );
+          if (latency == null) {
+            continue;
+          }
+          usedProbedOrIfaceSample = true;
+          best = considerLatency(best, latency, routeTag, routeData);
+        }
+      }
+    }
+
+    // Cold start only: no per-iface probe/entry samples yet.
+    if (!usedProbedOrIfaceSample && !namedIface) {
+      for (const variant of routeVariants.value) {
+        const routeTag = `${nodeId}-${variant}`;
+        const routeData = store.routes[routeTag];
+        if (!routeData?.routes?.length) {
+          continue;
+        }
+        for (const route of routeData.routes) {
+          const latency = routeDisplayLatencyMs(route);
+          if (latency == null) {
+            continue;
+          }
+          best = considerLatency(best, latency, routeTag, routeData);
+        }
       }
     }
 
@@ -327,9 +448,13 @@ export function useNetworkLatencyGrid() {
       .join(" → ");
   }
 
-  function latestProbeSlots(routeTag: string): RouteProbeSlotMetric[] {
-    const events = routeProbeHistory.value[routeTag];
-    if (!events?.length) {
+  function latestProbeSlots(nodeId: string, variant: string): RouteProbeSlotMetric[] {
+    const events = resolveProbeEventsForNode(
+      routeProbeHistory.value,
+      nodeId,
+      variant
+    );
+    if (!events.length) {
       return [];
     }
     return events[events.length - 1].slots ?? [];
@@ -343,7 +468,7 @@ export function useNetworkLatencyGrid() {
     let best: RouteProbeSlotMetric | null = null;
 
     for (const slot of slots) {
-      if (slot.latency <= 0) {
+      if (!(slot.latency > 0) || (slot.packet_loss ?? 0) >= 100) {
         continue;
       }
       if (slot.path_key && slot.path_key !== pathKey) {
@@ -389,6 +514,9 @@ export function useNetworkLatencyGrid() {
 
   function getNodeRouteTableRows(nodeId: string): NodeRouteTableRow[] {
     const rows: NodeRouteTableRow[] = [];
+    const namedIface =
+      interfaceFilter.value !== "best" ? interfaceFilter.value : "";
+    const entryRtt = store.ifaceEntryRtt ?? {};
 
     for (const variant of routeVariants.value) {
       const routeTag = `${nodeId}-${variant}`;
@@ -401,7 +529,7 @@ export function useNetworkLatencyGrid() {
       const transport = variant.endsWith("tcp") ? "TCP" : "UDP";
       const transportFilterValue =
         transport === "TCP" ? ("tcp" as const) : ("udp" as const);
-      const probeSlots = latestProbeSlots(routeTag);
+      const probeSlots = latestProbeSlots(nodeId, variant);
 
       relayRoute.routes.forEach((route, index) => {
         if (!route) {
@@ -409,27 +537,70 @@ export function useNetworkLatencyGrid() {
         }
 
         const pathKey = nodeRoutePathKey(route);
-        const namedIface =
-          interfaceFilter.value !== "best" ? interfaceFilter.value : "";
-        const latencyFromRoute = namedIface
-          ? routeLatencyForInterface(
-              route,
-              namedIface,
-              store.ifaceEntryRtt ?? {},
-              transportFilterValue,
-              store.nodes ?? {},
-              nodeId
-            )
-          : routeDisplayLatencyMs(route);
+        const matrixFloor = (route.hops ?? [])
+          .slice(1)
+          .reduce((sum, hop) => sum + (hop.latency || 0), 0);
         const probe = probeForRoute(probeSlots, pathKey, transportFilterValue);
         const liveProbeMs =
           probe &&
           probe.latency > 0 &&
-          isPlausibleProbeForRoute(probe.latency, route)
+          isPlausibleProbeForRoute(probe.latency, route, matrixFloor)
             ? Math.round(probe.latency)
             : null;
-        // Prefer this interface's live probe — shared route hops may lag behind.
-        const latencyMs = liveProbeMs ?? latencyFromRoute;
+
+        let latencyFromIface: number | null = null;
+        if (namedIface) {
+          latencyFromIface = routeLatencyForInterface(
+            route,
+            namedIface,
+            entryRtt,
+            transportFilterValue,
+            store.nodes ?? {},
+            nodeId
+          );
+        } else {
+          // Best: prefer per-NIC rebuilt samples; shared avg only if none exist.
+          const ifaces = [
+            ...new Set([
+              ...(probedInterfaceNames.value ?? []),
+              ...ifacesFromEntryRtt(entryRtt),
+            ]),
+          ];
+          for (const iface of ifaces) {
+            const sample = routeLatencyForInterface(
+              route,
+              iface,
+              entryRtt,
+              transportFilterValue,
+              store.nodes ?? {},
+              nodeId
+            );
+            if (sample == null) {
+              continue;
+            }
+            if (latencyFromIface == null || sample < latencyFromIface) {
+              latencyFromIface = sample;
+            }
+          }
+          if (latencyFromIface == null && liveProbeMs == null) {
+            latencyFromIface = routeDisplayLatencyMs(route);
+          }
+        }
+
+        // Prefer live probe for this selector — shared route hops may lag / mix NICs.
+        const latencyMs = liveProbeMs ?? latencyFromIface;
+        const packetLoss =
+          probe != null
+            ? probe.packet_loss ?? 0
+            : namedIface
+              ? 0
+              : route.packet_loss ?? 0;
+        const score =
+          probe != null && (probe.score ?? 0) > 0
+            ? probe.score ?? 0
+            : namedIface
+              ? 0
+              : route.score ?? 0;
 
         rows.push({
           key: `${routeTag}-${index}-${pathKey || index}`,
@@ -440,9 +611,9 @@ export function useNetworkLatencyGrid() {
           path: formatRoutePath(route),
           latencyMs,
           liveProbeMs,
-          avgLatency: Math.round(route.avg_latency || latencyMs || 0),
-          packetLoss: route.packet_loss ?? 0,
-          score: route.score ?? 0,
+          avgLatency: Math.round(latencyMs || 0),
+          packetLoss,
+          score,
           icmp: !!route.icmp_available,
           tcp: !!route.tcp_available,
           udp: !!route.udp_available,

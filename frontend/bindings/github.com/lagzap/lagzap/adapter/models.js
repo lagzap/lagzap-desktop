@@ -344,6 +344,7 @@ export class LagFixStats {
 
 /**
  * PathPingRow is one hop measurement: user→edge, edge→edge, or edge→relay.
+ * User→edge rows are per NIC (Iface set); FromName is the interface name.
  */
 export class PathPingRow {
     /**
@@ -364,6 +365,13 @@ export class PathPingRow {
              * @type {string}
              */
             this["kind"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["iface"] = undefined;
         }
         if (!("from_id" in $$source)) {
             /**

@@ -350,34 +350,18 @@ export function blankIfaceRouteMetrics(route: NodeRoute): NodeRoute {
 
 /**
  * Apply one interface's probe RTT onto a cloned route — never another NIC's data.
- * With a probe: replace live avg/loss/hop0 from that sample only.
- * Without a probe: keep source topology metrics (do not zero hop0 / avg).
+ * Without a probe: blank shared client RTT so this NIC cannot inherit optimize merge.
  */
 export function applyIfaceProbeToRoute(
   route: NodeRoute,
   probe: { latency?: number; packet_loss?: number; jitter?: number; score?: number } | null | undefined,
   topologyFloorMs?: number
 ): NodeRoute {
-  const cloned = cloneNodeRoute(route);
   if (!probe) {
-    // Live routes sometimes carry E2E avg with hop0 unset — fill client→entry
-    // for the diagram without inventing a new measurement.
-    const hops = cloned.hops ?? [];
-    const measured = cloned.avg_latency || cloned.min_latency || 0;
-    if (hops[0] && !(hops[0].latency > 0) && measured > 0) {
-      const rest = hops
-        .slice(1)
-        .reduce((sum, hop) => sum + (hop.latency || 0), 0);
-      hops[0].latency = Math.max(
-        1,
-        rest > 0 && measured > rest + 5
-          ? Math.round(measured - rest)
-          : Math.round(measured)
-      );
-    }
-    return cloned;
+    return blankIfaceRouteMetrics(route);
   }
 
+  const cloned = cloneNodeRoute(route);
   const floor =
     topologyFloorMs && topologyFloorMs > 0
       ? topologyFloorMs
@@ -1541,7 +1525,12 @@ export function useProfileDisplayRoutes(profile: MaybeRef<Profile>) {
           if (!isPlausibleProbeForRoute(latency, route, topologyFloorMs)) {
             continue;
           }
-          best = slot;
+          if (
+            !best ||
+            latency < (best.latency ?? Number.POSITIVE_INFINITY)
+          ) {
+            best = slot;
+          }
         }
         if (best) {
           return best;

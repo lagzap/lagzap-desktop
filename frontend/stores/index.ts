@@ -25,6 +25,7 @@ import {
   StopLocalProxy,
   StartBootstrapLocalProxy,
   GetOptimizeProgress,
+  GetIfaceEntryRTTs,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
   type RelayRoute,
@@ -210,6 +211,25 @@ export const useStore = defineStore("index", () => {
         return;
       }
 
+      // Hydrate per-NIC entry RTTs from optimize (events may have been missed).
+      try {
+        const rtts = await GetIfaceEntryRTTs();
+        if (rtts && typeof rtts === "object") {
+          const next: Record<string, number> = {};
+          for (const [key, value] of Object.entries(rtts as Record<string, unknown>)) {
+            const n = typeof value === "number" ? value : Number(value);
+            if (key && Number.isFinite(n) && n > 0) {
+              next[key] = n;
+            }
+          }
+          if (Object.keys(next).length > 0) {
+            ifaceEntryRtt.value = next;
+          }
+        }
+      } catch {
+        // optional — live iface-entry-rtt events still apply
+      }
+
       startupOptimizeDone.value = true;
       statusMessage.value = locale.t("$vuetify.service.ready");
       optimizeProgress.value = null;
@@ -346,8 +366,10 @@ export const useStore = defineStore("index", () => {
             if (!iface || !(latency > 0) || (slot.packet_loss ?? 0) >= 100) {
               continue;
             }
-            const hop = (slot.path_key || "").split("->")[0]?.trim();
+            const pathKey = (slot.path_key || "").trim();
+            const hop = pathKey.split("->")[0]?.trim();
             const network = (slot.network || "udp").toLowerCase();
+            const singleHop = !!pathKey && !pathKey.includes("->");
             let entryId = "";
             let ipVersion = "ipv4";
             if (hop) {
@@ -365,7 +387,9 @@ export const useStore = defineStore("index", () => {
                 }
               }
             }
-            if (entryId) {
+            // Live slot latency is E2E. Only stamp under entry for single-hop
+            // paths — multi-hop E2E must never poison hop0 (user→edge).
+            if (singleHop && entryId) {
               write(`${iface}|${entryId}|${ipVersion}|${network}`, latency);
             }
             if (relayNodeId) {

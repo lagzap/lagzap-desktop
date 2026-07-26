@@ -53,11 +53,13 @@ func (c *Service) generateConfig() option.Options {
 		}
 	}
 
+	dnsLogs := false
 	return option.Options{
 		Log: &option.LogOptions{
 			Level:        "error",
 			Timestamp:    false,
 			DisableColor: false,
+			DNS:          &dnsLogs,
 		},
 		Lagzap: &option.LagzapOptions{
 			EnableNdis: goos.IsWindows == 1,
