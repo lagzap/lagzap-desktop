@@ -559,6 +559,19 @@ export function ProbeProfileRoutes(profileID, iface) {
 }
 
 /**
+ * RateSession sends the user's rating of a session the
+ * "stats-rate-session" event asked about.
+ * @param {string} sessionID
+ * @param {number} stars
+ * @param {string[]} reasons
+ * @param {string} comment
+ * @returns {$CancellablePromise<void>}
+ */
+export function RateSession(sessionID, stars, reasons, comment) {
+    return $Call.ByID(1379904737, sessionID, stars, reasons, comment);
+}
+
+/**
  * @returns {$CancellablePromise<void>}
  */
 export function ReloadService() {

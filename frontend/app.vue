@@ -162,6 +162,8 @@ async function close() {
 
   <DefaultFallbackNotice v-if="!isOverlayWindow" />
 
+  <DialogSessionRating v-if="!isOverlayWindow" />
+
   <DialogUpdateCheck v-if="!isOverlayWindow" />
 
   <OptimizeParticles v-if="!isOverlayWindow" />

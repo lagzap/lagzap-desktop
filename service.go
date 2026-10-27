@@ -163,6 +163,15 @@ func (s *Service) SetAdapterOrder(names []string) {
 	s.coordinator.SetAdapterOrder(names)
 }
 
+// RateSession sends the user's rating of a session the
+// "stats-rate-session" event asked about.
+func (s *Service) RateSession(sessionID string, stars uint32, reasons []string, comment string) error {
+	if s.coordinator == nil {
+		return nil
+	}
+	return s.coordinator.RateSession(sessionID, stars, reasons, comment)
+}
+
 // GetConnectionDetails explains one Connections page row: how its profile
 // carries it and the legs it uses now.
 func (s *Service) GetConnectionDetails(id string) *adapter.ConnectionDetails {

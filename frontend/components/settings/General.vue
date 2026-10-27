@@ -80,8 +80,9 @@ const {
         @update:model-value="setAllowSendDebugInfo"
       />
       <v-checkbox
-        hide-details
+        persistent-hint
         class="mb-5"
+        :hint="t('$vuetify.settings.privacy.allowSendAnonymousDataHint')"
         :label="t('$vuetify.settings.privacy.allowSendAnonymousData')"
         :model-value="settings.allowSendAnonymousData"
         @update:model-value="setAllowSendAnonymousData"

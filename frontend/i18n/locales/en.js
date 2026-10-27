@@ -141,6 +141,7 @@
             title: 'Privacy',
             allowSendDebugInfo: 'Send debug information',
             allowSendAnonymousData: 'Send anonymous usage data',
+            allowSendAnonymousDataHint: 'Ping, connection quality and disconnects, so we can improve routes and servers. Never the sites or servers you connect to.',
         },
         startup: {
             title: 'Startup',
@@ -281,6 +282,23 @@
         uninstallDriverWarning: 'Uninstalling the LagZap driver will close the application and you will need to restart your computer to use LagZap again. Are you sure you want to continue?',
         uninstallDriverConfirm: 'Yes, Uninstall',
         uninstallDriverCancel: 'Cancel'
+    },
+    sessionRating: {
+        title: 'How was your session?',
+        titleGame: 'How was {0}?',
+        subtitle: 'Your rating helps us improve routes and servers.',
+        comment: 'Anything else? (optional)',
+        notNow: 'Not now',
+        send: 'Send',
+        thanks: 'Thanks for your feedback!',
+        reasons: {
+            high_ping: 'High ping',
+            lag_spikes: 'Lag spikes',
+            disconnects: 'Disconnects',
+            slow_download: 'Slow download',
+            great: 'Smooth',
+            other: 'Other',
+        },
     },
     status: {
         active: 'Active',

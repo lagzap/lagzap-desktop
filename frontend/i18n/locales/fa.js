@@ -141,6 +141,7 @@ export default {
             title: 'حریم خصوصی',
             allowSendDebugInfo: 'ارسال اطلاعات اشکال‌زدایی',
             allowSendAnonymousData: 'ارسال داده‌های ناشناس استفاده',
+            allowSendAnonymousDataHint: 'پینگ، کیفیت اتصال و قطعی‌ها، تا مسیرها و سرورها را بهتر کنیم. هیچ‌وقت سایت‌ها یا سرورهایی که به آن‌ها وصل می‌شوید ارسال نمی‌شود.',
         },
         startup: {
             title: 'راه‌اندازی',
@@ -294,6 +295,23 @@ export default {
         global: 'جهانی',
         automaticServerSelectionEnabled: 'انتخاب خودکار سرور فعال شده',
         routingSystemDescription: 'سیستم مسیریابی LagZap به طور مؤثر داده‌های شما را از طریق پایدارترین اتصال به بهترین سرور ممکن بر اساس موقعیت شما و کمترین پینگ هدایت می‌کند.'
+    },
+    sessionRating: {
+        title: 'جلسه‌تان چطور بود؟',
+        titleGame: '{0} چطور بود؟',
+        subtitle: 'امتیاز شما به ما کمک می‌کند مسیرها و سرورها را بهتر کنیم.',
+        comment: 'نکته دیگری دارید؟ (اختیاری)',
+        notNow: 'الان نه',
+        send: 'ارسال',
+        thanks: 'از بازخوردتان ممنونیم!',
+        reasons: {
+            high_ping: 'پینگ بالا',
+            lag_spikes: 'لگ ناگهانی',
+            disconnects: 'قطع شدن',
+            slow_download: 'دانلود کند',
+            great: 'روان',
+            other: 'سایر',
+        },
     },
     status: {
         active: 'فعال',
