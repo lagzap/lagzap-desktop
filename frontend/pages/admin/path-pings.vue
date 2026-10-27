@@ -8,6 +8,13 @@ import {
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { PathPingRow } from "~/bindings/github.com/lagzap/lagzap/adapter";
 
+definePageMeta({
+  layout: "admin",
+  sanctum: {
+    excluded: true,
+  },
+});
+
 type KindFilter = "all" | "user_edge" | "edge_edge" | "edge_relay";
 
 const rows = ref<PathPingRow[]>([]);
@@ -329,7 +336,7 @@ onMounted(() => {
           <v-chip
             size="x-small"
             :color="sourceColor(item.source)"
-            variant="outlined"
+            variant="tonal"
           >
             {{ item.source || "—" }}
           </v-chip>

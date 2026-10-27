@@ -1,76 +1,59 @@
 import { Events } from "@wailsio/runtime";
-import { SPEED_HISTORY_SECONDS } from "~/composables/useLatencyMetrics";
 import type {
   Log,
   Connection,
   RouteMonitoringStatus,
-  NetworkTraffic,
-  NetworkSpeedPoint,
-  RouteMetricEvent,
   RouteProbeEvent,
-  LagFixEvent,
-  LagFixStats,
-  RelayPathEvent,
 } from "~/types/monitoring";
-import {
-  lagFixToHistoryEvent,
-  putNetworkHistoryEvent,
-  putNetworkHistoryEvents,
-  relayPathToHistoryEvent,
-} from "~/utils/networkHistoryDB";
-import { isNetworkHistoryConsentGranted } from "~/utils/networkHistoryConsent";
-import { useStore } from "~/stores";
-
-function canPersistNetworkHistory(): boolean {
-  try {
-    const store = useStore();
-    return (
-      store.abilities.includes("admin") && isNetworkHistoryConsentGranted()
-    );
-  } catch {
-    return false;
-  }
-}
-
-function persistHistoryEvent(
-  promise: Promise<unknown>
-): void {
-  if (!canPersistNetworkHistory()) {
-    return;
-  }
-  void promise.catch(() => undefined);
-}
-
-function historyNodesContext(): {
-  nodes: Record<string, any> | null;
-  localizeCity: (city: unknown) => string;
-} {
-  try {
-    const store = useStore();
-    return {
-      nodes: store.nodes ?? null,
-      localizeCity: (city) => {
-        try {
-          if (!city || typeof city !== "object") {
-            return "";
-          }
-          return (store.localized(city as Record<string, string>) as string) || "";
-        } catch {
-          return "";
-        }
-      },
-    };
-  } catch {
-    return { nodes: null, localizeCity: () => "" };
-  }
-}
 
 const MAX_LOGS = 1000;
-const MAX_SPEED_HISTORY = SPEED_HISTORY_SECONDS;
 const MAX_ROUTE_PING_HISTORY = 240;
 
-const MAX_LAG_FIX_HISTORY = 200;
-const MAX_RELAY_PATH_EVENTS = 300;
+
+/** Normalize connection list from Wails events (v3: data is the list). */
+function asConnectionList(data: unknown): Connection[] {
+  if (data == null) {
+    return [];
+  }
+  if (Array.isArray(data)) {
+    // Rare nested emit: [[...conns]]
+    if (data.length === 1 && Array.isArray(data[0])) {
+      return data[0] as Connection[];
+    }
+    return data as Connection[];
+  }
+  if (typeof data === "object") {
+    return [data as Connection];
+  }
+  return [];
+}
+
+/** Cheap stability check — skip reactive writes when nothing meaningful moved. */
+function connectionsFingerprint(list: Connection[]): string {
+  if (!list.length) {
+    return "";
+  }
+  return list
+    .map(
+      (c) =>
+        `${c.id}:${c.download_speed ?? 0}:${c.upload_speed ?? 0}:${Math.round(c.avg_latency ?? 0)}:${c.node_id ?? ""}`
+    )
+    .join("|");
+}
+
+/** Unwrap object payloads only — never flatten a 1-item connection list. */
+function unwrapEventPayload(data: unknown): unknown {
+  if (
+    Array.isArray(data) &&
+    data.length === 1 &&
+    data[0] &&
+    typeof data[0] === "object" &&
+    !Array.isArray(data[0])
+  ) {
+    return data[0];
+  }
+  return data;
+}
 
 let connectionsStore: ReturnType<typeof createMonitoringStore> | null = null;
 
@@ -78,24 +61,23 @@ function createMonitoringStore() {
   let logs: Ref<Log[]> = ref([]);
   let connections: Ref<Connection[]> = ref([]);
   let routes: Ref<RouteMonitoringStatus | null> = ref(null);
-  let networkTraffic: Ref<NetworkTraffic | null> = ref(null);
-  let networkSpeedHistory: Ref<NetworkSpeedPoint[]> = ref([]);
-  let routePingHistory: Ref<Record<string, RouteMetricEvent[]>> = ref({});
   let routeProbeHistory: Ref<Record<string, RouteProbeEvent[]>> = ref({});
-  /** Monotonic received count per tag (survives ring-buffer truncation). */
-  let routeProbeReceivedCount: Ref<Record<string, number>> = ref({});
   /** NIC names seen on live probes — avoids scanning full probe history. */
   let probedInterfaceNames: Ref<string[]> = ref([]);
   const probedInterfaceNameSet = new Set<string>();
-  let lagFixHistory: Ref<LagFixEvent[]> = ref([]);
-  let relayPathEvents: Ref<RelayPathEvent[]> = ref([]);
-  let lagFixStats: Ref<LagFixStats> = ref({
-    verified_count: 0,
-    attempt_count: 0,
-    failed_count: 0,
-    total_improvement_ms: 0,
-  });
   
+  let lastConnectionsFingerprint = "";
+
+  function applyConnections(raw: unknown) {
+    const next = asConnectionList(raw);
+    const fp = connectionsFingerprint(next);
+    if (fp === lastConnectionsFingerprint) {
+      return;
+    }
+    lastConnectionsFingerprint = fp;
+    connections.value = next;
+  }
+
   Events.On("log", ({ data }: any) => {
     if (data) {
       logs.value.push(data as Log);
@@ -106,26 +88,29 @@ function createMonitoringStore() {
   });
   
   Events.On("connections", ({ data }: any) => {
-    if (data) {
-      connections.value = data as Connection[];
-    }
+    applyConnections(data);
   });
   
   Events.On("routes", ({ data }: any) => {
-    if (!data) {
+    const payload = unwrapEventPayload(data);
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       return;
     }
-    routes.value = data as RouteMonitoringStatus;
+    routes.value = payload as RouteMonitoringStatus;
   });
 
-  Events.On("route-probe", ({ data }: any) => {
-    if (!data) {
-      return;
-    }
-    // Wails Event.Emit packs args into an array — single-arg payloads land at data[0].
-    const probe = (Array.isArray(data) ? data[0] : data) as RouteProbeEvent;
+  function probeFingerprint(probe: RouteProbeEvent): string {
+    return (probe.slots ?? [])
+      .map(
+        (slot) =>
+          `${slot.slot}|${slot.path_key ?? ""}|${slot.iface ?? ""}|${slot.network ?? ""}|${slot.latency}|${slot.packet_loss}`
+      )
+      .join(";");
+  }
+
+  function ingestRouteProbe(probe: RouteProbeEvent | null | undefined) {
     const tag = probe?.route_tag;
-    if (!tag) {
+    if (!tag || !probe) {
       return;
     }
     let ifacesChanged = false;
@@ -142,137 +127,91 @@ function createMonitoringStore() {
       probedInterfaceNames.value = [...probedInterfaceNameSet];
     }
     const history = routeProbeHistory.value[tag] ?? [];
-    routeProbeReceivedCount.value = {
-      ...routeProbeReceivedCount.value,
-      [tag]: (routeProbeReceivedCount.value[tag] ?? 0) + 1,
-    };
+    const last = history[history.length - 1];
+    const fingerprint = probeFingerprint(probe);
+    const lastTs = last?.timestamp ? new Date(last.timestamp).getTime() : 0;
+    const nextTs = probe.timestamp
+      ? new Date(probe.timestamp).getTime()
+      : Date.now();
+    // Event + poll can echo the same sample within a few hundred ms — drop it.
+    if (
+      last &&
+      probeFingerprint(last) === fingerprint &&
+      nextTs - lastTs < 400
+    ) {
+      return;
+    }
     routeProbeHistory.value = {
       ...routeProbeHistory.value,
       [tag]: [...history, probe].slice(-MAX_ROUTE_PING_HISTORY),
     };
-  });
+  }
 
-  Events.On("lag-fix", ({ data }: any) => {
+  Events.On("route-probe", ({ data }: any) => {
     if (!data) {
       return;
     }
-    const fix = data as LagFixEvent;
-    const existingIndex = lagFixHistory.value.findIndex((item) => item.id === fix.id);
-    if (existingIndex >= 0) {
-      const next = [...lagFixHistory.value];
-      next[existingIndex] = fix;
-      lagFixHistory.value = next;
-    } else {
-      lagFixHistory.value = [...lagFixHistory.value, fix].slice(-MAX_LAG_FIX_HISTORY);
-    }
-    const ctx = historyNodesContext();
-    persistHistoryEvent(
-      putNetworkHistoryEvent(
-        lagFixToHistoryEvent(fix, ctx.nodes, ctx.localizeCity)
-      )
-    );
+    // Wails Event.Emit packs args into an array — single-arg payloads land at data[0].
+    ingestRouteProbe(unwrapEventPayload(data) as RouteProbeEvent);
   });
 
-  Events.On("lag-fix-history", ({ data }: any) => {
-    if (!data || !Array.isArray(data)) {
+  const POLL_INTERVAL_MS = 2500;
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let pollInFlight = false;
+
+  const pollMonitoring = async () => {
+    if (pollInFlight) {
       return;
     }
-    const fixes = (data as LagFixEvent[]).slice(-MAX_LAG_FIX_HISTORY);
-    lagFixHistory.value = fixes;
-    const ctx = historyNodesContext();
-    persistHistoryEvent(
-      putNetworkHistoryEvents(
-        fixes.map((fix) =>
-          lagFixToHistoryEvent(fix, ctx.nodes, ctx.localizeCity)
-        )
-      )
-    );
-  });
-
-  Events.On("relay-path", ({ data }: any) => {
-    if (!data) {
-      return;
-    }
-    const event = data as RelayPathEvent;
-    relayPathEvents.value = [...relayPathEvents.value, event].slice(-MAX_RELAY_PATH_EVENTS);
-    const ctx = historyNodesContext();
-    persistHistoryEvent(
-      putNetworkHistoryEvent(
-        relayPathToHistoryEvent(event, ctx.nodes, ctx.localizeCity)
-      )
-    );
-  });
-
-  Events.On("lag-fix-stats", ({ data }: any) => {
-    if (!data) {
-      return;
-    }
-    lagFixStats.value = data as LagFixStats;
-  });
-
-  Events.On("route-metrics", ({ data }: any) => {
-    if (!data) {
-      return;
-    }
-    const metric = data as RouteMetricEvent;
-    const tag = metric.route_tag;
-    if (!tag) {
-      return;
-    }
-    const history = routePingHistory.value[tag] ?? [];
-    routePingHistory.value = {
-      ...routePingHistory.value,
-      [tag]: [...history, metric].slice(-MAX_ROUTE_PING_HISTORY),
-    };
-  });
-
-  Events.On("network-traffic", ({ data }: any) => {
-    if (data) {
-      const traffic = data as NetworkTraffic;
-      networkTraffic.value = traffic;
-
-      const interfaces = Object.fromEntries(
-        (traffic.interfaces ?? []).map((iface) => [
-          iface.name,
-          {
-            upload: iface.upload_speed || 0,
-            download: iface.download_speed || 0,
-          },
-        ])
+    pollInFlight = true;
+    try {
+      const mod = await import(
+        "~/bindings/github.com/lagzap/lagzap-desktop/service"
       );
-
-      networkSpeedHistory.value = [
-        ...networkSpeedHistory.value,
-        { interfaces },
-      ].slice(-MAX_SPEED_HISTORY);
+      const getConnections = (mod as { GetConnections?: () => Promise<unknown> })
+        .GetConnections;
+      if (typeof getConnections === "function") {
+        const raw = await getConnections();
+        applyConnections(raw);
+      }
+      const getProbes = (
+        mod as { GetLatestRouteProbes?: () => Promise<unknown> }
+      ).GetLatestRouteProbes;
+      if (typeof getProbes === "function") {
+        const raw = await getProbes();
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray((raw as { data?: unknown })?.data)
+            ? ((raw as { data: unknown[] }).data)
+            : null;
+        if (list) {
+          for (const item of list) {
+            ingestRouteProbe(item as RouteProbeEvent);
+          }
+        }
+      }
+    } catch {
+      // Binding may not exist until wails regenerate — events still apply.
+    } finally {
+      pollInFlight = false;
     }
-  });
+  };
+  void pollMonitoring();
+  pollTimer = setInterval(() => {
+    void pollMonitoring();
+  }, POLL_INTERVAL_MS);
+  void pollTimer;
   
   return {
     logs: computed(() => logs.value),
     connections: computed(() => connections.value),
     routes: computed(() => routes.value),
-    networkTraffic: computed(() => networkTraffic.value),
-    networkSpeedHistory: computed(() => networkSpeedHistory.value),
-    routePingHistory: computed(() => routePingHistory.value),
     routeProbeHistory: computed(() => routeProbeHistory.value),
-    routeProbeReceivedCount: computed(() => routeProbeReceivedCount.value),
     probedInterfaceNames: computed(() => probedInterfaceNames.value),
-    lagFixHistory: computed(() => lagFixHistory.value),
-    relayPathEvents: computed(() => relayPathEvents.value),
-    lagFixStats: computed(() => lagFixStats.value),
-    resetNetworkSpeedHistory: () => {
-      networkSpeedHistory.value = [];
-      networkTraffic.value = null;
-    },
     resetRoutePingHistory: () => {
-      routePingHistory.value = {};
       routeProbeHistory.value = {};
-      routeProbeReceivedCount.value = {};
       probedInterfaceNameSet.clear();
       probedInterfaceNames.value = [];
-      lagFixHistory.value = [];
-      relayPathEvents.value = [];
     },
   };
 }

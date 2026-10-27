@@ -1,4 +1,4 @@
-import { computed, ref, toValue, type MaybeRefOrGetter, type Ref } from "vue";
+import { computed, ref, type Ref } from "vue";
 
 /** Visual-only interface filter for profile diagram + latency chart. */
 export const BEST_INTERFACE = "best";
@@ -50,40 +50,5 @@ export function useProfileViewInterface(profileId: string) {
     selectedConnectionId,
     selectConnectionForChart,
     toggleConnectionForChart,
-  };
-}
-
-/** Shared chart-connection pin for a profile id that may change with the ref. */
-export function useProfileChartConnection(
-  profileId: MaybeRefOrGetter<string>
-) {
-  const selectedConnectionId = computed({
-    get(): string | null {
-      const id = toValue(profileId);
-      if (!id) {
-        return null;
-      }
-      return chartConnectionSelectionRef(id).value;
-    },
-    set(connectionId: string | null) {
-      const id = toValue(profileId);
-      if (!id) {
-        return;
-      }
-      chartConnectionSelectionRef(id).value = connectionId;
-    },
-  });
-
-  function toggleConnectionForChart(connectionId: string) {
-    selectedConnectionId.value =
-      selectedConnectionId.value === connectionId ? null : connectionId;
-  }
-
-  return {
-    selectedConnectionId,
-    toggleConnectionForChart,
-    selectConnectionForChart: (connectionId: string | null) => {
-      selectedConnectionId.value = connectionId;
-    },
   };
 }

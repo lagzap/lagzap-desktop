@@ -2,19 +2,17 @@
 import { useLocale } from "vuetify";
 import Container from "~/components/layout/Container.vue";
 import General from "~/components/settings/General.vue";
-import NetworkAdapter from "~/components/settings/NetworkAdapter.vue";
 import Routing from "~/components/settings/Routing.vue";
 import ClearDNSCache from "~/components/settings/ClearDNSCache.vue";
 import Version from "~/components/settings/Version.vue";
 import UninstallDriver from "~/components/settings/UninstallDriver.vue";
 import Other from "~/components/settings/Other.vue";
-import NetworkReport from "~/components/settings/NetworkReport.vue";
-import { useStore } from "~/stores";
 
 const locale = useLocale();
 const { t } = locale;
-const store = useStore();
-const isAdmin = computed(() => store.abilities.includes("admin"));
+
+// Rarely needed options stay folded until asked for.
+const showMore = ref(false);
 </script>
 
 <template>
@@ -27,23 +25,31 @@ const isAdmin = computed(() => store.abilities.includes("admin"));
       </template>
       <General  />
       <v-divider class="mx-4" />
-      <NetworkAdapter  />
-      <v-divider class="mx-4" />
       <Routing  />
-      <v-divider class="mx-4" />
-      <ClearDNSCache  />
-      <v-divider class="mx-4" />
-      <Other  />
-      <template v-if="isAdmin">
-        <v-divider class="mx-4" />
-        <NetworkReport />
-      </template>
-      <v-divider class="mx-4" />
-      <UninstallDriver  />
       <v-divider class="mx-4" />
       <Version  />
 
-      <div class="mt-5" />
+      <v-expand-transition>
+        <div v-if="showMore">
+          <v-divider class="mx-4" />
+          <ClearDNSCache  />
+          <v-divider class="mx-4" />
+          <Other  />
+          <v-divider class="mx-4" />
+          <UninstallDriver  />
+        </div>
+      </v-expand-transition>
+
+      <div class="px-4 mt-2 mb-5">
+        <v-btn
+          size="small"
+          variant="text"
+          :append-icon="showMore ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+          @click="showMore = !showMore"
+        >
+          {{ t(showMore ? '$vuetify.settings.showFewerOptions' : '$vuetify.settings.showMoreOptions') }}
+        </v-btn>
+      </div>
     </Container>
   </div>
 </template>

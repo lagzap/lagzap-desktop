@@ -58,7 +58,9 @@ export function bestLiveProbeMsForRelay(
         if (!isPlausibleProbeForRoute(slot.latency, route, floor)) {
           continue;
         }
-        best = slot.latency;
+        // Lowest plausible probe: the last one was whichever leg (other NIC,
+        // standby) happened to be listed last, so the number jumped around.
+        best = best == null ? slot.latency : Math.min(best, slot.latency);
       }
     }
   }
@@ -71,7 +73,7 @@ export function bestLiveProbeMsForRelay(
       if (slot.latency < 20) {
         continue;
       }
-      best = slot.latency;
+      best = best == null ? slot.latency : Math.min(best, slot.latency);
     }
   }
   return best != null ? Math.round(best) : null;

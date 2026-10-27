@@ -241,15 +241,18 @@ async function start() {
     store.error = true;
     return;
   } finally {
-    if (store.startupCanceled || redirecting.value) {
+    if (store.startupCanceled || redirecting.value || store.error) {
       store.loading = false;
       return;
     }
     if (isAuthenticated.value) {
       await initApp();
-    } else {
-      store.loading = false;
+      return;
     }
+    // Token present but identity never landed (e.g. raced clear) — don't freeze the splash.
+    store.loading = false;
+    redirecting.value = true;
+    await handleAuthFailure();
   }
 }
 
@@ -304,9 +307,10 @@ async function initApp() {
   }
 
   try {
-    if (settings.value.activeOnStart !== false) {
-      await store.initialize();
-    }
+    // Always connect + sync; activeOnStart only controls NDIS proxy auto-start.
+    await store.initialize(undefined, {
+      startProxy: settings.value.activeOnStart !== false,
+    });
   } catch (e) {
     return;
   }
@@ -324,7 +328,7 @@ async function initApp() {
 
 <template>
   <div>
-    <CyrexAnimatedLogo :loading="logoLoading" />
+    <LagZapAnimatedLogo :loading="logoLoading" />
     <div class="status-container text-center">
       <v-card-title>
         <LogoName />

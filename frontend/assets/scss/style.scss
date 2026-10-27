@@ -136,3 +136,22 @@ body {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+// Transform-only spinner: runs on the compositor, unlike v-progress-circular's
+// stroke-dash animation which repaints the page every frame.
+.spin-composited {
+  animation: spin-composited 0.9s linear infinite;
+  will-change: transform;
+}
+
+@keyframes spin-composited {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// Persian needs more room than Vuetify's 12px hint line: a wrapped hint
+// otherwise touches the line above.
+.v-locale--is-rtl .v-messages__message {
+  line-height: 1.6;
+}

@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
-Name=Cyrex
-Comment=Cyrex
+Name=LagZap
+Comment=LagZap
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/Cyrex %u
+Exec=/usr/local/bin/LagZap %u
 Terminal=false
 Type=Application
-Icon=Cyrex
+Icon=LagZap
 Categories=Utility;
-StartupWMClass=Cyrex
+StartupWMClass=LagZap
 
  

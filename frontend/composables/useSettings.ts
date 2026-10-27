@@ -8,7 +8,9 @@ import {
   IsReady,
   SetClientSettings,
   SetInternetPingTarget,
+  SetAdapterOrder,
   SetRoutingSettings,
+  SetVirtualAdapter,
 } from '~/bindings/github.com/lagzap/lagzap-desktop/service'
 import { getSettingsValue, putSettingsValue } from '~/utils/settingsDB'
 
@@ -18,8 +20,15 @@ export type RouteIPSetting = 'dualstack' | 'ipv4' | 'ipv6'
 import { DEFAULT_INTERNET_PING_TARGET, type InternetPingTargetId } from '~/composables/internetPingTargets'
 
 export const MAX_FAVORITE_TITLES = 10
+export const MAX_FAVORITE_TICKETS = 10
+export const MAX_RECENT_TICKETS = 8
 
 export type AppThemeSetting = 'system' | 'light' | 'dark'
+
+export type RecentTicketEntry = {
+  id: string
+  visitedAt: number
+}
 
 interface AppSettings {
   language?: string
@@ -38,8 +47,19 @@ interface AppSettings {
   proxyDnsRequests?: boolean
   internetPingTarget?: InternetPingTargetId
   relayTransportFallback?: boolean
+  /** Show game and app names in English while the UI is in another language. */
+  englishTitleNames?: boolean
+  /** Windows: capture games through LagZap's virtual adapter instead of the
+   * NDIS driver, so adapters can be unplugged or disabled mid-game. */
+  virtualAdapter?: boolean
+  /** Multi Internet card order: the failover order, Default first. */
+  adapterOrder?: string[]
   /** Ordered title IDs for Quick Access favorites (max MAX_FAVORITE_TITLES). */
   favoriteTitleIds?: string[]
+  /** Ordered ticket IDs for Quick Access favorites (max MAX_FAVORITE_TICKETS). */
+  favoriteTicketIds?: string[]
+  /** Recently opened tickets (max MAX_RECENT_TICKETS). */
+  recentTickets?: RecentTicketEntry[]
 }
 
 const APP_SETTINGS_KEY = 'app-settings'
@@ -76,6 +96,8 @@ const settings = shallowRef<AppSettings>({
   activeOnStart: true,
   gpuAcceleration: true,
   favoriteTitleIds: [],
+  favoriteTicketIds: [],
+  recentTickets: [],
   ...defaultRoutingSettings,
 })
 
@@ -243,6 +265,7 @@ export const useSettings = (locale?: any, theme?: any) => {
       )
       await SetClientSettings(await buildClientSettingsPayload())
       await SetInternetPingTarget(settings.value.internetPingTarget ?? DEFAULT_INTERNET_PING_TARGET)
+      await SetAdapterOrder(settings.value.adapterOrder ?? [])
     } catch (error) {
       console.warn('Could not sync routing settings to backend:', error)
     }
@@ -383,6 +406,27 @@ export const useSettings = (locale?: any, theme?: any) => {
     await saveSettings({ relayTransportFallback })
   }
 
+  const setEnglishTitleNames = async (englishTitleNames: boolean) => {
+    await saveSettings({ englishTitleNames })
+  }
+
+  /** Saving also syncs it to the backend (syncRoutingSettingsToBackend). */
+  const setAdapterOrder = async (adapterOrder: string[]) => {
+    await saveSettings({ adapterOrder })
+  }
+
+  /** Switches capture mode now; a TUN start failure leaves NDIS running and
+   * the setting off. */
+  const setVirtualAdapter = async (virtualAdapter: boolean) => {
+    try {
+      await SetVirtualAdapter(virtualAdapter)
+    } catch (error) {
+      await saveSettings({ virtualAdapter: false })
+      throw error
+    }
+    await saveSettings({ virtualAdapter })
+  }
+
   const setInternetPingTarget = async (internetPingTarget: InternetPingTargetId) => {
     try {
       await SetInternetPingTarget(internetPingTarget)
@@ -412,6 +456,69 @@ export const useSettings = (locale?: any, theme?: any) => {
     await saveSettings({
       favoriteTitleIds: normalizeFavoriteTitleIds(favoriteTitleIds),
     })
+  }
+
+  const normalizeFavoriteTicketIds = (ids: string[]): string[] => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const id of ids) {
+      if (!id || seen.has(id)) {
+        continue
+      }
+      seen.add(id)
+      out.push(id)
+      if (out.length >= MAX_FAVORITE_TICKETS) {
+        break
+      }
+    }
+    return out
+  }
+
+  const setFavoriteTicketIds = async (favoriteTicketIds: string[]) => {
+    await saveSettings({
+      favoriteTicketIds: normalizeFavoriteTicketIds(favoriteTicketIds),
+    })
+  }
+
+  const normalizeRecentTickets = (
+    entries: RecentTicketEntry[],
+  ): RecentTicketEntry[] => {
+    const seen = new Set<string>()
+    const out: RecentTicketEntry[] = []
+    const sorted = [...entries].sort((a, b) => b.visitedAt - a.visitedAt)
+    for (const entry of sorted) {
+      if (!entry?.id || seen.has(entry.id)) {
+        continue
+      }
+      seen.add(entry.id)
+      out.push({
+        id: entry.id,
+        visitedAt: Number(entry.visitedAt) || Date.now(),
+      })
+      if (out.length >= MAX_RECENT_TICKETS) {
+        break
+      }
+    }
+    return out
+  }
+
+  const setRecentTickets = async (recentTickets: RecentTicketEntry[]) => {
+    await saveSettings({
+      recentTickets: normalizeRecentTickets(recentTickets),
+    })
+  }
+
+  const touchRecentTicket = async (ticketId: string) => {
+    if (!ticketId) {
+      return
+    }
+    const next = [
+      { id: ticketId, visitedAt: Date.now() },
+      ...(settings.value.recentTickets ?? []).filter(
+        (entry) => entry.id !== ticketId,
+      ),
+    ]
+    await setRecentTickets(next)
   }
 
   const getLanguages = () => [
@@ -463,8 +570,14 @@ export const useSettings = (locale?: any, theme?: any) => {
     setRealtimeOptimization,
     setProxyDnsRequests,
     setRelayTransportFallback,
+    setEnglishTitleNames,
+    setVirtualAdapter,
+    setAdapterOrder,
     setInternetPingTarget,
     setFavoriteTitleIds,
+    setFavoriteTicketIds,
+    setRecentTickets,
+    touchRecentTicket,
     syncRoutingSettingsToBackend,
     getLanguages,
     getThemes,

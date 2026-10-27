@@ -52,3 +52,10 @@ func (s *Service) IsProxyRunning() (running bool) {
 	}
 	return running
 }
+
+// SetVirtualAdapter is a no-op here: outside Windows the TUN is the only
+// capture mode.
+func (s *Service) SetVirtualAdapter(enabled bool) error {
+	s.virtualAdapter = enabled
+	return nil
+}

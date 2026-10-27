@@ -45,6 +45,7 @@
     "es-toolkit": "^1.39.8",
     "fuse.js": "^7.1.0",
     "just-kebab-case": "^4.2.0",
+    "marked": "^18.0.7",
     "node-addon-api": "^8.5.0",
     "nuxt": "^3.18.1",
     "nuxt-auth-sanctum": "^0.6.7",

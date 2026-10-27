@@ -77,6 +77,8 @@ onActivated(async () => {
 
 const quiting = ref(false)
 const { checking: updateChecking, checkForUpdate } = useUpdateCheck(t)
+const tickets = useTicketsStore()
+const bugFeedbackOpen = ref(false)
 
 async function exit() {
   quiting.value = true;
@@ -98,26 +100,34 @@ async function exit() {
         <template v-slot:activator="{ props }">
           <v-list-item rounded="xl" height="56">
             <template #title>
-              <LogoName class="ms-3 me-1" />
+              <NuxtLink :to="{ name: 'index' }" class="nav-home" :aria-label="t('$vuetify.navigation.overview')">
+                <LogoName class="ms-3 me-1" />
+              </NuxtLink>
             </template>
             <template #prepend>
               <span class="cursor-pointer" v-bind="props">
                 <v-avatar rounded="circle" size="32">
-                  <CyrexLogo />
+                  <LagzapLogo />
                 </v-avatar>
+                <v-badge
+                  :content="tickets.navBadgeCount"
+                  :model-value="tickets.navBadgeCount > 0"
+                  color="info"
+                  floating
+                  inline
+                />
                 <v-icon icon="mdi-chevron-down" size="xs" />
               </span>
             </template>
 
             <template #append>
               <v-scale-transition leave-absolute>
-                <v-progress-circular
+                <v-icon
                   v-if="!store.connected && store.status == ConnectionStatus.StatusReconnecting"
-                  indeterminate
-                  size="20"
-                  width="2"
+                  icon="mdi-loading"
                   color="primary"
-                  class="me-2"
+                  size="20"
+                  class="spin-composited me-2"
                 />
                 <v-icon
                   v-else-if="showConnectedCheck"
@@ -191,8 +201,8 @@ async function exit() {
                         hide-details
                         density="comfortable"
                         :color="store.error ? 'red' : 'green'"
-                        :disabled="!store.serviceReady || store.ndisToggling"
-                        :loading="store.ndisToggling || store.loading"
+                        :disabled="!store.serviceReady || store.loading || store.ndisToggling"
+                        :loading="store.ndisToggling"
                         @update:model-value="onRoutingToggle"
                       />
                     </div>
@@ -215,32 +225,40 @@ async function exit() {
               @click="checkForUpdate"
             >
               <template #title>
-                <span class="text-caption">Check Update</span>
-              </template>
-              <template v-if="updateChecking" #append>
-                <v-progress-circular indeterminate size="16" width="2" />
+                <span class="text-caption">{{ t('$vuetify.settings.checkForUpdate') }}</span>
               </template>
             </v-list-item>
-            <v-list-item prepend-icon="mdi-bug" @click="''">
+            <v-list-item prepend-icon="mdi-bug" @click="bugFeedbackOpen = true">
               <template #title>
-                <span class="text-caption">Bug / Feedback</span>
+                <span class="text-caption">{{ t('$vuetify.tickets.bugFeedback') }}</span>
               </template>
             </v-list-item>
-            <v-list-item prepend-icon="mdi-account-question" @click="''">
+            <v-list-item @click="tickets.openTicketsPopup()">
+              <template #prepend>
+                <v-icon icon="mdi-lifebuoy" />
+              </template>
               <template #title>
-                <span class="text-caption">Help Center</span>
+                <span class="text-caption">{{ t('$vuetify.tickets.helpCenter') }}</span>
+              </template>
+              <template #append>
+                <v-badge
+                  :content="tickets.navBadgeCount"
+                  :model-value="tickets.navBadgeCount > 0"
+                  color="info"
+                  inline
+                />
               </template>
             </v-list-item>
             <v-divider />
             
             <v-list-item prepend-icon="mdi-logout" @click="logout">
               <template #title>
-                <span class="text-caption">Logout</span>
+                <span class="text-caption">{{ t('$vuetify.navigation.logout') }}</span>
               </template>
             </v-list-item>
             <v-list-item prepend-icon="mdi-close" @click="exit" :disabled="quiting">
               <template #title>
-                <span class="text-caption">Exit</span>
+                <span class="text-caption">{{ t('$vuetify.navigation.exit') }}</span>
               </template>
             </v-list-item>
             <v-divider />
@@ -257,13 +275,6 @@ async function exit() {
 
     <v-list nav :lines="false" variant="text" color="tertiary">
       <v-list-item
-        :to="{ name: 'index' }"
-        :title="t('$vuetify.navigation.overview')"
-        prepend-icon="mdi-view-dashboard"
-        rounded="xl"
-        density="compact"
-      />
-      <v-list-item
         :to="{ name: 'titles' }"
         :title="t('$vuetify.navigation.titles')"
         prepend-icon="mdi-gamepad"
@@ -279,9 +290,16 @@ async function exit() {
         density="compact"
       />
       <v-list-item
-        :to="{ name: 'network-latency' }"
-        :title="t('$vuetify.navigation.networkLatency')"
-        prepend-icon="mdi-map-marker-path"
+        :to="{ name: 'monitoring' }"
+        :title="t('$vuetify.navigation.monitoring')"
+        prepend-icon="mdi-chart-line"
+        rounded="xl"
+        density="compact"
+      />
+      <v-list-item
+        :to="{ name: 'multi-internet' }"
+        :title="t('$vuetify.navigation.multiInternet')"
+        prepend-icon="mdi-call-split"
         rounded="xl"
         density="compact"
       />
@@ -292,75 +310,19 @@ async function exit() {
         rounded="xl"
         density="compact"
       />
-      <v-list-item
-        v-if="false"
-        :to="{ name: 'monitoring' }"
-        :title="t('$vuetify.navigation.monitoring')"
-        prepend-icon="mdi-chart-line"
-        rounded="xl"
-        density="compact"
-      />
-    </v-list>
-
-    <v-list
-      v-if="store.abilities.includes('admin')"
-      nav
-      variant="text"
-      color="tertiary"
-      :lines="false"
-    >
-      <v-list-subheader>{{ t("$vuetify.navigation.admin") }}</v-list-subheader>
-      <v-list-item
-        :to="{ name: 'admin-connections' }"
-        :title="t('$vuetify.navigation.connections')"
-        prepend-icon="mdi-network-outline"
-        rounded="xl"
-        density="compact"
-      />
-      <v-list-item
-        :to="{ name: 'admin-routes' }"
-        title="Route Monitoring"
-        prepend-icon="mdi-network-pos"
-        rounded="xl"
-        density="compact"
-      />
-      <v-list-item
-        :to="{ name: 'admin-path-pings' }"
-        title="Path Pings"
-        prepend-icon="mdi-swap-horizontal-variant"
-        rounded="xl"
-        density="compact"
-      />
-      <v-list-item
-        :to="{ name: 'admin-live' }"
-        title="Live Relay Monitor"
-        prepend-icon="mdi-radar"
-        rounded="xl"
-        density="compact"
-      />
-      <v-list-item
-        :to="{ name: 'admin-lag-fix' }"
-        title="Lag Fix Events"
-        prepend-icon="mdi-swap-horizontal"
-        rounded="xl"
-        density="compact"
-      />
-      <v-list-item
-        :to="{ name: 'network-report' }"
-        :title="t('$vuetify.navigation.networkReport')"
-        prepend-icon="mdi-file-chart-outline"
-        rounded="xl"
-        density="compact"
-      />
-      <v-list-item
-        :to="{ name: 'admin-logs' }"
-        :title="t('$vuetify.navigation.logs')"
-        prepend-icon="mdi-text"
-        rounded="xl"
-        density="compact"
-      />
     </v-list>
 
     <QuickAccess />
+
+    <DialogBugFeedback v-model="bugFeedbackOpen" />
   </v-navigation-drawer>
 </template>
+
+<style scoped>
+/* The LagZap name is the way to Overview. */
+.nav-home {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+}
+</style>

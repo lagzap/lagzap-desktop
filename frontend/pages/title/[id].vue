@@ -4,6 +4,7 @@ import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
 import ProfileCard from "~/components/title/ProfileCard.vue";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
+import ChangelogBadge from "~/components/title/ChangelogBadge.vue";
 
 const { t } = useLocale();
 const store = useStore();
@@ -20,6 +21,9 @@ const profiles = computed(() =>
     .sort((a, b) => a.order - b.order)
 );
 
+/** Visit time before this page open — used so "new" changelog isn't wiped by visitTitle. */
+const changelogSince = ref(0);
+
 const showInactiveBanner = ref(false);
 let bannerDelayTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -28,6 +32,12 @@ function clearBannerDelay() {
     clearTimeout(bannerDelayTimer);
     bannerDelayTimer = null;
   }
+}
+
+function recordVisit(titleId: string) {
+  const prev = Number(store.titleStates[titleId]?.visited_at || 0);
+  changelogSince.value = Number.isFinite(prev) && prev > 0 ? prev : 0;
+  void store.visitTitle(titleId);
 }
 
 watch(
@@ -49,14 +59,19 @@ watch(
   { immediate: true }
 );
 
-onMounted(() => {
-  nextTick(() => {
-    if (!title.value || !store.appReady) {
+watch(
+  () => ({
+    id: title.value?.id as string | undefined,
+    ready: store.appReady,
+  }),
+  ({ id, ready }) => {
+    if (!id || !ready) {
       return;
     }
-    store.visitTitle(title.value.id);
-  });
-});
+    recordVisit(id);
+  },
+  { immediate: true },
+);
 
 onBeforeUnmount(() => {
   clearBannerDelay();
@@ -81,10 +96,16 @@ onBeforeUnmount(() => {
           class="text-subtitle-1"
           @click="router.push({ name: 'title-id', params: { id: title.id } })"
         >
-          <span>{{ title ? store.localized(title.name) : "" }}</span>
+          <span>{{ title ? store.titleName(title.name) : "" }}</span>
         </v-app-bar-title>
 
         <v-spacer />
+        <ChangelogBadge
+          v-if="title"
+          dense
+          :entries="title.updates"
+          :since="changelogSince"
+        />
         <TitleFavoriteButton v-if="title" :title-id="title.id" />
         <v-switch
           :model-value="store.isTitleActive(title.id)"
@@ -103,7 +124,7 @@ onBeforeUnmount(() => {
           lines="one"
         >
           <v-banner-text>
-            {{ t("$vuetify.title.isNotActive", [store.localized(title.name)]) }}
+            {{ t("$vuetify.title.isNotActive", [store.titleName(title.name)]) }}
           </v-banner-text>
 
           <template #actions>
@@ -120,7 +141,10 @@ onBeforeUnmount(() => {
 
       <div v-if="title" class="d-flex flex-column" style="column-gap: 0.5rem">
         <template v-for="profile in profiles" :key="profile.id">
-          <ProfileCard :profile="profile" />
+          <ProfileCard
+            :profile="profile"
+            :changelog-since="changelogSince"
+          />
           <v-divider
             v-if="profile.id !== profiles[profiles.length - 1].id"
             class="mx-3"

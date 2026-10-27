@@ -7,6 +7,7 @@ const locale = useLocale();
 const { t } = locale;
 const store = useStore();
 const titles = computed(() => store.getTitles);
+const requestOpen = ref(false);
 </script>
 
 <template>
@@ -37,7 +38,7 @@ const titles = computed(() => store.getTitles);
                 >
                   <v-list-item
                     :prepend-avatar="item.raw.icon_url"
-                    :title="store.localized(item.raw.name)"
+                    :title="store.titleName(item.raw.name)"
                   >
                     <template #append>
                       <div class="d-flex align-center">
@@ -99,10 +100,13 @@ const titles = computed(() => store.getTitles);
             zIndex: 10000,
           }"
           :disabled="!store.appReady"
-          text="Request Title"
+          :text="t('$vuetify.tickets.requestTitle')"
+          @click="requestOpen = true"
         />
       </template>
     </Container>
+
+    <DialogRequestTitle v-model="requestOpen" />
   </div>
 </template>
 

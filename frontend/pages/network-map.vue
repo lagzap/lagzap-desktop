@@ -13,7 +13,7 @@ const { t } = useLocale();
     <template #header>
       <v-tabs fixed-tabs>
         <v-tab
-          :to="{ name: 'network-latency' }"
+          :to="{ name: 'monitoring' }"
           :text="t('$vuetify.networkLatency.latencyGrid')"
         />
         <v-tab

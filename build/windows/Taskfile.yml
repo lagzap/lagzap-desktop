@@ -49,7 +49,7 @@ tasks:
       RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
 
   compile:
-    summary: Compile Cyrex.exe
+    summary: Compile LagZap.exe
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
     vars:
@@ -114,7 +114,7 @@ tasks:
       - task: create:checksums
 
   create:update:zip:
-    summary: Zip Cyrex.exe for the auto-updater (single top-level entry)
+    summary: Zip LagZap.exe for the auto-updater (single top-level entry)
     cmds:
       - cmd: powershell -NoProfile -Command "Compress-Archive -Force -Path '{{.BIN_DIR}}\{{.APP_NAME}}.exe' -DestinationPath '{{.BIN_DIR}}\{{.APP_NAME}}-windows-{{.ARCH}}.zip'"
         platforms: [windows]
@@ -134,7 +134,7 @@ tasks:
       ARCH: '{{.ARCH | default ARCH}}'
 
   rename:artifacts:
-    summary: Rename NSIS installer to Cyrex-windows-ARCH-setup.exe
+    summary: Rename NSIS installer to LagZap-windows-ARCH-setup.exe
     cmds:
       - cmd: powershell -NoProfile -Command "if (Test-Path '{{.BIN_DIR}}\{{.APP_NAME}}-{{.ARCH}}-installer.exe') { Move-Item -Force '{{.BIN_DIR}}\{{.APP_NAME}}-{{.ARCH}}-installer.exe' '{{.BIN_DIR}}\{{.APP_NAME}}-windows-{{.ARCH}}-setup.exe' }"
         platforms: [windows]
@@ -173,7 +173,7 @@ tasks:
       ARG_FLAG: '{{if eq .ARCH "amd64"}}AMD64{{else}}ARM64{{end}}'
 
   sign:
-    summary: Sign Cyrex.exe with Authenticode (requires cert — see docs/RELEASE.md)
+    summary: Sign LagZap.exe with Authenticode (requires cert — see docs/RELEASE.md)
     cmds:
       - wails3 tool sign -platform windows -certificate "{{.SIGN_CERTIFICATE}}" -thumbprint "{{.SIGN_THUMBPRINT}}" -timestamp "{{.TIMESTAMP_SERVER}}" "{{.BIN_DIR}}/{{.APP_NAME}}.exe"
     preconditions:

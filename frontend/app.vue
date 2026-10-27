@@ -3,6 +3,8 @@ import { useDisplay, useTheme, useLocale } from "vuetify";
 import { useMessagesStore } from "~/stores/messages";
 import OptimizeParticles from "~/components/effects/OptimizeParticles.vue";
 import InterfaceReconnectOverlay from "~/components/network/InterfaceReconnectOverlay.vue";
+import DefaultFallbackNotice from "~/components/network/DefaultFallbackNotice.vue";
+import DialogUpdateCheck from "~/components/dialog/UpdateCheck.vue";
 import {
   syncThemeFromSetting,
   type AppThemeSetting,
@@ -14,19 +16,27 @@ const messages = useMessagesStore();
 const theme = useTheme();
 const locale = useLocale();
 const { mobile } = useDisplay();
+// Numbers and units follow the UI language (Persian digits in fa).
+watchEffect(() => {
+  formatLocale.value = locale.current.value;
+});
 const { settings, isLoaded } = useSettings(locale, theme);
 
 const isMaximized = ref<boolean>(false);
 const loaded = ref(false);
 const route = useRoute();
-/** Pop-out latency window uses its own chrome; hide main title-bar buttons. */
+/** Pop-out latency / admin windows use their own chrome; hide main title-bar buttons. */
 const isOverlayWindow = computed(
   () =>
     route.meta.layout === "overlay" ||
-    route.path.startsWith("/latency-overlay")
+    route.meta.layout === "admin" ||
+    route.path.startsWith("/latency-overlay") ||
+    route.path.startsWith("/admin")
 );
 
 onMounted(async () => {
+  // Before any await: it reads Nuxt composables from this component.
+  void store.resumeSession();
   const { Events, Window } = await import("@wailsio/runtime");
 
   window.addEventListener(
@@ -149,6 +159,10 @@ async function close() {
   />
 
   <InterfaceReconnectOverlay v-if="!isOverlayWindow" />
+
+  <DefaultFallbackNotice v-if="!isOverlayWindow" />
+
+  <DialogUpdateCheck v-if="!isOverlayWindow" />
 
   <OptimizeParticles v-if="!isOverlayWindow" />
 </template>

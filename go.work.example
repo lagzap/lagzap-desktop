@@ -1,7 +1,9 @@
-go 1.24.7
+go 1.25.0
 
-# Copy to go.work for local development (gitignored).
-# go.work replaces are used by go build/run; go mod tidy does NOT honor them.
+// Copy to go.work for local development (gitignored).
+// go.work replaces are used by go build/run; go mod tidy does NOT honor them.
+// IMPORTANT: must include `use .` — an empty go.work fails with:
+//   go: no modules were found in the current workspace
 
 use .
 

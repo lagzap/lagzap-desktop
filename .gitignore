@@ -13,7 +13,7 @@ frontend/dist
 /*.srs
 /*.db
 /lagzap.exe
-/Cyrex.exe
+/LagZap.exe
 /config.d/
 /*.log
 updater.key

@@ -6,3 +6,7 @@ import * as Service from "./service.js";
 export {
     Service
 };
+
+export {
+    MyTicketsResult
+} from "./models.js";

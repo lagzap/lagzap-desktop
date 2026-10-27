@@ -8,26 +8,81 @@ import type {
   RouteProbeSlotMetric,
 } from "~/types/monitoring";
 import { useHumanSpeed } from "~/composables/helper";
+import { GetNodes } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import type { Node } from "~/bindings/github.com/lagzap/zap/data";
 
-const {
-  routes,
-  connections,
-  routeProbeHistory,
-  lagFixHistory,
-  relayPathEvents,
-  lagFixStats,
-} = useMonitoringStore();
+definePageMeta({
+  layout: "admin",
+  sanctum: {
+    excluded: true,
+  },
+});
+
+const { routes, connections, routeProbeHistory } = useMonitoringStore();
+
+const nodesById = ref<Record<string, Node>>({});
 
 const nowMs = ref(Date.now());
 let tick: ReturnType<typeof setInterval> | null = null;
-onMounted(() => {
+onMounted(async () => {
   tick = setInterval(() => {
     nowMs.value = Date.now();
   }, 1000);
+  try {
+    const map = await GetNodes();
+    if (map && typeof map === "object") {
+      nodesById.value = map as Record<string, Node>;
+    }
+  } catch {
+    // Admin can still show tags until nodes load.
+  }
 });
 onUnmounted(() => {
   if (tick) clearInterval(tick);
 });
+
+function cityOf(node: Node | undefined): string {
+  if (!node?.city || typeof node.city !== "object") {
+    return "";
+  }
+  return (
+    (node.city as Record<string, string>).en ||
+    Object.values(node.city as Record<string, string>)[0] ||
+    ""
+  );
+}
+
+function resolveNodeMeta(tag: string): { name: string; city: string; country: string } {
+  const id = tag.replace(/-ipv[46]-(tcp|udp)$/i, "");
+  const direct = nodesById.value[id] || nodesById.value[tag];
+  if (direct) {
+    return {
+      name: direct.name || id,
+      city: cityOf(direct),
+      country: direct.country || "",
+    };
+  }
+  for (const node of Object.values(nodesById.value)) {
+    if (!node) continue;
+    if (node.id === id || node.name === id || node.id === tag || node.name === tag) {
+      return {
+        name: node.name || id,
+        city: cityOf(node),
+        country: node.country || "",
+      };
+    }
+  }
+  return { name: "", city: "", country: "" };
+}
+
+function displayRelayLabel(tag: string, fallbackName?: string, fallbackCity?: string): string {
+  const meta = resolveNodeMeta(tag);
+  if (meta.city) return meta.city;
+  if (meta.name) return meta.name;
+  if (fallbackCity) return fallbackCity;
+  if (fallbackName && fallbackName !== tag) return fallbackName;
+  return tag;
+}
 
 const selectedTag = ref<string>("");
 
@@ -116,9 +171,27 @@ function statusColor(status: LegRow["status"]): string {
 }
 
 function lastProbe(tag: string): RouteProbeEvent | null {
-  const events = routeProbeHistory.value[tag];
-  if (!events?.length) return null;
-  return events[events.length - 1] ?? null;
+  const history = routeProbeHistory.value ?? {};
+  const direct = history[tag];
+  if (direct?.length) {
+    return direct[direct.length - 1] ?? null;
+  }
+  // Probes may be keyed by store tag (id-ipv4-udp) while boards use bare ULID.
+  let best: RouteProbeEvent | null = null;
+  for (const [key, events] of Object.entries(history)) {
+    if (!events?.length) continue;
+    if (
+      key === tag ||
+      key.startsWith(`${tag}-`) ||
+      tag.startsWith(`${key}-`)
+    ) {
+      const last = events[events.length - 1] ?? null;
+      if (!best || (last && last.timestamp > best.timestamp)) {
+        best = last;
+      }
+    }
+  }
+  return best;
 }
 
 function lastGoodLatencyForSlot(
@@ -184,10 +257,11 @@ const boards = computed<RelayBoard[]>(() => {
     if (!tag) continue;
     let board = byTag.get(tag);
     if (!board) {
+      const meta = resolveNodeMeta(tag);
       board = {
         tag,
-        nodeName: tag,
-        city: "",
+        nodeName: displayRelayLabel(tag),
+        city: meta.city,
         address: conn.relay_route?.addr || "",
         connCount: 0,
         upload: 0,
@@ -212,8 +286,8 @@ const boards = computed<RelayBoard[]>(() => {
     if (!board) {
       board = {
         tag,
-        nodeName: route.node_name || tag,
-        city: route.city || "",
+        nodeName: displayRelayLabel(tag, route.node_name, route.city),
+        city: route.city || resolveNodeMeta(tag).city,
         address: route.address || "",
         connCount: route.connections || 0,
         upload: 0,
@@ -227,8 +301,12 @@ const boards = computed<RelayBoard[]>(() => {
       byTag.set(tag, board);
     } else {
       board.meta = route;
-      board.nodeName = route.node_name || board.nodeName;
-      board.city = route.city || board.city;
+      board.nodeName = displayRelayLabel(
+        tag,
+        route.node_name || board.nodeName,
+        route.city || board.city
+      );
+      board.city = route.city || board.city || resolveNodeMeta(tag).city;
       board.address = route.address || board.address;
     }
   }
@@ -236,10 +314,11 @@ const boards = computed<RelayBoard[]>(() => {
   // Also include any probe-only tags so silent watched routes still show up.
   for (const tag of Object.keys(routeProbeHistory.value ?? {})) {
     if (!byTag.has(tag)) {
+      const meta = resolveNodeMeta(tag);
       byTag.set(tag, {
         tag,
-        nodeName: tag,
-        city: "",
+        nodeName: displayRelayLabel(tag),
+        city: meta.city,
         address: "",
         connCount: 0,
         upload: 0,
@@ -292,31 +371,6 @@ const selected = computed(
   () => boards.value.find((b) => b.tag === selectedTag.value) ?? null
 );
 
-const recentEvents = computed(() => {
-  const swaps = (lagFixHistory.value ?? []).slice(-8).map((fix) => ({
-    id: fix.id,
-    at: fix.timestamp,
-    label: `${fix.status}${fix.reason ? ` · ${fix.reason}` : ""}`,
-    color:
-      fix.status === "verified"
-        ? "success"
-        : fix.status === "skipped"
-          ? "grey"
-          : fix.status === "failed"
-            ? "error"
-            : "warning",
-  }));
-  const redials = (relayPathEvents.value ?? []).slice(-8).map((ev) => ({
-    id: ev.id,
-    at: ev.timestamp,
-    label: `${ev.kind} · ${ev.entry || "?"} @ ${ev.iface || "default"}`,
-    color: "orange",
-  }));
-  return [...swaps, ...redials]
-    .sort((a, b) => (a.at > b.at ? -1 : 1))
-    .slice(0, 10);
-});
-
 function processName(path?: string): string {
   if (!path) return "—";
   const parts = path.replace(/\\/g, "/").split("/");
@@ -336,9 +390,6 @@ function processName(path?: string): string {
       <v-toolbar class="bg-transparent px-3" density="compact">
         <v-chip size="small" variant="tonal" class="me-2">
           {{ boards.length }} relays
-        </v-chip>
-        <v-chip size="small" variant="outlined" class="me-2">
-          lag fixes {{ lagFixStats.attempt_count }}/{{ lagFixStats.verified_count }}
         </v-chip>
         <v-spacer />
         <span class="text-caption text-medium-emphasis">
@@ -374,31 +425,6 @@ function processName(path?: string): string {
             </v-list>
           </v-card>
 
-          <v-card variant="outlined" class="bg-transparent mt-2">
-            <v-card-title class="text-caption py-2">Recent path events</v-card-title>
-            <v-card-text class="pt-0">
-              <div v-if="!recentEvents.length" class="text-caption text-medium-emphasis">
-                No swaps / skips / redials yet
-              </div>
-              <div
-                v-for="ev in recentEvents"
-                :key="ev.id"
-                class="d-flex align-center ga-2 mb-1"
-              >
-                <v-chip size="x-small" :color="ev.color" variant="tonal">
-                  {{ ev.label }}
-                </v-chip>
-              </div>
-              <v-btn
-                class="mt-1 px-0"
-                size="small"
-                variant="text"
-                :to="{ name: 'admin-lag-fix' }"
-              >
-                Open lag-fix timeline
-              </v-btn>
-            </v-card-text>
-          </v-card>
         </v-col>
 
         <v-col cols="12" md="9" class="pa-2">
@@ -406,7 +432,7 @@ function processName(path?: string): string {
             <v-card variant="outlined" class="bg-transparent mb-2">
               <v-card-title class="d-flex flex-wrap align-center ga-2 py-2">
                 <span>{{ selected.nodeName }}</span>
-                <v-chip size="x-small" variant="outlined">
+                <v-chip size="x-small" variant="tonal">
                   {{ selected.address || "no addr" }}
                 </v-chip>
                 <v-chip size="x-small" variant="tonal">

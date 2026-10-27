@@ -2,10 +2,12 @@ package localproxy
 
 import (
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -15,12 +17,15 @@ func TestStartSkipsRestartWhenTargetUnchanged(t *testing.T) {
 	}))
 	t.Cleanup(upstream.Close)
 
+	// An ephemeral port, so a running app holding DefaultListen doesn't fail the test.
+	cfg := Config{Listen: "127.0.0.1:0", Target: upstream.URL}
 	proxy := New()
-	if err := proxy.Start(Config{Target: upstream.URL}); err != nil {
+	if err := proxy.Start(cfg); err != nil {
 		t.Fatalf("first start: %v", err)
 	}
+	t.Cleanup(func() { _ = proxy.Stop() })
 	first := proxy.server
-	if err := proxy.Start(Config{Target: upstream.URL}); err != nil {
+	if err := proxy.Start(cfg); err != nil {
 		t.Fatalf("second start: %v", err)
 	}
 	if proxy.server != first {
@@ -136,5 +141,48 @@ func TestProxyForwardsRequestBody(t *testing.T) {
 	}
 	if gotBody != wantBody {
 		t.Fatalf("upstream body %q, want %q", gotBody, wantBody)
+	}
+}
+
+// A pooled keep-alive connection stays on the adapter it was dialed on. When
+// the coordinator moves off an adapter, the next API request must not reuse
+// one: login sat on a disabled PTP while ZLT X10 worked.
+func TestTransportDropsPooledConnectionsWhenAdapterChanges(t *testing.T) {
+	var dials atomic.Int32
+	upstream := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	upstream.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			dials.Add(1)
+		}
+	}
+	upstream.Start()
+	t.Cleanup(upstream.Close)
+
+	iface := "PTP"
+	rt := &rebindingTransport{
+		Transport: http.DefaultTransport.(*http.Transport).Clone(),
+		bindIface: func() string { return iface },
+	}
+	client := &http.Client{Transport: rt}
+	get := func() {
+		t.Helper()
+		res, err := client.Get(upstream.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.Copy(io.Discard, res.Body)
+		_ = res.Body.Close()
+	}
+	get()
+	get()
+	if n := dials.Load(); n != 1 {
+		t.Fatalf("same adapter: %d connections, want 1 reused", n)
+	}
+	iface = "ZLT X10"
+	get()
+	if n := dials.Load(); n != 2 {
+		t.Fatalf("after adapter change: %d connections, want a new one", n)
 	}
 }

@@ -14,6 +14,7 @@ const {
   setLaunchOnStartup,
   setLaunchOnStartupMinimize,
   setActiveOnStart,
+  setEnglishTitleNames,
   getLanguages,
   getThemes,
 } = useSettings(locale, theme)
@@ -36,8 +37,18 @@ const {
         :label="t('$vuetify.settings.language')"
         density="comfortable"
         variant="outlined"
-        class="mb-4"
+        :class="locale.current.value === 'en' ? 'mb-4' : 'mb-1'"
         @update:model-value="(value) => void setLanguage(value)"
+      />
+      <v-checkbox
+        v-if="locale.current.value !== 'en'"
+        :label="t('$vuetify.settings.englishTitleNames')"
+        :hint="t('$vuetify.settings.englishTitleNamesHint')"
+        :model-value="settings.englishTitleNames ?? false"
+        persistent-hint
+        density="compact"
+        class="mb-4"
+        @update:model-value="(value) => void setEnglishTitleNames(!!value)"
       />
 
       <v-select

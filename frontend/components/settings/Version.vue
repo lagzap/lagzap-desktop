@@ -6,7 +6,7 @@ const locale = useLocale()
 const { t } = locale
 
 const version = ref('…')
-const { checking, error, checkForUpdate } = useUpdateCheck(t)
+const { checking, checkForUpdate } = useUpdateCheck(t)
 
 onMounted(async () => {
   try {
@@ -29,21 +29,10 @@ onMounted(async () => {
         {{ t('$vuetify.settings.versionDescription', version) }}
       </v-card-subtitle>
 
-      <v-alert
-        v-if="error"
-        type="error"
-        variant="tonal"
-        density="compact"
-        class="mb-3"
-      >
-        {{ error }}
-      </v-alert>
-
       <v-btn
         variant="tonal"
         color="default"
         class="mb-3"
-        :loading="checking"
         :disabled="checking"
         @click="checkForUpdate"
       >{{ t('$vuetify.settings.checkForUpdate') }}</v-btn>

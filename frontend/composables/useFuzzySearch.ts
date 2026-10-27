@@ -13,7 +13,7 @@ export function useFuzzySearch(titles: Ref<Title[]>, store: any) {
   // Transform titles to searchable format with localized names
   const searchableTitles = computed((): SearchableTitle[] => {
     return titles.value.map(title => {
-      const localizedName = store.localized(title.name)
+      const localizedName = store.titleName(title.name)
       // Get all language versions as separate searchable strings
       const allNames = Object.values(title.name || {}).join(' ')
       

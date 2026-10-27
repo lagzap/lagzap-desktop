@@ -1,4 +1,4 @@
-# Cyrex Windows releases
+# LagZap Windows releases
 
 ## Versioning
 
@@ -42,7 +42,7 @@ Edit these on **lagzap-desktop** before tagging:
 | File | Role |
 |------|------|
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed (Keep a Changelog sections per version) |
-| [`.github/release-notes-template.md`](.github/release-notes-template.md) | Cyrex-branded layout (badges, download table, beta SmartScreen note) |
+| [`.github/release-notes-template.md`](.github/release-notes-template.md) | LagZap-branded layout (badges, download table, beta SmartScreen note) |
 | [`.github/release.yml`](.github/release.yml) | Optional GitHub UI “Generate release notes” categories when drafting a release manually |
 
 Preview locally:
@@ -66,8 +66,8 @@ Published to a releases repo based on channel (override with `RELEASES_REPO`):
 
 | File | Purpose |
 |------|---------|
-| `Cyrex-windows-amd64-setup.exe` | NSIS first-time install |
-| `Cyrex-windows-amd64.zip` | Auto-update payload (`Cyrex.exe` only) |
+| `LagZap-windows-amd64-setup.exe` | NSIS first-time install |
+| `LagZap-windows-amd64.zip` | Auto-update payload (`LagZap.exe` only) |
 | `SHA256SUMS` | Digests for the updater |
 | `update.manifest.json` | Optional Wails update manifest + Ed25519 signatures |
 
@@ -94,13 +94,13 @@ wails3 updater genkey
 Sign artifacts before upload:
 
 ```bash
-wails3 updater sign -key build/keys/updater.key bin/Cyrex-windows-amd64.zip
+wails3 updater sign -key build/keys/updater.key bin/LagZap-windows-amd64.zip
 wails3 updater manifest \
   -key build/keys/updater.key \
   -version 0.2.0-beta.3 \
   -channel beta \
   -o bin/update.manifest.json \
-  bin/Cyrex-windows-amd64.zip
+  bin/LagZap-windows-amd64.zip
 ```
 
 ## Garble seeds

@@ -1,20 +1,10 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, computed, watch } from "vue";
 import { debounce } from "es-toolkit";
-import { Call } from "@wailsio/runtime";
 import { useStore } from "~/stores";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
-import { NodeRoute } from "~/bindings/github.com/lagzap/zap/data";
-import type { NodeRoute as NodeRouteType } from "~/bindings/github.com/lagzap/zap/data";
-import {
-  useProfileDisplayRoutes,
-  routeRelayLatency,
-  routeRelayMetrics,
-  routeHopFloorMs,
-  isPlausibleProbeForRoute,
-  bestRouteRelayLatency,
-  pickBestInterfaceGroup,
-} from "~/composables/useProfileDisplayRoutes";
+import type { DiagramRoute } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { useProfileChart } from "~/composables/useProfileChart";
 import {
   BEST_INTERFACE,
   useProfileViewInterface,
@@ -25,7 +15,6 @@ import {
 import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
 import { useLocale, useTheme } from "vuetify";
 import * as echarts from "echarts";
-import country from "country-list-js";
 
 const props = defineProps<{
   profile: Profile;
@@ -36,44 +25,104 @@ const { t } = useLocale();
 const theme = useTheme();
 const { getNodeLabelByIp } = useNodeLocationLabel();
 
-const {
-  shouldShowRoutes: shouldShowDiagram,
-  numberOfRoutes,
-  interfaceRouteGroups,
-  primaryRelayNodeId,
-} = useProfileDisplayRoutes(computed(() => props.profile));
+// Go builds the whole diagram (routes, per-NIC latency, estimate); this
+// component only lays it out.
+const { chart: profileChart } = useProfileChart(props.profile.id);
+const diagram = computed(() => profileChart.value?.diagram ?? null);
+const shouldShowDiagram = computed(() => !!diagram.value?.show);
+const interfaceRouteGroups = computed(() => diagram.value?.interfaces ?? []);
 
 const { selectedInterfaceKey } = useProfileViewInterface(props.profile.id);
-const probingEstimatedPing = ref(false);
-const probedBestOverride = ref<{ ping: number; score: number; loss: number } | null>(null);
 
-function bestInterfaceGroup() {
-  return pickBestInterfaceGroup(interfaceRouteGroups.value);
-}
-
-const resolvedInterfaceGroup = computed(() => {
-  const groups = interfaceRouteGroups.value;
-  if (groups.length === 0) {
+/** Best Internet → top Routes across all NICs; named NIC → that NIC's view. */
+const activeView = computed(() => {
+  const d = diagram.value;
+  if (!d) {
     return null;
   }
   if (selectedInterfaceKey.value === BEST_INTERFACE) {
-    return bestInterfaceGroup();
+    return d.best;
   }
   const want = selectedInterfaceKey.value.trim().toLowerCase();
-  return (
-    groups.find((item) => (item.name || "").trim().toLowerCase() === want) ??
-    groups[0]
-  );
+  return (d.interfaces.find((item) => item.name.trim().toLowerCase() === want) ?? d.interfaces[0])?.view ?? null;
 });
 
-/** Adapter shown under hops — for Best Internet, the winning NIC's name. */
-const selectedAdapterName = computed(
-  () => resolvedInterfaceGroup.value?.name ?? ""
+const activeDiagramRoutes = computed<DiagramRoute[]>(() => activeView.value?.routes ?? []);
+
+// No route yet: Go sends the shape the settings will produce instead.
+const preview = computed(() =>
+  activeDiagramRoutes.value.length === 0 ? diagram.value?.preview ?? null : null
+);
+/** Preview or idle prediction — drawn dashed until a live route exists. */
+const isEstimate = computed(() => !!preview.value || !!diagram.value?.idle);
+
+const PREVIEW_DIRECT = "preview:direct";
+const PREVIEW_DOMESTIC = "preview:domestic";
+
+function nodeCityName(nodeId?: string | null): string {
+  const node = nodeId ? store.nodes[nodeId] : undefined;
+  return node ? String(store.localized(node.city) || node.name) : "";
+}
+
+function previewHop(nodeId: string, fallbackId: string) {
+  const node = nodeId ? store.nodes[nodeId] : undefined;
+  return { ip: node?.ipv4 ?? "", node_id: node ? nodeId : fallbackId, latency: -1 };
+}
+
+/** One placeholder path per route slot, NICs taken in turn (Best mixes them). */
+const previewRoutes = computed<DiagramRoute[]>(() => {
+  const p = preview.value;
+  if (!p) {
+    return [];
+  }
+  const ifaces = p.interfaces?.length ? p.interfaces : [""];
+  const relay = previewHop(p.relay_node_id, "");
+  const count = Math.max(1, diagram.value?.route_cap ?? 1);
+  return Array.from({ length: count }, (_, i) => {
+    const iface = ifaces[i % ifaces.length];
+    let hops = [relay];
+    if (p.direct) {
+      hops = [previewHop("", PREVIEW_DIRECT)];
+    } else if (p.domestic && i === 0) {
+      // Domestic routes put exactly one path through an edge at home.
+      hops = [previewHop(p.domestic_node_id, PREVIEW_DOMESTIC), relay];
+    }
+    return {
+      iface,
+      iface_index: i % ifaces.length,
+      path_key: `preview-${i}`,
+      network: "",
+      hops,
+      latency: 0,
+      min: 0,
+      avg: 0,
+      max: 0,
+      packet_loss: 0,
+      score: 0,
+    } as DiagramRoute;
+  });
+});
+
+const drawnRoutes = computed<DiagramRoute[]>(() =>
+  activeDiagramRoutes.value.length > 0 ? activeDiagramRoutes.value : previewRoutes.value
+);
+const activeDiagramEntries = computed(() =>
+  drawnRoutes.value.map((route) => ({ route, iface: route.iface || "iface", ifaceIndex: route.iface_index }))
 );
 
-const activeDiagramRoutes = computed(
-  () => resolvedInterfaceGroup.value?.routes ?? []
-);
+/** Adapter under dest — single NIC, or blank when Best mixes several. */
+const selectedAdapterName = computed(() => {
+  const entries = activeDiagramEntries.value;
+  if (entries.length === 0) {
+    return "";
+  }
+  const names = [
+    ...new Set(
+      entries.map((entry) => (entry.iface || "").trim()).filter(Boolean)
+    ),
+  ];
+  return names.length === 1 ? names[0] : "";
+});
 
 watch(
   interfaceRouteGroups,
@@ -103,33 +152,35 @@ watch(
 const chartRef = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
 
-function fingerprintDiagramRoute(route: NodeRouteType): string {
-  const hops = route.hops ?? [];
-  const hopPart = hops
-    .map(
-      (hop) =>
-        `${hop.ip ?? ""}:${Math.round(hop.latency ?? 0)}:${hop.status ?? ""}`
-    )
-    .join("|");
-  return `${Math.round(route.avg_latency ?? 0)}:${route.score ?? 0}:${Math.round(route.packet_loss ?? 0)}:${hopPart}`;
+function fingerprintDiagramRoute(route: DiagramRoute): string {
+  const hopPart = (route.hops ?? []).map((hop) => `${hop.ip}:${hop.latency}`).join("|");
+  return `${route.latency}:${route.score}:${Math.round(route.packet_loss)}:${hopPart}`;
 }
 
 /** Stable key — avoids deep-watching the entire routes store on every probe tick. */
 const diagramChartFingerprint = computed(() => {
-  const routes = activeDiagramRoutes.value;
+  const entries = activeDiagramEntries.value;
   return [
     shouldShowDiagram.value,
-    numberOfRoutes.value,
+    diagram.value?.route_cap ?? 0,
     selectedInterfaceKey.value,
     selectedAdapterName.value,
     theme.current.value.dark,
-    routes.map((route, index) => `${index}:${fingerprintDiagramRoute(route)}`).join(";"),
+    isEstimate.value,
+    preview.value?.cities ?? 0,
+    entries
+      .map(
+        (entry, index) =>
+          `${index}:${entry.iface}:${fingerprintDiagramRoute(entry.route)}`
+      )
+      .join(";"),
   ].join("\0");
 });
 
+// setOption repaints; a resize on every probe tick re-laid out and repainted
+// the whole diagram again. Resize only when the box itself changes.
 const scheduleDiagramUpdate = debounce(() => {
   updateChart();
-  chart?.resize();
 }, 400);
 
 const debouncedResize = debounce(() => {
@@ -137,47 +188,70 @@ const debouncedResize = debounce(() => {
 }, 150);
 
 function routeDiagramColor(routeIndex: number): string {
-  const group = resolvedInterfaceGroup.value ?? interfaceRouteGroups.value[0];
-  const iface = group?.name || "iface";
-  const ifaceIndex = group?.index ?? 0;
-  return interfaceConnectionColor(iface, routeIndex, ifaceIndex);
+  const entry = activeDiagramEntries.value[routeIndex];
+  const iface = entry?.iface || "iface";
+  const ifaceIndex = entry?.ifaceIndex ?? 0;
+  return interfaceConnectionColor(iface, routeIndex, ifaceIndex, isDarkTheme());
 }
 
 function locationForHopIp(ip?: string | null): string {
   return getNodeLabelByIp(ip);
 }
 
-function locationForRouteHop(hop: { ip?: string | null } | null | undefined): string {
+function locationForRouteHop(
+  hop: { ip?: string | null; node_id?: string | null } | null | undefined
+): string {
+  if (hop?.node_id === PREVIEW_DIRECT) {
+    return "";
+  }
+  if (hop?.node_id === PREVIEW_DOMESTIC) {
+    return t("$vuetify.title.profile.domestic");
+  }
+  if (preview.value && !hop?.ip) {
+    return t("$vuetify.title.profile.server.automaticServer");
+  }
   return locationForHopIp(hop?.ip);
 }
 
-type HopTransport = "TCP" | "UDP";
-
-/** Route-level transport for hop chips — respect exclusive tcp/udp tags. */
-function resolveHopTransport(route: NodeRoute): HopTransport {
-  if (route.tcp_available && !route.udp_available) {
-    return "TCP";
+/** Preview exit: the selection's first city, "1+N" like the server button. */
+function previewDestinationName(): string {
+  const p = preview.value;
+  if (!p || p.direct) {
+    return t("$vuetify.title.profile.server.directWithoutServer");
   }
-  if (route.udp_available && !route.tcp_available) {
-    return "UDP";
+  const city = nodeCityName(p.relay_node_id);
+  if (!city) {
+    return t("$vuetify.title.profile.server.automaticServer");
   }
-  // Both (or neither) advertised as capability — prefer UDP for multipath games.
-  // Route Settings stamps exclusive flags; this is only a fallback.
-  if (route.udp_available) {
-    return "UDP";
-  }
-  if (route.tcp_available) {
-    return "TCP";
-  }
-  return "UDP";
+  return p.cities > 1 ? `${city} 1+${p.cities - 1}` : city;
 }
 
-/** Intermediate hops: address family. Last hop uses adapter name instead. */
-function hopIpVersionLabel(hop: { ip?: string | null } | null | undefined): string {
+type HopTransport = "TCP" | "UDP";
+type HopIpVersion = "v4" | "v6";
+
+function resolveHopTransport(route: DiagramRoute): HopTransport {
+  return route.network === "tcp" ? "TCP" : "UDP";
+}
+
+function resolveHopIpVersion(
+  hop: { ip?: string | null } | null | undefined
+): HopIpVersion {
   const ip = hop?.ip?.trim() || "";
-  if (!ip) return "";
-  if (ip.includes(":")) return "IPv6";
-  return "IPv4";
+  return ip.includes(":") ? "v6" : "v4";
+}
+
+function hopProtocolLabel(
+  transport: HopTransport,
+  hop: { ip?: string | null; node_id?: string | null } | null | undefined
+): string {
+  if (hop?.node_id === PREVIEW_DIRECT) {
+    return t("$vuetify.networkLatency.directHop");
+  }
+  if (preview.value) {
+    // Transport is picked per route once probes run.
+    return "UDP/TCP";
+  }
+  return `${transport}${resolveHopIpVersion(hop)}`;
 }
 
 function transportChipStyle(transport: HopTransport, dark: boolean) {
@@ -199,15 +273,19 @@ function transportChipStyle(transport: HopTransport, dark: boolean) {
 function hopMarkerLabel(
   hopName: string,
   transport: HopTransport,
-  ipLabel: string,
+  protocolLabel: string,
+  subLabel: string,
   chrome: ReturnType<typeof resolveDiagramChrome>
 ) {
-  const chip = transportChipStyle(transport, isDarkTheme());
+  const chip = preview.value
+    ? { ...resolveDiagramLabelColors(), color: chrome.hopSub }
+    : transportChipStyle(transport, isDarkTheme());
   return {
     show: true,
     position: "inside" as const,
-    // City above / chip on the line / IPv4|IPv6 below — balanced so chip centers on the hop
-    formatter: `{a|${hopName}}\n{chip|${transport}}\n{b|${ipLabel}}`,
+    // City above / chip on the line / NIC below. An empty bottom line keeps the
+    // block balanced so the chip stays on the route line without a NIC name.
+    formatter: `{a|${hopName}}\n{chip|${protocolLabel}}\n{b|${subLabel || "\u00a0"}}`,
     rich: {
       a: {
         color: chrome.hopLabel,
@@ -222,7 +300,7 @@ function hopMarkerLabel(
         borderColor: chip.border,
         borderWidth: 1,
         borderRadius: 1.5,
-        padding: [3, 5, 2, 5],
+        padding: [3, 6, 2, 6],
         fontSize: 10,
         fontWeight: "normal" as const,
         lineHeight: 12,
@@ -245,7 +323,8 @@ function hopMarkerNode(
   y: number,
   hopName: string,
   transport: HopTransport,
-  ipLabel: string,
+  protocolLabel: string,
+  subLabel: string,
   chrome: ReturnType<typeof resolveDiagramChrome>,
   _routeColor: string
 ) {
@@ -264,7 +343,7 @@ function hopMarkerNode(
       color: "transparent",
       borderWidth: 0,
     },
-    label: hopMarkerLabel(hopName, transport, ipLabel, chrome),
+    label: hopMarkerLabel(hopName, transport, protocolLabel, subLabel, chrome),
   };
 }
 
@@ -353,7 +432,8 @@ function flowLineStyle() {
     color: FLOW_LINE_COLOR,
     opacity: 1,
     width: 1,
-    type: "solid" as const,
+    // Dashed = estimate (preview or idle prediction), solid = live route.
+    type: isEstimate.value ? ([4, 3] as number[]) : ("solid" as const),
     // Round/square caps stick ~1px past elbows so H/V look misaligned
     cap: "butt" as const,
     join: "miter" as const,
@@ -371,12 +451,18 @@ function addPingLabelNode(
   lossPct = 0,
   transport: HopTransport = "UDP"
 ) {
+  if (preview.value) {
+    // Nothing measured yet — draw no numbers rather than fake ones.
+    return;
+  }
   const labelColors = resolveDiagramLabelColors();
   const loss = Math.round(lossPct);
   // Recent-window failure rate. UDP → packet loss %; TCP has no loss — Timeout / Lag.
   const timedOut = loss >= 95;
   const degraded = loss > 0;
   let text: string;
+  // Loss / lag sits under the box, like the transport chip under a city.
+  let subText = "";
   if (timedOut) {
     text = t("$vuetify.networkLatency.timeout");
   } else if (latencyMs < 0 || Number.isNaN(latencyMs)) {
@@ -385,18 +471,22 @@ function addPingLabelNode(
   } else if (latencyMs === 0) {
     // Real 0: entry is the relay (no extra hop). Never paint "0ms".
     text = t("$vuetify.networkLatency.directHop");
-  } else if (degraded && transport === "UDP") {
-    text = `${Math.round(latencyMs)}ms · ${loss}% ${t("$vuetify.networkLatency.loss").toLowerCase()}`;
-  } else if (degraded && transport === "TCP") {
-    text = `${Math.round(latencyMs)}ms · ${t("$vuetify.networkLatency.lag")}`;
   } else {
-    text = `${Math.round(latencyMs)}ms`;
+    text = formatMs(latencyMs);
+    if (degraded) {
+      subText = transport === "UDP"
+        ? `${localDigits(`${loss}%`)} ${t("$vuetify.networkLatency.loss").toLowerCase()}`
+        : t("$vuetify.networkLatency.lag");
+    }
   }
-  const textColor = timedOut || loss >= 8
-    ? getScoreColor(10)
-    : degraded
-      ? getScoreColor(35)
-      : labelColors.text;
+  // The box stays neutral; only the loss line (or Timeout) is red.
+  const lossColor = getScoreColor(10);
+  const textColor = timedOut ? lossColor : labelColors.text;
+  // Loss sits inside the box's own label (blank line above to balance), so it
+  // stays right under the box at any diagram scale.
+  // Same gap as the NIC name under a transport chip.
+  const sub = { color: lossColor, fontSize: 9, lineHeight: 14, padding: [4, 0, 0, 0], textAlign: "center" as const };
+  const balance = { ...sub, padding: [0, 0, 4, 0] };
 
   nodes.push({
     id,
@@ -410,12 +500,14 @@ function addPingLabelNode(
     label: {
       show: true,
       position: "inside",
-      formatter: `{a|${text}}`,
+      formatter: `{t|\u00a0}\n{a|${text}}\n{s|${subText || "\u00a0"}}`,
       rich: {
+        t: balance,
+        s: sub,
         a: {
           color: textColor,
           backgroundColor: labelColors.bg,
-          borderColor: timedOut || loss >= 8 ? textColor : labelColors.border,
+          borderColor: labelColors.border,
           borderWidth: 1,
           borderRadius: 1.5,
           padding: [3, 5, 2, 5],
@@ -458,24 +550,22 @@ function countryDisplayName(iso2?: string | null): string | undefined {
   if (!iso2) {
     return undefined;
   }
-  const name = country.findByIso2(iso2)?.name;
-  return name || undefined;
+  return countryName(iso2) || undefined;
 }
 
 function buildRouteTooltipPayload(
   routeIndex: number,
-  route: NodeRoute
+  route: DiagramRoute
 ): RouteTooltipPayload {
-  const metrics = routeRelayMetrics(route);
   return {
     routeTooltip: true,
     routeIndex,
     routeLabel: `Route ${routeIndex + 1}`,
-    estimatedPing: metrics.estimated,
-    avg: metrics.avg,
-    min: metrics.min,
-    max: metrics.max,
-    score: metrics.score,
+    estimatedPing: route.latency,
+    avg: route.avg,
+    min: route.min,
+    max: route.max,
+    score: route.score,
     loss: route.packet_loss || 0,
     transport: resolveHopTransport(route),
   };
@@ -483,7 +573,7 @@ function buildRouteTooltipPayload(
 
 function buildEndpointTooltipPayload(
   hop: { ip?: string | null; latency?: number | null } | null | undefined,
-  route: NodeRoute | null | undefined
+  route: DiagramRoute | null | undefined
 ): EndpointTooltipPayload {
   const ip = hop?.ip || undefined;
   const node = ip
@@ -491,14 +581,13 @@ function buildEndpointTooltipPayload(
         (n) => n.ipv4 === ip || n.ipv6 === ip
       )
     : null;
-  const metrics = routeRelayMetrics(route);
   const hopLatency = hop?.latency || 0;
   return {
     endpointTooltip: true,
     title: locationForHopIp(ip),
     country: countryDisplayName(node?.country),
-    ping: hopLatency > 0 ? hopLatency : metrics.estimated,
-    score: metrics.score,
+    ping: hopLatency > 0 ? hopLatency : route?.latency ?? 0,
+    score: route?.score ?? 0,
   };
 }
 
@@ -528,11 +617,11 @@ function formatRouteTooltip(payload: RouteTooltipPayload): string {
   const pingColor =
     payload.score > 0 ? getScoreColor(payload.score) : undefined;
   const rows = [
-    diagramTooltipRow("Route", String(payload.routeIndex + 1)),
-    diagramTooltipRow("Ping", `${payload.estimatedPing}ms`, pingColor),
-    diagramTooltipRow("Avg", `${payload.avg}ms`),
-    diagramTooltipRow("Min", `${payload.min}ms`),
-    diagramTooltipRow("Max", `${payload.max}ms`),
+    diagramTooltipRow("Route", localDigits(payload.routeIndex + 1)),
+    diagramTooltipRow("Ping", formatMs(payload.estimatedPing), pingColor),
+    diagramTooltipRow("Avg", formatMs(payload.avg)),
+    diagramTooltipRow("Min", formatMs(payload.min)),
+    diagramTooltipRow("Max", formatMs(payload.max)),
   ];
   if (payload.loss > 0) {
     if (payload.transport === "TCP") {
@@ -541,7 +630,7 @@ function formatRouteTooltip(payload: RouteTooltipPayload): string {
           payload.loss >= 95
             ? t("$vuetify.networkLatency.timeout")
             : t("$vuetify.networkLatency.lag"),
-          payload.loss >= 95 ? "—" : `${payload.estimatedPing}ms`,
+          payload.loss >= 95 ? "—" : formatMs(payload.estimatedPing),
           payload.loss >= 8 ? getScoreColor(10) : undefined
         )
       );
@@ -549,14 +638,14 @@ function formatRouteTooltip(payload: RouteTooltipPayload): string {
       rows.push(
         diagramTooltipRow(
           t("$vuetify.networkLatency.loss"),
-          `${Math.round(payload.loss)}%`,
+          localDigits(`${Math.round(payload.loss)}%`),
           payload.loss >= 8 ? getScoreColor(10) : undefined
         )
       );
     }
   }
   if (payload.score > 0) {
-    rows.push(diagramTooltipRow("Score", String(payload.score), scoreColor));
+    rows.push(diagramTooltipRow("Score", localDigits(payload.score), scoreColor));
   }
   return diagramTooltipTable(rows);
 }
@@ -570,11 +659,11 @@ function formatEndpointTooltip(payload: EndpointTooltipPayload): string {
   }
   if (payload.ping > 0) {
     rows.push(
-      diagramTooltipRow("Ping", `${payload.ping}ms`, scoreColor)
+      diagramTooltipRow("Ping", formatMs(payload.ping), scoreColor)
     );
   }
   if (payload.score > 0) {
-    rows.push(diagramTooltipRow("Score", String(payload.score), scoreColor));
+    rows.push(diagramTooltipRow("Score", localDigits(payload.score), scoreColor));
   }
   return diagramTooltipTable(rows);
 }
@@ -613,7 +702,7 @@ function updateChart() {
     return;
   }
 
-  const routes = activeDiagramRoutes.value;
+  const routes = drawnRoutes.value;
   if (routes.length === 0) {
     if (chart) {
       chart.setOption({
@@ -699,7 +788,13 @@ function updateChart() {
       const hopName = locationForRouteHop(hop);
       const hopNodeX = px(hopX - 24);
       const transport = resolveHopTransport(route);
-      const ipLabel = hopIpVersionLabel(hop);
+      const entryIface = activeDiagramEntries.value[routeIndex]?.iface || "";
+      // When Best mixes NICs, put the adapter on the first hop (dest has no single NIC).
+      const subLabel =
+        hopIndex === 0 && !selectedAdapterName.value && entryIface
+          ? entryIface
+          : "";
+      const protocolLabel = hopProtocolLabel(transport, hop);
       const routeColor = routeDiagramColor(routeIndex);
 
       nodes.push(
@@ -709,7 +804,8 @@ function updateChart() {
           routeY,
           hopName,
           transport,
-          ipLabel,
+          protocolLabel,
+          subLabel,
           chrome,
           routeColor
         )
@@ -803,7 +899,7 @@ function updateChart() {
       const hitWidth = Math.max(hitRight - hitLeft + 24, 96);
       const hitX = px((hitLeft + hitRight) / 2);
 
-      nodes.push({
+      if (!preview.value) nodes.push({
         id: `route-${routeIndex}-hit`,
         name: "",
         x: hitX,
@@ -861,10 +957,9 @@ function updateChart() {
   });
 
   // Spine hits: left = route metrics; right (exit node) = location tip, not route #.
-  if (routes.length > 0) {
+  if (routes.length > 0 && !preview.value) {
     const leftSpineTooltip = buildRouteTooltipPayload(0, routes[0]);
-    const bestForEndpoint =
-      bestRouteRelayLatency(routes).route ?? routes[0];
+    const bestForEndpoint = routes[activeView.value?.estimate.best ?? -1] ?? routes[0];
     const endpointHop =
       bestForEndpoint.hops?.[bestForEndpoint.hops.length - 1] ?? null;
     const rightSpineTooltip = buildEndpointTooltipPayload(
@@ -922,26 +1017,18 @@ function updateChart() {
   nodes.push(elbowNode(destConvergenceId, destConvergenceX, centerY));
 
   let destinationName = "Dest";
-  let estimatedPing: number | null = null;
-  const bestForDest = bestRouteRelayLatency(routes);
-
-  if (bestForDest.route) {
-    estimatedPing = bestForDest.ping || null;
-    const lastHop = bestForDest.route.hops?.[bestForDest.route.hops.length - 1];
-    if (lastHop) {
-      destinationName = locationForRouteHop(lastHop);
-    }
-  } else if (routes.length > 0) {
-    const bestRoute = routes[0];
-    estimatedPing = routeRelayLatency(bestRoute) || null;
-    const lastHop = bestRoute.hops?.[bestRoute.hops.length - 1];
-    if (lastHop) {
-      destinationName = locationForRouteHop(lastHop);
-    }
+  const bestRoute = routes[activeView.value?.estimate.best ?? -1] ?? routes[0];
+  const estimatedPing: number | null = bestRoute?.latency || null;
+  const lastHop = bestRoute?.hops?.[bestRoute.hops.length - 1];
+  if (preview.value) {
+    destinationName = previewDestinationName();
+  } else if (lastHop) {
+    destinationName = locationForRouteHop(lastHop);
   }
 
-  const destColor =
-    routes.length > 0 ? routeDiagramColor(0) : "#424242";
+  const destColor = preview.value
+    ? chrome.hopSub
+    : routes.length > 0 ? routeDiagramColor(0) : "#424242";
 
   // Final exit hop: city above, adapter name below (empty slot in the path)
   const adapterLabel = selectedAdapterName.value || "";
@@ -973,7 +1060,7 @@ function updateChart() {
           fontWeight: "normal",
           lineHeight: 14,
           align: "center",
-          padding: [0, 0, 14, 0],
+          padding: [0, 0, 22, 0],
         },
         b: {
           color: chrome.hopSub,
@@ -981,7 +1068,7 @@ function updateChart() {
           fontWeight: "normal",
           lineHeight: 14,
           align: "center",
-          padding: [14, 0, 0, 0],
+          padding: [22, 0, 0, 0],
         },
       },
     },
@@ -1030,6 +1117,7 @@ function updateChart() {
 
   const option = {
     animation: false,
+    textStyle: { fontFamily: chartFontFamily() },
     grid: {
       left: 0,
       right: 0,
@@ -1091,6 +1179,7 @@ function updateChart() {
         color: chrome.tooltipText,
         fontSize: 12,
         fontWeight: "normal",
+        fontFamily: chartFontFamily(),
       },
       padding: [8, 10],
       extraCssText:
@@ -1148,21 +1237,24 @@ function updateChart() {
   });
 }
 
-async function initChart() {
-  if (!chartRef.value) return;
-  chart = echarts.init(chartRef.value as HTMLDivElement, null, {
-    useDirtyRect: true,
-  });
-  updateChart();
-  window.addEventListener("resize", onResize);
-}
+// The chart div only exists once Go reports show=true, usually after mount,
+// and is re-created when the diagram hides; follow the element itself.
+watch(
+  chartRef,
+  (el) => {
+    chart?.dispose();
+    chart = el ? echarts.init(el, null, { useDirtyRect: true }) : null;
+    updateChart();
+  },
+  { flush: "post" }
+);
 
 function onResize() {
   debouncedResize();
 }
 
 onMounted(() => {
-  initChart();
+  window.addEventListener("resize", onResize);
 });
 
 onBeforeUnmount(() => {
@@ -1175,131 +1267,24 @@ onBeforeUnmount(() => {
   }
 });
 
-// Latency for the currently shown interface group (Best → winning NIC).
-const estimatedPingDisplay = computed(() => {
-  const routes = activeDiagramRoutes.value;
-  const best = bestRouteRelayLatency(routes);
-  const loss = best.loss || best.route?.packet_loss || 0;
-  const tcpOnly =
-    routes.length > 0 &&
-    routes.every((route) => resolveHopTransport(route) === "TCP");
-
-  // No usable client→entry sample on any route (dash / timeout / blanked NIC):
-  // never invent Estimated Ping from path-matrix exit stubs (e.g. 6ms).
-  const anyClientHop = routes.some((route) => {
-    const hop0 = route.hops?.[0]?.latency;
-    return typeof hop0 === "number" && hop0 > 0;
-  });
-  const timedOut = loss >= 95;
-
-  let ping = 0;
-  if (!timedOut && anyClientHop && best.ping > 0) {
-    ping = best.ping;
-    const floor = Math.max(
-      0,
-      routeHopFloorMs(best.route),
-      ...routes.map((route) => routeHopFloorMs(route))
-    );
-    const override = probedBestOverride.value;
-    if (
-      override &&
-      override.ping > 0 &&
-      isPlausibleProbeForRoute(override.ping, best.route, floor)
-    ) {
-      ping = override.ping;
-    }
-    if (floor >= 40 && ping > 0 && ping < floor * 0.5) {
-      ping = Math.round(floor);
-    } else if (floor >= 40 && ping > 0) {
-      ping = Math.max(ping, Math.round(floor * 0.85));
-    }
+const estimateCaption = computed(() => {
+  if (preview.value) {
+    return t("$vuetify.title.profile.routePreviewHint");
   }
-
-  return {
-    ping,
-    score: ping > 0 ? best.score : 0,
-    loss: timedOut ? loss : ping > 0 ? loss : 0,
-    tcpOnly,
-  };
+  return diagram.value?.idle ? t("$vuetify.title.profile.routePredictedHint") : "";
 });
 
-function normalizeProbedRoutes(raw: unknown): NodeRouteType[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  return raw
-    .map((item) => {
-      try {
-        return NodeRoute.createFrom(item) as NodeRouteType;
-      } catch {
-        return null;
-      }
-    })
-    .filter((route): route is NodeRouteType => route != null);
-}
+// Selector must repaint immediately — debounced probe ticks are too slow.
+watch(selectedInterfaceKey, () => {
+  updateChart();
+});
 
-async function probeEstimatedPingNow() {
-  if (probingEstimatedPing.value) {
-    return;
-  }
-  const routes = activeDiagramRoutes.value;
-  if (!routes.length) {
-    return;
-  }
-
-  probingEstimatedPing.value = true;
-  try {
-    const iface = resolvedInterfaceGroup.value?.name ?? "";
-    const raw = await Call.ByName(
-      "main.Service.ProbeNodeRoutes",
-      routes,
-      iface
-    );
-    const probed = normalizeProbedRoutes(raw);
-    const best = bestRouteRelayLatency(probed);
-    const floor = Math.max(
-      ...activeDiagramRoutes.value.map((route) => routeHopFloorMs(route)),
-      routeHopFloorMs(best.route)
-    );
-    if (best.ping > 0 && isPlausibleProbeForRoute(best.ping, best.route, floor)) {
-      probedBestOverride.value = {
-        ping: best.ping,
-        score: best.score,
-        loss: best.loss || 0,
-      };
-    } else if (best.loss > 0 || (best.route?.packet_loss ?? 0) > 0) {
-      // Keep hop-floor ping; still surface loss from the probe round.
-      probedBestOverride.value = {
-        ping: best.ping > 0 ? Math.max(best.ping, Math.round(floor * 0.85 || best.ping)) : Math.round(floor),
-        score: best.score,
-        loss: best.loss || best.route?.packet_loss || 0,
-      };
-    }
-
-    const relayId = primaryRelayNodeId.value;
-    if (relayId) {
-      await Call.ByName("main.Service.ForceProbeRelay", relayId).catch(() => undefined);
-    }
-  } catch (error) {
-    console.warn("Estimated ping probe failed:", error);
-  } finally {
-    probingEstimatedPing.value = false;
-  }
-}
-
+// The chart box grows with the route count.
 watch(
-  selectedInterfaceKey,
-  () => {
-    probedBestOverride.value = null;
-    // Selector must repaint immediately — debounced probe ticks are too slow.
-    updateChart();
-    chart?.resize();
-  }
+  () => drawnRoutes.value.length,
+  () => chart?.resize(),
+  { flush: "post" }
 );
-
-watch(activeDiagramRoutes, () => {
-  probedBestOverride.value = null;
-});
 
 watch(
   diagramChartFingerprint,
@@ -1319,44 +1304,21 @@ watch(
     <div
       ref="chartRef"
       class="route-diagram-chart"
-      :style="`width: 100%; margin: 0; padding: 0; max-height: 400px; aspect-ratio: 5/2; height: ${Math.max(150, Math.max(1, activeDiagramRoutes.length) * 60 + 120)}px;`"
+      :style="`width: 100%; margin: 0; padding: 0; max-height: 400px; aspect-ratio: 5/2; height: ${Math.max(150, Math.max(1, drawnRoutes.length) * 60 + 120)}px;`"
     ></div>
-    <button
-      type="button"
-      class="estimated-ping-badge"
-      :class="{ 'estimated-ping-badge--dark': theme.current.value.dark }"
-      :disabled="probingEstimatedPing || activeDiagramRoutes.length === 0"
-      :title="t('$vuetify.title.profile.probeEstimatedPingHint')"
-      @click="probeEstimatedPingNow"
+    <div
+      v-if="isEstimate"
+      class="route-diagram-estimate"
     >
-      <div class="estimated-ping-badge__label">
-        {{ probingEstimatedPing ? t('$vuetify.title.profile.probingPing') : t('$vuetify.title.profile.estimatedPing') }}
-      </div>
-      <div
-        class="estimated-ping-badge__value"
-        :style="{ color: getScoreColor(estimatedPingDisplay.score) }"
-      >
-        {{ estimatedPingDisplay.ping || '—' }}{{ estimatedPingDisplay.ping ? 'ms' : '' }}
-      </div>
-      <div
-        v-if="(estimatedPingDisplay.loss ?? 0) > 0"
-        class="estimated-ping-badge__loss"
-        :style="{ color: getScoreColor(Math.max(5, 100 - (estimatedPingDisplay.loss ?? 0))) }"
-      >
-        <template v-if="estimatedPingDisplay.tcpOnly">
-          {{
-            (estimatedPingDisplay.loss ?? 0) >= 95
-              ? t('$vuetify.networkLatency.timeout')
-              : t('$vuetify.networkLatency.lag')
-          }}
-        </template>
-        <template v-else>
-          {{ Math.round(estimatedPingDisplay.loss ?? 0) }}% {{ t('$vuetify.networkLatency.loss') }}
-        </template>
-      </div>
-    </button>
+      <span class="route-diagram-estimate__title">
+        {{ t('$vuetify.title.profile.routePreview') }}
+      </span>
+      <span class="route-diagram-estimate__hint">
+        {{ estimateCaption }}
+      </span>
+    </div>
   </div>
-  <div v-else class="text-center pa-4 text-grey">
+  <div v-else-if="diagram" class="text-center pa-4 text-grey">
     Route diagram not available for this profile
   </div>
 </template>
@@ -1371,56 +1333,35 @@ watch(
   overflow: visible;
 }
 
-.estimated-ping-badge {
+.route-diagram-estimate {
   position: absolute;
   top: 1rem;
-  right: 1rem;
-  min-width: 100px;
-  margin: 0;
-  padding: 0;
-  border-radius: 4px;
-  text-align: center;
-  cursor: pointer;
-  color: inherit;
-  background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.18);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.estimated-ping-badge:disabled {
-  cursor: default;
-  opacity: 0.7;
-}
-
-.estimated-ping-badge__label {
-  color: rgb(var(--v-theme-on-surface));
-  font-size: 11px;
-  line-height: 16px;
-  margin-bottom: 3px;
-  padding-top: 4px;
-}
-
-.estimated-ping-badge__value {
-  font-size: 1.1rem;
-  font-weight: bold;
-  line-height: 16px;
-  padding-bottom: 2px;
-}
-
-.estimated-ping-badge__loss {
-  font-size: 11px;
-  font-weight: 600;
+  left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
   line-height: 14px;
-  padding-bottom: 4px;
 }
 
-.estimated-ping-badge--dark {
-  background: rgba(0, 0, 0, 0.8);
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: none;
+.route-diagram-estimate__title {
+  font-size: 11px;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.estimated-ping-badge--dark .estimated-ping-badge__label {
-  color: #ffffff;
+.route-diagram-estimate__hint {
+  font-size: 11px;
+  color: rgba(var(--v-theme-on-surface), 0.45);
 }
+
+
+
+
+
+
+/* Under the badge, like loss under a hop box. */
+
+
 </style>

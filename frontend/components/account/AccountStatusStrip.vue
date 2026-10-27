@@ -11,9 +11,6 @@ const { t } = useLocale();
 const store = useStore();
 
 const routingOn = computed(() => store.ndisRunning);
-const switchBusy = computed(
-  () => store.ndisToggling || store.loading || !store.serviceReady
-);
 const avatarLetter = computed(() => {
   const raw = user.value?.name || user.value?.email || "";
   return raw.length ? raw[0].toUpperCase() : "";
@@ -40,8 +37,8 @@ async function onRoutingToggle(wantOn: boolean | null) {
         hide-details
         density="comfortable"
         :color="store.error ? 'red' : 'green'"
-        :disabled="!store.serviceReady || store.ndisToggling"
-        :loading="switchBusy"
+        :disabled="!store.serviceReady || store.loading || store.ndisToggling"
+        :loading="store.ndisToggling"
         class="account-strip__switch"
         @update:model-value="onRoutingToggle"
       />

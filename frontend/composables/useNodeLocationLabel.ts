@@ -86,7 +86,7 @@ export function useNodeLocationLabel() {
   function getCityGroupLabel(cityKey: string): string {
     const nodes = cityGroupMap.value.get(cityKey);
     if (!nodes?.length) {
-      return cityKey;
+      return 'direct'
     }
     return getLocalizedCityName(nodes[0]);
   }

@@ -21,12 +21,16 @@ func TestSemVer(t *testing.T) {
 
 func TestChannelAndPrerelease(t *testing.T) {
 	orig := Version
-	t.Cleanup(func() { Version = orig })
+	origDev := DevBuild
+	t.Cleanup(func() {
+		Version = orig
+		DevBuild = origDev
+	})
 
 	cases := []struct {
-		ver         string
-		channel     string
-		prerelease  bool
+		ver        string
+		channel    string
+		prerelease bool
 	}{
 		{"v0.2.0-dev.14", "dev", true},
 		{"0.2.0-beta.3", "beta", true},
@@ -36,11 +40,42 @@ func TestChannelAndPrerelease(t *testing.T) {
 	}
 	for _, c := range cases {
 		Version = c.ver
+		DevBuild = ""
 		if got := Channel(); got != c.channel {
 			t.Errorf("%s Channel() = %q want %q", c.ver, got, c.channel)
 		}
 		if got := IsPrerelease(); got != c.prerelease {
 			t.Errorf("%s IsPrerelease() = %v want %v", c.ver, got, c.prerelease)
+		}
+	}
+}
+
+func TestAdminToolsEnabled(t *testing.T) {
+	origV, origD := Version, DevBuild
+	t.Cleanup(func() {
+		Version, DevBuild = origV, origD
+	})
+
+	DevBuild = "true"
+	Version = "0.2.0"
+	if !AdminToolsEnabled() {
+		t.Fatal("DevBuild must enable Admin Tools")
+	}
+
+	DevBuild = ""
+	cases := []struct {
+		ver  string
+		want bool
+	}{
+		{"0.2.0-dev.1", true},
+		{"0.2.0-alpha.1", true},
+		{"0.2.0-beta.1", false},
+		{"0.2.0", false},
+	}
+	for _, c := range cases {
+		Version = c.ver
+		if got := AdminToolsEnabled(); got != c.want {
+			t.Errorf("%s AdminToolsEnabled() = %v want %v", c.ver, got, c.want)
 		}
 	}
 }

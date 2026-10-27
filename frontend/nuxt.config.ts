@@ -16,6 +16,7 @@ const optimizeDepsInclude = [
   "es-toolkit/compat",
   "fuse.js",
   "just-kebab-case",
+  "marked",
   "nuxt-auth-sanctum",
   "pinia",
   "vee-validate",
@@ -156,14 +157,8 @@ export default defineNuxtConfig({
       },
     },
     build: {
-      // Disable minification
-      terserOptions: {
-        compress: false,
-        mangle: false,
-        keep_classnames: true,
-        keep_fnames: true
-      },
-      minify: false
+      // Dev/debug builds: keep symbols; minify:false already skips terser.
+      minify: false,
     },
     vue: {
       template: {

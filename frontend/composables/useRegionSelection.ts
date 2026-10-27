@@ -2,7 +2,6 @@ import { computed, ref, watch } from 'vue';
 import { useStore } from '@/stores';
 import { RoutingMode, type Node, type RelayRoute, NodeFlag } from '~/bindings/github.com/lagzap/zap/data';
 import type { Profile } from '~/bindings/github.com/lagzap/zap/data';
-import country from 'country-list-js';
 import { debounce } from 'es-toolkit';
 import { ProfileFlag } from '~/constants/profile';
 import { useLocale } from 'vuetify';
@@ -111,8 +110,8 @@ export function useRegionSelection(profile: Profile) {
       .filter(shouldShowNode)
       .slice()
       .sort((a, b) => {
-        const countryA = country.findByIso2(a.country)?.name || '';
-        const countryB = country.findByIso2(b.country)?.name || '';
+        const countryA = countryName(a.country);
+        const countryB = countryName(b.country);
         return countryA.localeCompare(countryB);
       })
       .reduce((acc, node) => {
@@ -206,7 +205,10 @@ export function useRegionSelection(profile: Profile) {
   
   // Filtered data based on search
   const filteredRegions = computed(() => {
-    const regions = Object.values(store.regions);
+    // A continent without any server country has nothing to route through.
+    const regions = Object.values(store.regions).filter(
+      (region) => (regionCountryMap.value[region.tag]?.length ?? 0) > 0
+    );
     if (!searchQuery.value) return regions;
     
     return regions.filter((region) => {
@@ -228,8 +230,9 @@ export function useRegionSelection(profile: Profile) {
     
     Object.entries(regionCountryMap.value).forEach(([regionTag, countries]) => {
       const filteredCountries = countries.filter((countryCode) => {
-        const countryName = country.findByIso2(countryCode)?.name || countryCode;
-        return matchesSearch(countryName, searchQuery.value);
+        // Either language matches: "آلمان" and "Germany" both find DE.
+        return matchesSearch(countryName(countryCode), searchQuery.value) ||
+          matchesSearch(countryNameEn(countryCode), searchQuery.value);
       });
       
       if (filteredCountries.length > 0) {
@@ -1094,10 +1097,17 @@ export function useRegionSelection(profile: Profile) {
   }): string | null {
     const selectedKeys = profileSelectedCityKeys(profileState);
     if (selectedKeys.length === 1) {
-      return getCityLabel(selectedKeys[0]);
+      const cityLabel = getCityLabel(selectedKeys[0]);
+      if (cityLabel == 'direct') {
+        return t('$vuetify.title.profile.server.directWithoutServer')
+      }
+      // One picked city names the button; null fell back to "Automatic".
+      if (cityLabel) {
+        return cityLabel;
+      }
     }
     if (selectedKeys.length > 1) {
-      return `${getCityLabel(selectedKeys[0])} +${selectedKeys.length - 1}`;
+      return `${getCityLabel(selectedKeys[0])} 1+${selectedKeys.length - 1}`;
     }
     return null;
   }
@@ -1135,7 +1145,7 @@ export function useRegionSelection(profile: Profile) {
     
     if (mode === 1) {
       const regions = profileState.regions || [];
-      if (regions.length === 0) return 'Global';
+      if (regions.length === 0) return t('$vuetify.title.profile.server.global');
       if (regions.length === 1) {
         const region = store.regions[regions[0]];
         return region ? store.localized(region.name) : regions[0];
@@ -1146,20 +1156,16 @@ export function useRegionSelection(profile: Profile) {
     
     if (mode === 2) {
       const countries = profileState.countries || [];
-      if (countries.length === 0) return 'Global';
+      if (countries.length === 0) return t('$vuetify.title.profile.server.global');
       if (countries.length === 1) {
-        const countryName =
-          country.findByIso2(countries[0])?.name || countries[0];
-        return countryName;
+        return countryName(countries[0]);
       }
-      const firstCountryName =
-        country.findByIso2(countries[0])?.name || countries[0];
-      return `${firstCountryName} +${countries.length - 1}`;
+      return `${countryName(countries[0])} +${localDigits(countries.length - 1)}`;
     }
     
     if (mode === 3) {
       const cities = profileState.cities || [];
-      if (cities.length === 0) return 'Global';
+      if (cities.length === 0) return t('$vuetify.title.profile.server.global');
       const cityLabel = selectionCityLabel(profileState);
       return cityLabel ?? 'Global';
     }

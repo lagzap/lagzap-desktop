@@ -76,6 +76,20 @@ export interface Connection {
   max_latency: number;
   jitter: number;
   ping_series: RoutePingSeries[];
+  /** Why LagZap did not relay this connection as configured (absent when it did). */
+  relay_issue?: RelayIssue;
+}
+
+export type RelayIssueCode =
+  | "no_relay_available"
+  | "no_relay_on_the_way"
+  | "no_route"
+  | "selection_fallback";
+
+export interface RelayIssue {
+  code: RelayIssueCode;
+  /** The profile's city/country/region selection, when it matters. */
+  detail?: string;
 }
 
 export interface NodeLatency {
@@ -171,17 +185,6 @@ export interface RouteMonitoringStatus {
   timestamp: string;
 }
 
-export interface RouteMetricEvent {
-  route_tag: string;
-  latency: number;
-  packet_loss: number;
-  jitter: number;
-  upload: number;
-  download: number;
-  connections: number;
-  timestamp: string;
-}
-
 export interface RouteProbeSlotMetric {
   slot: number;
   path_key?: string;
@@ -200,61 +203,6 @@ export interface RouteProbeEvent {
   download: number;
   connections: number;
   timestamp: string;
-}
-
-export interface LagFixProofMetrics {
-  path_key: string;
-  avg_latency: number;
-  packet_loss: number;
-  jitter: number;
-  score: number;
-}
-
-export interface LagFixGlobalSnapshot {
-  avg_latency: number;
-  packet_loss: number;
-  jitter: number;
-  score: number;
-  target: string;
-}
-
-export interface LagFixEvent {
-  id: string;
-  route_tag: string;
-  profile_id?: string;
-  slot_index: number;
-  old_path_key: string;
-  new_path_key: string;
-  status: "pending" | "verified" | "failed" | "skipped";
-  reason?: string;
-  user_side_lag: boolean;
-  timestamp: string;
-  verified_at?: string;
-  before: LagFixProofMetrics;
-  after?: LagFixProofMetrics;
-  global_before: LagFixGlobalSnapshot;
-  global_after?: LagFixGlobalSnapshot;
-  improvement_ms?: number;
-}
-
-export interface RelayPathEvent {
-  id: string;
-  kind: "silent-redial" | "path-added" | "path-removed" | string;
-  route_tag?: string;
-  conn_uuid?: string;
-  destination?: string;
-  entry?: string;
-  iface?: string;
-  is_tcp: boolean;
-  timestamp: string;
-}
-
-export interface LagFixStats {
-  verified_count: number;
-  attempt_count: number;
-  failed_count: number;
-  total_improvement_ms: number;
-  last_verified_at?: string;
 }
 
 export interface InterfaceGraceEvent {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CountryFlag from "vue-country-flag-next";
 import Ping from "~/components/network/Ping.vue";
+import RelayServerCell from "~/components/network/RelayServerCell.vue";
 import { connectionRelayLatency } from "~/composables/useProfileDisplayRoutes";
 import { useProfileViewInterface } from "~/composables/useProfileViewInterface";
 import { useHumanSpeed } from "~/composables/helper";
@@ -15,7 +16,6 @@ const store = useStore();
 const locale = useLocale();
 const { t } = locale;
 const { connections } = useMonitoringStore();
-const { getNodeLabel } = useNodeLocationLabel();
 const { selectedConnectionId, toggleConnectionForChart } =
   useProfileViewInterface(props.profileId);
 
@@ -47,10 +47,6 @@ const profileConnections = computed(() => {
     .slice(0, max);
 });
 
-function nodeCity(nodeId?: string | null) {
-  return getNodeLabel(nodeId);
-}
-
 function onRowClick(connectionId: string) {
   toggleConnectionForChart(connectionId);
 }
@@ -65,11 +61,12 @@ function onRowClick(connectionId: string) {
   >
     <thead>
       <tr>
+        <th class="col-network" />
         <th>{{ t("$vuetify.connections.gameServer") }}</th>
         <th>{{ t("$vuetify.connections.cyrexServer") }}</th>
-        <th class="text-center">{{ t("$vuetify.connections.latency") }}</th>
-        <th>{{ t("$vuetify.connections.download") }}</th>
-        <th>{{ t("$vuetify.connections.upload") }}</th>
+        <th class="text-center col-latency">{{ t("$vuetify.connections.latency") }}</th>
+        <th class="col-speed">{{ t("$vuetify.connections.download") }}</th>
+        <th class="col-speed">{{ t("$vuetify.connections.upload") }}</th>
       </tr>
     </thead>
     <tbody>
@@ -88,6 +85,17 @@ function onRowClick(connectionId: string) {
         @keydown.enter.prevent="onRowClick(connection.id)"
         @keydown.space.prevent="onRowClick(connection.id)"
       >
+        <!-- Same transport tag as the Connections page. -->
+        <td class="col-network">
+          <v-chip
+            :color="connection.network == 'tcp' ? 'green' : 'blue'"
+            size="x-small"
+            variant="tonal"
+            rounded
+          >
+            <span class="text-uppercase">{{ connection.network }}</span>
+          </v-chip>
+        </td>
         <td class="text-no-wrap">
           <div class="d-flex align-center">
             <CountryFlag
@@ -100,27 +108,20 @@ function onRowClick(connectionId: string) {
           </div>
         </td>
         <td class="text-no-wrap">
-          <div class="d-flex align-center">
-            <CountryFlag
-              v-if="store.nodes?.[connection.node_id ?? '']?.country"
-              :country="store.nodes[connection.node_id ?? ''].country"
-              size="small"
-            />
-            <span class="text-caption ms-1">{{ nodeCity(connection.node_id) }}</span>
-          </div>
+          <RelayServerCell :connection="connection" />
         </td>
-        <td class="text-center text-no-wrap">
+        <td class="text-center text-no-wrap col-latency">
           <Ping
             :tag="connection.relay_route?.tag"
             :latency-ms="connectionRelayLatency(connection)"
           />
         </td>
-        <td class="text-no-wrap">
+        <td class="text-no-wrap col-speed">
           <span class="text-caption">
             {{ useHumanSpeed(connection.download_speed || 0) }}
           </span>
         </td>
-        <td class="text-no-wrap">
+        <td class="text-no-wrap col-speed">
           <span class="text-caption">
             {{ useHumanSpeed(connection.upload_speed || 0) }}
           </span>
@@ -141,6 +142,29 @@ function onRowClick(connectionId: string) {
   vertical-align: middle;
 }
 
+/* Fixed widths + tabular digits so live speeds don't reflow the table. */
+.col-speed,
+.col-latency {
+  font-variant-numeric: tabular-nums;
+}
+
+.col-network {
+  width: 56px;
+  padding-inline-end: 0 !important;
+}
+
+.col-speed {
+  width: 112px;
+  min-width: 112px;
+  max-width: 112px;
+}
+
+.col-latency {
+  width: 88px;
+  min-width: 88px;
+  max-width: 88px;
+}
+
 .profile-connections-table__row {
   cursor: pointer;
 }
@@ -149,7 +173,17 @@ function onRowClick(connectionId: string) {
   background: rgba(var(--v-theme-primary), 0.12);
 }
 
-.profile-connections-table__row--selected td {
+/* One accent on the row's leading edge, not one per cell. */
+.profile-connections-table__row--selected td:first-child {
   box-shadow: inset 3px 0 0 rgb(var(--v-theme-primary));
+}
+
+.v-locale--is-rtl .profile-connections-table__row--selected td:first-child {
+  box-shadow: inset -3px 0 0 rgb(var(--v-theme-primary));
+}
+
+/* Clicking a row must not leave a focus ring; keyboard focus still shows. */
+.profile-connections-table__row:focus:not(:focus-visible) {
+  outline: none;
 }
 </style>

@@ -1,28 +1,39 @@
 <script setup lang="ts">
-import LatencyPanel from "~/components/network/LatencyPanel.vue";
-import { useRouteLatencyMetrics } from "~/composables/useRouteLatencyMetrics";
+import { useLocale } from "vuetify";
+import LiveChart from "~/components/network/LiveChart.vue";
+import { useProfileChart } from "~/composables/useProfileChart";
+import type { OverviewRange } from "~/composables/useOverviewChart";
 
 const props = defineProps<{
   profileId: string;
+  /** Traffic only (usage popup for profiles without a card chart). */
+  trafficOnly?: boolean;
 }>();
 
-const { latency, hasLatencyData, profileSpeedHistory } =
-  useRouteLatencyMetrics(props.profileId);
+const { chart, view, latency, traffic, range, setRange, latencyColor, trafficColor } = useProfileChart(props.profileId);
+
+const { t } = useLocale();
+const hasData = computed(() =>
+  props.trafficOnly ? !!traffic.value?.series?.length : !!latency.value?.series?.length || !!traffic.value?.series?.length
+);
 </script>
 
 <template>
-  <LatencyPanel
-    v-if="hasLatencyData"
+  <LiveChart
+    v-if="hasData"
+    :id="trafficOnly ? undefined : `profile-chart-${profileId}`"
+    v-model:view="view"
+    :fixed-view="trafficOnly ? 'traffic' : undefined"
     :latency="latency"
+    :traffic="traffic"
+    :range="range"
+    :latency-color="latencyColor"
+    :traffic-color="trafficColor"
     :chart-height="240"
-    :network-speed-history="profileSpeedHistory"
-    chart-variant="lines"
-    rolling-samples
-    :probe-samples-per-second="2"
-    show-network-speed
-    show-legend
-    dense-time-range
-    show-summary-metrics
-    show-protection-insight
+    :session-start="chart?.session_start ?? 0"
+    @update:range="(r) => setRange(r as OverviewRange)"
   />
+  <div v-else-if="trafficOnly" class="text-center text-medium-emphasis py-8 text-body-2">
+    {{ t("$vuetify.title.profile.noTrafficYet") }}
+  </div>
 </template>

@@ -1,34 +1,19 @@
 import {
   isLatencyOverlayRoute,
-  publishLatencyUpdate,
   registerBackendLatencyListener,
-  subscribeLatencyBroadcast,
 } from "~/composables/latencySync";
 
 export default defineNuxtPlugin({
   name: "latency",
   dependsOn: ["vuetify"],
   setup() {
-    const store = useStore();
-
+    // The pop-out overlay draws from the Go "overview" stream on its own.
     if (isLatencyOverlayRoute()) {
-      subscribeLatencyBroadcast({
-        onSnapshot: (payload) => {
-          store.applyLatencySnapshot(payload);
-        },
-        onUpdate: (latency) => {
-          store.applyLatencyUpdate(latency);
-        },
-      });
-      registerBackendLatencyListener((latency) => {
-        store.applyLatencyUpdate(latency);
-      });
       return;
     }
-
+    const store = useStore();
     registerBackendLatencyListener((latency) => {
       store.applyLatencyUpdate(latency);
-      publishLatencyUpdate(latency);
     });
   },
 });

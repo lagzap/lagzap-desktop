@@ -5,21 +5,42 @@ import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
 import ProfileRouteSettings from "~/components/title/ProfileRouteSettings.vue";
 import ProfileRegionSelection from "~/components/title/ProfileRegionSelection.vue";
 import ProfileActivityChip from "~/components/title/ProfileActivityChip.vue";
+import ProfileEstimatedPing from "~/components/title/ProfileEstimatedPing.vue";
+import ChangelogBadge from "~/components/title/ChangelogBadge.vue";
 import RouteDiagram from "~/components/title/RouteDiagram.vue";
 import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.vue";
 import ProfilePingUsage from "~/components/title/ProfilePingUsage.vue";
 import { ProfileFlag } from "~/constants/profile";
-import { useProfileDisplayRoutes } from "~/composables/useProfileDisplayRoutes";
+import { useProfileChart } from "~/composables/useProfileChart";
+import { FixProfileLag } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import { useProfileConnectionStats } from "~/composables/useProfileConnectionStats";
 import {
   BEST_INTERFACE,
   useProfileViewInterface,
 } from "~/composables/useProfileViewInterface";
 import { useLocale } from "vuetify";
+import { isConnectionNotRelayed } from "~/composables/useRelayIssue";
 
 const props = defineProps<{
   profile: Profile;
+  /** Previous title visit time (ms) for changelog "new" detection. */
+  changelogSince?: number | null;
 }>();
+
+const changelogHover = ref(false);
+
+function onProfileFocusOut(event: FocusEvent) {
+  const root = event.currentTarget as HTMLElement | null;
+  const next = event.relatedTarget as Node | null;
+  if (root && next && root.contains(next)) {
+    return;
+  }
+  changelogHover.value = false;
+}
+
+function onProfileMouseLeave() {
+  changelogHover.value = false;
+}
 
 const { connections } = useMonitoringStore();
 const { t } = useLocale();
@@ -42,14 +63,60 @@ const isHighTrafficProfile = computed(
 );
 
 const store = useStore();
-const { numberOfRoutes, interfaceRouteGroups, shouldShowRoutes } =
-  useProfileDisplayRoutes(computed(() => props.profile));
+const { chart: profileChart, view: chartView } = useProfileChart(props.profile.id);
+
+// Usage → the profile's traffic: the chart below when the card has one,
+// else a popup with the same live chart.
+const trafficDialog = ref(false);
+function showTraffic() {
+  const el = document.getElementById(`profile-chart-${props.profile.id}`);
+  if (el) {
+    chartView.value = "traffic";
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  trafficDialog.value = true;
+}
+const diagram = computed(() => profileChart.value?.diagram ?? null);
+const interfaceRouteGroups = computed(() => diagram.value?.interfaces ?? []);
+const canFixLag = computed(() => !!diagram.value?.show && !diagram.value?.idle);
+// Go sets this while every route is losing packets.
+const unstable = computed(() => profileChart.value?.latency?.unstable ?? null);
+// Go sets this while Smart mode keeps routes off a lagging transport.
+const transportNote = computed(() => {
+  const warning = profileChart.value?.latency?.transport;
+  if (!warning || unstable.value) return null;
+  const lagging = warning.lagging.toUpperCase();
+  const using = warning.lagging === "udp" ? "TCP" : "UDP";
+  const single = (profileChart.value?.interfaces?.length ?? 0) <= 1;
+  return {
+    text: single
+      ? t("$vuetify.title.profile.transportLaggingSingle", lagging, using)
+      : t("$vuetify.title.profile.transportLagging", lagging, warning.iface, using),
+    tip: t("$vuetify.title.profile.transportLaggingTip", lagging, using),
+  };
+});
+const fixingLag = ref(false);
+async function fixLag() {
+  if (fixingLag.value) return;
+  fixingLag.value = true;
+  try {
+    await FixProfileLag(props.profile.id);
+  } catch (error) {
+    console.warn("fix lag failed:", error);
+  } finally {
+    fixingLag.value = false;
+  }
+}
 const { selectedInterfaceKey } = useProfileViewInterface(props.profile.id);
+// Smart routes are picked across all internets, so a per-NIC view would mislead.
+const smartRoutes = computed(() => store.profileStates[props.profile.id]?.route_connections != null);
+watch(smartRoutes, (on) => on && (selectedInterfaceKey.value = BEST_INTERFACE), { immediate: true });
 const { connected, downloadSpeed, uploadSpeed, totalBytes } =
   useProfileConnectionStats(() => props.profile.id);
 
 const showInterfaceSelector = computed(
-  () => shouldShowRoutes.value && interfaceRouteGroups.value.length > 1
+  () => !!diagram.value?.show && interfaceRouteGroups.value.length > 1
 );
 
 const interfaceSelectItems = computed(() => [
@@ -63,23 +130,29 @@ const interfaceSelectItems = computed(() => [
   })),
 ]);
 
-function onInterfaceSelect(value: unknown) {
-  if (typeof value === "string" && value) {
-    selectedInterfaceKey.value = value;
-    return;
-  }
-  if (value && typeof value === "object" && "value" in value) {
-    const v = (value as { value: unknown }).value;
-    if (typeof v === "string" && v) {
-      selectedInterfaceKey.value = v;
-    }
-  }
-}
-
 const keepBypassSanctions = computed(
   () =>
     props.profile.route_action === "route" &&
     (props.profile.flags & ProfileFlag.BYPASS_SANCTIONS) !== 0
+);
+
+const profileDescription = computed(() => {
+  const desc = props.profile.description;
+  if (!desc || typeof desc !== "object") return "";
+  return String(store.localized(desc as Record<string, string>) ?? "").trim();
+});
+
+const hasProfileDescription = computed(() => profileDescription.value.length > 0);
+
+// Connections captured by LagZap but sent straight to the game server.
+const { connections: monitoredConnections } = useMonitoringStore();
+const notRelayedCount = computed(
+  () =>
+    (monitoredConnections.value ?? []).filter(
+      (connection) =>
+        connection.profile_id === props.profile.id &&
+        isConnectionNotRelayed(connection)
+    ).length
 );
 
 /** Same rules as ProfileActivityChip — usage replaces subtitle when live. */
@@ -124,65 +197,98 @@ const routeSettingsText = computed(() => {
     (props.profile.flags & ProfileFlag.MULTIPATH) != 0 &&
     props.profile.route_action == "route"
   ) {
-    const routeCount = numberOfRoutes.value;
+    const routeCount = diagram.value?.route_cap ?? 0;
     if (routeCount > 1) {
-      parts.push(`${routeCount} Routes`);
+      parts.push(t("$vuetify.title.profile.subtitleRoutes", localDigits(routeCount)));
     }
   } else if (props.profile.route_action == "route") {
     if ((props.profile.flags & ProfileFlag.BYPASS_SANCTIONS) != 0) {
-      parts.push("Bypass Sanctions");
+      parts.push(t("$vuetify.title.profile.bypassSanctions"));
     } else if ((props.profile.flags & ProfileFlag.GAME_PACKET) != 0) {
-      parts.push("Latency Optimizing");
+      parts.push(t("$vuetify.title.profile.latencyOptimizing"));
     } else {
-      parts.push("Proxy");
+      parts.push(t("$vuetify.title.profile.proxy"));
     }
   } else if (props.profile.route_action == "proxy") {
-    parts.push("Proxy");
+    parts.push(t("$vuetify.title.profile.proxy"));
   }
 
   if (
     props.profile.route_action == "route" &&
     profileState.allow_local_routes
   ) {
-    parts.push("Domestic routes");
+    parts.push(t("$vuetify.title.profile.domesticRoutes"));
   }
 
   // Add network interfaces info if custom
   const networkInterfaces = profileState.network_interfaces || [];
   if (networkInterfaces.length > 1) {
-    parts.push(
-      `${networkInterfaces.length} internet${
-        networkInterfaces.length > 1 ? "s" : ""
-      }`
-    );
+    parts.push(t("$vuetify.title.profile.internets", localDigits(networkInterfaces.length)));
   }
 
-  return parts.length > 0 ? parts.join(" • ") : "Default settings";
+  return parts.length > 0 ? parts.join(" • ") : t("$vuetify.title.profile.defaultSettings");
 });
 </script>
 
 <template>
   <v-card
+    class="profile-card"
+    :class="{ 'profile-card--inactive': !store.profileStates[props.profile.id] }"
     rounded="none"
     variant="flat"
     density="comfortable"
     color="transparent"
-    :disabled="!store.profileStates[props.profile.id]"
+    @mouseenter="changelogHover = true"
+    @mouseleave="onProfileMouseLeave"
+    @focusin="changelogHover = true"
+    @focusout="onProfileFocusOut"
   >
     <template #title>
-      <span class="text-subtitle-1 ms-3">{{
-        store.localized(props.profile.name)
-      }}</span>
+      <div class="profile-card-title d-flex align-center ga-1 ms-3">
+        <v-tooltip
+          v-if="hasProfileDescription"
+          location="top"
+          open-delay="200"
+          max-width="320"
+        >
+          <template #activator="{ props: tipProps }">
+            <span
+              v-bind="tipProps"
+              class="text-subtitle-1 profile-card-title__name profile-card-title__name--has-desc"
+            >
+              {{ store.localized(props.profile.name) }}
+            </span>
+          </template>
+          <span class="profile-card-title__desc">{{ profileDescription }}</span>
+        </v-tooltip>
+        <span v-else class="text-subtitle-1 profile-card-title__name">
+          {{ store.localized(props.profile.name) }}
+        </span>
+        <ChangelogBadge
+          dense
+          hover-reveal
+          :revealed="changelogHover"
+          :entries="props.profile.updates"
+          :since="props.changelogSince"
+        />
+      </div>
     </template>
 
     <template #subtitle>
       <span class="text-caption ms-3 profile-card-subtitle">
+        <ProfileEstimatedPing
+          :profile-id="props.profile.id"
+          :views="showInterfaceSelector && !smartRoutes ? interfaceSelectItems : []"
+          :can-fix-lag="canFixLag"
+          :fixing-lag="fixingLag"
+          @fix-lag="fixLag"
+        />
         <template v-if="showUsageInSubtitle">
           <template v-if="keepBypassSanctions">
-            <span>Bypass Sanctions</span>
+            <span>{{ t("$vuetify.title.profile.bypassSanctions") }}</span>
             <span class="profile-card-subtitle__sep">•</span>
           </template>
-          <ProfileActivityChip :profile="props.profile" />
+          <ProfileActivityChip :profile="props.profile" clickable @click="showTraffic" />
         </template>
         <template v-else>
           {{ routeSettingsText }}
@@ -207,10 +313,6 @@ const routeSettingsText = computed(() => {
       <ProfileRouteSettings :profile="props.profile" />
     </template>
 
-    <v-card-subtitle v-if="props.profile.description" class="text-wrap mb-3">
-      {{ store.localized(props.profile.description) }}
-    </v-card-subtitle>
-
     <v-card-text
       v-if="
         showProfileSections ||
@@ -219,25 +321,35 @@ const routeSettingsText = computed(() => {
       class="pt-0 profile-sections"
     >
       <template v-if="showProfileSections">
-        <RouteDiagram :profile="props.profile" />
-        <div
-          v-if="showInterfaceSelector"
-          class="profile-interface-selector d-flex justify-start mt-2 mb-2"
+        <v-tooltip
+          v-if="notRelayedCount > 0"
+          :text="t('$vuetify.connections.profileNotRelayedHint')"
+          location="top"
+          max-width="320"
         >
-          <v-select
-            :model-value="selectedInterfaceKey"
-            :items="interfaceSelectItems"
-            item-title="title"
-            item-value="value"
-            :label="t('$vuetify.title.profile.interface')"
-            density="compact"
-            hide-details
-            single-line
-            variant="outlined"
-            class="profile-interface-selector__select"
-            @update:model-value="onInterfaceSelect"
-          />
-        </div>
+          <template #activator="{ props: tipProps }">
+            <div v-bind="tipProps" class="profile-protection d-flex align-center ga-2 mb-2">
+              <v-icon icon="mdi-shield-alert-outline" size="16" color="warning" />
+              <span>{{ t("$vuetify.connections.profileNotRelayed", notRelayedCount) }}</span>
+            </div>
+          </template>
+        </v-tooltip>
+        <RouteDiagram :profile="props.profile" />
+        <!-- Always laid out, only shown with a warning: no jump in card height. -->
+        <v-tooltip :disabled="!transportNote" location="bottom" max-width="320" open-delay="200">
+          <template #activator="{ props: tipProps }">
+            <div
+              v-bind="tipProps"
+              class="profile-protection d-flex align-center ga-2 mt-2"
+              :style="{ visibility: unstable || transportNote ? 'visible' : 'hidden' }"
+              :aria-hidden="!unstable && !transportNote"
+            >
+              <v-icon :icon="transportNote ? 'mdi-swap-horizontal' : 'mdi-shield-alert'" size="16" color="warning" />
+              <span>{{ transportNote ? transportNote.text : t("$vuetify.networkLatency.unstableNote") }}</span>
+            </div>
+          </template>
+          {{ transportNote?.tip }}
+        </v-tooltip>
         <v-divider class="my-4" />
       </template>
       <ProfilePingUsage :profile-id="props.profile.id" class="mb-4" />
@@ -247,14 +359,25 @@ const routeSettingsText = computed(() => {
         :limit="5"
       />
     </v-card-text>
+
+    <v-dialog v-model="trafficDialog" max-width="640">
+      <v-card rounded="xl">
+        <v-card-item>
+          <v-card-title>{{ store.localized(props.profile.name) }}</v-card-title>
+          <v-card-subtitle>{{ t("$vuetify.networkLatency.traffic") }}</v-card-subtitle>
+          <template #append>
+            <v-btn icon="mdi-close" variant="text" size="small" @click="trafficDialog = false" />
+          </template>
+        </v-card-item>
+        <v-card-text>
+          <ProfilePingUsage v-if="trafficDialog" :profile-id="props.profile.id" traffic-only />
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
 <style scoped>
-.profile-interface-selector__select {
-  min-width: 180px;
-  max-width: 260px;
-}
 
 .profile-card-subtitle {
   display: inline-flex;
@@ -263,7 +386,35 @@ const routeSettingsText = computed(() => {
   gap: 0.35rem;
 }
 
+.profile-card-title {
+  min-width: 0;
+}
+
+.profile-card-title__name--has-desc {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  text-decoration-color: rgba(var(--v-theme-on-surface), 0.35);
+}
+
+.profile-card-title__desc {
+  display: inline-block;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.profile-card--inactive {
+  opacity: 0.55;
+}
+
 .profile-card-subtitle__sep {
   opacity: 0.45;
+}
+
+.profile-protection {
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  font-size: 0.75rem;
+  line-height: 1.3;
 }
 </style>

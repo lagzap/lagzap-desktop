@@ -254,20 +254,6 @@ func (s *Service) GetLatency() *D.Latency {
 	return s.coordinator.GetLatency()
 }
 
-func (s *Service) GetLagFixStats() adapter.LagFixStats {
-	if s.coordinator == nil {
-		return adapter.LagFixStats{}
-	}
-	return s.coordinator.GetLagFixStats()
-}
-
-func (s *Service) GetLagFixHistory() []adapter.LagFixEvent {
-	if s.coordinator == nil {
-		return nil
-	}
-	return s.coordinator.GetLagFixHistory()
-}
-
 func (s *Service) GetClientSettings() *D.ClientSettings {
 	if s.coordinator == nil {
 		return nil

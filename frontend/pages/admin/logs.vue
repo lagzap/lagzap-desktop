@@ -2,6 +2,13 @@
 import Container from "~/components/layout/Container.vue";
 import { useLocale } from "vuetify";
 
+definePageMeta({
+  layout: "admin",
+  sanctum: {
+    excluded: true,
+  },
+});
+
 const { t } = useLocale();
 const { logs } = useMonitoringStore();
 

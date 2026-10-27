@@ -6,11 +6,11 @@ version: '3'
 # This information is used to generate the build assets.
 info:
   companyName: "lagzap" # The name of the company
-  productName: "Cyrex" # The name of the application
+  productName: "LagZap" # The name of the application
   productIdentifier: "com.lagzap" # The unique product identifier
-  description: "Cyrex" # The application description
-  copyright: "(c) 2025, Cyrex" # Copyright text
-  comments: "Cyrex" # Comments
+  description: "LagZap" # The application description
+  copyright: "(c) 2025, LagZap" # Copyright text
+  comments: "LagZap" # Comments
   version: "0.0.0.0" # The application version
 # Dev mode configuration
 dev_mode:

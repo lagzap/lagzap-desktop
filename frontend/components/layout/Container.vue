@@ -2,6 +2,14 @@
 import { useDisplay, useLocale } from "vuetify";
 import { useFuzzySearch } from "~/composables/useFuzzySearch";
 
+const props = withDefaults(
+  defineProps<{
+    /** Edge-to-edge content: no rounded card / outer margin */
+    flush?: boolean;
+  }>(),
+  { flush: false },
+);
+
 const locale = useLocale();
 const { t } = locale
 const store = useStore();
@@ -109,7 +117,13 @@ onMounted(() => {
       </v-scroll-y-transition>
     </v-app-bar>
 
-    <v-card rounded="xl" class="v-card--topborder zoom-in me-2 mb-2" :height="height - 56">
+    <v-card
+      :rounded="props.flush ? 0 : 'xl'"
+      class="v-card--topborder zoom-in"
+      :class="props.flush ? 'container-flush' : 'me-2 mb-2'"
+      :height="height - 56"
+      :style="props.flush ? { margin: 0, borderRadius: 0 } : undefined"
+    >
       <template v-if="!!$slots.title" #title>
         <slot name="title" />
       </template>
@@ -120,7 +134,10 @@ onMounted(() => {
         <slot name="actions" />
       </template>
 
-      <div class="h-100 overflow-y-auto">
+      <div
+        class="h-100"
+        :class="props.flush ? 'overflow-hidden' : 'overflow-y-auto'"
+      >
         <slot />
       </div>
     </v-card>
@@ -134,5 +151,10 @@ onMounted(() => {
   .v-field__input {
     padding-top: 0;
   }
+}
+
+.container-flush {
+  margin: 0 !important;
+  border-radius: 0 !important;
 }
 </style>

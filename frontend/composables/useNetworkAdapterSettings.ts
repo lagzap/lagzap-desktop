@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch, type Ref } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { GetClientSettings, SetClientSettings } from '~/bindings/github.com/lagzap/lagzap-desktop/service'
 import { ClientSettings, InterfaceRouteSettings } from '~/bindings/github.com/lagzap/zap/data/models'
@@ -133,6 +133,9 @@ async function loadNetworkAdapterSettings() {
       globalTcpRoutes.value = stored.globalTcpRoutes ?? null
       globalUdpRoutes.value = stored.globalUdpRoutes ?? null
       interfaceRouteOverrides.value = stored.interfaceRouteOverrides ?? {}
+      // A cleared hand-picked list always meant every adapter in Go.
+      if (multiInternetNames.value.length === 0) multiInternetExplicit.value = false
+      if (backupInterfaceNames.value.length === 0) backupInterfacesExplicit.value = false
     } else {
       const settings = await GetClientSettings()
       if (settings) {
@@ -154,65 +157,57 @@ export function useNetworkAdapterSettings() {
     store.interfaces.map((iface) => iface.Name).filter(Boolean),
   )
 
-  const multiInternetSelection = computed({
-    get() {
-      const all = interfaceNames.value
-      if (!multiInternetExplicit.value) {
-        return all
+  // An adapter pool is either automatic (every adapter, including ones
+  // connected later; sent to Go as an empty list) or a hand-picked list. A
+  // hand-picked list never turns automatic by itself and keeps at least one
+  // adapter; picked adapters that are unplugged stay picked for their return.
+  function adapterPool(names: Ref<string[]>, explicit: Ref<boolean>) {
+    const auto = computed({
+      get: () => !explicit.value,
+      set(value: boolean) {
+        explicit.value = !value
+        names.value = value ? [] : [...interfaceNames.value]
+        void syncToBackend()
+      },
+    })
+    const selection = computed({
+      get() {
+        const all = interfaceNames.value
+        return explicit.value ? names.value.filter((name) => all.includes(name)) : all
+      },
+      set(value: string[] | null | undefined) {
+        const picked = [...new Set(value ?? [])]
+        if (!explicit.value || picked.length === 0) {
+          return
+        }
+        const away = names.value.filter((name) => !interfaceNames.value.includes(name))
+        names.value = [...picked, ...away.filter((name) => !picked.includes(name))]
+        void syncToBackend()
+      },
+    })
+    const has = (name: string) => !explicit.value || names.value.includes(name)
+    // The last present adapter of a hand-picked list cannot be removed.
+    const canRemove = (name: string) =>
+      has(name) && interfaceNames.value.some((other) => other !== name && has(other))
+    // Per-adapter switch: removing one adapter from the automatic pool turns
+    // it into a hand-picked list of every other adapter.
+    function toggle(name: string, on: boolean) {
+      if (on === has(name) || (!on && !canRemove(name))) {
+        return
       }
-      return multiInternetNames.value.filter((name) => all.includes(name))
-    },
-    set(value: string[] | null | undefined) {
-      const all = interfaceNames.value
-      const unique = [...new Set(value ?? [])]
-
-      if (unique.length === 0) {
-        multiInternetExplicit.value = true
-        multiInternetNames.value = []
-      } else if (
-        all.length > 0 &&
-        unique.length === all.length &&
-        all.every((name) => unique.includes(name))
-      ) {
-        multiInternetExplicit.value = false
-        multiInternetNames.value = []
+      if (!explicit.value) {
+        explicit.value = true
+        names.value = interfaceNames.value.filter((other) => other !== name)
       } else {
-        multiInternetExplicit.value = true
-        multiInternetNames.value = unique
+        names.value = on ? [...names.value, name] : names.value.filter((other) => other !== name)
       }
       void syncToBackend()
-    },
-  })
+    }
+    return { auto, selection, has, canRemove, toggle }
+  }
 
-  const backupInterfacesSelection = computed({
-    get() {
-      const all = interfaceNames.value
-      if (!backupInterfacesExplicit.value) {
-        return all
-      }
-      return backupInterfaceNames.value.filter((name) => all.includes(name))
-    },
-    set(value: string[] | null | undefined) {
-      const all = interfaceNames.value
-      const unique = [...new Set(value ?? [])]
-
-      if (unique.length === 0) {
-        backupInterfacesExplicit.value = true
-        backupInterfaceNames.value = []
-      } else if (
-        all.length > 0 &&
-        unique.length === all.length &&
-        all.every((name) => unique.includes(name))
-      ) {
-        backupInterfacesExplicit.value = false
-        backupInterfaceNames.value = []
-      } else {
-        backupInterfacesExplicit.value = true
-        backupInterfaceNames.value = unique
-      }
-      void syncToBackend()
-    },
-  })
+  const multiInternet = adapterPool(multiInternetNames, multiInternetExplicit)
+  const backupInterfaces = adapterPool(backupInterfaceNames, backupInterfacesExplicit)
 
   const routeTableInterfaces = computed(() => {
     if (!multiInternetExplicit.value) {
@@ -345,8 +340,12 @@ export function useNetworkAdapterSettings() {
 
   return {
     defaultInterfaceOverride,
-    multiInternetSelection,
-    backupInterfacesSelection,
+    multiInternet,
+    backupInterfaces,
+    multiInternetAuto: multiInternet.auto,
+    multiInternetSelection: multiInternet.selection,
+    backupInterfacesAuto: backupInterfaces.auto,
+    backupInterfacesSelection: backupInterfaces.selection,
     loaded,
     ensureLoaded: () => {
       if (!loaded.value) {

@@ -6,6 +6,296 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+export class CityConnection {
+    /**
+     * Creates a new CityConnection instance.
+     * @param {Partial<CityConnection>} [$$source = {}] - The source object to create the CityConnection.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * 0 = not measured
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+        if (!("quality" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["quality"] = "";
+        }
+        if (!("network" in $$source)) {
+            /**
+             * udp | tcp | icmp
+             * @member
+             * @type {string}
+             */
+            this["network"] = "";
+        }
+        if (!("fastest" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["fastest"] = false;
+        }
+        if (!("status" in $$source)) {
+            /**
+             * online | no_internet
+             * @member
+             * @type {string}
+             */
+            this["status"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CityConnection instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {CityConnection}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CityConnection(/** @type {Partial<CityConnection>} */($$parsedSource));
+    }
+}
+
+export class CityRoute {
+    /**
+     * Creates a new CityRoute instance.
+     * @param {Partial<CityRoute>} [$$source = {}] - The source object to create the CityRoute.
+     */
+    constructor($$source = {}) {
+        if (!("kind" in $$source)) {
+            /**
+             * direct | via
+             * @member
+             * @type {string}
+             */
+            this["kind"] = "";
+        }
+        if (!("via" in $$source)) {
+            /**
+             * cities passed through, in order
+             * @member
+             * @type {string[]}
+             */
+            this["via"] = [];
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+        if (!("loss" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["loss"] = 0;
+        }
+        if (!("quality" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["quality"] = "";
+        }
+        if (!("udp" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["udp"] = false;
+        }
+        if (!("tcp" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["tcp"] = false;
+        }
+        if (!("available" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["available"] = false;
+        }
+        if (!("in_use" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["in_use"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CityRoute instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {CityRoute}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("via" in $$parsedSource) {
+            $$parsedSource["via"] = $$createField1_0($$parsedSource["via"]);
+        }
+        return new CityRoute(/** @type {Partial<CityRoute>} */($$parsedSource));
+    }
+}
+
+export class CityServer {
+    /**
+     * Creates a new CityServer instance.
+     * @param {Partial<CityServer>} [$$source = {}] - The source object to create the CityServer.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+        if (!("status" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["status"] = "";
+        }
+        if (!("in_use" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["in_use"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CityServer instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {CityServer}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CityServer(/** @type {Partial<CityServer>} */($$parsedSource));
+    }
+}
+
+/**
+ * ConnectionDetails is the Connections page's detail view of one connection.
+ */
+export class ConnectionDetails {
+    /**
+     * Creates a new ConnectionDetails instance.
+     * @param {Partial<ConnectionDetails>} [$$source = {}] - The source object to create the ConnectionDetails.
+     */
+    constructor($$source = {}) {
+        if (!("mode" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["mode"] = "";
+        }
+        if (!("legs" in $$source)) {
+            /**
+             * @member
+             * @type {ConnectionLeg[]}
+             */
+            this["legs"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ConnectionDetails instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ConnectionDetails}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("legs" in $$parsedSource) {
+            $$parsedSource["legs"] = $$createField1_0($$parsedSource["legs"]);
+        }
+        return new ConnectionDetails(/** @type {Partial<ConnectionDetails>} */($$parsedSource));
+    }
+}
+
+/**
+ * ConnectionLeg is one leg of the connection's relay session; Backup is a
+ * standby leg (dialed and probed, not carrying traffic).
+ */
+export class ConnectionLeg {
+    /**
+     * Creates a new ConnectionLeg instance.
+     * @param {Partial<ConnectionLeg>} [$$source = {}] - The source object to create the ConnectionLeg.
+     */
+    constructor($$source = {}) {
+        if (!("route" in $$source)) {
+            /**
+             * @member
+             * @type {DiagramRoute}
+             */
+            this["route"] = (new DiagramRoute());
+        }
+        if (!("backup" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["backup"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ConnectionLeg instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ConnectionLeg}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("route" in $$parsedSource) {
+            $$parsedSource["route"] = $$createField0_0($$parsedSource["route"]);
+        }
+        return new ConnectionLeg(/** @type {Partial<ConnectionLeg>} */($$parsedSource));
+    }
+}
+
 /**
  * @readonly
  * @enum {number}
@@ -21,182 +311,75 @@ export const ConnectionStatus = {
     StatusReconnecting: 2,
 };
 
-export class LagFixEvent {
+/**
+ * DefaultInterfaceFallback says LagZap left the main adapter (the one picked
+ * as Default, else Windows' default) because it has no internet, and which
+ * adapter it uses until the main one is stable again.
+ */
+export class DefaultInterfaceFallback {
     /**
-     * Creates a new LagFixEvent instance.
-     * @param {Partial<LagFixEvent>} [$$source = {}] - The source object to create the LagFixEvent.
+     * Creates a new DefaultInterfaceFallback instance.
+     * @param {Partial<DefaultInterfaceFallback>} [$$source = {}] - The source object to create the DefaultInterfaceFallback.
      */
     constructor($$source = {}) {
-        if (!("id" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["id"] = "";
-        }
-        if (!("route_tag" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["route_tag"] = "";
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
-            this["profile_id"] = undefined;
-        }
-        if (!("slot_index" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["slot_index"] = 0;
-        }
-        if (!("old_path_key" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["old_path_key"] = "";
-        }
-        if (!("new_path_key" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["new_path_key"] = "";
-        }
-        if (!("status" in $$source)) {
-            /**
-             * pending, verified, failed, skipped
-             * @member
-             * @type {string}
-             */
-            this["status"] = "";
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
-            this["reason"] = undefined;
-        }
-        if (!("user_side_lag" in $$source)) {
+        if (!("active" in $$source)) {
             /**
              * @member
              * @type {boolean}
              */
-            this["user_side_lag"] = false;
+            this["active"] = false;
         }
-        if (!("timestamp" in $$source)) {
+        if (!("wanted" in $$source)) {
             /**
              * @member
              * @type {string}
              */
-            this["timestamp"] = "0001-01-01T00:00:00.000Z";
+            this["wanted"] = "";
         }
-        if (/** @type {any} */(false)) {
+        if (!("using" in $$source)) {
             /**
              * @member
-             * @type {string | undefined}
+             * @type {string}
              */
-            this["verified_at"] = undefined;
-        }
-        if (!("before" in $$source)) {
-            /**
-             * @member
-             * @type {LagFixProofMetrics}
-             */
-            this["before"] = (new LagFixProofMetrics());
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {LagFixProofMetrics | undefined}
-             */
-            this["after"] = undefined;
-        }
-        if (!("global_before" in $$source)) {
-            /**
-             * @member
-             * @type {LagFixGlobalSnapshot}
-             */
-            this["global_before"] = (new LagFixGlobalSnapshot());
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {LagFixGlobalSnapshot | undefined}
-             */
-            this["global_after"] = undefined;
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {number | undefined}
-             */
-            this["improvement_ms"] = undefined;
+            this["using"] = "";
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new LagFixEvent instance from a string or object.
+     * Creates a new DefaultInterfaceFallback instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {LagFixEvent}
+     * @returns {DefaultInterfaceFallback}
      */
     static createFrom($$source = {}) {
-        const $$createField11_0 = $$createType0;
-        const $$createField12_0 = $$createType0;
-        const $$createField13_0 = $$createType1;
-        const $$createField14_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("before" in $$parsedSource) {
-            $$parsedSource["before"] = $$createField11_0($$parsedSource["before"]);
-        }
-        if ("after" in $$parsedSource) {
-            $$parsedSource["after"] = $$createField12_0($$parsedSource["after"]);
-        }
-        if ("global_before" in $$parsedSource) {
-            $$parsedSource["global_before"] = $$createField13_0($$parsedSource["global_before"]);
-        }
-        if ("global_after" in $$parsedSource) {
-            $$parsedSource["global_after"] = $$createField14_0($$parsedSource["global_after"]);
-        }
-        return new LagFixEvent(/** @type {Partial<LagFixEvent>} */($$parsedSource));
+        return new DefaultInterfaceFallback(/** @type {Partial<DefaultInterfaceFallback>} */($$parsedSource));
     }
 }
 
-export class LagFixGlobalSnapshot {
+/**
+ * DiagramEstimate is the "Estimated ping" badge; Best indexes the best route (-1 none).
+ */
+export class DiagramEstimate {
     /**
-     * Creates a new LagFixGlobalSnapshot instance.
-     * @param {Partial<LagFixGlobalSnapshot>} [$$source = {}] - The source object to create the LagFixGlobalSnapshot.
+     * Creates a new DiagramEstimate instance.
+     * @param {Partial<DiagramEstimate>} [$$source = {}] - The source object to create the DiagramEstimate.
      */
     constructor($$source = {}) {
-        if (!("avg_latency" in $$source)) {
+        if (!("best" in $$source)) {
             /**
              * @member
              * @type {number}
              */
-            this["avg_latency"] = 0;
+            this["best"] = 0;
         }
-        if (!("packet_loss" in $$source)) {
+        if (!("ping" in $$source)) {
             /**
              * @member
              * @type {number}
              */
-            this["packet_loss"] = 0;
-        }
-        if (!("jitter" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["jitter"] = 0;
+            this["ping"] = 0;
         }
         if (!("score" in $$source)) {
             /**
@@ -205,34 +388,232 @@ export class LagFixGlobalSnapshot {
              */
             this["score"] = 0;
         }
-        if (!("target" in $$source)) {
+        if (!("loss" in $$source)) {
             /**
+             * @member
+             * @type {number}
+             */
+            this["loss"] = 0;
+        }
+        if (!("tcp_only" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["tcp_only"] = false;
+        }
+        if (!("note" in $$source)) {
+            /**
+             * Note: "loss" (probes got no reply in time), "lag" (replies spiking
+             * above normal), or "" when the routes look healthy.
              * @member
              * @type {string}
              */
-            this["target"] = "";
+            this["note"] = "";
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new LagFixGlobalSnapshot instance from a string or object.
+     * Creates a new DiagramEstimate instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {LagFixGlobalSnapshot}
+     * @returns {DiagramEstimate}
      */
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LagFixGlobalSnapshot(/** @type {Partial<LagFixGlobalSnapshot>} */($$parsedSource));
+        return new DiagramEstimate(/** @type {Partial<DiagramEstimate>} */($$parsedSource));
     }
 }
 
-export class LagFixProofMetrics {
+/**
+ * DiagramHop latency: -1 unknown, 0 direct, otherwise ms.
+ */
+export class DiagramHop {
     /**
-     * Creates a new LagFixProofMetrics instance.
-     * @param {Partial<LagFixProofMetrics>} [$$source = {}] - The source object to create the LagFixProofMetrics.
+     * Creates a new DiagramHop instance.
+     * @param {Partial<DiagramHop>} [$$source = {}] - The source object to create the DiagramHop.
      */
     constructor($$source = {}) {
+        if (!("ip" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["ip"] = "";
+        }
+        if (!("node_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["node_id"] = "";
+        }
+        if (!("latency" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["latency"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DiagramHop instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DiagramHop}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DiagramHop(/** @type {Partial<DiagramHop>} */($$parsedSource));
+    }
+}
+
+export class DiagramInterface {
+    /**
+     * Creates a new DiagramInterface instance.
+     * @param {Partial<DiagramInterface>} [$$source = {}] - The source object to create the DiagramInterface.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("index" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["index"] = 0;
+        }
+        if (!("view" in $$source)) {
+            /**
+             * @member
+             * @type {DiagramView}
+             */
+            this["view"] = (new DiagramView());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DiagramInterface instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DiagramInterface}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("view" in $$parsedSource) {
+            $$parsedSource["view"] = $$createField2_0($$parsedSource["view"]);
+        }
+        return new DiagramInterface(/** @type {Partial<DiagramInterface>} */($$parsedSource));
+    }
+}
+
+/**
+ * DiagramPreview is the route shape the profile's settings will produce,
+ * before any route exists: no latencies, only NICs and nodes.
+ */
+export class DiagramPreview {
+    /**
+     * Creates a new DiagramPreview instance.
+     * @param {Partial<DiagramPreview>} [$$source = {}] - The source object to create the DiagramPreview.
+     */
+    constructor($$source = {}) {
+        if (!("interfaces" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["interfaces"] = [];
+        }
+        if (!("direct" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["direct"] = false;
+        }
+        if (!("domestic" in $$source)) {
+            /**
+             * Domestic routes one path through DomesticNodeID ("" when unknown).
+             * @member
+             * @type {boolean}
+             */
+            this["domestic"] = false;
+        }
+        if (!("domestic_node_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["domestic_node_id"] = "";
+        }
+        if (!("relay_node_id" in $$source)) {
+            /**
+             * RelayNodeID is the likeliest exit relay; Cities counts the cities the
+             * server selection allows (0 when no relay matches yet).
+             * @member
+             * @type {string}
+             */
+            this["relay_node_id"] = "";
+        }
+        if (!("cities" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["cities"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DiagramPreview instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DiagramPreview}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("interfaces" in $$parsedSource) {
+            $$parsedSource["interfaces"] = $$createField0_0($$parsedSource["interfaces"]);
+        }
+        return new DiagramPreview(/** @type {Partial<DiagramPreview>} */($$parsedSource));
+    }
+}
+
+/**
+ * DiagramRoute latencies are ms; 0 means unknown.
+ */
+export class DiagramRoute {
+    /**
+     * Creates a new DiagramRoute instance.
+     * @param {Partial<DiagramRoute>} [$$source = {}] - The source object to create the DiagramRoute.
+     */
+    constructor($$source = {}) {
+        if (!("iface" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["iface"] = "";
+        }
+        if (!("iface_index" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["iface_index"] = 0;
+        }
         if (!("path_key" in $$source)) {
             /**
              * @member
@@ -240,12 +621,47 @@ export class LagFixProofMetrics {
              */
             this["path_key"] = "";
         }
-        if (!("avg_latency" in $$source)) {
+        if (!("network" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["network"] = "";
+        }
+        if (!("hops" in $$source)) {
+            /**
+             * @member
+             * @type {DiagramHop[]}
+             */
+            this["hops"] = [];
+        }
+        if (!("latency" in $$source)) {
             /**
              * @member
              * @type {number}
              */
-            this["avg_latency"] = 0;
+            this["latency"] = 0;
+        }
+        if (!("min" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["min"] = 0;
+        }
+        if (!("avg" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["avg"] = 0;
+        }
+        if (!("max" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["max"] = 0;
         }
         if (!("packet_loss" in $$source)) {
             /**
@@ -253,13 +669,6 @@ export class LagFixProofMetrics {
              * @type {number}
              */
             this["packet_loss"] = 0;
-        }
-        if (!("jitter" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["jitter"] = 0;
         }
         if (!("score" in $$source)) {
             /**
@@ -273,72 +682,1422 @@ export class LagFixProofMetrics {
     }
 
     /**
-     * Creates a new LagFixProofMetrics instance from a string or object.
+     * Creates a new DiagramRoute instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {LagFixProofMetrics}
+     * @returns {DiagramRoute}
      */
     static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LagFixProofMetrics(/** @type {Partial<LagFixProofMetrics>} */($$parsedSource));
+        if ("hops" in $$parsedSource) {
+            $$parsedSource["hops"] = $$createField4_0($$parsedSource["hops"]);
+        }
+        return new DiagramRoute(/** @type {Partial<DiagramRoute>} */($$parsedSource));
     }
 }
 
-/**
- * LagFixStats is persisted lifetime counters for verified lag fixes.
- */
-export class LagFixStats {
+export class DiagramView {
     /**
-     * Creates a new LagFixStats instance.
-     * @param {Partial<LagFixStats>} [$$source = {}] - The source object to create the LagFixStats.
+     * Creates a new DiagramView instance.
+     * @param {Partial<DiagramView>} [$$source = {}] - The source object to create the DiagramView.
      */
     constructor($$source = {}) {
-        if (!("verified_count" in $$source)) {
+        if (!("routes" in $$source)) {
             /**
              * @member
-             * @type {number}
+             * @type {DiagramRoute[]}
              */
-            this["verified_count"] = 0;
+            this["routes"] = [];
         }
-        if (!("attempt_count" in $$source)) {
+        if (!("estimate" in $$source)) {
             /**
              * @member
-             * @type {number}
+             * @type {DiagramEstimate}
              */
-            this["attempt_count"] = 0;
-        }
-        if (!("failed_count" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["failed_count"] = 0;
-        }
-        if (!("total_improvement_ms" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["total_improvement_ms"] = 0;
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
-            this["last_verified_at"] = undefined;
+            this["estimate"] = (new DiagramEstimate());
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new LagFixStats instance from a string or object.
+     * Creates a new DiagramView instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {LagFixStats}
+     * @returns {DiagramView}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType7;
+        const $$createField1_0 = $$createType8;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("routes" in $$parsedSource) {
+            $$parsedSource["routes"] = $$createField0_0($$parsedSource["routes"]);
+        }
+        if ("estimate" in $$parsedSource) {
+            $$parsedSource["estimate"] = $$createField1_0($$parsedSource["estimate"]);
+        }
+        return new DiagramView(/** @type {Partial<DiagramView>} */($$parsedSource));
+    }
+}
+
+/**
+ * InterfaceGameRoute is one live game connection leaving through this NIC.
+ */
+export class InterfaceGameRoute {
+    /**
+     * Creates a new InterfaceGameRoute instance.
+     * @param {Partial<InterfaceGameRoute>} [$$source = {}] - The source object to create the InterfaceGameRoute.
+     */
+    constructor($$source = {}) {
+        if (!("game" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["game"] = "";
+        }
+        if (!("icon" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["icon"] = "";
+        }
+        if (!("city" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["city"] = "";
+        }
+        if (!("country" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["country"] = "";
+        }
+        if (!("via" in $$source)) {
+            /**
+             * empty = direct
+             * @member
+             * @type {string[]}
+             */
+            this["via"] = [];
+        }
+        if (!("network" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["network"] = "";
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * 0 = not measured
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+        if (!("quality" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["quality"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new InterfaceGameRoute instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {InterfaceGameRoute}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("via" in $$parsedSource) {
+            $$parsedSource["via"] = $$createField4_0($$parsedSource["via"]);
+        }
+        return new InterfaceGameRoute(/** @type {Partial<InterfaceGameRoute>} */($$parsedSource));
+    }
+}
+
+/**
+ * InterfaceInfo is what Windows reports about the adapter.
+ */
+export class InterfaceInfo {
+    /**
+     * Creates a new InterfaceInfo instance.
+     * @param {Partial<InterfaceInfo>} [$$source = {}] - The source object to create the InterfaceInfo.
+     */
+    constructor($$source = {}) {
+        if (!("description" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["description"] = "";
+        }
+        if (!("addresses" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["addresses"] = [];
+        }
+        if (!("mac" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["mac"] = "";
+        }
+        if (!("mtu" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["mtu"] = 0;
+        }
+        if (!("link_speed" in $$source)) {
+            /**
+             * bits/s, 0 = unknown
+             * @member
+             * @type {number}
+             */
+            this["link_speed"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new InterfaceInfo instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {InterfaceInfo}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("addresses" in $$parsedSource) {
+            $$parsedSource["addresses"] = $$createField1_0($$parsedSource["addresses"]);
+        }
+        return new InterfaceInfo(/** @type {Partial<InterfaceInfo>} */($$parsedSource));
+    }
+}
+
+/**
+ * InterfaceMonitorDetail is the full page for one internet connection.
+ */
+export class InterfaceMonitorDetail {
+    /**
+     * Creates a new InterfaceMonitorDetail instance.
+     * @param {Partial<InterfaceMonitorDetail>} [$$source = {}] - The source object to create the InterfaceMonitorDetail.
+     */
+    constructor($$source = {}) {
+        if (!("range" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["range"] = "";
+        }
+        if (!("interface" in $$source)) {
+            /**
+             * Servers holds every measured server
+             * @member
+             * @type {NetworkInterfaceMonitor}
+             */
+            this["interface"] = (new NetworkInterfaceMonitor());
+        }
+        if (!("info" in $$source)) {
+            /**
+             * @member
+             * @type {InterfaceInfo}
+             */
+            this["info"] = (new InterfaceInfo());
+        }
+        if (!("latency" in $$source)) {
+            /**
+             * one series: internet ping
+             * @member
+             * @type {OverviewLatencyChart}
+             */
+            this["latency"] = (new OverviewLatencyChart());
+        }
+        if (!("traffic" in $$source)) {
+            /**
+             * one series with avg/peak stats
+             * @member
+             * @type {OverviewTrafficChart}
+             */
+            this["traffic"] = (new OverviewTrafficChart());
+        }
+        if (!("uptime" in $$source)) {
+            /**
+             * % of sampled buckets with internet
+             * @member
+             * @type {number}
+             */
+            this["uptime"] = 0;
+        }
+        if (!("timeouts" in $$source)) {
+            /**
+             * buckets where every ping was lost
+             * @member
+             * @type {number}
+             */
+            this["timeouts"] = 0;
+        }
+        if (!("routes" in $$source)) {
+            /**
+             * live game routes on this NIC
+             * @member
+             * @type {InterfaceGameRoute[]}
+             */
+            this["routes"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new InterfaceMonitorDetail instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {InterfaceMonitorDetail}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType9;
+        const $$createField2_0 = $$createType10;
+        const $$createField3_0 = $$createType11;
+        const $$createField4_0 = $$createType12;
+        const $$createField7_0 = $$createType14;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("interface" in $$parsedSource) {
+            $$parsedSource["interface"] = $$createField1_0($$parsedSource["interface"]);
+        }
+        if ("info" in $$parsedSource) {
+            $$parsedSource["info"] = $$createField2_0($$parsedSource["info"]);
+        }
+        if ("latency" in $$parsedSource) {
+            $$parsedSource["latency"] = $$createField3_0($$parsedSource["latency"]);
+        }
+        if ("traffic" in $$parsedSource) {
+            $$parsedSource["traffic"] = $$createField4_0($$parsedSource["traffic"]);
+        }
+        if ("routes" in $$parsedSource) {
+            $$parsedSource["routes"] = $$createField7_0($$parsedSource["routes"]);
+        }
+        return new InterfaceMonitorDetail(/** @type {Partial<InterfaceMonitorDetail>} */($$parsedSource));
+    }
+}
+
+/**
+ * InterfacePing is the NIC's internet ping over the selected range.
+ */
+export class InterfacePing {
+    /**
+     * Creates a new InterfacePing instance.
+     * @param {Partial<InterfacePing>} [$$source = {}] - The source object to create the InterfacePing.
+     */
+    constructor($$source = {}) {
+        if (!("now" in $$source)) {
+            /**
+             * last sample in ms; 0 = timed out / none yet
+             * @member
+             * @type {number}
+             */
+            this["now"] = 0;
+        }
+        if (!("stats" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewLatencyStats}
+             */
+            this["stats"] = (new OverviewLatencyStats());
+        }
+        if (!("score" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["score"] = 0;
+        }
+        if (!("quality" in $$source)) {
+            /**
+             * excellent | good | fair | poor | down
+             * @member
+             * @type {string}
+             */
+            this["quality"] = "";
+        }
+        if (!("points" in $$source)) {
+            /**
+             * per bucket: ms, 0 = lost, -1 = no data
+             * @member
+             * @type {number[]}
+             */
+            this["points"] = [];
+        }
+        if (!("step" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["step"] = 0;
+        }
+        if (!("end" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["end"] = 0;
+        }
+        if (!("y_max" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["y_max"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new InterfacePing instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {InterfacePing}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType15;
+        const $$createField4_0 = $$createType16;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("stats" in $$parsedSource) {
+            $$parsedSource["stats"] = $$createField1_0($$parsedSource["stats"]);
+        }
+        if ("points" in $$parsedSource) {
+            $$parsedSource["points"] = $$createField4_0($$parsedSource["points"]);
+        }
+        return new InterfacePing(/** @type {Partial<InterfacePing>} */($$parsedSource));
+    }
+}
+
+/**
+ * InterfaceServer is a LagZap server as measured over one NIC.
+ */
+export class InterfaceServer {
+    /**
+     * Creates a new InterfaceServer instance.
+     * @param {Partial<InterfaceServer>} [$$source = {}] - The source object to create the InterfaceServer.
+     */
+    constructor($$source = {}) {
+        if (!("node_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["node_id"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("city" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["city"] = "";
+        }
+        if (!("country" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["country"] = "";
+        }
+        if (!("network" in $$source)) {
+            /**
+             * udp | tcp | icmp
+             * @member
+             * @type {string}
+             */
+            this["network"] = "";
+        }
+        if (!("latency" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["latency"] = 0;
+        }
+        if (!("quality" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["quality"] = "";
+        }
+        if (!("live" in $$source)) {
+            /**
+             * a game route enters LagZap here over this NIC
+             * @member
+             * @type {boolean}
+             */
+            this["live"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new InterfaceServer instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {InterfaceServer}
      */
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LagFixStats(/** @type {Partial<LagFixStats>} */($$parsedSource));
+        return new InterfaceServer(/** @type {Partial<InterfaceServer>} */($$parsedSource));
+    }
+}
+
+/**
+ * InterfaceTraffic is the NIC's throughput (bytes/s) over the selected range.
+ */
+export class InterfaceTraffic {
+    /**
+     * Creates a new InterfaceTraffic instance.
+     * @param {Partial<InterfaceTraffic>} [$$source = {}] - The source object to create the InterfaceTraffic.
+     */
+    constructor($$source = {}) {
+        if (!("download" in $$source)) {
+            /**
+             * current
+             * @member
+             * @type {number}
+             */
+            this["download"] = 0;
+        }
+        if (!("upload" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["upload"] = 0;
+        }
+        if (!("down" in $$source)) {
+            /**
+             * per bucket, -1 = no data
+             * @member
+             * @type {number[]}
+             */
+            this["down"] = [];
+        }
+        if (!("up" in $$source)) {
+            /**
+             * @member
+             * @type {number[]}
+             */
+            this["up"] = [];
+        }
+        if (!("y_max" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["y_max"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new InterfaceTraffic instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {InterfaceTraffic}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType17;
+        const $$createField3_0 = $$createType17;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("down" in $$parsedSource) {
+            $$parsedSource["down"] = $$createField2_0($$parsedSource["down"]);
+        }
+        if ("up" in $$parsedSource) {
+            $$parsedSource["up"] = $$createField3_0($$parsedSource["up"]);
+        }
+        return new InterfaceTraffic(/** @type {Partial<InterfaceTraffic>} */($$parsedSource));
+    }
+}
+
+/**
+ * LocationMonitor is one LagZap location's page: what the city is, the live
+ * latency of every path into it and the traffic of every game routed
+ * through it. Go builds every number; the page only renders.
+ */
+export class LocationMonitor {
+    /**
+     * Creates a new LocationMonitor instance.
+     * @param {Partial<LocationMonitor>} [$$source = {}] - The source object to create the LocationMonitor.
+     */
+    constructor($$source = {}) {
+        if (!("range" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["range"] = "";
+        }
+        if (!("key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["key"] = "";
+        }
+        if (!("details" in $$source)) {
+            /**
+             * nil = location no longer exists
+             * @member
+             * @type {ServerCityDetails | null}
+             */
+            this["details"] = null;
+        }
+        if (!("in_use" in $$source)) {
+            /**
+             * a game is routed through it now
+             * @member
+             * @type {boolean}
+             */
+            this["in_use"] = false;
+        }
+        if (!("watching" in $$source)) {
+            /**
+             * manual watch is probing it
+             * @member
+             * @type {boolean}
+             */
+            this["watching"] = false;
+        }
+        if (!("games" in $$source)) {
+            /**
+             * games routed through it
+             * @member
+             * @type {string[]}
+             */
+            this["games"] = [];
+        }
+        if (!("latency" in $$source)) {
+            /**
+             * one series per path / connection
+             * @member
+             * @type {OverviewLatencyChart}
+             */
+            this["latency"] = (new OverviewLatencyChart());
+        }
+        if (!("traffic" in $$source)) {
+            /**
+             * one series per game
+             * @member
+             * @type {OverviewTrafficChart}
+             */
+            this["traffic"] = (new OverviewTrafficChart());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LocationMonitor instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LocationMonitor}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType19;
+        const $$createField5_0 = $$createType0;
+        const $$createField6_0 = $$createType11;
+        const $$createField7_0 = $$createType12;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("details" in $$parsedSource) {
+            $$parsedSource["details"] = $$createField2_0($$parsedSource["details"]);
+        }
+        if ("games" in $$parsedSource) {
+            $$parsedSource["games"] = $$createField5_0($$parsedSource["games"]);
+        }
+        if ("latency" in $$parsedSource) {
+            $$parsedSource["latency"] = $$createField6_0($$parsedSource["latency"]);
+        }
+        if ("traffic" in $$parsedSource) {
+            $$parsedSource["traffic"] = $$createField7_0($$parsedSource["traffic"]);
+        }
+        return new LocationMonitor(/** @type {Partial<LocationMonitor>} */($$parsedSource));
+    }
+}
+
+/**
+ * LossWarning: Loss is the share of packets no route delivered.
+ */
+export class LossWarning {
+    /**
+     * Creates a new LossWarning instance.
+     * @param {Partial<LossWarning>} [$$source = {}] - The source object to create the LossWarning.
+     */
+    constructor($$source = {}) {
+        if (!("loss" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["loss"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LossWarning instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LossWarning}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LossWarning(/** @type {Partial<LossWarning>} */($$parsedSource));
+    }
+}
+
+/**
+ * NetworkInterfaceMonitor is one internet connection (NIC).
+ */
+export class NetworkInterfaceMonitor {
+    /**
+     * Creates a new NetworkInterfaceMonitor instance.
+     * @param {Partial<NetworkInterfaceMonitor>} [$$source = {}] - The source object to create the NetworkInterfaceMonitor.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("kind" in $$source)) {
+            /**
+             * ethernet | wifi | cellular | ppp | other
+             * @member
+             * @type {string}
+             */
+            this["kind"] = "";
+        }
+        if (!("status" in $$source)) {
+            /**
+             * online | no_internet | warming
+             * @member
+             * @type {string}
+             */
+            this["status"] = "";
+        }
+        if (!("default" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["default"] = false;
+        }
+        if (!("game_legs" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["game_legs"] = 0;
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * @member
+             * @type {InterfacePing}
+             */
+            this["ping"] = (new InterfacePing());
+        }
+        if (!("traffic" in $$source)) {
+            /**
+             * @member
+             * @type {InterfaceTraffic}
+             */
+            this["traffic"] = (new InterfaceTraffic());
+        }
+        if (!("servers" in $$source)) {
+            /**
+             * fastest LagZap servers over this NIC
+             * @member
+             * @type {InterfaceServer[]}
+             */
+            this["servers"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NetworkInterfaceMonitor instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {NetworkInterfaceMonitor}
+     */
+    static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType20;
+        const $$createField6_0 = $$createType21;
+        const $$createField7_0 = $$createType23;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("ping" in $$parsedSource) {
+            $$parsedSource["ping"] = $$createField5_0($$parsedSource["ping"]);
+        }
+        if ("traffic" in $$parsedSource) {
+            $$parsedSource["traffic"] = $$createField6_0($$parsedSource["traffic"]);
+        }
+        if ("servers" in $$parsedSource) {
+            $$parsedSource["servers"] = $$createField7_0($$parsedSource["servers"]);
+        }
+        return new NetworkInterfaceMonitor(/** @type {Partial<NetworkInterfaceMonitor>} */($$parsedSource));
+    }
+}
+
+/**
+ * NetworkMonitor is the Monitoring page snapshot. Every number, class
+ * and ordering is computed in Go; the page only renders it.
+ */
+export class NetworkMonitor {
+    /**
+     * Creates a new NetworkMonitor instance.
+     * @param {Partial<NetworkMonitor>} [$$source = {}] - The source object to create the NetworkMonitor.
+     */
+    constructor($$source = {}) {
+        if (!("range" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["range"] = "";
+        }
+        if (!("summary" in $$source)) {
+            /**
+             * @member
+             * @type {NetworkMonitorSummary}
+             */
+            this["summary"] = (new NetworkMonitorSummary());
+        }
+        if (!("interfaces" in $$source)) {
+            /**
+             * @member
+             * @type {NetworkInterfaceMonitor[]}
+             */
+            this["interfaces"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NetworkMonitor instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {NetworkMonitor}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType24;
+        const $$createField2_0 = $$createType25;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("summary" in $$parsedSource) {
+            $$parsedSource["summary"] = $$createField1_0($$parsedSource["summary"]);
+        }
+        if ("interfaces" in $$parsedSource) {
+            $$parsedSource["interfaces"] = $$createField2_0($$parsedSource["interfaces"]);
+        }
+        return new NetworkMonitor(/** @type {Partial<NetworkMonitor>} */($$parsedSource));
+    }
+}
+
+export class NetworkMonitorSummary {
+    /**
+     * Creates a new NetworkMonitorSummary instance.
+     * @param {Partial<NetworkMonitorSummary>} [$$source = {}] - The source object to create the NetworkMonitorSummary.
+     */
+    constructor($$source = {}) {
+        if (!("best_interface" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["best_interface"] = "";
+        }
+        if (!("best_ping" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["best_ping"] = 0;
+        }
+        if (!("score" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["score"] = 0;
+        }
+        if (!("quality" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["quality"] = "";
+        }
+        if (!("jitter" in $$source)) {
+            /**
+             * best connection, selected range
+             * @member
+             * @type {number}
+             */
+            this["jitter"] = 0;
+        }
+        if (!("loss" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["loss"] = 0;
+        }
+        if (!("download" in $$source)) {
+            /**
+             * bytes/s, all NICs
+             * @member
+             * @type {number}
+             */
+            this["download"] = 0;
+        }
+        if (!("upload" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["upload"] = 0;
+        }
+        if (!("online" in $$source)) {
+            /**
+             * NICs with working internet
+             * @member
+             * @type {number}
+             */
+            this["online"] = 0;
+        }
+        if (!("total" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["total"] = 0;
+        }
+        if (!("game_legs" in $$source)) {
+            /**
+             * live relay legs carrying games
+             * @member
+             * @type {number}
+             */
+            this["game_legs"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NetworkMonitorSummary instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {NetworkMonitorSummary}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new NetworkMonitorSummary(/** @type {Partial<NetworkMonitorSummary>} */($$parsedSource));
+    }
+}
+
+/**
+ * OverviewChart is the ready-to-render payload for the Overview page.
+ * Latency points: -1 = no sample, 0 = all pings lost, otherwise avg ms.
+ * Traffic points: bytes/s average per bucket, -1 = no sample.
+ */
+export class OverviewChart {
+    /**
+     * Creates a new OverviewChart instance.
+     * @param {Partial<OverviewChart>} [$$source = {}] - The source object to create the OverviewChart.
+     */
+    constructor($$source = {}) {
+        if (!("range" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["range"] = "";
+        }
+        if (!("quality" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewQuality}
+             */
+            this["quality"] = (new OverviewQuality());
+        }
+        if (!("latency" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewLatencyChart}
+             */
+            this["latency"] = (new OverviewLatencyChart());
+        }
+        if (!("traffic" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewTrafficChart}
+             */
+            this["traffic"] = (new OverviewTrafficChart());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OverviewChart instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {OverviewChart}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType26;
+        const $$createField2_0 = $$createType11;
+        const $$createField3_0 = $$createType12;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("quality" in $$parsedSource) {
+            $$parsedSource["quality"] = $$createField1_0($$parsedSource["quality"]);
+        }
+        if ("latency" in $$parsedSource) {
+            $$parsedSource["latency"] = $$createField2_0($$parsedSource["latency"]);
+        }
+        if ("traffic" in $$parsedSource) {
+            $$parsedSource["traffic"] = $$createField3_0($$parsedSource["traffic"]);
+        }
+        return new OverviewChart(/** @type {Partial<OverviewChart>} */($$parsedSource));
+    }
+}
+
+export class OverviewLatencyChart {
+    /**
+     * Creates a new OverviewLatencyChart instance.
+     * @param {Partial<OverviewLatencyChart>} [$$source = {}] - The source object to create the OverviewLatencyChart.
+     */
+    constructor($$source = {}) {
+        if (!("step" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["step"] = 0;
+        }
+        if (!("end" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["end"] = 0;
+        }
+        if (!("y_max" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["y_max"] = 0;
+        }
+        if (!("stats" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewLatencyStats}
+             */
+            this["stats"] = (new OverviewLatencyStats());
+        }
+        if (!("series" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewLatencySeries[]}
+             */
+            this["series"] = [];
+        }
+        if (!("pending" in $$source)) {
+            /**
+             * Pending: trailing buckets whose pings may still be answered (replies
+             * land in the bucket that sent them, up to the reply timeout late).
+             * @member
+             * @type {number}
+             */
+            this["pending"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OverviewLatencyChart instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {OverviewLatencyChart}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType15;
+        const $$createField4_0 = $$createType28;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("stats" in $$parsedSource) {
+            $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
+        }
+        if ("series" in $$parsedSource) {
+            $$parsedSource["series"] = $$createField4_0($$parsedSource["series"]);
+        }
+        return new OverviewLatencyChart(/** @type {Partial<OverviewLatencyChart>} */($$parsedSource));
+    }
+}
+
+export class OverviewLatencySeries {
+    /**
+     * Creates a new OverviewLatencySeries instance.
+     * @param {Partial<OverviewLatencySeries>} [$$source = {}] - The source object to create the OverviewLatencySeries.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("points" in $$source)) {
+            /**
+             * @member
+             * @type {number[]}
+             */
+            this["points"] = [];
+        }
+        if (!("stats" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewLatencyStats}
+             */
+            this["stats"] = (new OverviewLatencyStats());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OverviewLatencySeries instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {OverviewLatencySeries}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType16;
+        const $$createField2_0 = $$createType15;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("points" in $$parsedSource) {
+            $$parsedSource["points"] = $$createField1_0($$parsedSource["points"]);
+        }
+        if ("stats" in $$parsedSource) {
+            $$parsedSource["stats"] = $$createField2_0($$parsedSource["stats"]);
+        }
+        return new OverviewLatencySeries(/** @type {Partial<OverviewLatencySeries>} */($$parsedSource));
+    }
+}
+
+export class OverviewLatencyStats {
+    /**
+     * Creates a new OverviewLatencyStats instance.
+     * @param {Partial<OverviewLatencyStats>} [$$source = {}] - The source object to create the OverviewLatencyStats.
+     */
+    constructor($$source = {}) {
+        if (!("min" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["min"] = 0;
+        }
+        if (!("max" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["max"] = 0;
+        }
+        if (!("avg" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["avg"] = 0;
+        }
+        if (!("jitter" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["jitter"] = 0;
+        }
+        if (!("loss" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["loss"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OverviewLatencyStats instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {OverviewLatencyStats}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new OverviewLatencyStats(/** @type {Partial<OverviewLatencyStats>} */($$parsedSource));
+    }
+}
+
+export class OverviewQuality {
+    /**
+     * Creates a new OverviewQuality instance.
+     * @param {Partial<OverviewQuality>} [$$source = {}] - The source object to create the OverviewQuality.
+     */
+    constructor($$source = {}) {
+        if (!("best" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["best"] = "";
+        }
+        if (!("latency" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["latency"] = 0;
+        }
+        if (!("jitter" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["jitter"] = 0;
+        }
+        if (!("loss" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["loss"] = 0;
+        }
+        if (!("score" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["score"] = 0;
+        }
+        if (!("download" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["download"] = 0;
+        }
+        if (!("upload" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["upload"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OverviewQuality instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {OverviewQuality}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new OverviewQuality(/** @type {Partial<OverviewQuality>} */($$parsedSource));
+    }
+}
+
+export class OverviewTrafficChart {
+    /**
+     * Creates a new OverviewTrafficChart instance.
+     * @param {Partial<OverviewTrafficChart>} [$$source = {}] - The source object to create the OverviewTrafficChart.
+     */
+    constructor($$source = {}) {
+        if (!("step" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["step"] = 0;
+        }
+        if (!("end" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["end"] = 0;
+        }
+        if (!("y_max" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["y_max"] = 0;
+        }
+        if (!("stats" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewTrafficStats}
+             */
+            this["stats"] = (new OverviewTrafficStats());
+        }
+        if (!("series" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewTrafficSeries[]}
+             */
+            this["series"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OverviewTrafficChart instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {OverviewTrafficChart}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType29;
+        const $$createField4_0 = $$createType31;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("stats" in $$parsedSource) {
+            $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
+        }
+        if ("series" in $$parsedSource) {
+            $$parsedSource["series"] = $$createField4_0($$parsedSource["series"]);
+        }
+        return new OverviewTrafficChart(/** @type {Partial<OverviewTrafficChart>} */($$parsedSource));
+    }
+}
+
+export class OverviewTrafficSeries {
+    /**
+     * Creates a new OverviewTrafficSeries instance.
+     * @param {Partial<OverviewTrafficSeries>} [$$source = {}] - The source object to create the OverviewTrafficSeries.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("download" in $$source)) {
+            /**
+             * @member
+             * @type {number[]}
+             */
+            this["download"] = [];
+        }
+        if (!("upload" in $$source)) {
+            /**
+             * @member
+             * @type {number[]}
+             */
+            this["upload"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OverviewTrafficSeries instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {OverviewTrafficSeries}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType17;
+        const $$createField2_0 = $$createType17;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("download" in $$parsedSource) {
+            $$parsedSource["download"] = $$createField1_0($$parsedSource["download"]);
+        }
+        if ("upload" in $$parsedSource) {
+            $$parsedSource["upload"] = $$createField2_0($$parsedSource["upload"]);
+        }
+        return new OverviewTrafficSeries(/** @type {Partial<OverviewTrafficSeries>} */($$parsedSource));
+    }
+}
+
+export class OverviewTrafficStats {
+    /**
+     * Creates a new OverviewTrafficStats instance.
+     * @param {Partial<OverviewTrafficStats>} [$$source = {}] - The source object to create the OverviewTrafficStats.
+     */
+    constructor($$source = {}) {
+        if (!("avg_download" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["avg_download"] = 0;
+        }
+        if (!("peak_download" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["peak_download"] = 0;
+        }
+        if (!("avg_upload" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["avg_upload"] = 0;
+        }
+        if (!("peak_upload" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["peak_upload"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OverviewTrafficStats instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {OverviewTrafficStats}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new OverviewTrafficStats(/** @type {Partial<OverviewTrafficStats>} */($$parsedSource));
     }
 }
 
@@ -516,6 +2275,678 @@ export class PathPingRow {
 }
 
 /**
+ * ProfileChart is the ready-to-render latency/traffic payload for one profile.
+ * Series are the profile's best routes (sticky best-N), ordered best first.
+ * Point encoding matches OverviewChart.
+ */
+export class ProfileChart {
+    /**
+     * Creates a new ProfileChart instance.
+     * @param {Partial<ProfileChart>} [$$source = {}] - The source object to create the ProfileChart.
+     */
+    constructor($$source = {}) {
+        if (!("profile_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["profile_id"] = "";
+        }
+        if (!("range" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["range"] = "";
+        }
+        if (!("iface" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["iface"] = "";
+        }
+        if (!("interfaces" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["interfaces"] = [];
+        }
+        if (!("latency" in $$source)) {
+            /**
+             * @member
+             * @type {ProfileLatencyChart}
+             */
+            this["latency"] = (new ProfileLatencyChart());
+        }
+        if (!("traffic" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewTrafficChart}
+             */
+            this["traffic"] = (new OverviewTrafficChart());
+        }
+        if (!("diagram" in $$source)) {
+            /**
+             * @member
+             * @type {ProfileDiagram}
+             */
+            this["diagram"] = (new ProfileDiagram());
+        }
+        if (!("session_start" in $$source)) {
+            /**
+             * SessionStart is when the shown connection opened (unix ms, 0 = none).
+             * @member
+             * @type {number}
+             */
+            this["session_start"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProfileChart instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ProfileChart}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType0;
+        const $$createField4_0 = $$createType32;
+        const $$createField5_0 = $$createType12;
+        const $$createField6_0 = $$createType33;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("interfaces" in $$parsedSource) {
+            $$parsedSource["interfaces"] = $$createField3_0($$parsedSource["interfaces"]);
+        }
+        if ("latency" in $$parsedSource) {
+            $$parsedSource["latency"] = $$createField4_0($$parsedSource["latency"]);
+        }
+        if ("traffic" in $$parsedSource) {
+            $$parsedSource["traffic"] = $$createField5_0($$parsedSource["traffic"]);
+        }
+        if ("diagram" in $$parsedSource) {
+            $$parsedSource["diagram"] = $$createField6_0($$parsedSource["diagram"]);
+        }
+        return new ProfileChart(/** @type {Partial<ProfileChart>} */($$parsedSource));
+    }
+}
+
+/**
+ * ProfileDiagram is the route diagram for one profile. Interfaces is the
+ * per-NIC view; Best mixes NICs for "Best internet".
+ */
+export class ProfileDiagram {
+    /**
+     * Creates a new ProfileDiagram instance.
+     * @param {Partial<ProfileDiagram>} [$$source = {}] - The source object to create the ProfileDiagram.
+     */
+    constructor($$source = {}) {
+        if (!("show" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["show"] = false;
+        }
+        if (!("idle" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["idle"] = false;
+        }
+        if (!("route_cap" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["route_cap"] = 0;
+        }
+        if (!("primary_relay_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["primary_relay_id"] = "";
+        }
+        if (!("top_connection_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["top_connection_id"] = "";
+        }
+        if (!("interfaces" in $$source)) {
+            /**
+             * @member
+             * @type {DiagramInterface[]}
+             */
+            this["interfaces"] = [];
+        }
+        if (!("best" in $$source)) {
+            /**
+             * @member
+             * @type {DiagramView}
+             */
+            this["best"] = (new DiagramView());
+        }
+        if (!("preview" in $$source)) {
+            /**
+             * Preview is set instead of routes while no relay route is known yet.
+             * @member
+             * @type {DiagramPreview | null}
+             */
+            this["preview"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProfileDiagram instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ProfileDiagram}
+     */
+    static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType35;
+        const $$createField6_0 = $$createType4;
+        const $$createField7_0 = $$createType37;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("interfaces" in $$parsedSource) {
+            $$parsedSource["interfaces"] = $$createField5_0($$parsedSource["interfaces"]);
+        }
+        if ("best" in $$parsedSource) {
+            $$parsedSource["best"] = $$createField6_0($$parsedSource["best"]);
+        }
+        if ("preview" in $$parsedSource) {
+            $$parsedSource["preview"] = $$createField7_0($$parsedSource["preview"]);
+        }
+        return new ProfileDiagram(/** @type {Partial<ProfileDiagram>} */($$parsedSource));
+    }
+}
+
+export class ProfileLatencyChart {
+    /**
+     * Creates a new ProfileLatencyChart instance.
+     * @param {Partial<ProfileLatencyChart>} [$$source = {}] - The source object to create the ProfileLatencyChart.
+     */
+    constructor($$source = {}) {
+        if (!("step" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["step"] = 0;
+        }
+        if (!("end" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["end"] = 0;
+        }
+        if (!("y_max" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["y_max"] = 0;
+        }
+        if (!("stats" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewLatencyStats}
+             */
+            this["stats"] = (new OverviewLatencyStats());
+        }
+        if (!("series" in $$source)) {
+            /**
+             * @member
+             * @type {ProfileLatencySeries[]}
+             */
+            this["series"] = [];
+        }
+        if (!("unstable" in $$source)) {
+            /**
+             * Unstable is set while every route is losing packets (last minute).
+             * @member
+             * @type {LossWarning | null}
+             */
+            this["unstable"] = null;
+        }
+        if (!("pending" in $$source)) {
+            /**
+             * Pending: trailing buckets whose probes may still be answered.
+             * @member
+             * @type {number}
+             */
+            this["pending"] = 0;
+        }
+        if (!("transport" in $$source)) {
+            /**
+             * Transport is set while Smart mode keeps this profile's routes off a
+             * transport that lags on one of its NICs.
+             * @member
+             * @type {TransportWarning | null}
+             */
+            this["transport"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProfileLatencyChart instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ProfileLatencyChart}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType15;
+        const $$createField4_0 = $$createType39;
+        const $$createField5_0 = $$createType41;
+        const $$createField7_0 = $$createType43;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("stats" in $$parsedSource) {
+            $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
+        }
+        if ("series" in $$parsedSource) {
+            $$parsedSource["series"] = $$createField4_0($$parsedSource["series"]);
+        }
+        if ("unstable" in $$parsedSource) {
+            $$parsedSource["unstable"] = $$createField5_0($$parsedSource["unstable"]);
+        }
+        if ("transport" in $$parsedSource) {
+            $$parsedSource["transport"] = $$createField7_0($$parsedSource["transport"]);
+        }
+        return new ProfileLatencyChart(/** @type {Partial<ProfileLatencyChart>} */($$parsedSource));
+    }
+}
+
+/**
+ * ProfileLatencySeries is one route line; Key is iface::network::pathKey.
+ */
+export class ProfileLatencySeries {
+    /**
+     * Creates a new ProfileLatencySeries instance.
+     * @param {Partial<ProfileLatencySeries>} [$$source = {}] - The source object to create the ProfileLatencySeries.
+     */
+    constructor($$source = {}) {
+        if (!("key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["key"] = "";
+        }
+        if (!("label" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["label"] = "";
+        }
+        if (!("iface" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["iface"] = "";
+        }
+        if (!("network" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["network"] = "";
+        }
+        if (!("path_key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["path_key"] = "";
+        }
+        if (!("points" in $$source)) {
+            /**
+             * @member
+             * @type {number[]}
+             */
+            this["points"] = [];
+        }
+        if (!("stats" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewLatencyStats}
+             */
+            this["stats"] = (new OverviewLatencyStats());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProfileLatencySeries instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ProfileLatencySeries}
+     */
+    static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType16;
+        const $$createField6_0 = $$createType15;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("points" in $$parsedSource) {
+            $$parsedSource["points"] = $$createField5_0($$parsedSource["points"]);
+        }
+        if ("stats" in $$parsedSource) {
+            $$parsedSource["stats"] = $$createField6_0($$parsedSource["stats"]);
+        }
+        return new ProfileLatencySeries(/** @type {Partial<ProfileLatencySeries>} */($$parsedSource));
+    }
+}
+
+export class ServerCity {
+    /**
+     * Creates a new ServerCity instance.
+     * @param {Partial<ServerCity>} [$$source = {}] - The source object to create the ServerCity.
+     */
+    constructor($$source = {}) {
+        if (!("key" in $$source)) {
+            /**
+             * stable id for details
+             * @member
+             * @type {string}
+             */
+            this["key"] = "";
+        }
+        if (!("city" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["city"] = "";
+        }
+        if (!("country" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["country"] = "";
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * 0 = not measured
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+        if (!("quality" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["quality"] = "";
+        }
+        if (!("status" in $$source)) {
+            /**
+             * online | busy | unreachable | not_measured
+             * @member
+             * @type {string}
+             */
+            this["status"] = "";
+        }
+        if (!("in_use" in $$source)) {
+            /**
+             * a game is relayed through this city now
+             * @member
+             * @type {boolean}
+             */
+            this["in_use"] = false;
+        }
+        if (!("servers" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["servers"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ServerCity instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ServerCity}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ServerCity(/** @type {Partial<ServerCity>} */($$parsedSource));
+    }
+}
+
+/**
+ * ServerCityDetails is the popup for one city.
+ */
+export class ServerCityDetails {
+    /**
+     * Creates a new ServerCityDetails instance.
+     * @param {Partial<ServerCityDetails>} [$$source = {}] - The source object to create the ServerCityDetails.
+     */
+    constructor($$source = {}) {
+        if (!("key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["key"] = "";
+        }
+        if (!("city" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["city"] = "";
+        }
+        if (!("country" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["country"] = "";
+        }
+        if (!("region" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["region"] = "";
+        }
+        if (!("status" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["status"] = "";
+        }
+        if (!("connections" in $$source)) {
+            /**
+             * ping from each of the user's connections
+             * @member
+             * @type {CityConnection[]}
+             */
+            this["connections"] = [];
+        }
+        if (!("routes" in $$source)) {
+            /**
+             * ways to reach this city, best first
+             * @member
+             * @type {CityRoute[]}
+             */
+            this["routes"] = [];
+        }
+        if (!("servers" in $$source)) {
+            /**
+             * @member
+             * @type {CityServer[]}
+             */
+            this["servers"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ServerCityDetails instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ServerCityDetails}
+     */
+    static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType45;
+        const $$createField6_0 = $$createType47;
+        const $$createField7_0 = $$createType49;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("connections" in $$parsedSource) {
+            $$parsedSource["connections"] = $$createField5_0($$parsedSource["connections"]);
+        }
+        if ("routes" in $$parsedSource) {
+            $$parsedSource["routes"] = $$createField6_0($$parsedSource["routes"]);
+        }
+        if ("servers" in $$parsedSource) {
+            $$parsedSource["servers"] = $$createField7_0($$parsedSource["servers"]);
+        }
+        return new ServerCityDetails(/** @type {Partial<ServerCityDetails>} */($$parsedSource));
+    }
+}
+
+/**
+ * ServerDirectory is the public "LagZap servers" list: regions and cities
+ * with the ping from the user's connection(s). Computed entirely in Go.
+ */
+export class ServerDirectory {
+    /**
+     * Creates a new ServerDirectory instance.
+     * @param {Partial<ServerDirectory>} [$$source = {}] - The source object to create the ServerDirectory.
+     */
+    constructor($$source = {}) {
+        if (!("interface" in $$source)) {
+            /**
+             * "" = best connection
+             * @member
+             * @type {string}
+             */
+            this["interface"] = "";
+        }
+        if (!("interfaces" in $$source)) {
+            /**
+             * connections the user can pick
+             * @member
+             * @type {string[]}
+             */
+            this["interfaces"] = [];
+        }
+        if (!("regions" in $$source)) {
+            /**
+             * nearest first
+             * @member
+             * @type {ServerRegion[]}
+             */
+            this["regions"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ServerDirectory instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ServerDirectory}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType0;
+        const $$createField2_0 = $$createType51;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("interfaces" in $$parsedSource) {
+            $$parsedSource["interfaces"] = $$createField1_0($$parsedSource["interfaces"]);
+        }
+        if ("regions" in $$parsedSource) {
+            $$parsedSource["regions"] = $$createField2_0($$parsedSource["regions"]);
+        }
+        return new ServerDirectory(/** @type {Partial<ServerDirectory>} */($$parsedSource));
+    }
+}
+
+export class ServerRegion {
+    /**
+     * Creates a new ServerRegion instance.
+     * @param {Partial<ServerRegion>} [$$source = {}] - The source object to create the ServerRegion.
+     */
+    constructor($$source = {}) {
+        if (!("tag" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["tag"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * best city ping, 0 = not measured
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+        if (!("quality" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["quality"] = "";
+        }
+        if (!("cities" in $$source)) {
+            /**
+             * nearest first
+             * @member
+             * @type {ServerCity[]}
+             */
+            this["cities"] = [];
+        }
+        if (!("disabled" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["disabled"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ServerRegion instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ServerRegion}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType53;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("cities" in $$parsedSource) {
+            $$parsedSource["cities"] = $$createField4_0($$parsedSource["cities"]);
+        }
+        return new ServerRegion(/** @type {Partial<ServerRegion>} */($$parsedSource));
+    }
+}
+
+/**
  * @readonly
  * @enum {number}
  */
@@ -546,6 +2977,97 @@ export const SyncTransportMode = {
     SyncTransportHTTP: 2,
 };
 
+/**
+ * TransportWarning: Lagging ("udp" | "tcp") behaves worse than the other
+ * transport on Iface, so more routes use the other one.
+ */
+export class TransportWarning {
+    /**
+     * Creates a new TransportWarning instance.
+     * @param {Partial<TransportWarning>} [$$source = {}] - The source object to create the TransportWarning.
+     */
+    constructor($$source = {}) {
+        if (!("iface" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["iface"] = "";
+        }
+        if (!("lagging" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["lagging"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TransportWarning instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TransportWarning}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TransportWarning(/** @type {Partial<TransportWarning>} */($$parsedSource));
+    }
+}
+
 // Private type creation functions
-const $$createType0 = LagFixProofMetrics.createFrom;
-const $$createType1 = LagFixGlobalSnapshot.createFrom;
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = ConnectionLeg.createFrom;
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = DiagramRoute.createFrom;
+const $$createType4 = DiagramView.createFrom;
+const $$createType5 = DiagramHop.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = $Create.Array($$createType3);
+const $$createType8 = DiagramEstimate.createFrom;
+const $$createType9 = NetworkInterfaceMonitor.createFrom;
+const $$createType10 = InterfaceInfo.createFrom;
+const $$createType11 = OverviewLatencyChart.createFrom;
+const $$createType12 = OverviewTrafficChart.createFrom;
+const $$createType13 = InterfaceGameRoute.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = OverviewLatencyStats.createFrom;
+const $$createType16 = $Create.Array($Create.Any);
+const $$createType17 = $Create.Array($Create.Any);
+const $$createType18 = ServerCityDetails.createFrom;
+const $$createType19 = $Create.Nullable($$createType18);
+const $$createType20 = InterfacePing.createFrom;
+const $$createType21 = InterfaceTraffic.createFrom;
+const $$createType22 = InterfaceServer.createFrom;
+const $$createType23 = $Create.Array($$createType22);
+const $$createType24 = NetworkMonitorSummary.createFrom;
+const $$createType25 = $Create.Array($$createType9);
+const $$createType26 = OverviewQuality.createFrom;
+const $$createType27 = OverviewLatencySeries.createFrom;
+const $$createType28 = $Create.Array($$createType27);
+const $$createType29 = OverviewTrafficStats.createFrom;
+const $$createType30 = OverviewTrafficSeries.createFrom;
+const $$createType31 = $Create.Array($$createType30);
+const $$createType32 = ProfileLatencyChart.createFrom;
+const $$createType33 = ProfileDiagram.createFrom;
+const $$createType34 = DiagramInterface.createFrom;
+const $$createType35 = $Create.Array($$createType34);
+const $$createType36 = DiagramPreview.createFrom;
+const $$createType37 = $Create.Nullable($$createType36);
+const $$createType38 = ProfileLatencySeries.createFrom;
+const $$createType39 = $Create.Array($$createType38);
+const $$createType40 = LossWarning.createFrom;
+const $$createType41 = $Create.Nullable($$createType40);
+const $$createType42 = TransportWarning.createFrom;
+const $$createType43 = $Create.Nullable($$createType42);
+const $$createType44 = CityConnection.createFrom;
+const $$createType45 = $Create.Array($$createType44);
+const $$createType46 = CityRoute.createFrom;
+const $$createType47 = $Create.Array($$createType46);
+const $$createType48 = CityServer.createFrom;
+const $$createType49 = $Create.Array($$createType48);
+const $$createType50 = ServerRegion.createFrom;
+const $$createType51 = $Create.Array($$createType50);
+const $$createType52 = ServerCity.createFrom;
+const $$createType53 = $Create.Array($$createType52);

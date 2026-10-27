@@ -2,5 +2,5 @@
 </script>
 
 <template>
-  <CyrexLogo />
+  <LagzapLogo />
 </template>

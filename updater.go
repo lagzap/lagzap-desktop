@@ -70,7 +70,7 @@ func initUpdater(app *application.App) bool {
 
 	updateWin := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:                       updaterWindowName,
-		Title:                      "Cyrex Update",
+		Title:                      "LagZap Update",
 		Width:                      updaterWindowWidth,
 		Height:                     updaterWindowHeight,
 		MinWidth:                   updaterWindowWidth,

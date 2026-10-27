@@ -26,6 +26,9 @@ const store = useStore();
 const {
   resolvedGlobalTcp,
   resolvedGlobalUdp,
+  multiInternetSelection,
+  effectiveTcpForInterface,
+  effectiveUdpForInterface,
   ensureLoaded: ensureNetworkSettingsLoaded,
 } = useNetworkAdapterSettings();
 
@@ -153,7 +156,30 @@ const udpRoutesMin = computed(() =>
 );
 
 const totalRoutes = computed(() => resolvedCounts.value.total);
-const showMultiPathRouteWarnings = computed(() => totalRoutes.value <= 1);
+
+// Multi Internet opens the routes on every adapter it uses: the profile's own
+// adapter list, else the Multi Internet adapters. One route on two adapters
+// is two legs, still multipath; multipath is off only with one leg in all.
+const multipathAdapters = computed(() => {
+  if ((props.profile.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) === 0) return [];
+  const present = store.availableInterfaceNames;
+  const own = (store.profileStates[props.profile.id]?.network_interfaces ?? []).filter((name) =>
+    present.includes(name)
+  );
+  return own.length ? own : multiInternetSelection.value;
+});
+const totalLegs = computed(() => {
+  const adapters = multipathAdapters.value;
+  if (adapters.length === 0) return totalRoutes.value;
+  // The profile's counts apply on each adapter; without them each adapter
+  // uses its own Multi Internet counts.
+  if (profileUsesCustomRoutes.value) return totalRoutes.value * adapters.length;
+  return adapters.reduce(
+    (sum, name) => sum + effectiveTcpForInterface(name) + effectiveUdpForInterface(name),
+    0
+  );
+});
+const showMultiPathRouteWarnings = computed(() => totalLegs.value <= 1);
 
 function enterAdvancedRouteOptions() {
   showAdvancedRouteOptions.value = true;
@@ -219,7 +245,7 @@ function cycleTransportFallback() {
 }
 
 watch(
-  store.profileStates,
+  () => store.profileStates[props.profile.id],
   debounce(() => {
     store.saveProfileState(props.profile.id);
   }, 1000),
@@ -242,28 +268,13 @@ watch(
   { deep: true }
 );
 
+// Interfaces and latency only matter through the available names; a name key
+// avoids deep-walking the twice-a-second latency payload per card.
 watch(
-  () => store.interfaces,
+  () => store.availableInterfaceNames.join("|"),
   () => {
     store.updateProfileUnavailableInterfaces(props.profile.id);
-  },
-  { deep: true }
-);
-
-watch(
-  () => store.latency,
-  () => {
-    store.updateProfileUnavailableInterfaces(props.profile.id);
-  },
-  { deep: true }
-);
-
-watch(
-  () => store.availableInterfaceNames,
-  () => {
-    store.updateProfileUnavailableInterfaces(props.profile.id);
-  },
-  { deep: true }
+  }
 );
 
 const interfaces = computed(() => store.availableInterfaces);
@@ -367,7 +378,7 @@ onMounted(async () => {
             <v-col cols="12">
               <div class="d-flex align-center justify-space-between mb-1">
                 <span class="text-body-2 text-medium-emphasis">
-                  {{ t("$vuetify.title.profile.routes") }}
+                  {{ showAdvancedRouteOptions ? t("$vuetify.title.profile.routes") : t("$vuetify.title.profile.smartRoutes") }}
                 </span>
                 <div class="d-flex align-center">
                   <v-btn

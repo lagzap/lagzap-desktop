@@ -160,5 +160,8 @@ export default defineNuxtPlugin({
   }
 
   app.vueApp.use(vuetify);
+  // Plugins that run before any component (settings) apply locale and theme
+  // through this; useLocale()/useTheme() need a component.
+  app.provide("vuetifyInstance", vuetify);
   },
 });

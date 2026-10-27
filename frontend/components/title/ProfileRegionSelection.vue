@@ -4,9 +4,9 @@ import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
 import ContinentIcon from "~/components/icons/ContinentIcon.vue";
 import Ping from "~/components/network/Ping.vue";
 import CountryFlag from "vue-country-flag-next";
-import country from "country-list-js";
 import { ProfileFlag } from "~/constants/profile";
 import { useRegionSelection } from "~/composables/useRegionSelection";
+import { useProfileEstimate } from "~/composables/useProfileChart";
 
 const props = defineProps<{
   profile: Profile;
@@ -100,6 +100,16 @@ const {
   bestPingScoreForCurrentSelection,
 } = useRegionSelection(props.profile);
 
+// While the game is relayed the chip shows Go's Estimated Ping, the same
+// number as the card subtitle; the probe-based value is only the fallback.
+const estimate = useProfileEstimate(props.profile.id);
+const chipPingMs = computed(() =>
+  (estimate.value?.ping ?? 0) > 0 ? estimate.value!.ping : bestPingMsForCurrentSelection.value
+);
+const chipPingScore = computed(() =>
+  (estimate.value?.ping ?? 0) > 0 ? estimate.value!.score : bestPingScoreForCurrentSelection.value
+);
+
 function getPingColor(score: number | null): string {
   if (score === null || score < 0) {
     return "tertiary";
@@ -116,9 +126,9 @@ function getPingColor(score: number | null): string {
   }
 }
 
-function getPingIcon(score: number | null): string {
+function getPingIcon(score: number | null): string | null {
   if (score === null || score < 0) {
-    return "mdi-signal-off";
+    return null;
   }
   if (score >= 80) {
     return "mdi-signal-cellular-3";
@@ -154,16 +164,13 @@ function getPingIcon(score: number | null): string {
           :text="currentSelectionText"
           class="text-none"
           variant="tonal"
-          :color="getPingColor(bestPingScoreForCurrentSelection)"
-          :prepend-icon="getPingIcon(bestPingScoreForCurrentSelection)"
+          :color="getPingColor(chipPingScore)"
+          :prepend-icon="getPingIcon(chipPingScore)"
           v-bind="props"
         >
-          <template #append>
+          <template v-if="chipPingMs" #append>
             <small>
-              {{
-                bestPingMsForCurrentSelection
-                ? `${bestPingMsForCurrentSelection}ms` : '--'
-              }}
+              {{ formatMs(chipPingMs) }}
             </small>
             <v-icon :icon="dialogOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
           </template>
@@ -221,7 +228,7 @@ function getPingIcon(score: number | null): string {
           v-model="searchQuery"
           prepend-inner-icon="mdi-magnify"
           :placeholder="
-            isNodeSelectionMode ? 'Search nodes...' : 'Search locations...'
+            isNodeSelectionMode ? t('$vuetify.title.profile.searchNodes') : t('$vuetify.title.profile.searchLocations')
           "
           variant="outlined"
           density="compact"
@@ -328,14 +335,18 @@ function getPingIcon(score: number | null): string {
               color="primary"
               :model-value="allCountriesSelected"
               :indeterminate="someCountriesSelected"
-              label="Select All Countries"
+              :label="t('$vuetify.title.profile.selectAllCountries')"
               @click.stop="toggleAllCountries"
             />
           </template>
         </v-list-item>
 
         <!-- Regions and Countries -->
-        <template v-for="region in sortedRegions" :key="region.tag">
+        <!-- Only continents that have countries (left after search) -->
+        <template
+          v-for="region in sortedRegions.filter((r) => filteredRegionCountryMap[r.tag]?.length)"
+          :key="region.tag"
+        >
           <!-- Region Subheader -->
           <v-list-item class="mt-2" density="compact">
             <template #prepend>
@@ -379,7 +390,7 @@ function getPingIcon(score: number | null): string {
                 </span>
               </v-avatar>
               <span class="text-caption ms-2">
-                {{ country.findByIso2(countryCode)?.name || countryCode }}
+                {{ countryName(countryCode) }}
               </span>
             </template>
             <template #append>

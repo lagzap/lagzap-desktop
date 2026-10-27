@@ -1,37 +1,23 @@
 <script lang="ts" setup>
 import { useLocale } from "vuetify";
+import type { Interface } from "~/bindings/github.com/lagzap/zap/common/control";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
-import {
-  DEFAULT_TCP_ROUTES,
-  DEFAULT_UDP_ROUTES,
-  MAX_ROUTES,
-} from "~/composables/routeCountUtils";
+import MultiInternetAdvanced from "~/components/settings/MultiInternetAdvanced.vue";
 
 const { t } = useLocale();
 const {
   defaultInterfaceOverride,
+  multiInternetAuto,
   multiInternetSelection,
+  backupInterfacesAuto,
   backupInterfacesSelection,
   loaded,
   refreshInterfaces,
   defaultInterface,
   interfaces,
-  routeTableInterfaces,
-  globalTcpRoutes,
-  globalUdpRoutes,
-  getInterfaceRouteOverride,
-  effectiveTcpForInterface,
-  effectiveUdpForInterface,
-  setGlobalTcp,
-  setGlobalUdp,
-  setInterfaceTcp,
-  setInterfaceUdp,
 } = useNetworkAdapterSettings();
 
-const { settings, setRelayTransportFallback } = useSettings();
-
 const loading = ref(false);
-const advancedOpen = ref<string[]>([]);
 
 async function update() {
   loading.value = true;
@@ -39,15 +25,36 @@ async function update() {
   loading.value = false;
 }
 
-const globalTcpModel = computed({
-  get: () => globalTcpRoutes.value,
-  set: (value: number | null) => setGlobalTcp(value),
-});
+// Multi Internet and backup pools: automatic (every adapter, including ones
+// connected later) or a hand-picked list of at least one adapter.
+const pools = [
+  {
+    key: "multi",
+    description: "$vuetify.settings.multiInternetDescription",
+    label: "$vuetify.settings.multiInternet",
+    hint: "$vuetify.settings.multiInternetHint",
+    auto: multiInternetAuto,
+    selection: multiInternetSelection,
+  },
+  {
+    key: "backup",
+    description: "$vuetify.settings.backupInterfacesDescription",
+    label: "$vuetify.settings.backupInterfaces",
+    hint: "$vuetify.settings.backupInterfacesHint",
+    auto: backupInterfacesAuto,
+    selection: backupInterfacesSelection,
+  },
+];
 
-const globalUdpModel = computed({
-  get: () => globalUdpRoutes.value,
-  set: (value: number | null) => setGlobalUdp(value),
-});
+function adapterSubtitle(iface: Interface) {
+  const ipv4 = (iface.Addresses ?? []).map(String).find((addr) => !addr.includes(":"));
+  const parts = [ipv4?.split("/")[0]];
+  if (iface.Name === defaultInterface.value) {
+    parts.push(t("$vuetify.settings.adapterDefault"));
+  }
+  return parts.filter(Boolean).join(" · ");
+}
+
 </script>
 
 <template>
@@ -81,154 +88,47 @@ const globalUdpModel = computed({
         />
       </section>
 
-      <section class="settings-section">
-        <v-card-subtitle class="px-0 mb-3 text-wrap">
-          {{ t('$vuetify.settings.multiInternetDescription') }}
+      <section v-for="pool in pools" :key="pool.key" class="settings-section">
+        <v-card-subtitle class="px-0 mb-1 text-wrap">
+          {{ t(pool.description) }}
         </v-card-subtitle>
+        <v-switch
+          v-model="pool.auto.value"
+          :label="t('$vuetify.settings.useAllAdapters')"
+          color="primary"
+          density="compact"
+          hide-details
+          inset
+          class="mb-2"
+        />
         <v-select
-          v-model="multiInternetSelection"
+          v-model="pool.selection.value"
           :loading="loading || !loaded"
-          :label="t('$vuetify.settings.multiInternet')"
-          :hint="t('$vuetify.settings.multiInternetHint')"
+          :label="t(pool.label)"
+          :hint="t(pool.auto.value ? '$vuetify.settings.useAllAdaptersHint' : pool.hint)"
           :items="interfaces"
+          :readonly="pool.auto.value"
+          :closable-chips="!pool.auto.value && pool.selection.value.length > 1"
           item-value="Name"
           item-title="Name"
           density="comfortable"
           variant="outlined"
           multiple
           chips
-          closable-chips
-          clearable
           persistent-hint
           @click="update"
-        />
+        >
+          <template #item="{ props: itemProps, item }">
+            <v-list-item v-bind="itemProps" :subtitle="adapterSubtitle(item.raw)">
+              <template #prepend="{ isSelected }">
+                <v-checkbox-btn :model-value="isSelected" :disabled="isSelected && pool.selection.value.length === 1" />
+              </template>
+            </v-list-item>
+          </template>
+        </v-select>
       </section>
 
-      <section class="settings-section">
-        <v-card-subtitle class="px-0 mb-3 text-wrap">
-          {{ t('$vuetify.settings.backupInterfacesDescription') }}
-        </v-card-subtitle>
-        <v-select
-          v-model="backupInterfacesSelection"
-          :loading="loading || !loaded"
-          :label="t('$vuetify.settings.backupInterfaces')"
-          :hint="t('$vuetify.settings.backupInterfacesHint')"
-          :items="interfaces"
-          item-value="Name"
-          item-title="Name"
-          density="comfortable"
-          variant="outlined"
-          multiple
-          chips
-          closable-chips
-          clearable
-          persistent-hint
-          @click="update"
-        />
-      </section>
-
-      <v-expansion-panels
-        v-model="advancedOpen"
-        variant="default"
-        class="settings-section advanced-panels"
-      >
-        <v-expansion-panel value="advanced">
-          <v-expansion-panel-title>
-            {{ t('$vuetify.settings.networkAdapterAdvanced.title') }}
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <v-card-subtitle class="px-0 mb-3 text-wrap">
-              {{ t('$vuetify.settings.routeCounts.description') }}
-            </v-card-subtitle>
-
-            <v-table density="comfortable" class="route-counts-table mb-3">
-              <thead>
-                <tr>
-                  <th>{{ t('$vuetify.settings.routeCounts.interface') }}</th>
-                  <th>{{ t('$vuetify.settings.routeCounts.tcp') }}</th>
-                  <th>{{ t('$vuetify.settings.routeCounts.udp') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="font-weight-medium">
-                    {{ t('$vuetify.settings.routeCounts.defaultRow') }}
-                  </td>
-                  <td>
-                    <v-number-input
-                      v-model="globalTcpModel"
-                      variant="plain"
-                      density="compact"
-                      hide-details
-                      control-variant="split"
-                      inset
-                      clearable
-                      :min="0"
-                      :max="MAX_ROUTES"
-                      :placeholder="String(DEFAULT_TCP_ROUTES)"
-                    />
-                  </td>
-                  <td>
-                    <v-number-input
-                      v-model="globalUdpModel"
-                      variant="plain"
-                      density="compact"
-                      hide-details
-                      control-variant="split"
-                      inset
-                      clearable
-                      :min="0"
-                      :max="MAX_ROUTES"
-                      :placeholder="String(DEFAULT_UDP_ROUTES)"
-                    />
-                  </td>
-                </tr>
-                <tr v-for="ifaceName in routeTableInterfaces" :key="ifaceName">
-                  <td>{{ ifaceName }}</td>
-                  <td>
-                    <v-number-input
-                      :model-value="getInterfaceRouteOverride(ifaceName).tcp"
-                      variant="plain"
-                      density="compact"
-                      hide-details
-                      control-variant="split"
-                      inset
-                      clearable
-                      :min="0"
-                      :max="MAX_ROUTES"
-                      :placeholder="String(effectiveTcpForInterface(ifaceName))"
-                      @update:model-value="setInterfaceTcp(ifaceName, $event)"
-                    />
-                  </td>
-                  <td>
-                    <v-number-input
-                      :model-value="getInterfaceRouteOverride(ifaceName).udp"
-                      variant="plain"
-                      density="compact"
-                      hide-details
-                      control-variant="split"
-                      inset
-                      clearable
-                      :min="0"
-                      :max="MAX_ROUTES"
-                      :placeholder="String(effectiveUdpForInterface(ifaceName))"
-                      @update:model-value="setInterfaceUdp(ifaceName, $event)"
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </v-table>
-
-            <v-checkbox
-              :label="t('$vuetify.settings.route.transportFallback')"
-              :hint="t('$vuetify.settings.route.transportFallbackHint')"
-              persistent-hint
-              :model-value="settings.relayTransportFallback"
-              @update:model-value="setRelayTransportFallback"
-            />
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
+      <MultiInternetAdvanced class="settings-section advanced-panels" />
     </v-card-text>
   </v-card>
 </template>
@@ -246,30 +146,4 @@ const globalUdpModel = computed({
   margin-top: 2rem;
 }
 
-.route-counts-table :deep(th) {
-  text-align: center;
-}
-
-.route-counts-table :deep(th:nth-child(2)),
-.route-counts-table :deep(th:nth-child(3)),
-.route-counts-table :deep(td:nth-child(2)),
-.route-counts-table :deep(td:nth-child(3)) {
-  width: 180px;
-  min-width: 180px;
-  text-align: center;
-}
-
-.route-counts-table :deep(td:nth-child(2) .v-number-input),
-.route-counts-table :deep(td:nth-child(3) .v-number-input) {
-  margin-inline: auto;
-}
-
-.route-counts-table :deep(.v-number-input) {
-  width: 160px;
-  min-width: 160px;
-}
-
-.route-counts-table :deep(.v-field__outline) {
-  display: none;
-}
 </style>

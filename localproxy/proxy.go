@@ -48,31 +48,51 @@ type Config struct {
 	Target    string
 	Context   context.Context
 	DNS       adapter.DNSRouter
-	BindIface string
+	// BindIface names the adapter for each new upstream connection ("" = OS
+	// route). It is asked per dial, so the API follows the coordinator off an
+	// adapter that lost internet instead of keeping the one from startup.
+	BindIface func() string
 }
 
 type Proxy struct {
-	mu     sync.Mutex
-	server *http.Server
+	mu      sync.Mutex
+	server  *http.Server
+	running runningConfig
+}
+
+// runningConfig is what the live server was started with. BindIface is left
+// out: funcs can't be compared, and it is read per dial anyway.
+type runningConfig struct {
+	listen string
+	target string
+	ctx    context.Context
+	dns    adapter.DNSRouter
 }
 
 func New() *Proxy {
 	return &Proxy{}
 }
 
+// Start serves cfg, keeping the live server when nothing it depends on
+// changed: rediscovery often lands on the same upstream, and a restart drops
+// the UI's in-flight API requests.
 func (p *Proxy) Start(cfg Config) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	listen := cfg.Listen
+	if listen == "" {
+		listen = DefaultListen
+	}
+	want := runningConfig{listen: listen, target: cfg.Target, ctx: cfg.Context, dns: cfg.DNS}
+	if p.server != nil && p.running == want {
+		return nil
+	}
 	if err := p.stopLocked(); err != nil {
 		return err
 	}
 	target, err := url.Parse(cfg.Target)
 	if err != nil {
 		return E.Cause(err, "parse target")
-	}
-	listen := cfg.Listen
-	if listen == "" {
-		listen = DefaultListen
 	}
 	handler := newHandler(handlerConfig{
 		target:    target,
@@ -90,6 +110,7 @@ func (p *Proxy) Start(cfg Config) error {
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	p.server = srv
+	p.running = want
 	go func() {
 		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			fmt.Printf("localproxy: serve error: %v\n", err)
@@ -119,6 +140,7 @@ func (p *Proxy) stopLocked() error {
 	defer cancel()
 	err := p.server.Shutdown(ctx)
 	p.server = nil
+	p.running = runningConfig{}
 	time.Sleep(restartDrainDuration)
 	return err
 }
@@ -127,7 +149,7 @@ type handlerConfig struct {
 	target    *url.URL
 	ctx       context.Context
 	dns       adapter.DNSRouter
-	bindIface string
+	bindIface func() string
 }
 
 func newHandler(cfg handlerConfig) http.Handler {
@@ -278,27 +300,14 @@ func clientIP(r *http.Request) string {
 type transportConfig struct {
 	ctx       context.Context
 	dns       adapter.DNSRouter
-	bindIface string
+	bindIface func() string
 }
 
 func newTransport(cfg transportConfig) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	var bound N.Dialer
-	if cfg.bindIface != "" {
-		d, err := dialer.NewWithOptions(dialer.Options{
-			Context:   cfg.ctx,
-			NewDialer: true,
-			Options: option.DialerOptions{
-				BindInterface: cfg.bindIface,
-				TCPMultiPath:  false,
-				TCPFastOpen:   true,
-			},
-		})
-		if err == nil {
-			bound = d
-		}
-	}
+	b := &boundDialers{ctx: cfg.ctx}
 	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		bound := b.forIface(currentIface(cfg.bindIface))
 		if bound == nil {
 			return net.Dial("tcp", addr)
 		}
@@ -315,7 +324,70 @@ func newTransport(cfg transportConfig) http.RoundTripper {
 		}
 		return bound.DialContext(ctx, network, M.ParseSocksaddrHostPort(ip.String(), destination.Port))
 	}
-	return transport
+	return &rebindingTransport{Transport: transport, bindIface: cfg.bindIface}
+}
+
+func currentIface(bindIface func() string) string {
+	if bindIface == nil {
+		return ""
+	}
+	return bindIface()
+}
+
+// boundDialers keeps the dialer for the adapter in use, rebuilt when the
+// adapter changes.
+type boundDialers struct {
+	ctx    context.Context
+	mu     sync.Mutex
+	iface  string
+	dialer N.Dialer
+}
+
+func (b *boundDialers) forIface(iface string) N.Dialer {
+	if iface == "" {
+		return nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.dialer != nil && b.iface == iface {
+		return b.dialer
+	}
+	d, err := dialer.NewWithOptions(dialer.Options{
+		Context:   b.ctx,
+		NewDialer: true,
+		Options: option.DialerOptions{
+			BindInterface: iface,
+			TCPMultiPath:  false,
+			TCPFastOpen:   true,
+		},
+	})
+	if err != nil {
+		return nil
+	}
+	b.iface, b.dialer = iface, d
+	return d
+}
+
+// rebindingTransport drops pooled keep-alive connections when the adapter
+// changes: they stay on the old adapter, and a request reusing one waited
+// out its timeout on an adapter with no internet.
+type rebindingTransport struct {
+	*http.Transport
+	bindIface func() string
+	mu        sync.Mutex
+	lastIface string
+}
+
+func (t *rebindingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	iface := currentIface(t.bindIface)
+	t.mu.Lock()
+	changed := iface != t.lastIface
+	t.lastIface = iface
+	t.mu.Unlock()
+	if changed {
+		t.Transport.CloseIdleConnections()
+	}
+	return t.Transport.RoundTrip(req)
 }
 
 func firstPublicIPv4(ips []netip.Addr) (netip.Addr, bool) {

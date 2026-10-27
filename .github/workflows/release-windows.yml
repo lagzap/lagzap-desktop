@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 env:
-  APP_NAME: Cyrex
+  APP_NAME: LagZap
   PUBLIC_RELEASES_REPO: lagzap/cyrex-releases
   INTERNAL_RELEASES_REPO: lagzap/lagzap-desktop
   GO_VERSION: "1.25.0"
@@ -203,7 +203,7 @@ jobs:
             -key updater.key \
             -version "$VERSION" \
             -channel "$CHANNEL" \
-            -name "Cyrex $VERSION" \
+            -name "LagZap $VERSION" \
             -notes-file release-body.md \
             -output bin/update.manifest.json \
             "$ZIP"
@@ -215,12 +215,12 @@ jobs:
           token: ${{ secrets.RELEASES_TOKEN }}
           repository: ${{ steps.ver.outputs.releases_repo }}
           tag_name: ${{ steps.ver.outputs.version }}
-          name: Cyrex ${{ steps.ver.outputs.semver }}
+          name: LagZap ${{ steps.ver.outputs.semver }}
           body_path: release-body.md
           prerelease: ${{ steps.ver.outputs.prerelease }}
           files: |
-            bin/Cyrex-windows-amd64.zip
-            bin/Cyrex-windows-amd64-setup.exe
+            bin/LagZap-windows-amd64.zip
+            bin/LagZap-windows-amd64-setup.exe
             bin/SHA256SUMS
             bin/update.manifest.json
 
@@ -228,7 +228,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.version }}
-          name: Cyrex ${{ steps.ver.outputs.semver }}
+          name: LagZap ${{ steps.ver.outputs.semver }}
           body_path: release-body.md
           prerelease: ${{ steps.ver.outputs.prerelease }}
           make_latest: false

@@ -20,6 +20,7 @@ var (
 	procGetWindowThreadProcessId = user32.NewProc("GetWindowThreadProcessId")
 	procGetCurrentProcessId      = kernel32.NewProc("GetCurrentProcessId")
 	procGetAsyncKeyState         = user32.NewProc("GetAsyncKeyState")
+	procKeybdEvent               = user32.NewProc("keybd_event")
 )
 
 const (

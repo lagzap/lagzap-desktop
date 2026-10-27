@@ -10,6 +10,48 @@ import { Create as $Create } from "@wailsio/runtime";
 // @ts-ignore: Unused imports
 import * as timestamppb$0 from "../../../../google.golang.org/protobuf/types/known/timestamppb/models.js";
 
+export class ChangelogEntry {
+    /**
+     * Creates a new ChangelogEntry instance.
+     * @param {Partial<ChangelogEntry>} [$$source = {}] - The source object to create the ChangelogEntry.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["note"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["created_at"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ChangelogEntry instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ChangelogEntry}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ChangelogEntry(/** @type {Partial<ChangelogEntry>} */($$parsedSource));
+    }
+}
+
 export class ClientInfo {
     /**
      * Creates a new ClientInfo instance.
@@ -705,6 +747,13 @@ export class Node {
              */
             this["updated_at"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["provider_id"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -1208,6 +1257,20 @@ export class Profile {
              */
             this["updated_at"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["node_group_ids"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(ChangelogEntry | null)[] | undefined}
+             */
+            this["updates"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -1222,6 +1285,8 @@ export class Profile {
         const $$createField5_0 = $$createType9;
         const $$createField6_0 = $Create.ByteSlice;
         const $$createField8_0 = $Create.ByteSlice;
+        const $$createField11_0 = $$createType0;
+        const $$createField12_0 = $$createType18;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
             $$parsedSource["name"] = $$createField4_0($$parsedSource["name"]);
@@ -1234,6 +1299,12 @@ export class Profile {
         }
         if ("metadata" in $$parsedSource) {
             $$parsedSource["metadata"] = $$createField8_0($$parsedSource["metadata"]);
+        }
+        if ("node_group_ids" in $$parsedSource) {
+            $$parsedSource["node_group_ids"] = $$createField11_0($$parsedSource["node_group_ids"]);
+        }
+        if ("updates" in $$parsedSource) {
+            $$parsedSource["updates"] = $$createField12_0($$parsedSource["updates"]);
         }
         return new Profile(/** @type {Partial<Profile>} */($$parsedSource));
     }
@@ -1478,7 +1549,7 @@ export class RelayRoute {
      * @returns {RelayRoute}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType18;
+        const $$createField2_0 = $$createType21;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("routes" in $$parsedSource) {
             $$parsedSource["routes"] = $$createField2_0($$parsedSource["routes"]);
@@ -1596,6 +1667,227 @@ export const RoutingMode = {
     RoutingMode_ROUTING_MODE_DIRECT: 10,
 };
 
+export class Ticket {
+    /**
+     * Creates a new Ticket instance.
+     * @param {Partial<Ticket>} [$$source = {}] - The source object to create the Ticket.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["type"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["status"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["subject"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["body"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["requestable_type"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["requestable_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["requestable_label"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["requestable_deleted"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["close_reason"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["assignee_name"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(TicketMessage | null)[] | undefined}
+             */
+            this["messages"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["created_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["updated_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["unread"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["unread_messages"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["answered_at"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Ticket instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Ticket}
+     */
+    static createFrom($$source = {}) {
+        const $$createField11_0 = $$createType24;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("messages" in $$parsedSource) {
+            $$parsedSource["messages"] = $$createField11_0($$parsedSource["messages"]);
+        }
+        return new Ticket(/** @type {Partial<Ticket>} */($$parsedSource));
+    }
+}
+
+export class TicketMessage {
+    /**
+     * Creates a new TicketMessage instance.
+     * @param {Partial<TicketMessage>} [$$source = {}] - The source object to create the TicketMessage.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["display_name"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["body"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["channel"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["is_staff"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["created_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["seen_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["received_at"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TicketMessage instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TicketMessage}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TicketMessage(/** @type {Partial<TicketMessage>} */($$parsedSource));
+    }
+}
+
 export class Title {
     /**
      * Creates a new Title instance.
@@ -1658,6 +1950,13 @@ export class Title {
              */
             this["updated_at"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(ChangelogEntry | null)[] | undefined}
+             */
+            this["updates"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -1669,9 +1968,13 @@ export class Title {
      */
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType9;
+        const $$createField8_0 = $$createType18;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
             $$parsedSource["name"] = $$createField3_0($$parsedSource["name"]);
+        }
+        if ("updates" in $$parsedSource) {
+            $$parsedSource["updates"] = $$createField8_0($$parsedSource["updates"]);
         }
         return new Title(/** @type {Partial<Title>} */($$parsedSource));
     }
@@ -1749,7 +2052,7 @@ export class UpdatePayload {
      * @returns {UpdatePayload}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType20;
+        const $$createField0_0 = $$createType26;
         const $$createField1_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("last_update_at" in $$parsedSource) {
@@ -1779,8 +2082,14 @@ const $$createType12 = $Create.Array($$createType11);
 const $$createType13 = OptimizeInterfaceProgress.createFrom;
 const $$createType14 = $Create.Nullable($$createType13);
 const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = NodeRoute.createFrom;
+const $$createType16 = ChangelogEntry.createFrom;
 const $$createType17 = $Create.Nullable($$createType16);
 const $$createType18 = $Create.Array($$createType17);
-const $$createType19 = timestamppb$0.Timestamp.createFrom;
+const $$createType19 = NodeRoute.createFrom;
 const $$createType20 = $Create.Nullable($$createType19);
+const $$createType21 = $Create.Array($$createType20);
+const $$createType22 = TicketMessage.createFrom;
+const $$createType23 = $Create.Nullable($$createType22);
+const $$createType24 = $Create.Array($$createType23);
+const $$createType25 = timestamppb$0.Timestamp.createFrom;
+const $$createType26 = $Create.Nullable($$createType25);

@@ -1,119 +1,25 @@
 <script setup lang="ts">
-import LatencyPanel from "~/components/network/LatencyPanel.vue";
+import OverviewChart from "~/components/network/OverviewChart.vue";
 import TopConnectionsPreview from "~/components/network/TopConnectionsPreview.vue";
 import OverviewTitleGrid from "~/components/title/OverviewTitleGrid.vue";
-import {
-  getBestInterfaceName,
-  getJitterAccent,
-  getLossAccent,
-  getScoreAccent,
-  interfaceBaseColor,
-  isPingTimeout,
-  useLatencyMetrics,
-} from "~/composables/useLatencyMetrics";
+import { getJitterAccent, getLossAccent, getScoreAccent } from "~/composables/useLatencyMetrics";
+import { useOverviewChart } from "~/composables/useOverviewChart";
 import { useHumanSpeed } from "~/composables/helper";
 import { useLocale, useTheme } from "vuetify";
 
-withDefaults(
-  defineProps<{
-    chartHeight?: number;
-  }>(),
-  {
-    chartHeight: 200,
-  }
-);
+withDefaults(defineProps<{ chartHeight?: number }>(), { chartHeight: 200 });
 
 const { t } = useLocale();
 const theme = useTheme();
 const isDark = computed(() => theme.current.value.dark);
 const store = useStore();
-const { networkSpeedHistory, networkTraffic } = useMonitoringStore();
+const { chart, colorOf } = useOverviewChart();
 
-const { lastPingMs, combinedScore, combinedMetrics, chartData } =
-  useLatencyMetrics(computed(() => store.latency), {
-    pingCache: computed(() => store.latencyPingCache),
-  });
-
-const bestInterfaceName = computed(() => {
-  if (!store.latency?.interfaces) {
-    return null;
-  }
-  return getBestInterfaceName(store.latency.interfaces);
-});
-
-const bestInterfaceColor = computed(() => {
-  const name = bestInterfaceName.value;
-  if (!name) {
-    return "#888";
-  }
-  if (chartData.value.interfaceColors[name]) {
-    return chartData.value.interfaceColors[name];
-  }
-  const order = chartData.value.rankedInterfaces;
-  return interfaceBaseColor(name, Math.max(0, order.indexOf(name)));
-});
-
-const bestInterfaceLatency = computed(() => {
-  const name = bestInterfaceName.value;
-  const iface = name ? store.latency?.interfaces?.[name] : null;
-  if (!iface?.pings?.length) {
-    return lastPingMs.value;
-  }
-
-  const lastPing = iface.pings[iface.pings.length - 1];
-  if (lastPing.ok && !isPingTimeout(lastPing.latency, lastPing.ok)) {
-    return lastPing.latency;
-  }
-
-  return lastPingMs.value;
-});
-
-const currentDownloadSpeed = computed(() => {
-  const interfaces = networkTraffic.value?.interfaces ?? [];
-  if (interfaces.length > 0) {
-    return interfaces.reduce(
-      (sum, iface) => sum + (iface.download_speed || 0),
-      0
-    );
-  }
-
-  const latest = networkSpeedHistory.value.at(-1);
-  if (!latest?.interfaces) {
-    return 0;
-  }
-
-  return Object.values(latest.interfaces).reduce(
-    (sum, iface) => sum + (iface.download ?? 0),
-    0
-  );
-});
-
-const currentUploadSpeed = computed(() => {
-  const interfaces = networkTraffic.value?.interfaces ?? [];
-  if (interfaces.length > 0) {
-    return interfaces.reduce((sum, iface) => sum + (iface.upload_speed || 0), 0);
-  }
-
-  const latest = networkSpeedHistory.value.at(-1);
-  if (!latest?.interfaces) {
-    return 0;
-  }
-
-  return Object.values(latest.interfaces).reduce(
-    (sum, iface) => sum + (iface.upload ?? 0),
-    0
-  );
-});
-
-const scoreAccent = computed(() =>
-  getScoreAccent(combinedScore.value, isDark.value)
-);
-const jitterAccent = computed(() =>
-  getJitterAccent(combinedMetrics.value.jitter || 0, isDark.value)
-);
-const lossAccent = computed(() =>
-  getLossAccent(combinedMetrics.value.loss || 0, isDark.value)
-);
+const quality = computed(() => chart.value?.quality ?? null);
+const showLive = computed(() => store.connected || !!quality.value?.best);
+const scoreAccent = computed(() => getScoreAccent(quality.value?.score ?? 0, isDark.value));
+const jitterAccent = computed(() => getJitterAccent(quality.value?.jitter ?? 0, isDark.value));
+const lossAccent = computed(() => getLossAccent(quality.value?.loss ?? 0, isDark.value));
 
 function metricValueStyle(accent: string | null) {
   return accent ? { color: accent } : undefined;
@@ -128,27 +34,24 @@ function metricValueStyle(accent: string | null) {
 
     <OverviewTitleGrid />
 
-    <v-divider class="mx-4 mt-3" />
-
-    <v-card flat class="bg-transparent">
-      <v-card-text v-if="store.connected" class="py-3">
+    <div class="overview-live px-4 mt-3">
+      <div v-if="showLive" class="overview-live__card">
+        <div class="overview-live__card-label">
+          {{ t("$vuetify.networkLatency.networkQuality") }}
+        </div>
         <div class="network-summary">
-          <div v-if="bestInterfaceName" class="network-summary__item">
+          <div v-if="quality?.best" class="network-summary__item">
             <div class="network-summary__label">
               {{ t("$vuetify.networkLatency.bestInterface") }}
             </div>
             <div class="network-summary__value d-flex align-center ga-2">
               <span
                 class="network-summary__dot"
-                :style="{ backgroundColor: bestInterfaceColor }"
+                :style="{ backgroundColor: colorOf(quality.best) }"
               />
-              <span class="text-truncate">{{ bestInterfaceName }}</span>
+              <span class="text-truncate">{{ quality.best }}</span>
               <span class="font-weight-medium">
-                {{
-                  bestInterfaceLatency !== null
-                    ? `${bestInterfaceLatency}${t("$vuetify.ms")}`
-                    : "--"
-                }}
+                {{ formatMs(quality.latency, "--") }}
               </span>
             </div>
           </div>
@@ -158,7 +61,7 @@ function metricValueStyle(accent: string | null) {
               {{ t("$vuetify.network.download") }}
             </div>
             <div class="network-summary__value font-weight-medium">
-              {{ useHumanSpeed(currentDownloadSpeed) }}
+              {{ useHumanSpeed(quality?.download ?? 0) }}
             </div>
           </div>
 
@@ -167,7 +70,7 @@ function metricValueStyle(accent: string | null) {
               {{ t("$vuetify.network.upload") }}
             </div>
             <div class="network-summary__value font-weight-medium text-medium-emphasis">
-              {{ useHumanSpeed(currentUploadSpeed) }}
+              {{ useHumanSpeed(quality?.upload ?? 0) }}
             </div>
           </div>
 
@@ -179,7 +82,7 @@ function metricValueStyle(accent: string | null) {
               class="network-summary__value font-weight-medium"
               :style="metricValueStyle(jitterAccent)"
             >
-              {{ combinedMetrics.jitter.toFixed(1) }}{{ t("$vuetify.ms") }}
+              {{ localDigits((quality?.jitter ?? 0).toFixed(1)) }} {{ msUnit() }}
             </div>
           </div>
 
@@ -191,19 +94,19 @@ function metricValueStyle(accent: string | null) {
               class="network-summary__value font-weight-medium"
               :style="metricValueStyle(lossAccent)"
             >
-              {{ combinedMetrics.loss.toFixed(1) }}%
+              {{ (quality?.loss ?? 0).toFixed(1) }}%
             </div>
           </div>
 
           <div class="network-summary__item">
             <div class="network-summary__label">
-              {{ t("$vuetify.networkLatency.networkQuality") }}
+              {{ t("$vuetify.networkLatency.score") }}
             </div>
             <div
               class="network-summary__value font-weight-medium"
               :style="metricValueStyle(scoreAccent)"
             >
-              {{ t("$vuetify.networkLatency.scoreOutOf", [combinedScore]) }}
+              {{ t("$vuetify.networkLatency.scoreOutOf", [quality?.score ?? 0]) }}
             </div>
           </div>
         </div>
@@ -224,23 +127,10 @@ function metricValueStyle(accent: string | null) {
           class="mt-3"
           :text="t('$vuetify.status.internetReconnecting')"
         />
-      </v-card-text>
-    </v-card>
+      </div>
 
-    <v-divider class="mx-4" />
-
-    <v-card flat class="mt-3 bg-transparent">
-      <v-card-text class="pt-3">
-        <div v-if="store.connected">
-          <LatencyPanel
-            :latency="store.latency"
-            :ping-cache="store.latencyPingCache"
-            :chart-height="chartHeight"
-            :network-speed-history="networkSpeedHistory"
-            show-legend
-            show-network-speed
-          />
-        </div>
+      <div class="overview-live__card">
+        <OverviewChart v-if="showLive" :chart-height="chartHeight" />
         <div v-else-if="store.appReady" class="text-center text-grey py-6">
           <v-icon icon="mdi-chart-line-variant" size="large" class="mb-2" />
           <div class="text-body-2">
@@ -253,22 +143,54 @@ function metricValueStyle(accent: string | null) {
             {{ t("$vuetify.status.connectionFailed") }}
           </div>
         </div>
-      </v-card-text>
-    </v-card>
+      </div>
 
-    <v-divider class="mx-4" />
-
-    <TopConnectionsPreview />
+      <div class="overview-live__card overview-live__card--flush">
+        <TopConnectionsPreview />
+      </div>
+    </div>
 
     <div class="mt-5" />
   </div>
 </template>
 
 <style scoped>
+.overview-live {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.overview-live__card {
+  border: thin solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 12px;
+  background: rgba(var(--v-theme-surface), 0.45);
+  padding: 14px 16px 12px;
+}
+
+.overview-live__card--flush {
+  padding: 4px 8px 8px;
+  overflow: hidden;
+}
+
+.overview-live__card--flush :deep(.v-card) {
+  margin-top: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.overview-live__card-label {
+  margin-bottom: 12px;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .network-summary {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 20px 28px;
+  gap: 16px 24px;
   width: 100%;
 }
 
@@ -277,23 +199,23 @@ function metricValueStyle(accent: string | null) {
 }
 
 .network-summary__label {
-  font-size: 0.7rem;
-  color: rgba(var(--v-theme-on-surface), 0.55);
   margin-bottom: 6px;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  font-size: 0.7rem;
   white-space: nowrap;
 }
 
 .network-summary__value {
+  min-width: 0;
   font-size: 0.95rem;
   line-height: 1.2;
-  min-width: 0;
 }
 
 .network-summary__dot {
+  flex-shrink: 0;
+  border-radius: 50%;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 @media (max-width: 1100px) {

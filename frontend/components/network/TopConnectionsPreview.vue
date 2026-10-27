@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CountryFlag from "vue-country-flag-next";
 import Ping from "~/components/network/Ping.vue";
+import RelayServerCell from "~/components/network/RelayServerCell.vue";
 import { connectionRelayLatency } from "~/composables/useProfileDisplayRoutes";
 import type { Connection } from "~/types/monitoring";
 import { sum } from "es-toolkit";
@@ -56,10 +57,9 @@ const locale = useLocale();
 const { t } = locale;
 const router = useRouter();
 const { connections } = useMonitoringStore();
-const { getNodeLabel } = useNodeLocationLabel();
 
 const connectionGroups = computed(() => {
-  const filtered = (connections.value ?? []).filter((c) => c.profile_id !== "");
+  const filtered = (connections.value ?? []).filter((c) => !!c.profile_id);
 
   const byTitle = new Map<string, Connection[]>();
   filtered.forEach((connection) => {
@@ -118,9 +118,6 @@ function profileName(item: Connection) {
   );
 }
 
-function nodeCity(item: Connection) {
-  return getNodeLabel(item.node_id);
-}
 
 function goToConnections() {
   router.push({ name: "connections" });
@@ -187,14 +184,7 @@ const navigateIcon = computed(() =>
             </div>
           </td>
           <td class="text-no-wrap">
-            <div class="d-flex align-center">
-              <CountryFlag
-                v-if="store.nodes?.[group.connection.node_id ?? '']?.country"
-                :country="store.nodes[group.connection.node_id ?? ''].country"
-                size="small"
-              />
-              <span class="text-caption ms-1">{{ nodeCity(group.connection) }}</span>
-            </div>
+            <RelayServerCell :connection="group.connection" />
           </td>
           <td class="text-center text-no-wrap">
             <Ping

@@ -6,7 +6,10 @@ import { useProfileConnectionStats } from "~/composables/useProfileConnectionSta
 
 const props = defineProps<{
   profile: Profile;
+  /** Usage opens the profile's traffic (chart below or a popup). */
+  clickable?: boolean;
 }>();
+const emit = defineEmits<{ click: [] }>();
 
 const store = useStore();
 
@@ -45,7 +48,11 @@ const visible = computed(() => {
   <span
     v-if="visible"
     class="profile-activity"
-    :class="{ 'profile-activity--live': connected }"
+    :class="{ 'profile-activity--live': connected, 'profile-activity--clickable': clickable }"
+    :role="clickable ? 'button' : undefined"
+    :tabindex="clickable ? 0 : undefined"
+    @click="clickable && emit('click')"
+    @keydown.enter="clickable && emit('click')"
   >
     <span class="profile-activity__dot" aria-hidden="true" />
 
@@ -77,6 +84,15 @@ const visible = computed(() => {
 </template>
 
 <style scoped>
+.profile-activity--clickable {
+  cursor: pointer;
+}
+
+.profile-activity--clickable:hover .profile-activity__meta {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .profile-activity {
   display: inline-flex;
   align-items: center;

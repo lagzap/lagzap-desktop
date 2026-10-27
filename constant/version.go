@@ -64,6 +64,16 @@ func Channel() string {
 	}
 }
 
+// AdminToolsEnabled reports whether the Admin Tools window and tray entry are
+// available. Dev backend builds and alpha/dev release channels only — not beta/prod.
+func AdminToolsEnabled() bool {
+	if IsDevBuild() {
+		return true
+	}
+	ch := Channel()
+	return ch == "dev" || ch == "alpha"
+}
+
 // UpdateCheckInterval returns how often the background updater should poll for releases.
 // Alpha: 10m, beta/rc/dev: 30m, production: 1h.
 func UpdateCheckInterval() time.Duration {

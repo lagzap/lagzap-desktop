@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { VDataTable, VDataTableVirtual } from "vuetify/components";
 import Container from "~/components/layout/Container.vue";
+import RelayServerCell from "~/components/network/RelayServerCell.vue";
+import ConnectionDetailsDialog from "~/components/network/ConnectionDetailsDialog.vue";
 import CountryFlag from "vue-country-flag-next";
 import { connectionRelayLatency } from "~/composables/useProfileDisplayRoutes";
 import { sum } from "es-toolkit";
@@ -10,11 +12,12 @@ const store = useStore();
 const locale = useLocale();
 const { t } = locale;
 const { connections } = useMonitoringStore();
-const { getNodeLabel } = useNodeLocationLabel();
 const items = computed(
   () =>
     connections.value
-      ?.filter((c) => c.profile_id != "")
+      // Only profile-tagged flows. Untagged side channels (Bnet :443 etc.) that
+      // once transferred bytes used to linger here as Title/Cyrex/Latency = "-".
+      ?.filter((c) => !!c.profile_id)
       .sort((a, b) =>
         a.download_speed + a.upload_speed > b.download_speed + b.upload_speed
           ? -1
@@ -68,6 +71,20 @@ const headers = ref<DataTableHeader[]>([
   },
 ]);
 
+// A row opens its details; the dialog follows the live row by id.
+const detailsId = ref<string | null>(null);
+const detailsOpen = ref(false);
+const detailsConnection = computed(
+  () => connections.value?.find((c) => c.id === detailsId.value) ?? null
+);
+function openDetails(_event: unknown, row: { item: { id: string } }) {
+  detailsId.value = row.item.id;
+  detailsOpen.value = true;
+}
+watch(detailsConnection, (c) => {
+  if (!c) detailsOpen.value = false;
+});
+
 const sortBy = ref<VDataTable["sortBy"]>([
   { key: "metadata.network", order: "desc" },
   { key: "download_speed", order: "desc" },
@@ -97,7 +114,10 @@ const sortBy = ref<VDataTable["sortBy"]>([
         :height="$vuetify.display.height - 120"
         fixed-header
         hide-default-footer
+        hover
+        :row-props="{ class: 'cursor-pointer' }"
         class="bg-transparent h-100 mt-1"
+        @click:row="openDetails"
       >
         <template #item.title="{ item }">
           <span class="text-caption">
@@ -130,16 +150,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
           {{ item.relay_route?.addr }}
         </template>
         <template #item.destination="{ item }">
-          <div class="d-flex align-center flex-nowrap">
-            <CountryFlag
-              v-if="store.nodes?.[item.node_id]?.country"
-              :country="store.nodes[item.node_id].country"
-              size="small"
-            />
-            <span class="ms-1">
-              {{ getNodeLabel(item.node_id) }}
-            </span>
-          </div>
+          <RelayServerCell :connection="item" text-class="" />
         </template>
         <template #item.download_speed="{ item }">
           <div>
@@ -213,16 +224,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
               </div>
             </td>
             <td class="text-no-wrap">
-              <div class="d-flex align-center">
-                <CountryFlag
-                  v-if="store.nodes?.[item.items[0].raw.node_id]?.country"
-                  :country="store.nodes[item.items[0].raw.node_id].country"
-                  size="small"
-                />
-                <span class="text-caption ms-1">
-                  {{ getNodeLabel(item.items[0].raw.node_id) }}
-                </span>
-              </div>
+              <RelayServerCell :connection="item.items[0].raw" />
             </td>
             <td class="text-no-wrap">
               <div class="d-flex align-center flex-nowrap">
@@ -253,6 +255,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
           </tr>
         </template>
       </v-data-table-virtual>
+      <ConnectionDetailsDialog v-model="detailsOpen" :connection="detailsConnection" />
     </Container>
   </div>
 </template>

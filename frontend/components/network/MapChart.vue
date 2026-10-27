@@ -217,6 +217,7 @@ function updateChart() {
   };
 
   const option: any = {
+    textStyle: { fontFamily: chartFontFamily() },
     tooltip: {
       formatter: (params: {
         seriesType?: string;
@@ -237,7 +238,7 @@ function updateChart() {
           const score = params.data.score;
           let tooltip = `${params.data.name}: `;
           if (latency !== undefined && latency >= 0) {
-            tooltip += `${latency}ms`;
+            tooltip += formatMs(latency);
           }
           if (score !== null && score !== undefined && score >= 0) {
             tooltip += `<br/>${score}`;
@@ -249,11 +250,11 @@ function updateChart() {
           params.data &&
           params.data.value !== undefined
         )
-          return `latency: ${params.data.value}ms`;
+          return `latency: ${formatMs(Number(params.data.value))}`;
         return params.name ?? "";
       },
       backgroundColor: "rgba(0,0,0,.9)",
-      textStyle: { color: chartColors.onSurface },
+      textStyle: { color: chartColors.onSurface, fontFamily: chartFontFamily() },
     },
     backgroundColor: "transparent",
     geo: {

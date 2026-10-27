@@ -29,12 +29,12 @@ function networkFailureMessage(
     return locale.t("$vuetify.startService.serverUnreachable");
   }
   if (kind === "timeout") {
-    return "Can't reach Cyrex servers (timed out). Check your internet and try again.";
+    return "Can't reach LagZap servers (timed out). Check your internet and try again.";
   }
   if (kind === "proxy") {
     return "Local connection helper is not ready. Retry in a moment.";
   }
-  return "Can't reach Cyrex servers. Check your internet and try again.";
+  return "Can't reach LagZap servers. Check your internet and try again.";
 }
 
 export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined = undefined) => {
@@ -101,7 +101,7 @@ export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined
       if (rawMessage.includes("<no response>") || rawMessage.includes("FetchError")) {
         message = locale
           ? locale.t("$vuetify.startService.serverUnreachable")
-          : "Can't reach Cyrex servers. Check your internet and try again."
+          : "Can't reach LagZap servers. Check your internet and try again."
         break
       }
       if (rawMessage && rawMessage !== "An error occurred") {
@@ -109,7 +109,7 @@ export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined
       }
       message = locale
         ? locale.t("$vuetify.startService.serverUnreachable")
-        : "Can't reach Cyrex servers. Check your internet and try again."
+        : "Can't reach LagZap servers. Check your internet and try again."
       break
     }
   }

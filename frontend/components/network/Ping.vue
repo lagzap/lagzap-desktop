@@ -73,6 +73,6 @@ const colorClass = computed(() => {
 
 <template>
   <span :class="['text-caption', 'font-weight-medium', colorClass]">
-    {{ displayLatencyMs != null ? `${displayLatencyMs}ms` : "-" }}
+    {{ displayLatencyMs != null ? formatMs(displayLatencyMs, "-") : "-" }}
   </span>
 </template>

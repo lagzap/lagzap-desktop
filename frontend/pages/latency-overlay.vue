@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Events, Window } from "@wailsio/runtime";
 import { useLocale, useTheme } from "vuetify";
-import LatencyPanel from "~/components/network/LatencyPanel.vue";
+import OverviewChart from "~/components/network/OverviewChart.vue";
 import {
   closeLatencyOverlay,
   loadOverlayAlwaysOnTop,
@@ -195,13 +195,7 @@ async function dockBack() {
     </div>
 
     <div class="latency-overlay__body" style="--wails-draggable: none">
-      <LatencyPanel
-        :latency="store.latency"
-        :ping-cache="store.latencyPingCache"
-        :active="true"
-        compact
-        :chart-height="160"
-      />
+      <OverviewChart compact :chart-height="160" />
     </div>
   </div>
 </template>
@@ -213,10 +207,10 @@ async function dockBack() {
   height: 100vh;
   box-sizing: border-box;
   padding-bottom: 20px;
-  border-radius: 10px;
-  border-width: 1px;
+  border-radius: 12px;
+  border-width: 2.5px;
   border-style: solid;
-  border-top-width: 2px;
+  border-top-width: 2.5px;
   overflow: hidden;
   color: inherit;
 }

@@ -5,19 +5,19 @@
 !include "FileFunc.nsh"
 
 !ifndef INFO_PROJECTNAME
-    !define INFO_PROJECTNAME "Cyrex"
+    !define INFO_PROJECTNAME "LagZap"
 !endif
 !ifndef INFO_COMPANYNAME
     !define INFO_COMPANYNAME "lagzap"
 !endif
 !ifndef INFO_PRODUCTNAME
-    !define INFO_PRODUCTNAME "Cyrex"
+    !define INFO_PRODUCTNAME "LagZap"
 !endif
 !ifndef INFO_PRODUCTVERSION
     !define INFO_PRODUCTVERSION "0.0.0.0"
 !endif
 !ifndef INFO_COPYRIGHT
-    !define INFO_COPYRIGHT "(c) 2025, Cyrex"
+    !define INFO_COPYRIGHT "(c) 2025, LagZap"
 !endif
 !ifndef PRODUCT_EXECUTABLE
     !define PRODUCT_EXECUTABLE "${INFO_PROJECTNAME}.exe"

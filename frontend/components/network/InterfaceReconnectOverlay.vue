@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { Events } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
 import type { InterfaceGraceEvent } from "~/types/monitoring";
@@ -21,20 +21,12 @@ const secondsLeft = computed(() => {
   return Math.max(0, Math.ceil((deadlineMs.value - nowMs.value) / 1000));
 });
 
-function applyGraceEvent(event: InterfaceGraceEvent) {
-  if (event.active) {
-    active.value = true;
-    expired.value = false;
-    deadlineMs.value = event.deadline_unix_ms;
-    lostInterfaces.value = event.lost_interfaces ?? [];
-    nowMs.value = Date.now();
+function stopTicker() {
+  if (!tickTimer) {
     return;
   }
-
-  active.value = false;
-  expired.value = event.expired === true;
-  deadlineMs.value = 0;
-  lostInterfaces.value = [];
+  clearInterval(tickTimer);
+  tickTimer = null;
 }
 
 function startTicker() {
@@ -46,12 +38,38 @@ function startTicker() {
     if (active.value && deadlineMs.value > 0 && nowMs.value >= deadlineMs.value) {
       active.value = false;
       expired.value = true;
+      stopTicker();
     }
-  }, 200);
+  }, 250);
 }
 
+function applyGraceEvent(event: InterfaceGraceEvent) {
+  if (event.active) {
+    active.value = true;
+    expired.value = false;
+    deadlineMs.value = event.deadline_unix_ms;
+    lostInterfaces.value = event.lost_interfaces ?? [];
+    nowMs.value = Date.now();
+    startTicker();
+    return;
+  }
+
+  active.value = false;
+  expired.value = event.expired === true;
+  deadlineMs.value = 0;
+  lostInterfaces.value = [];
+  stopTicker();
+}
+
+watch(active, (isActive) => {
+  if (isActive) {
+    startTicker();
+  } else {
+    stopTicker();
+  }
+});
+
 onMounted(() => {
-  startTicker();
   Events.On("interface-grace", ({ data }) => {
     if (data) {
       applyGraceEvent(data as InterfaceGraceEvent);
@@ -60,10 +78,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  if (tickTimer) {
-    clearInterval(tickTimer);
-    tickTimer = null;
-  }
+  stopTicker();
 });
 </script>
 

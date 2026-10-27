@@ -28,6 +28,12 @@ function isFavoriteActive(title: Title) {
   return activeTitleId.value != null && activeTitleId.value === String(title.id);
 }
 
+const recentTitles = computed(() => recentTitlesExcludingFavorites.value);
+
+const showFavoritesHeader = computed(() => localFavorites.value.length > 0);
+
+const showRecentHeader = computed(() => recentTitles.value.length > 0);
+
 const favoritesListEl = ref<HTMLElement | null>(null);
 const localFavorites = ref<Title[]>([]);
 const draggingId = ref<string | null>(null);
@@ -53,12 +59,12 @@ watch(
       localFavorites.value = [...titles];
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 function isInteractiveTarget(target: EventTarget | null) {
   return !!(target as HTMLElement | null)?.closest?.(
-    "button, .qa-favorite-btn, .v-btn, .v-chip, .v-selection-control, input"
+    "button, .qa-favorite-btn, .v-btn, .v-chip, .v-selection-control, input",
   );
 }
 
@@ -106,7 +112,7 @@ function onPointerMove(event: PointerEvent) {
       return;
     }
     const row = favoritesListEl.value.querySelector<HTMLElement>(
-      `[data-fav-id="${title.id}"]`
+      `[data-fav-id="${title.id}"]`,
     );
     const rect = row?.getBoundingClientRect();
     activeDrag = true;
@@ -149,7 +155,7 @@ function onPointerMove(event: PointerEvent) {
   }
 
   const fromIndex = localFavorites.value.findIndex(
-    (title) => title.id === draggingId.value
+    (title) => title.id === draggingId.value,
   );
   if (fromIndex < 0 || fromIndex === targetIndex) {
     return;
@@ -176,7 +182,6 @@ async function onPointerUp() {
     await reorderFavoriteTitles(orderedIds);
   }
 
-  // Keep didDrag true briefly so the click that follows pointerup is ignored.
   requestAnimationFrame(() => {
     didDrag = false;
   });
@@ -199,20 +204,17 @@ onBeforeUnmount(() => {
 
 <template>
   <v-list nav density="compact" color="tertiary">
-    <template v-if="localFavorites.length">
+    <template v-if="showFavoritesHeader">
       <v-list-subheader>{{ t("$vuetify.navigation.favorites") }}</v-list-subheader>
       <div ref="favoritesListEl" class="qa-favorites">
-        <TransitionGroup
-          tag="div"
-          name="qa-fav"
-        >
+        <TransitionGroup tag="div" name="qa-fav">
           <v-list-item
             v-for="(title, index) in localFavorites"
             :key="title.id"
             :data-fav-id="title.id"
             class="qa-fav-row"
             :class="{ 'qa-fav-row--dragging': draggingId === title.id }"
-            :title="store.localized(title.name)"
+            :title="store.titleName(title.name)"
             :active="isFavoriteActive(title)"
             rounded="xl"
             lines="one"
@@ -262,16 +264,17 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
-    <template v-if="recentTitlesExcludingFavorites.length">
+    <template v-if="showRecentHeader">
       <v-divider
-        v-if="localFavorites.length"
+        v-if="showFavoritesHeader"
         class="my-1"
       />
       <v-list-subheader>{{ t("$vuetify.navigation.recent") }}</v-list-subheader>
+
       <v-list-item
-        v-for="title in recentTitlesExcludingFavorites"
-        :key="`recent-${title.id}`"
-        :title="store.localized(title.name)"
+        v-for="title in recentTitles"
+        :key="`recent-title-${title.id}`"
+        :title="store.titleName(title.name)"
         :to="{ name: 'title-id', params: { id: title.id } }"
         rounded="xl"
         lines="one"
@@ -334,7 +337,7 @@ onBeforeUnmount(() => {
         class="rounded-lg flex-shrink-0"
       />
       <span class="text-body-2 text-truncate">
-        {{ store.localized(ghost.title.name) }}
+        {{ store.titleName(ghost.title.name) }}
       </span>
     </div>
   </Teleport>

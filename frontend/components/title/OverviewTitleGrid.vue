@@ -48,7 +48,7 @@ const sectionLabel = computed(() => {
             </span>
           </div>
           <span class="overview-titles__name text-caption text-truncate">
-            {{ store.localized(title.name) }}
+            {{ store.titleName(title.name) }}
           </span>
         </NuxtLink>
       </v-slide-group-item>

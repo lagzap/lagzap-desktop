@@ -2,6 +2,8 @@
 import { NuxtPage } from "#components";
 import { useDisplay, useLocale } from "vuetify";
 import NavigationDrawer from "~/components/layout/NavigationDrawer.vue";
+import TicketChatPopup from "~/components/tickets/TicketChatPopup.vue";
+import InterfaceOptimizePanel from "~/components/layout/InterfaceOptimizePanel.vue";
 
 const { mobile } = useDisplay();
 const { t } = useLocale();
@@ -10,33 +12,17 @@ provide("sidebar", sidebar);
 
 const store = useStore();
 
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted } from "vue";
 import { useStore } from "@/stores";
 import { GetNodes, GetProfiles, GetProfileStates, GetRegions, GetRoutes, GetTitles, GetTitleStates } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import { useNetworkHistoryRecorder } from "~/composables/useNetworkHistoryRecorder";
-import { useNetworkHistoryConsent } from "~/composables/useNetworkHistoryConsent";
 import { useMonitoringStore } from "~/stores/monitoring";
 
-// Ensure monitoring event listeners (and IDB persistence) are active.
+// Ensure monitoring event listeners are active.
 useMonitoringStore();
-const networkHistoryRecorder = useNetworkHistoryRecorder();
-const { canRecord } = useNetworkHistoryConsent();
 
 function isEmpty(obj: any) {
   return !obj || (typeof obj === "object" && Object.keys(obj).length === 0);
 }
-
-watch(
-  canRecord,
-  (ok) => {
-    if (ok) {
-      networkHistoryRecorder.start();
-    } else {
-      networkHistoryRecorder.stop();
-    }
-  },
-  { immediate: true }
-);
 
 onMounted(async () => {
   if (isEmpty(store.regions)) {
@@ -59,9 +45,11 @@ onMounted(async () => {
     store.titleStates = data
   }
 
-  if (isEmpty(store.profileStates)) {
+  {
     const data = await GetProfileStates();
-    store.profileStates = data
+    if (data && typeof data === "object") {
+      store.profileStates = { ...store.profileStates, ...data };
+    }
   }
 
   if (isEmpty(store.nodes)) {
@@ -75,18 +63,41 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(() => {
-  networkHistoryRecorder.stop();
-});
-
 const optimize = computed(() => store.optimizeProgress);
 const showOptimizePanel = computed(() => store.optimizing && !!optimize.value);
+
+/** Probe + verify counts finished, but backend has not set is_complete yet. */
+const findingBestPaths = computed(() => {
+  const o = optimize.value as any;
+  if (!o || o.is_complete) return false;
+
+  const measureTotal = Number(o.probe_total ?? o.probeTotal ?? 0);
+  const measureDone = Number(o.probe_completed ?? o.probeCompleted ?? 0);
+  const confirmTotal = Number(o.verify_total ?? o.verifyTotal ?? 0);
+  const confirmDone = Number(o.verify_completed ?? o.verifyCompleted ?? 0);
+
+  const probeDone = measureTotal > 0 && measureDone >= measureTotal;
+  const verifyDone = confirmTotal > 0 && confirmDone >= confirmTotal;
+  if (probeDone && verifyDone) return true;
+
+  const rows = (o.interfaces ?? []) as Array<{ progress?: number; phase?: string }>;
+  if (rows.length > 0) {
+    const allIfacesDone = rows.every(
+      (iface) =>
+        iface.phase === "done" || Number(iface.progress ?? 0) >= 100,
+    );
+    if (allIfacesDone) return true;
+  }
+
+  return false;
+});
 
 /** Overall 0–100: probe is first 50%, verify is second 50%. */
 const globalProgress = computed(() => {
   const o = optimize.value as any;
   if (!o) return 0;
   if (o.is_complete) return 100;
+  if (findingBestPaths.value) return 100;
 
   const measureTotal = Number(o.probe_total ?? o.probeTotal ?? 0);
   const measureDone = Number(o.probe_completed ?? o.probeCompleted ?? 0);
@@ -112,18 +123,7 @@ const globalProgress = computed(() => {
   }
 
   if (measureTotal > 0 || confirmTotal > 0) {
-    const total = Math.round(measurePct + confirmPct);
-    // When verify units are fully done, show 100 even before is_complete —
-    // progress was hard-capped at 99 and looked stuck while adapters were green.
-    if (
-      measureTotal > 0 &&
-      measureDone >= measureTotal &&
-      confirmTotal > 0 &&
-      confirmDone >= confirmTotal
-    ) {
-      return 100;
-    }
-    return Math.min(99, Math.max(0, total));
+    return Math.min(99, Math.max(0, Math.round(measurePct + confirmPct)));
   }
 
   const backend = Number(o.progress ?? 0);
@@ -134,6 +134,9 @@ const globalProgress = computed(() => {
 });
 
 const phaseLabel = computed(() => {
+  if (findingBestPaths.value) {
+    return t("$vuetify.routeAnalysis.findingBestPaths");
+  }
   const phase = optimize.value?.phase || "probe";
   if (phase === "verify") return t("$vuetify.routeAnalysis.phaseVerifying");
   if (phase === "done") return t("$vuetify.routeAnalysis.phaseComplete");
@@ -164,6 +167,9 @@ function expandOptimize() {
       }"
     />
 
+    <TicketChatPopup />
+    <InterfaceOptimizePanel />
+
     <Teleport to="body">
       <v-btn
         v-if="showOptimizePanel && store.optimizeMinimized"
@@ -178,16 +184,21 @@ function expandOptimize() {
           color="white"
           size="18"
           width="2"
-          :model-value="globalProgress"
-          :indeterminate="false"
+          :model-value="findingBestPaths ? undefined : globalProgress"
+          :indeterminate="findingBestPaths"
         />
-        {{
-          t(
-            "$vuetify.routeAnalysis.fabProgress",
-            Math.round(globalProgress),
-            phaseLabel
-          )
-        }}
+        <template v-if="findingBestPaths">
+          {{ t("$vuetify.routeAnalysis.findingBestPaths") }}
+        </template>
+        <template v-else>
+          {{
+            t(
+              "$vuetify.routeAnalysis.fabProgress",
+              Math.round(globalProgress),
+              phaseLabel
+            )
+          }}
+        </template>
       </v-btn>
 
       <v-card
@@ -204,7 +215,7 @@ function expandOptimize() {
         <v-card-item class="pb-1">
           <template #prepend>
             <v-avatar size="32">
-              <CyrexLogo />
+              <LagzapLogo />
             </v-avatar>
           </template>
           <v-card-title class="text-subtitle-1">{{
@@ -224,38 +235,54 @@ function expandOptimize() {
         <v-divider />
 
         <v-card-text class="pt-3">
-          <div class="d-flex align-center justify-space-between mb-1">
-            <span class="text-caption text-medium-emphasis">{{ phaseLabel }}</span>
-            <span class="text-caption font-weight-medium">{{ Math.round(globalProgress) }}%</span>
-          </div>
-          <v-progress-linear
-            color="primary"
-            height="8"
-            rounded
-            :model-value="globalProgress"
-            class="mb-4"
-          />
-
-          <div
-            v-for="iface in interfaceRows"
-            :key="iface.name"
-            class="mb-3"
-          >
+          <template v-if="findingBestPaths">
+            <div class="text-center py-2">
+              <v-progress-circular
+                indeterminate
+                color="primary"
+                size="36"
+                width="3"
+                class="mb-3"
+              />
+              <div class="text-body-2 font-weight-medium">
+                {{ t("$vuetify.routeAnalysis.findingBestPaths") }}
+              </div>
+            </div>
+          </template>
+          <template v-else>
             <div class="d-flex align-center justify-space-between mb-1">
-              <span class="text-body-2">{{
-                iface.name || t("$vuetify.routeAnalysis.defaultInterface")
-              }}</span>
-              <span class="text-caption font-weight-medium"
-                >{{ Math.round(iface.progress ?? 0) }}%</span
-              >
+              <span class="text-caption text-medium-emphasis">{{ phaseLabel }}</span>
+              <span class="text-caption font-weight-medium">{{ Math.round(globalProgress) }}%</span>
             </div>
             <v-progress-linear
-              :color="iface.phase === 'done' ? 'success' : 'primary'"
-              height="6"
+              color="primary"
+              height="8"
               rounded
-              :model-value="iface.progress ?? 0"
+              :model-value="globalProgress"
+              class="mb-4"
             />
-          </div>
+
+            <div
+              v-for="iface in interfaceRows"
+              :key="iface.name"
+              class="mb-3"
+            >
+              <div class="d-flex align-center justify-space-between mb-1">
+                <span class="text-body-2">{{
+                  iface.name || t("$vuetify.routeAnalysis.defaultInterface")
+                }}</span>
+                <span class="text-caption font-weight-medium"
+                  >{{ Math.round(iface.progress ?? 0) }}%</span
+                >
+              </div>
+              <v-progress-linear
+                :color="iface.phase === 'done' ? 'success' : 'primary'"
+                height="6"
+                rounded
+                :model-value="iface.progress ?? 0"
+              />
+            </div>
+          </template>
         </v-card-text>
       </v-card>
     </Teleport>

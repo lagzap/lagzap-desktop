@@ -7,9 +7,9 @@ import (
 	"github.com/lagzap/lagzap"
 	"github.com/lagzap/lagzap-desktop/constant"
 	"github.com/lagzap/lagzap-desktop/localproxy"
-	lagzapConstant "github.com/lagzap/lagzap/constant"
 	"github.com/lagzap/lagzap/adapter"
 	"github.com/lagzap/lagzap/common/device"
+	lagzapConstant "github.com/lagzap/lagzap/constant"
 	"github.com/lagzap/lagzap/include"
 	"github.com/lagzap/lagzap/log"
 	"github.com/lagzap/zap/common/control"
@@ -32,6 +32,9 @@ type Service struct {
 	logFactory       log.ObservableFactory
 	localProxy       *localproxy.Proxy
 	proxyDNSRequests bool
+	// virtualAdapter: on Windows, capture through LagZap's TUN instead of
+	// the NDIS driver (service_proxy_windows.go).
+	virtualAdapter bool
 }
 
 const (
@@ -73,6 +76,10 @@ func (s *Service) ReloadService() error {
 	s.dnsRouter = service.FromContext[adapter.DNSRouter](ctx)
 	s.coordinator = service.FromContext[adapter.Coordinator](ctx)
 	s.coordinator.Listen(func(event string, data any) {
+		// Never jsonClone here. Cloning every coordinator event under connection
+		// storms (Telegram etc.) stalls the dial path — connections appear but
+		// are not proxied. Snapshot cloning belongs only in startMonitoring /
+		// GetConnections / GetLatestRouteProbes (once per second).
 		s.app.Event.Emit(event, data)
 	})
 	if settings := s.coordinator.GetClientSettings(); settings != nil && settings.ProxyDnsRequests != nil {
@@ -136,6 +143,33 @@ func (s *Service) GetInterfaces() (*control.Interface, []*control.Interface) {
 		return nil, nil
 	}
 	return s.coordinator.GetDefaultInterface(), s.coordinator.GetAvailableInterfaces()
+}
+
+// GetDefaultInterfaceFallback says whether LagZap left the main adapter
+// because it has no internet, and which one it uses meanwhile.
+func (s *Service) GetDefaultInterfaceFallback() adapter.DefaultInterfaceFallback {
+	if s.coordinator == nil {
+		return adapter.DefaultInterfaceFallback{}
+	}
+	return s.coordinator.DefaultInterfaceFallback()
+}
+
+// SetAdapterOrder sets the adapter order of the Multi Internet page: the
+// order backups take over in, the Default first.
+func (s *Service) SetAdapterOrder(names []string) {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetAdapterOrder(names)
+}
+
+// GetConnectionDetails explains one Connections page row: how its profile
+// carries it and the legs it uses now.
+func (s *Service) GetConnectionDetails(id string) *adapter.ConnectionDetails {
+	if s.coordinator == nil {
+		return nil
+	}
+	return s.coordinator.GetConnectionDetails(id)
 }
 
 func (s *Service) NeedWIFIState() bool {
@@ -244,7 +278,7 @@ func (s *Service) StartLocalProxy(target string) error {
 		Target:    target,
 		Context:   s.ctx,
 		DNS:       s.dnsRouter,
-		BindIface: localproxy.BindInterface(s.coordinator),
+		BindIface: func() string { return localproxy.BindInterface(s.coordinator) },
 	})
 }
 

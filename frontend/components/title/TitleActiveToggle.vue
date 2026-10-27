@@ -87,7 +87,7 @@ async function onToggle() {
         :disabled="!store.appReady"
         @click.stop.prevent="onToggle"
       >
-        {{ connectionCount }}
+        {{ localDigits(connectionCount) }}
       </v-chip>
     </template>
 
@@ -99,7 +99,7 @@ async function onToggle() {
         {{ t("$vuetify.status.clickToDeactivate") }}
       </div>
       <div class="qa-toggle-tip__count">
-        {{ t("$vuetify.connections.connectionsSubtitle", [connectionCount]) }}
+        {{ t("$vuetify.connections.connectionsSubtitle", [localDigits(connectionCount)]) }}
       </div>
       <ul
         v-if="profileBreakdown.length"
@@ -111,7 +111,7 @@ async function onToggle() {
           class="qa-toggle-tip__row"
         >
           <span class="qa-toggle-tip__name">{{ row.name }}</span>
-          <span class="qa-toggle-tip__n">{{ row.count }}</span>
+          <span class="qa-toggle-tip__n">{{ localDigits(row.count) }}</span>
         </li>
       </ul>
     </div>

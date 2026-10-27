@@ -4,6 +4,13 @@ import Container from "~/components/layout/Container.vue";
 import CountryFlag from "vue-country-flag-next";
 import { useLocale, type DataTableHeader } from "vuetify";
 
+definePageMeta({
+  layout: "admin",
+  sanctum: {
+    excluded: true,
+  },
+});
+
 const { t } = useLocale();
 const { connections } = useMonitoringStore();
 const items = computed(

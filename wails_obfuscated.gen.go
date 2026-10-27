@@ -11,10 +11,12 @@ import (
 )
 
 func init() {
+	application.RegisterBindingMethodID((*Service).AdminToolsEnabled, 1659974732)
 	application.RegisterBindingMethodID((*Service).CancelConnect, 3913536671)
 	application.RegisterBindingMethodID((*Service).CheckForUpdates, 1119934520)
 	application.RegisterBindingMethodID((*Service).ClearDNSCache, 3678018421)
 	application.RegisterBindingMethodID((*Service).Close, 3215732723)
+	application.RegisterBindingMethodID((*Service).CloseAdminTools, 3114052621)
 	application.RegisterBindingMethodID((*Service).CloseLatencyOverlay, 1484201673)
 	application.RegisterBindingMethodID((*Service).Connect, 1624983241)
 	application.RegisterBindingMethodID((*Service).Credentials, 2703855585)
@@ -42,6 +44,7 @@ func init() {
 	application.RegisterBindingMethodID((*Service).GetTitles, 94823092)
 	application.RegisterBindingMethodID((*Service).GetVersion, 307981769)
 	application.RegisterBindingMethodID((*Service).InstallDriver, 3859988686)
+	application.RegisterBindingMethodID((*Service).IsAdminToolsOpen, 1425443723)
 	application.RegisterBindingMethodID((*Service).IsConnected, 739746928)
 	application.RegisterBindingMethodID((*Service).IsConnecting, 1962283463)
 	application.RegisterBindingMethodID((*Service).IsDriverInstalled, 2955065863)
@@ -55,6 +58,7 @@ func init() {
 	application.RegisterBindingMethodID((*Service).Name, 2762986294)
 	application.RegisterBindingMethodID((*Service).NeedWIFIState, 1815350325)
 	application.RegisterBindingMethodID((*Service).New, 1736568865)
+	application.RegisterBindingMethodID((*Service).OpenAdminTools, 2294435235)
 	application.RegisterBindingMethodID((*Service).OpenLatencyOverlay, 842638483)
 	application.RegisterBindingMethodID((*Service).ProbeNodeRoutes, 980278603)
 	application.RegisterBindingMethodID((*Service).ProbePath, 838015066)

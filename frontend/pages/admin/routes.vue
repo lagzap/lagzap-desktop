@@ -3,6 +3,13 @@ import type { VDataTableVirtual } from "vuetify/components";
 import Container from "~/components/layout/Container.vue";
 import CountryFlag from "vue-country-flag-next";
 import { useLocale, type DataTableHeader } from "vuetify";
+
+definePageMeta({
+  layout: "admin",
+  sanctum: {
+    excluded: true,
+  },
+});
 import { useMonitoringStore } from "~/stores/monitoring";
 import { useHumanSize, useHumanSpeed } from "~/composables/helper";
 
@@ -228,7 +235,7 @@ const connectionHeaders = computed<DataTableHeader[]>(() => {
         <v-chip
           v-if="routes?.total_routes"
           color="primary"
-          variant="outlined"
+          variant="tonal"
           size="small"
         >
           {{ routes.total_routes }} Active Routes
@@ -300,7 +307,7 @@ const connectionHeaders = computed<DataTableHeader[]>(() => {
         <template v-slot:item.connections="{ item }">
           <v-chip
             :color="item.connections > 0 ? 'success' : 'default'"
-            variant="outlined"
+            variant="tonal"
             size="small"
           >
             {{ item.connections }}
@@ -335,7 +342,7 @@ const connectionHeaders = computed<DataTableHeader[]>(() => {
                 ? 'warning'
                 : 'error'
             "
-            variant="outlined"
+            variant="tonal"
             size="small"
           >
             {{ formatScore(item.score) }}
@@ -345,7 +352,7 @@ const connectionHeaders = computed<DataTableHeader[]>(() => {
         <template v-slot:item.status="{ item }">
           <v-chip
             :color="getStatusColor(item.status)"
-            variant="outlined"
+            variant="tonal"
             size="small"
           >
             <v-icon size="small" class="me-1">mdi-eye</v-icon>
@@ -373,7 +380,7 @@ const connectionHeaders = computed<DataTableHeader[]>(() => {
                         ? 'success'
                         : 'default'
                     "
-                    variant="outlined"
+                    variant="tonal"
                     size="small"
                   >
                     {{
@@ -405,7 +412,7 @@ const connectionHeaders = computed<DataTableHeader[]>(() => {
                     <template v-slot:item.network="{ item: conn }">
                       <v-chip
                         :color="conn.network === 'tcp' ? 'success' : 'primary'"
-                        variant="outlined"
+                        variant="tonal"
                         size="small"
                       >
                         {{ conn.network?.toUpperCase() }}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/lagzap/lagzap-desktop/constant"
 	"github.com/lagzap/lagzap/log"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -25,6 +26,7 @@ type PanicDetails struct {
 
 func main() {
 	setRealTimePriority()
+	startDebugPprof()
 	ctx := context.Background()
 	service := &Service{}
 
@@ -34,8 +36,8 @@ func main() {
 	quiting := false
 	app = application.New(application.Options{
 		LogLevel:    slog.Level(log.LevelDebug),
-		Name:        "Cyrex",
-		Description: "Cyrex",
+		Name:        "LagZap",
+		Description: "LagZap",
 		Linux:       application.LinuxOptions{},
 		Windows: application.WindowsOptions{
 			// Tray app: closing/hiding windows must not terminate the process.
@@ -75,7 +77,7 @@ func main() {
 			fmt.Printf("Stacktrace: %s\n", panicDetails.StackTrace)
 
 			app.Dialog.Info().
-				SetTitle("Cyrex crashed!").
+				SetTitle("LagZap crashed!").
 				SetMessage("A crash has been occurred, please restart the application!").
 				Show()
 			file, err := os.OpenFile("panic.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
@@ -122,7 +124,7 @@ func main() {
 
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:               "main",
-		Title:              "Cyrex",
+		Title:              "LagZap",
 		Width:              1000,
 		Height:             800,
 		MinWidth:           320,
@@ -190,7 +192,7 @@ func main() {
 	lightIcon, _ := assets.ReadFile("assets/images/icons/light/warning.png")
 	darkIcon, _ := assets.ReadFile("assets/images/icons/dark/warning.png")
 	systray = app.SystemTray.New()
-	systray.SetLabel("Cyrex")
+	systray.SetLabel("LagZap")
 	systray.SetIcon(lightIcon)
 	systray.SetDarkModeIcon(darkIcon)
 
@@ -199,6 +201,11 @@ func main() {
 		window.Show()
 		window.Focus()
 	})
+	if constant.AdminToolsEnabled() {
+		menu.Add("Admin Tools").OnClick(func(ctx *application.Context) {
+			service.OpenAdminTools()
+		})
+	}
 	menu.Add("Quit").OnClick(func(ctx *application.Context) {
 		quiting = true
 		_ = service.StopLocalProxy()
