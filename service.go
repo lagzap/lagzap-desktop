@@ -82,6 +82,7 @@ func (s *Service) ReloadService() error {
 		// GetConnections / GetLatestRouteProbes (once per second).
 		s.app.Event.Emit(event, data)
 	})
+	s.applyUIBackground()
 	if settings := s.coordinator.GetClientSettings(); settings != nil && settings.ProxyDnsRequests != nil {
 		s.proxyDNSRequests = settings.GetProxyDnsRequests()
 	}
@@ -170,6 +171,23 @@ func (s *Service) RateSession(sessionID string, stars uint32, reasons []string, 
 		return nil
 	}
 	return s.coordinator.RateSession(sessionID, stars, reasons, comment)
+}
+
+// HasRateableSession reports whether the profile card's rate button has a
+// session to rate (running, or ended in the last two hours).
+func (s *Service) HasRateableSession(profileID string) bool {
+	if s.coordinator == nil {
+		return false
+	}
+	return s.coordinator.HasRateableSession(profileID)
+}
+
+// RateProfileSession sends a rating the user gave from a profile card.
+func (s *Service) RateProfileSession(profileID string, stars uint32, reasons []string, comment string) error {
+	if s.coordinator == nil {
+		return nil
+	}
+	return s.coordinator.RateProfileSession(profileID, stars, reasons, comment)
 }
 
 // GetConnectionDetails explains one Connections page row: how its profile

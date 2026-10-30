@@ -15,6 +15,7 @@ import {
 import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
 import { useLocale, useTheme } from "vuetify";
 import * as echarts from "echarts";
+import { quietChart } from "~/utils/chartIdle";
 
 const props = defineProps<{
   profile: Profile;
@@ -1243,7 +1244,7 @@ watch(
   chartRef,
   (el) => {
     chart?.dispose();
-    chart = el ? echarts.init(el, null, { useDirtyRect: true }) : null;
+    chart = el ? quietChart(echarts.init(el, null, { useDirtyRect: true })) : null;
     updateChart();
   },
   { flush: "post" }

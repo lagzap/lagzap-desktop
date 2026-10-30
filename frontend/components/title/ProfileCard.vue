@@ -63,6 +63,10 @@ const isHighTrafficProfile = computed(
 );
 
 const store = useStore();
+const { settings } = useSettings();
+const { rateProfile } = useSessionRating();
+// Rating needs the session statistics, which follow "Send anonymous usage data".
+const canRate = computed(() => settings.value.allowSendAnonymousData === true && store.isProfileActive(props.profile.id));
 const { chart: profileChart, view: chartView } = useProfileChart(props.profile.id);
 
 // Usage → the profile's traffic: the chart below when the card has one,
@@ -82,10 +86,13 @@ const interfaceRouteGroups = computed(() => diagram.value?.interfaces ?? []);
 const canFixLag = computed(() => !!diagram.value?.show && !diagram.value?.idle);
 // Go sets this while every route is losing packets.
 const unstable = computed(() => profileChart.value?.latency?.unstable ?? null);
+// LagZap just moved this game off a route that stopped working.
+const { recent: protectedRecent } = useRouteProtection();
+const routeProtected = computed(() => !unstable.value && !!protectedRecent.value[props.profile.id]);
 // Go sets this while Smart mode keeps routes off a lagging transport.
 const transportNote = computed(() => {
   const warning = profileChart.value?.latency?.transport;
-  if (!warning || unstable.value) return null;
+  if (!warning || unstable.value || routeProtected.value) return null;
   const lagging = warning.lagging.toUpperCase();
   const using = warning.lagging === "udp" ? "TCP" : "UDP";
   const single = (profileChart.value?.interfaces?.length ?? 0) <= 1;
@@ -309,6 +316,18 @@ const routeSettingsText = computed(() => {
     </template>
 
     <template #append>
+      <v-tooltip v-if="canRate" :text="t('$vuetify.sessionRating.rateButton')" location="top" open-delay="300">
+        <template #activator="{ props: tipProps }">
+          <v-btn
+            v-bind="tipProps"
+            icon="mdi-star-outline"
+            variant="text"
+            size="small"
+            :aria-label="t('$vuetify.sessionRating.rateButton')"
+            @click="rateProfile(props.profile.id, props.profile.title_id, t('$vuetify.sessionRating.noSession'))"
+          />
+        </template>
+      </v-tooltip>
       <ProfileRegionSelection :profile="props.profile" />
       <ProfileRouteSettings :profile="props.profile" />
     </template>
@@ -341,11 +360,13 @@ const routeSettingsText = computed(() => {
             <div
               v-bind="tipProps"
               class="profile-protection d-flex align-center ga-2 mt-2"
-              :style="{ visibility: unstable || transportNote ? 'visible' : 'hidden' }"
-              :aria-hidden="!unstable && !transportNote"
+              :style="{ visibility: unstable || routeProtected || transportNote ? 'visible' : 'hidden' }"
+              :aria-hidden="!unstable && !routeProtected && !transportNote"
             >
-              <v-icon :icon="transportNote ? 'mdi-swap-horizontal' : 'mdi-shield-alert'" size="16" color="warning" />
-              <span>{{ transportNote ? transportNote.text : t("$vuetify.networkLatency.unstableNote") }}</span>
+              <v-icon v-if="routeProtected" icon="mdi-check-circle" size="16" color="success" />
+              <v-icon v-else :icon="transportNote ? 'mdi-swap-horizontal' : 'mdi-shield-alert'" size="16" color="warning" />
+              <span v-if="routeProtected">{{ t("$vuetify.status.routeProtectedGeneric") }}</span>
+              <span v-else>{{ transportNote ? transportNote.text : t("$vuetify.networkLatency.unstableNote") }}</span>
             </div>
           </template>
           {{ transportNote?.tip }}

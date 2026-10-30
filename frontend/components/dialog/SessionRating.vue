@@ -2,12 +2,14 @@
 import { onMounted, onUnmounted } from "vue";
 import { Events } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
-import { RateSession } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { RateProfileSession, RateSession } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import { displayAlert, displayError } from "~/composables/alert";
+import { useSessionRating, type ManualRatingRequest } from "~/composables/useSessionRating";
 
-/** Asks the user to rate a game session that just ended. The backend picks
- * which sessions to ask about (long ones, rarely) and sends
- * "stats-rate-session"; the rating goes out with the connection statistics. */
+/** Rates a game session. The backend asks after some sessions (long ones,
+ * rarely) with "stats-rate-session"; the user can also rate from a profile
+ * card (useSessionRating), which rates that profile's running or just-ended
+ * session. The rating goes out with the connection statistics. */
 interface RatingRequest {
   session_id: string;
   title_id: string;
@@ -22,6 +24,9 @@ const { t } = locale;
 const store = useStore();
 
 const request = ref<RatingRequest | null>(null);
+/** Set when the user opened it from a profile card. */
+const manual = ref<ManualRatingRequest | null>(null);
+const { manualRequest } = useSessionRating();
 const open = ref(false);
 const stars = ref(0);
 const reasons = ref<string[]>([]);
@@ -29,7 +34,8 @@ const comment = ref("");
 const sending = ref(false);
 
 const gameName = computed(() => {
-  const title = store.titles.find((item) => item.id === request.value?.title_id);
+  const titleId = manual.value ? manual.value.titleId : request.value?.title_id;
+  const title = store.titles.find((item) => item.id === titleId);
   return title ? store.titleName(title.name) || title.id : "";
 });
 
@@ -39,24 +45,47 @@ function asRequest(data: unknown): RatingRequest | null {
   return raw as RatingRequest;
 }
 
-function ask(next: RatingRequest | null) {
-  if (!next || open.value) return;
-  request.value = next;
+function reset() {
   stars.value = 0;
   reasons.value = [];
   comment.value = "";
   open.value = true;
 }
 
+function ask(next: RatingRequest | null) {
+  if (!next || open.value) return;
+  request.value = next;
+  manual.value = null;
+  reset();
+}
+
+watch(manualRequest, (next) => {
+  if (!next) return;
+  manualRequest.value = null;
+  if (open.value) return;
+  manual.value = next;
+  reset();
+});
+
 async function send() {
-  if (!request.value || stars.value < 1 || sending.value) return;
+  if ((!request.value && !manual.value) || stars.value < 1 || sending.value) return;
   sending.value = true;
   try {
-    await RateSession(request.value.session_id, stars.value, reasons.value, comment.value.trim());
+    const text = comment.value.trim();
+    if (manual.value) {
+      await RateProfileSession(manual.value.profileId, stars.value, reasons.value, text);
+    } else if (request.value) {
+      await RateSession(request.value.session_id, stars.value, reasons.value, text);
+    }
     displayAlert(t("$vuetify.sessionRating.thanks"), "success");
     open.value = false;
   } catch (error) {
-    displayError(error, locale);
+    if (String(error).includes("no session to rate")) {
+      displayAlert(t("$vuetify.sessionRating.noSession"), "warning");
+      open.value = false;
+    } else {
+      displayError(error, locale);
+    }
   } finally {
     sending.value = false;
   }

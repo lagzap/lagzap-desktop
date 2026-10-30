@@ -19,6 +19,7 @@ const KIND_ICON: Record<string, string> = {
   ppp: "mdi-lan-connect",
 };
 const icon = computed(() => KIND_ICON[props.iface.kind] ?? "mdi-lan");
+const ispTip = computed(() => (props.iface.asn ? `${props.iface.isp} · AS${props.iface.asn}` : props.iface.isp));
 const ping = computed(() => props.iface.ping);
 const stats = computed(() => ping.value.stats);
 const down = computed(() => ping.value.quality === "down");
@@ -44,7 +45,8 @@ const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E5
     <v-card-text class="pa-4">
       <div class="d-flex align-center ga-2 mb-3">
         <v-icon :icon="icon" :color="color" size="20" />
-        <span class="text-subtitle-1 font-weight-medium text-truncate">{{ iface.name }}</span>
+        <span class="text-subtitle-1 font-weight-medium text-truncate flex-shrink-0 iface-card__name">{{ iface.name }}</span>
+        <span v-if="iface.isp" class="text-caption text-medium-emphasis text-truncate" :title="ispTip">{{ iface.isp }}</span>
         <v-chip v-if="iface.default && !single" size="x-small" variant="tonal" label>
           {{ t("$vuetify.networkLatency.monitor.default") }}
         </v-chip>
@@ -146,6 +148,11 @@ const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E5
 </template>
 
 <style scoped>
+/* The name keeps its room; the ISP after it truncates first. */
+.iface-card__name {
+  max-width: 60%;
+}
+
 .iface-card {
   position: relative;
   overflow: hidden;

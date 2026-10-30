@@ -100,6 +100,7 @@ function routeLabel(via?: string[] | null): string {
                   </v-chip>
                 </div>
                 <div class="text-caption text-medium-emphasis text-truncate">
+                  <template v-if="iface.isp">{{ iface.isp }} · </template>
                   {{ detail.info.description || t(`$vuetify.networkLatency.monitor.detail.kind.${iface.kind}`) }}
                   <template v-if="detail.info.link_speed"> · {{ linkSpeed(detail.info.link_speed) }}</template>
                 </div>
@@ -293,6 +294,10 @@ function routeLabel(via?: string[] | null): string {
               <div>
                 <span class="iface-hero__label">{{ t("$vuetify.networkLatency.monitor.detail.type") }}</span>
                 <span>{{ t(`$vuetify.networkLatency.monitor.detail.kind.${iface.kind}`) }}</span>
+              </div>
+              <div>
+                <span class="iface-hero__label">{{ t("$vuetify.networkLatency.monitor.detail.isp") }}</span>
+                <span class="text-truncate">{{ iface.isp ? (iface.asn ? `${iface.isp} (AS${iface.asn})` : iface.isp) : "—" }}</span>
               </div>
               <div>
                 <span class="iface-hero__label">{{ t("$vuetify.networkLatency.monitor.detail.linkSpeed") }}</span>

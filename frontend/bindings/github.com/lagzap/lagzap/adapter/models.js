@@ -1396,6 +1396,21 @@ export class NetworkInterfaceMonitor {
              */
             this["kind"] = "";
         }
+        if (!("isp" in $$source)) {
+            /**
+             * network the adapter is on; "" until looked up
+             * @member
+             * @type {string}
+             */
+            this["isp"] = "";
+        }
+        if (!("asn" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["asn"] = 0;
+        }
         if (!("status" in $$source)) {
             /**
              * online | no_internet | warming
@@ -1450,18 +1465,18 @@ export class NetworkInterfaceMonitor {
      * @returns {NetworkInterfaceMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType20;
-        const $$createField6_0 = $$createType21;
-        const $$createField7_0 = $$createType23;
+        const $$createField7_0 = $$createType20;
+        const $$createField8_0 = $$createType21;
+        const $$createField9_0 = $$createType23;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("ping" in $$parsedSource) {
-            $$parsedSource["ping"] = $$createField5_0($$parsedSource["ping"]);
+            $$parsedSource["ping"] = $$createField7_0($$parsedSource["ping"]);
         }
         if ("traffic" in $$parsedSource) {
-            $$parsedSource["traffic"] = $$createField6_0($$parsedSource["traffic"]);
+            $$parsedSource["traffic"] = $$createField8_0($$parsedSource["traffic"]);
         }
         if ("servers" in $$parsedSource) {
-            $$parsedSource["servers"] = $$createField7_0($$parsedSource["servers"]);
+            $$parsedSource["servers"] = $$createField9_0($$parsedSource["servers"]);
         }
         return new NetworkInterfaceMonitor(/** @type {Partial<NetworkInterfaceMonitor>} */($$parsedSource));
     }
@@ -2622,6 +2637,16 @@ export class ProfileLatencySeries {
              */
             this["stats"] = (new OverviewLatencyStats());
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * Paths is the path the line was on over time, oldest first, for a
+             * connection's route line (a route can move to another path; its history
+             * keeps the path each ping was on). PathKey "" = the route was pulled.
+             * @member
+             * @type {SeriesPath[] | undefined}
+             */
+            this["paths"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -2634,6 +2659,7 @@ export class ProfileLatencySeries {
     static createFrom($$source = {}) {
         const $$createField5_0 = $$createType16;
         const $$createField6_0 = $$createType15;
+        const $$createField7_0 = $$createType45;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("points" in $$parsedSource) {
             $$parsedSource["points"] = $$createField5_0($$parsedSource["points"]);
@@ -2641,7 +2667,55 @@ export class ProfileLatencySeries {
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField6_0($$parsedSource["stats"]);
         }
+        if ("paths" in $$parsedSource) {
+            $$parsedSource["paths"] = $$createField7_0($$parsedSource["paths"]);
+        }
         return new ProfileLatencySeries(/** @type {Partial<ProfileLatencySeries>} */($$parsedSource));
+    }
+}
+
+/**
+ * SeriesPath is the path a route line used from At (unix ms) on.
+ */
+export class SeriesPath {
+    /**
+     * Creates a new SeriesPath instance.
+     * @param {Partial<SeriesPath>} [$$source = {}] - The source object to create the SeriesPath.
+     */
+    constructor($$source = {}) {
+        if (!("at" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["at"] = 0;
+        }
+        if (!("path_key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["path_key"] = "";
+        }
+        if (!("network" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["network"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SeriesPath instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {SeriesPath}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SeriesPath(/** @type {Partial<SeriesPath>} */($$parsedSource));
     }
 }
 
@@ -2803,9 +2877,9 @@ export class ServerCityDetails {
      * @returns {ServerCityDetails}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType45;
-        const $$createField6_0 = $$createType47;
-        const $$createField7_0 = $$createType49;
+        const $$createField5_0 = $$createType47;
+        const $$createField6_0 = $$createType49;
+        const $$createField7_0 = $$createType51;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("connections" in $$parsedSource) {
             $$parsedSource["connections"] = $$createField5_0($$parsedSource["connections"]);
@@ -2865,7 +2939,7 @@ export class ServerDirectory {
      */
     static createFrom($$source = {}) {
         const $$createField1_0 = $$createType0;
-        const $$createField2_0 = $$createType51;
+        const $$createField2_0 = $$createType53;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField1_0($$parsedSource["interfaces"]);
@@ -2937,7 +3011,7 @@ export class ServerRegion {
      * @returns {ServerRegion}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType53;
+        const $$createField4_0 = $$createType55;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cities" in $$parsedSource) {
             $$parsedSource["cities"] = $$createField4_0($$parsedSource["cities"]);
@@ -3061,13 +3135,15 @@ const $$createType40 = LossWarning.createFrom;
 const $$createType41 = $Create.Nullable($$createType40);
 const $$createType42 = TransportWarning.createFrom;
 const $$createType43 = $Create.Nullable($$createType42);
-const $$createType44 = CityConnection.createFrom;
+const $$createType44 = SeriesPath.createFrom;
 const $$createType45 = $Create.Array($$createType44);
-const $$createType46 = CityRoute.createFrom;
+const $$createType46 = CityConnection.createFrom;
 const $$createType47 = $Create.Array($$createType46);
-const $$createType48 = CityServer.createFrom;
+const $$createType48 = CityRoute.createFrom;
 const $$createType49 = $Create.Array($$createType48);
-const $$createType50 = ServerRegion.createFrom;
+const $$createType50 = CityServer.createFrom;
 const $$createType51 = $Create.Array($$createType50);
-const $$createType52 = ServerCity.createFrom;
+const $$createType52 = ServerRegion.createFrom;
 const $$createType53 = $Create.Array($$createType52);
+const $$createType54 = ServerCity.createFrom;
+const $$createType55 = $Create.Array($$createType54);

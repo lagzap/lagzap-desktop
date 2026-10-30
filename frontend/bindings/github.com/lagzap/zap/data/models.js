@@ -135,6 +135,14 @@ export class ClientInfo {
              */
             this["VPN"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * Autonomous system number of IP (the ISP's network).
+             * @member
+             * @type {number | undefined}
+             */
+            this["ASN"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }

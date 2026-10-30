@@ -4,6 +4,7 @@ import { useMessagesStore } from "~/stores/messages";
 import OptimizeParticles from "~/components/effects/OptimizeParticles.vue";
 import InterfaceReconnectOverlay from "~/components/network/InterfaceReconnectOverlay.vue";
 import DefaultFallbackNotice from "~/components/network/DefaultFallbackNotice.vue";
+import RouteProtectedNotice from "~/components/network/RouteProtectedNotice.vue";
 import DialogUpdateCheck from "~/components/dialog/UpdateCheck.vue";
 import {
   syncThemeFromSetting,
@@ -163,6 +164,8 @@ async function close() {
   <DefaultFallbackNotice v-if="!isOverlayWindow" />
 
   <DialogSessionRating v-if="!isOverlayWindow" />
+
+  <RouteProtectedNotice v-if="!isOverlayWindow" />
 
   <DialogUpdateCheck v-if="!isOverlayWindow" />
 

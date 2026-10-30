@@ -59,14 +59,20 @@ func (s *Service) startMonitoring() {
 
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
+	var last time.Time
 	for {
 		select {
 		case <-s.ctx.Done():
 			return
-		case <-tick.C:
+		case now := <-tick.C:
 			if s.lagzap == nil || s.coordinator == nil {
 				continue
 			}
+			// Cloning every connection each second is the heaviest stream.
+			if uiBackground.Load() && now.Sub(last) < uiBackgroundEvery {
+				continue
+			}
+			last = now
 			emitSnapshot()
 		}
 	}

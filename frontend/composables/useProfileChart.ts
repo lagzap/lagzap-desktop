@@ -111,7 +111,18 @@ export function useProfileChart(profileId: string) {
   const latency = computed<LiveLatencyChart | null>(() => {
     const c = e.chart.value?.latency;
     if (!c) return null;
-    return { ...c, series: (c.series ?? []).map((s) => ({ id: s.key, label: s.label, points: s.points })) };
+    return {
+      ...c,
+      series: (c.series ?? []).map((s) => ({
+        id: s.key,
+        label: s.label,
+        points: s.points,
+        iface: s.iface,
+        network: s.network,
+        pathKey: s.path_key,
+        paths: s.paths ?? undefined,
+      })),
+    };
   });
 
   return {

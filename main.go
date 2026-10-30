@@ -182,6 +182,12 @@ func main() {
 	window.OnWindowEvent(events.Windows.WindowActive, func(e *application.WindowEvent) {
 		service.SetWindow(window)
 	})
+	window.OnWindowEvent(events.Common.WindowFocus, func(e *application.WindowEvent) {
+		service.setMainWindowFocused(true)
+	})
+	window.OnWindowEvent(events.Common.WindowLostFocus, func(e *application.WindowEvent) {
+		service.setMainWindowFocused(false)
+	})
 	window.OnWindowEvent(events.Windows.WindowMaximise, func(e *application.WindowEvent) {
 		app.Event.Emit("WindowMaximised", true)
 	})

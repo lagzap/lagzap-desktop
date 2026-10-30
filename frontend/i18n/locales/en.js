@@ -291,6 +291,8 @@
         notNow: 'Not now',
         send: 'Send',
         thanks: 'Thanks for your feedback!',
+        rateButton: 'Rate this session',
+        noSession: 'Play a bit first: there is no session to rate yet.',
         reasons: {
             high_ping: 'High ping',
             lag_spikes: 'Lag spikes',
@@ -323,7 +325,9 @@
         interfaceReconnectTitle: 'Network cable unplugged',
         interfaceReconnectBody: 'Plug your network cable back in to keep your game connection alive.',
         defaultFallbackActive: '{0} has no internet. LagZap is using {1} until {0} is stable again.',
-        defaultFallbackRestored: '{0} is back. LagZap is using it again.'
+        defaultFallbackRestored: '{0} is back. LagZap is using it again.',
+        routeProtected: 'A route to {0} stopped working. LagZap switched you to a better one before you disconnected.',
+        routeProtectedGeneric: 'A route stopped working. LagZap switched you to a better one before you disconnected.'
     },
     accountStatus: {
         service: 'Service',
@@ -677,6 +681,7 @@
                 showLess: 'Show less',
                 adapter: 'Adapter',
                 type: 'Type',
+                isp: 'Internet provider',
                 linkSpeed: 'Link speed',
                 addresses: 'IP address',
                 kind: {
@@ -709,6 +714,7 @@
         peak: 'Peak',
         best: 'Best',
         timeout: 'Timeout',
+        routeDirect: 'Direct',
         directHop: 'DIRECT',
         speed: 'Speed',
         traffic: 'Traffic',

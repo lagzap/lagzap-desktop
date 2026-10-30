@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import * as echarts from "echarts";
+import { quietChart } from "~/utils/chartIdle";
 import { useLocale, useTheme } from "vuetify";
 import { PING_TIMEOUT_COLOR } from "~/composables/useLatencyMetrics";
 import { OVERVIEW_RANGES } from "~/composables/useOverviewChart";
 import { useHumanSpeed } from "~/composables/helper";
 import type { OverviewTrafficChart } from "~/bindings/github.com/lagzap/lagzap/adapter";
-import type { LiveLatencyChart } from "~/types/liveChart";
+import type { LiveLatencyChart, LiveLatencySeries } from "~/types/liveChart";
+import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
 
 // Presentational chart: every number arrives ready from Go.
 
@@ -51,11 +53,91 @@ const rangeItems = OVERVIEW_RANGES.map((r) => ({ title: r, value: r }));
 const latency = computed(() => props.latency);
 const traffic = computed(() => props.traffic);
 
-const legend = computed(() =>
-  view.value === "latency"
-    ? (latency.value?.series ?? []).map((s) => ({ id: s.id, label: s.label, color: props.latencyColor(s.id), visible: !hidden.value.has(s.id) }))
-    : (traffic.value?.series ?? []).map((s) => ({ id: s.name, label: s.name, color: props.trafficColor(s.name), visible: !hidden.value.has(s.name) }))
-);
+const { getNodeLabelByIp } = useNodeLocationLabel();
+
+/** A profile route named by where it enters: the hops before the relay
+ * ("Turkey", "Tehran → Turkey"), or Direct straight to the relay. Other
+ * charts keep Go's label. */
+function pathName(pathKey: string): string {
+  const hops = pathKey.split("->").filter(Boolean);
+  if (hops.length <= 1) return t("$vuetify.networkLatency.routeDirect");
+  return hops
+    .slice(0, -1)
+    .map((ip) => getNodeLabelByIp(ip) || ip)
+    .join(" → ");
+}
+
+type PathAt = { pathKey: string; network?: string };
+
+/** The latest path a line used (a pulled route keeps its last one). */
+function latestPath(s: LiveLatencySeries): PathAt | null {
+  for (let i = (s.paths?.length ?? 0) - 1; i >= 0; i--) {
+    const p = s.paths![i];
+    if (p.path_key) return { pathKey: p.path_key, network: p.network };
+  }
+  return s.pathKey ? { pathKey: s.pathKey, network: s.network } : null;
+}
+
+/** The path a line was on at time t (ms): null while it was pulled. Lines
+ * without a history use their one path; before its first entry a line shows
+ * the history it was started with, which is its first path's. */
+function pathAt(s: LiveLatencySeries, at: number): PathAt | null {
+  if (!s.paths?.length) return s.pathKey ? { pathKey: s.pathKey, network: s.network } : null;
+  const first = s.paths[0];
+  let found: PathAt | null = first.path_key ? { pathKey: first.path_key, network: first.network } : null;
+  for (const p of s.paths) {
+    if (p.at > at) break;
+    found = p.path_key ? { pathKey: p.path_key, network: p.network } : null;
+  }
+  return found;
+}
+
+function routeName(s: LiveLatencySeries): string {
+  const p = latestPath(s);
+  return p ? pathName(p.pathKey) : displayLabel(s.label);
+}
+
+type LegendItem = { id: string; label: string; color: string; visible: boolean; network?: string };
+type LegendGroup = { iface: string; items: LegendItem[] };
+
+/** Legend and tooltip rows, grouped by adapter for profile routes. */
+const legendGroups = computed<LegendGroup[]>(() => {
+  if (view.value !== "latency") {
+    return [{
+      iface: "",
+      items: (traffic.value?.series ?? []).map((s) => ({ id: s.name, label: s.name, color: props.trafficColor(s.name), visible: !hidden.value.has(s.name) })),
+    }];
+  }
+  const groups: LegendGroup[] = [];
+  const byIface = new Map<string, LegendGroup>();
+  for (const s of latency.value?.series ?? []) {
+    const iface = s.iface ?? "";
+    let group = byIface.get(iface);
+    if (!group) {
+      group = { iface, items: [] };
+      byIface.set(iface, group);
+      groups.push(group);
+    }
+    group.items.push({ id: s.id, label: routeName(s), color: props.latencyColor(s.id), visible: !hidden.value.has(s.id), network: latestPath(s)?.network ?? s.network });
+  }
+  // Two routes with the same entry and transport on one adapter: number them.
+  for (const group of groups) {
+    const seen = new Map<string, number>();
+    for (const item of group.items) {
+      const key = `${item.label}|${item.network ?? ""}`;
+      const n = (seen.get(key) ?? 0) + 1;
+      seen.set(key, n);
+      if (n > 1) item.label = `${item.label} (${localDigits(n)})`;
+    }
+  }
+  return groups;
+});
+const legend = computed(() => legendGroups.value.flatMap((g) => g.items));
+
+function networkColor(network?: string) {
+  const dark = theme.current.value.dark;
+  return network === "tcp" ? (dark ? "#64B5F6" : "#1565C0") : dark ? "#81C784" : "#2E7D32";
+}
 
 const hasData = computed(() =>
   view.value === "latency" ? !!latency.value?.series?.length : !!traffic.value?.series?.length
@@ -165,7 +247,7 @@ function latencySeries() {
     dots.push(loneDots(s.id, values, color));
     lines.push({
       id: `line:${s.id}`,
-      name: s.label,
+      name: s.id,
       type: "line",
       data: values,
       showSymbol: false,
@@ -257,27 +339,54 @@ function speedAxisLabel(v: number, max: number) {
   return `${localDigits(v)} ${speedUnit(0)}`;
 }
 
+function networkTag(network?: string) {
+  if (!network) return "";
+  return `<span style="font-size:9px;font-weight:600;margin-left:6px;color:${networkColor(network)}">${network.toUpperCase()}</span>`;
+}
+
 function tooltip(params: any[]) {
   const c = view.value === "latency" ? latency.value : traffic.value;
   const idx = params[0]?.dataIndex;
   if (!c || idx === undefined) return "";
   const at = formatTimeOfDay(new Date(c.end - (pointCount() - 1 - idx) * c.step));
-  const rows = params
-    .filter((p) => !String(p.seriesName).startsWith("__"))
-    .map((p) => {
-      // A 0 point is a lost probe; -1 is simply no sample.
-      const timedOut =
-        view.value === "latency" && latency.value?.series.find((s) => s.label === p.seriesName)?.points[idx] === 0;
-      const value = timedOut
-        ? `<span style="color:${PING_TIMEOUT_COLOR}">${t("$vuetify.networkLatency.timeout")}</span>`
-        : p.value === null || p.value === undefined
-          ? "—"
-          : view.value === "latency"
+  const shown = params.filter((p) => !String(p.seriesName).startsWith("__"));
+  const row = (marker: string, name: string, value: string) =>
+    `<div style="display:flex;gap:12px;justify-content:space-between"><span>${marker}${name}</span><span>${value}</span></div>`;
+  if (view.value !== "latency") {
+    const rows = shown.map((p) => row(p.marker, p.seriesName, p.value === null || p.value === undefined ? "—" : useHumanSpeed(p.value)));
+    return `<div style="opacity:.6;margin-bottom:4px">${at}</div>${rows.join("")}`;
+  }
+  const byId = new Map(shown.map((p) => [p.seriesName as string, p]));
+  const ch = chrome();
+  const atMs = c.end - (pointCount() - 1 - idx) * c.step;
+  const blocks = legendGroups.value.map((group) => {
+    const rows = group.items
+      .filter((item) => byId.has(item.id))
+      .map((item) => {
+        const p = byId.get(item.id)!;
+        const s = latency.value?.series.find((x) => x.id === item.id);
+        // Each ping is named by the path it was on then, not the line's
+        // current one; a route that did not exist yet is left out.
+        const then = s ? pathAt(s, atMs) : null;
+        const hasValue = p.value !== null && p.value !== undefined;
+        // A 0 point is a lost probe; -1 is simply no sample.
+        const timedOut = s?.points[idx] === 0;
+        const notThere = !then || atMs < (s?.paths?.[0]?.at ?? 0);
+        if (s?.paths?.length && !hasValue && !timedOut && notThere) return "";
+        const value = timedOut
+          ? `<span style="color:${PING_TIMEOUT_COLOR}">${t("$vuetify.networkLatency.timeout")}</span>`
+          : hasValue
             ? formatMs(p.value)
-            : useHumanSpeed(p.value);
-      return `<div style="display:flex;gap:12px;justify-content:space-between"><span>${p.marker}${displayLabel(p.seriesName)}</span><b>${value}</b></div>`;
-    });
-  return `<div style="opacity:.6;margin-bottom:4px">${at}</div>${rows.join("")}`;
+            : "—";
+        const name = then ? pathName(then.pathKey) : item.label;
+        return row(p.marker, `${name}${networkTag(then?.network ?? item.network)}`, value);
+      })
+      .filter(Boolean);
+    if (rows.length === 0) return "";
+    const head = group.iface ? `<div style="color:${ch.muted};font-size:11px;margin-top:4px">${group.iface}</div>` : "";
+    return head + rows.join("");
+  });
+  return `<div style="opacity:.6;margin-bottom:2px">${at}</div>${blocks.join("")}`;
 }
 
 function option() {
@@ -356,7 +465,7 @@ function render() {
   }
   if (!instance) {
     // Dirty-rect leaves the WebView canvas blank until the pointer moves.
-    instance = echarts.init(chartEl.value, null, { useDirtyRect: false });
+    instance = quietChart(echarts.init(chartEl.value, null, { useDirtyRect: false }));
     resizeObserver = new ResizeObserver(() => instance?.resize());
     resizeObserver.observe(chartEl.value);
     layoutKey = "";
@@ -449,17 +558,23 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="chart-header-legend">
-        <button
-          v-for="item in legend"
-          :key="item.id"
-          type="button"
-          class="chart-header-legend__item"
-          :class="{ 'chart-header-legend__item--hidden': !item.visible }"
-          @click="toggle(item.id)"
-        >
-          <span class="chart-header-legend__dot" :style="{ backgroundColor: item.color }" />
-          <span class="chart-header-legend__label">{{ displayLabel(item.label) }}</span>
-        </button>
+        <div v-for="group in legendGroups" :key="group.iface" class="chart-header-legend__group">
+          <span v-if="group.iface" class="chart-header-legend__iface">{{ group.iface }}</span>
+          <button
+            v-for="item in group.items"
+            :key="item.id"
+            type="button"
+            class="chart-header-legend__item"
+            :class="{ 'chart-header-legend__item--hidden': !item.visible }"
+            @click="toggle(item.id)"
+          >
+            <span class="chart-header-legend__dot" :style="{ backgroundColor: item.color }" />
+            <span class="chart-header-legend__label">{{ item.label }}</span>
+            <span v-if="item.network" class="chart-header-legend__net" :style="{ color: networkColor(item.network) }">
+              {{ item.network.toUpperCase() }}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -630,5 +745,25 @@ onBeforeUnmount(() => {
 .chart-header-legend__label {
   font-size: 0.72rem;
   white-space: nowrap;
+}
+
+/* One adapter's routes together, its name first. */
+.chart-header-legend__group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.chart-header-legend__iface {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+}
+
+.chart-header-legend__net {
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 </style>

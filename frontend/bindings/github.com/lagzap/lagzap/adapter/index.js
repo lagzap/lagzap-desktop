@@ -40,6 +40,7 @@ export {
     ProfileDiagram,
     ProfileLatencyChart,
     ProfileLatencySeries,
+    SeriesPath,
     ServerCity,
     ServerCityDetails,
     ServerDirectory,

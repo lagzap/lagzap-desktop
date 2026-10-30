@@ -40,6 +40,10 @@ const KIND_ICON: Record<string, string> = {
 const icon = computed(() => KIND_ICON[props.monitor?.kind ?? ""] ?? "mdi-lan");
 const ping = computed(() => props.monitor?.ping);
 const offline = computed(() => props.monitor?.status === "no_internet");
+const ispTip = computed(() => {
+  const m = props.monitor;
+  return m?.isp ? (m.asn ? `${m.isp} · AS${m.asn}` : m.isp) : "";
+});
 
 const roles = computed(() => [
   {
@@ -87,7 +91,8 @@ const roles = computed(() => [
     <v-card-text class="adapter-card__body pa-4">
       <div class="d-flex align-center ga-2 mb-2">
         <v-icon :icon="icon" :color="color" size="20" />
-        <span class="text-subtitle-1 font-weight-medium text-truncate">{{ name }}</span>
+        <span class="text-subtitle-1 font-weight-medium text-truncate flex-shrink-0 adapter-card__name">{{ name }}</span>
+        <span v-if="monitor?.isp" class="text-caption text-medium-emphasis text-truncate" :title="ispTip">{{ monitor.isp }}</span>
         <v-chip v-if="offline" color="error" size="x-small" variant="tonal" label>
           {{ t("$vuetify.networkLatency.monitor.statusNoInternet") }}
         </v-chip>
@@ -177,6 +182,11 @@ const roles = computed(() => [
 </template>
 
 <style scoped>
+/* The name keeps its room; the ISP after it truncates first. */
+.adapter-card__name {
+  max-width: 60%;
+}
+
 .adapter-card {
   position: relative;
   overflow: hidden;

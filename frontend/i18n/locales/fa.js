@@ -304,6 +304,8 @@ export default {
         notNow: 'الان نه',
         send: 'ارسال',
         thanks: 'از بازخوردتان ممنونیم!',
+        rateButton: 'امتیاز به این جلسه',
+        noSession: 'اول کمی بازی کنید: هنوز جلسه‌ای برای امتیاز دادن نیست.',
         reasons: {
             high_ping: 'پینگ بالا',
             lag_spikes: 'لگ ناگهانی',
@@ -336,7 +338,9 @@ export default {
         interfaceReconnectTitle: 'کابل شبکه جدا شده است',
         interfaceReconnectBody: 'برای حفظ اتصال بازی، کابل شبکه را دوباره وصل کنید.',
         defaultFallbackActive: '{0} اینترنت ندارد. LagZap تا پایدار شدن {0} از {1} استفاده می‌کند.',
-        defaultFallbackRestored: '{0} برگشت. LagZap دوباره از آن استفاده می‌کند.'
+        defaultFallbackRestored: '{0} برگشت. LagZap دوباره از آن استفاده می‌کند.',
+        routeProtected: 'یکی از مسیرهای {0} از کار افتاد. LagZap قبل از قطع شدن، شما را به مسیر بهتری منتقل کرد.',
+        routeProtectedGeneric: 'یکی از مسیرها از کار افتاد. LagZap قبل از قطع شدن، شما را به مسیر بهتری منتقل کرد.'
     },
     network: {
         tcp: 'TCP',
@@ -691,6 +695,7 @@ export default {
                 showLess: 'نمایش کمتر',
                 adapter: 'آداپتور',
                 type: 'نوع',
+                isp: 'سرویس‌دهنده اینترنت',
                 linkSpeed: 'سرعت لینک',
                 addresses: 'آدرس IP',
                 kind: {
@@ -723,6 +728,7 @@ export default {
         peak: 'اوج',
         best: 'بهترین',
         timeout: 'تایم‌اوت',
+        routeDirect: 'مستقیم',
         directHop: 'مستقیم',
         speed: 'سرعت',
         traffic: 'ترافیک',

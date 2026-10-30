@@ -377,6 +377,16 @@ export function GetVersion() {
 }
 
 /**
+ * HasRateableSession reports whether the profile card's rate button has a
+ * session to rate (running, or ended in the last two hours).
+ * @param {string} profileID
+ * @returns {$CancellablePromise<boolean>}
+ */
+export function HasRateableSession(profileID) {
+    return $Call.ByID(2539800107, profileID);
+}
+
+/**
  * InstallDriver installs the driver using netcfg.exe.
  * @returns {$CancellablePromise<void>}
  */
@@ -556,6 +566,18 @@ export function ProbePath(kind, fromID, toID) {
  */
 export function ProbeProfileRoutes(profileID, iface) {
     return $Call.ByID(742333248, profileID, iface);
+}
+
+/**
+ * RateProfileSession sends a rating the user gave from a profile card.
+ * @param {string} profileID
+ * @param {number} stars
+ * @param {string[]} reasons
+ * @param {string} comment
+ * @returns {$CancellablePromise<void>}
+ */
+export function RateProfileSession(profileID, stars, reasons, comment) {
+    return $Call.ByID(760960596, profileID, stars, reasons, comment);
 }
 
 /**

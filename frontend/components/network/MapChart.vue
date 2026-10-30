@@ -3,6 +3,7 @@ import { onMounted, onBeforeUnmount, ref, computed, watch } from "vue";
 import { useStore } from "~/stores";
 import { useLocale } from "vuetify";
 import * as echarts from "echarts";
+import { quietChart } from "~/utils/chartIdle";
 
 import { chartColors } from "~/utils/colors";
 
@@ -477,7 +478,7 @@ function updateChart() {
 
 async function initChart() {
   if (!chartRef.value) return;
-  chart = echarts.init(chartRef.value as HTMLDivElement);
+  chart = quietChart(echarts.init(chartRef.value as HTMLDivElement));
   try {
     const url = new URL("../../assets/world.json", import.meta.url).href;
     const resp = await fetch(url);
