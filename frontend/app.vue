@@ -5,6 +5,7 @@ import OptimizeParticles from "~/components/effects/OptimizeParticles.vue";
 import InterfaceReconnectOverlay from "~/components/network/InterfaceReconnectOverlay.vue";
 import DefaultFallbackNotice from "~/components/network/DefaultFallbackNotice.vue";
 import RouteProtectedNotice from "~/components/network/RouteProtectedNotice.vue";
+import SessionIntervalRecorder from "~/components/network/SessionIntervalRecorder.vue";
 import DialogUpdateCheck from "~/components/dialog/UpdateCheck.vue";
 import {
   syncThemeFromSetting,
@@ -166,6 +167,8 @@ async function close() {
   <DialogSessionRating v-if="!isOverlayWindow" />
 
   <RouteProtectedNotice v-if="!isOverlayWindow" />
+
+  <SessionIntervalRecorder v-if="!isOverlayWindow" />
 
   <DialogUpdateCheck v-if="!isOverlayWindow" />
 
