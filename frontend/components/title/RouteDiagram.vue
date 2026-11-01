@@ -155,7 +155,7 @@ let chart: echarts.ECharts | null = null;
 
 function fingerprintDiagramRoute(route: DiagramRoute): string {
   const hopPart = (route.hops ?? []).map((hop) => `${hop.ip}:${hop.latency}`).join("|");
-  return `${route.latency}:${route.score}:${Math.round(route.packet_loss)}:${hopPart}`;
+  return `${route.latency}:${route.score}:${Math.round(route.packet_loss)}:${route.planned ? 1 : 0}:${hopPart}`;
 }
 
 /** Stable key — avoids deep-watching the entire routes store on every probe tick. */
@@ -428,13 +428,15 @@ function resolveDiagramLabelColors() {
   };
 }
 
-function flowLineStyle() {
+/** planned: a route of the settings the live session is not using. */
+function flowLineStyle(planned = false) {
   return {
     color: FLOW_LINE_COLOR,
     opacity: 1,
     width: 1,
-    // Dashed = estimate (preview or idle prediction), solid = live route.
-    type: isEstimate.value ? ([4, 3] as number[]) : ("solid" as const),
+    // Dashed = estimate (preview, idle prediction or a planned route the
+    // session does not use), solid = live route.
+    type: isEstimate.value || planned ? ([4, 3] as number[]) : ("solid" as const),
     // Round/square caps stick ~1px past elbows so H/V look misaligned
     cap: "butt" as const,
     join: "miter" as const,
@@ -534,6 +536,7 @@ type RouteTooltipPayload = {
   score: number;
   loss: number;
   transport: HopTransport;
+  planned: boolean;
 };
 
 /** Destination / exit-node tip — no “relay” wording, no server IP. */
@@ -569,6 +572,7 @@ function buildRouteTooltipPayload(
     score: route.score,
     loss: route.packet_loss || 0,
     transport: resolveHopTransport(route),
+    planned: !!route.planned,
   };
 }
 
@@ -624,6 +628,9 @@ function formatRouteTooltip(payload: RouteTooltipPayload): string {
     diagramTooltipRow("Min", formatMs(payload.min)),
     diagramTooltipRow("Max", formatMs(payload.max)),
   ];
+  if (payload.planned) {
+    rows.push(diagramTooltipRow(t("$vuetify.networkLatency.plannedRoute"), t("$vuetify.networkLatency.plannedRouteHint")));
+  }
   if (payload.loss > 0) {
     if (payload.transport === "TCP") {
       rows.push(
@@ -825,7 +832,7 @@ function updateChart() {
           source: "branch-point",
           target: waypointId,
           tooltip: { show: false },
-          lineStyle: flowLineStyle(),
+          lineStyle: flowLineStyle(route.planned),
         });
         // Preserve -1 (unknown) vs 0 (direct). Do not collapse unknown → 0.
         const firstHopLatency =
@@ -836,7 +843,7 @@ function updateChart() {
           source: waypointId,
           target: hopId,
           tooltip: { show: false },
-          lineStyle: flowLineStyle(),
+          lineStyle: flowLineStyle(route.planned),
         });
         addPingLabelNode(
           nodes,
@@ -860,7 +867,7 @@ function updateChart() {
           source: prevHopId,
           target: hopId,
           tooltip: { show: false },
-          lineStyle: flowLineStyle(),
+          lineStyle: flowLineStyle(route.planned),
         });
         addPingLabelNode(
           nodes,
@@ -930,7 +937,7 @@ function updateChart() {
         source: lastHopId,
         target: waypointId,
         tooltip: { show: false },
-        lineStyle: flowLineStyle(),
+        lineStyle: flowLineStyle(route.planned),
       });
       addPingLabelNode(
         nodes,
@@ -945,14 +952,14 @@ function updateChart() {
         source: waypointId,
         target: "dest-convergence",
         tooltip: { show: false },
-        lineStyle: flowLineStyle(),
+        lineStyle: flowLineStyle(route.planned),
       });
     } else {
       // If no hops, connect directly from user to destination
       links.push({
         source: "user",
         target: "destination",
-        lineStyle: flowLineStyle(),
+        lineStyle: flowLineStyle(route.planned),
       });
     }
   });

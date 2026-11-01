@@ -199,6 +199,15 @@ func (s *Service) GetConnectionDetails(id string) *adapter.ConnectionDetails {
 	return s.coordinator.GetConnectionDetails(id)
 }
 
+// GetConnectionChart is one Connections page row's latency and speed over
+// a range ("1m", "5m", "15m", "60m").
+func (s *Service) GetConnectionChart(id, rangeKey string) *adapter.ConnectionChart {
+	if s.coordinator == nil {
+		return nil
+	}
+	return s.coordinator.GetConnectionChart(id, rangeKey)
+}
+
 func (s *Service) NeedWIFIState() bool {
 	return s.lagzap.Router().NeedWIFIState()
 }

@@ -140,9 +140,6 @@ const sortBy = ref<VDataTable["sortBy"]>([
                   {{ item.destination_ip }}
                 </span>
               </div>
-              <div>
-                {{ item.host }}
-              </div>
             </template>
           </v-tooltip>
         </template>

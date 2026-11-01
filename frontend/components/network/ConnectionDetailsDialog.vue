@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from "vue";
-import { useLocale } from "vuetify";
+import { computed, onUnmounted, ref, shallowRef, watch } from "vue";
+import { useLocale, useTheme } from "vuetify";
 import CountryFlag from "vue-country-flag-next";
-import { GetConnectionDetails } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { GetConnectionChart, GetConnectionDetails } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import type { ConnectionChart } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import LiveChart from "~/components/network/LiveChart.vue";
 import RelayServerCell from "~/components/network/RelayServerCell.vue";
+import { colorForChartSeries } from "~/composables/useLatencyMetrics";
 import { connectionRelayLatency } from "~/composables/useProfileDisplayRoutes";
 import { useNetworkMonitor } from "~/composables/useNetworkMonitor";
 import { formatMs, formatSize, formatSpeed, localDigits } from "~/utils/localeFormat";
 import type { Connection } from "~/types/monitoring";
+import type { LiveLatencyChart } from "~/types/liveChart";
 
-/** One Connections row opened up: traffic, latency, and how the profile
- * carries it (Multi Internet legs, active + standby adapter, or one adapter)
- * with each leg's path, ping and loss. Refreshes every second while open. */
+/** One Connections row opened up: traffic, latency, its own ping and speed
+ * chart, and how the profile carries it (Multi Internet legs, active +
+ * standby adapter, or one adapter) with each leg's path, ping and loss.
+ * Refreshes every second while open. The game server's host name and the
+ * app's folder are left out (they can name the user); Admin Tools has them. */
 interface DiagramHop {
   ip: string;
   node_id: string;
@@ -37,32 +43,66 @@ const open = defineModel<boolean>({ default: false });
 
 const store = useStore();
 const { t } = useLocale();
+const theme = useTheme();
 const { getNodeLabelByIp } = useNodeLocationLabel();
 const { colorOf } = useNetworkMonitor();
 const details = ref<Details | null>(null);
+const chart = shallowRef<ConnectionChart | null>(null);
+const range = ref("1m");
+const view = ref<"latency" | "traffic">("latency");
 const now = ref(Date.now());
+
+// The row as last seen: the Connections list can drop it for a moment
+// between updates, which must not blank the dialog. Gone for 2s, the
+// connection has ended: the dialog stops where it ended.
+const c = shallowRef<Connection | null>(null);
+const missingSince = ref(0);
+watch(
+  () => props.connection,
+  (row) => {
+    if (row || !open.value) {
+      c.value = row;
+      missingSince.value = 0;
+    } else if (!missingSince.value) {
+      missingSince.value = Date.now();
+    }
+  },
+  { immediate: true }
+);
+const id = computed(() => c.value?.id ?? "");
+const ended = computed(() => missingSince.value > 0 && now.value - missingSince.value >= 2000);
 
 let timer: ReturnType<typeof setInterval> | undefined;
 async function refresh() {
   now.value = Date.now();
-  const id = props.connection?.id;
-  if (!id) return;
-  try {
-    details.value = ((await GetConnectionDetails(id)) as Details | null) ?? null;
-  } catch {
-    details.value = null;
-  }
+  const want = id.value;
+  if (!want || document.hidden || ended.value) return;
+  // A failed or empty answer keeps the last one, so the mode never falls
+  // back to "One adapter" for a moment.
+  const [d, ch] = await Promise.allSettled([GetConnectionDetails(want), GetConnectionChart(want, range.value)]);
+  if (want !== id.value) return;
+  if (d.status === "fulfilled" && d.value) details.value = d.value as Details;
+  if (ch.status === "fulfilled" && ch.value && ch.value.range === range.value) chart.value = ch.value;
 }
 function stop() {
   clearInterval(timer);
   timer = undefined;
 }
+// Separate sources: a getter returning a new array counted every row update
+// (each second) as a change and cleared the details each time.
 watch(
-  () => [open.value, props.connection?.id] as const,
-  ([isOpen]) => {
+  [open, id],
+  ([isOpen, rowId], prev) => {
+    const [wasOpen, prevId] = prev ?? [];
+    if (isOpen === wasOpen && rowId === prevId) return;
     stop();
-    details.value = null;
-    if (!isOpen) return;
+    if (rowId !== prevId || !isOpen) {
+      missingSince.value = 0;
+      details.value = null;
+      chart.value = null;
+      view.value = "latency";
+    }
+    if (!isOpen || !rowId) return;
     void refresh();
     timer = setInterval(refresh, 1000);
   },
@@ -70,7 +110,40 @@ watch(
 );
 onUnmounted(stop);
 
-const c = computed(() => props.connection);
+function setRange(next: string) {
+  if (next === range.value) return;
+  range.value = next;
+  chart.value = null;
+  void refresh();
+}
+
+const latency = computed<LiveLatencyChart | null>(() => {
+  const l = chart.value?.latency;
+  if (!l?.series?.length) return null;
+  return {
+    ...l,
+    series: l.series.map((s) => ({
+      id: s.key,
+      label: s.label,
+      points: s.points,
+      iface: s.iface,
+      network: s.network,
+      pathKey: s.path_key,
+      paths: s.paths ?? undefined,
+    })),
+  };
+});
+// One speed line, named for the reader.
+const traffic = computed(() => {
+  const tr = chart.value?.traffic;
+  if (!tr) return null;
+  const name = t("$vuetify.connections.details.thisConnection");
+  return { ...tr, series: (tr.series ?? []).map((s) => ({ ...s, name })) };
+});
+const hasChart = computed(() => !!latency.value || !!traffic.value?.series?.length);
+const latencyColor = (key: string) =>
+  colorForChartSeries(key, chart.value?.interfaces ?? [], theme.current.value.dark);
+
 const profileName = computed(() => {
   const profile = store.profiles.find((p) => p.id === c.value?.profile_id);
   return profile ? String(store.localized(profile.name) || profile.name?.en || "") : "";
@@ -96,6 +169,7 @@ const active = computed(() => legs.value.filter((leg) => !leg.backup));
 const standby = computed(() => legs.value.filter((leg) => leg.backup));
 const mode = computed(() => details.value?.mode ?? "single");
 const modeLabel = computed(() => t(`$vuetify.connections.details.mode.${mode.value}`));
+const trafficColor = () => colorOf(active.value[0]?.route.iface ?? "");
 const modeIcon = computed(
   () => ({ multipath: "mdi-call-split", failover: "mdi-shield-sync-outline", single: "mdi-ethernet" })[mode.value]
 );
@@ -107,11 +181,11 @@ const stats = computed(() => {
     ? Math.min(...active.value.map((leg) => leg.route.packet_loss || 0))
     : x.packet_loss || 0;
   return [
-    { label: t("$vuetify.connections.download"), value: formatSpeed(x.download_speed || 0), sub: formatSize(x.download || 0) },
-    { label: t("$vuetify.connections.upload"), value: formatSpeed(x.upload_speed || 0), sub: formatSize(x.upload || 0) },
+    { label: t("$vuetify.connections.download"), value: formatSpeed(ended.value ? 0 : x.download_speed || 0), sub: formatSize(x.download || 0) },
+    { label: t("$vuetify.connections.upload"), value: formatSpeed(ended.value ? 0 : x.upload_speed || 0), sub: formatSize(x.upload || 0) },
     { label: t("$vuetify.connections.latency"), value: formatMs(connectionRelayLatency(x)), sub: "" },
     { label: t("$vuetify.connections.details.loss"), value: `${localDigits(loss.toFixed(1))}%`, sub: "" },
-    { label: t("$vuetify.connections.details.duration"), value: x.start ? duration(now.value - x.start) : "—", sub: "" },
+    { label: t("$vuetify.connections.details.duration"), value: x.start ? duration((ended.value ? missingSince.value : now.value) - x.start) : "—", sub: "" },
   ];
 });
 
@@ -124,7 +198,7 @@ function legPath(leg: Leg): string {
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="620" scrollable>
+  <v-dialog v-model="open" max-width="720" scrollable>
     <v-card v-if="c" rounded="lg" class="connection-details">
       <v-card-title class="d-flex align-center ga-3 pt-4">
         <v-avatar v-if="titleIcon" :image="titleIcon" size="28" />
@@ -133,6 +207,9 @@ function legPath(leg: Leg): string {
           <span v-if="titleName && profileName" class="text-caption text-medium-emphasis text-truncate">{{ titleName }}</span>
         </div>
         <v-spacer />
+        <v-chip v-if="ended" size="x-small" variant="tonal" rounded>
+          {{ t("$vuetify.connections.details.ended") }}
+        </v-chip>
         <v-chip :color="c.network == 'tcp' ? 'green' : 'blue'" size="x-small" variant="tonal" rounded>
           <span class="text-uppercase">{{ c.network }}</span>
         </v-chip>
@@ -153,67 +230,88 @@ function legPath(leg: Leg): string {
           <div class="d-flex align-center ga-1 text-body-2">
             <CountryFlag v-if="c.country_code" :country="c.country_code" size="small" />
             <span>{{ c.destination_ip }}:{{ c.destination_port }}</span>
-            <span v-if="c.host" class="text-medium-emphasis">· {{ c.host }}</span>
           </div>
           <div class="text-caption text-medium-emphasis">{{ t("$vuetify.connections.cyrexServer") }}</div>
           <RelayServerCell :connection="c" text-class="text-body-2" />
           <template v-if="processName">
             <div class="text-caption text-medium-emphasis">{{ t("$vuetify.connections.details.process") }}</div>
-            <div class="text-body-2 text-truncate" :title="c.process">{{ processName }}</div>
+            <div class="text-body-2 text-truncate">{{ processName }}</div>
           </template>
+        </div>
+
+        <div v-if="hasChart" class="mt-4">
+          <LiveChart
+            :key="latency ? 'latency' : 'traffic'"
+            v-model:view="view"
+            :fixed-view="latency ? undefined : 'traffic'"
+            :latency="latency"
+            :traffic="traffic"
+            :range="range"
+            :latency-color="latencyColor"
+            :traffic-color="trafficColor"
+            :chart-height="200"
+            :session-start="c.start ?? 0"
+            @update:range="setRange"
+          />
         </div>
 
         <v-divider class="my-4" />
 
-        <div class="d-flex align-center ga-2 mb-3">
-          <v-icon :icon="modeIcon" size="18" />
-          <span class="text-subtitle-2">{{ modeLabel }}</span>
+        <!-- Shown once loaded: a default would read "One adapter" first. -->
+        <div v-if="ended" class="text-body-2 text-medium-emphasis">
+          {{ t("$vuetify.connections.details.endedHint") }}
         </div>
-
-        <div v-if="!legs.length" class="text-body-2 text-medium-emphasis">
-          {{ t("$vuetify.connections.details.noLegs") }}
-        </div>
-        <template v-else>
-          <div
-            v-for="(group, gi) in mode === 'failover'
-              ? [
-                  { key: 'active', label: t('$vuetify.connections.details.active'), items: active },
-                  { key: 'standby', label: t('$vuetify.connections.details.standby'), items: standby },
-                ]
-              : [{ key: 'legs', label: '', items: active }]"
-            :key="group.key"
-            :class="{ 'mt-3': gi > 0 }"
-          >
-            <div v-if="group.label && group.items.length" class="text-caption text-medium-emphasis mb-1">
-              {{ group.label }}
-            </div>
-            <div
-              v-for="(leg, i) in group.items"
-              :key="`${leg.route.iface}|${leg.route.network}|${i}`"
-              class="connection-details__leg"
-              :class="{ 'connection-details__leg--standby': leg.backup }"
-              :style="{ '--leg-color': colorOf(leg.route.iface) }"
-            >
-              <div class="d-flex align-center ga-2">
-                <span class="text-body-2 font-weight-medium">{{ leg.route.iface || "—" }}</span>
-                <v-chip :color="leg.route.network == 'tcp' ? 'green' : 'blue'" size="x-small" variant="tonal" rounded>
-                  <span class="text-uppercase">{{ leg.route.network }}</span>
-                </v-chip>
-                <v-spacer />
-                <span class="text-body-2">{{ formatMs(leg.route.latency > 0 ? leg.route.latency : null) }}</span>
-                <span
-                  v-if="leg.route.packet_loss > 0"
-                  class="text-caption"
-                  :class="leg.route.packet_loss >= 5 ? 'text-error' : 'text-warning'"
-                >
-                  {{ localDigits(leg.route.packet_loss.toFixed(1)) }}%
-                </span>
-              </div>
-              <div class="text-caption text-medium-emphasis text-truncate" :title="legPath(leg)">
-                {{ legPath(leg) }}
-              </div>
-            </div>
+        <template v-else-if="details">
+          <div class="d-flex align-center ga-2 mb-3">
+            <v-icon :icon="modeIcon" size="18" />
+            <span class="text-subtitle-2">{{ modeLabel }}</span>
           </div>
+
+          <div v-if="!legs.length" class="text-body-2 text-medium-emphasis">
+            {{ t("$vuetify.connections.details.noLegs") }}
+          </div>
+          <template v-else>
+            <div
+              v-for="(group, gi) in mode === 'failover'
+                ? [
+                    { key: 'active', label: t('$vuetify.connections.details.active'), items: active },
+                    { key: 'standby', label: t('$vuetify.connections.details.standby'), items: standby },
+                  ]
+                : [{ key: 'legs', label: '', items: active }]"
+              :key="group.key"
+              :class="{ 'mt-3': gi > 0 }"
+            >
+              <div v-if="group.label && group.items.length" class="text-caption text-medium-emphasis mb-1">
+                {{ group.label }}
+              </div>
+              <div
+                v-for="(leg, i) in group.items"
+                :key="`${leg.route.iface}|${leg.route.network}|${i}`"
+                class="connection-details__leg"
+                :class="{ 'connection-details__leg--standby': leg.backup }"
+                :style="{ '--leg-color': colorOf(leg.route.iface) }"
+              >
+                <div class="d-flex align-center ga-2">
+                  <span class="text-body-2 font-weight-medium">{{ leg.route.iface || "—" }}</span>
+                  <v-chip :color="leg.route.network == 'tcp' ? 'green' : 'blue'" size="x-small" variant="tonal" rounded>
+                    <span class="text-uppercase">{{ leg.route.network }}</span>
+                  </v-chip>
+                  <v-spacer />
+                  <span class="text-body-2">{{ formatMs(leg.route.latency > 0 ? leg.route.latency : null) }}</span>
+                  <span
+                    v-if="leg.route.packet_loss > 0"
+                    class="text-caption"
+                    :class="leg.route.packet_loss >= 5 ? 'text-error' : 'text-warning'"
+                  >
+                    {{ localDigits(leg.route.packet_loss.toFixed(1)) }}%
+                  </span>
+                </div>
+                <div class="text-caption text-medium-emphasis text-truncate" :title="legPath(leg)">
+                  {{ legPath(leg) }}
+                </div>
+              </div>
+            </div>
+          </template>
         </template>
       </v-card-text>
     </v-card>

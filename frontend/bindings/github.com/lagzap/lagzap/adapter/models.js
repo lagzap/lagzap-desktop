@@ -212,6 +212,72 @@ export class CityServer {
 }
 
 /**
+ * ConnectionChart is one connection's chart: Latency is nil when it has no
+ * route lines (not relayed, or not probed yet); Traffic has one line named
+ * "connection". Interfaces orders adapters like the profile chart's.
+ */
+export class ConnectionChart {
+    /**
+     * Creates a new ConnectionChart instance.
+     * @param {Partial<ConnectionChart>} [$$source = {}] - The source object to create the ConnectionChart.
+     */
+    constructor($$source = {}) {
+        if (!("range" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["range"] = "";
+        }
+        if (!("interfaces" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["interfaces"] = [];
+        }
+        if (!("latency" in $$source)) {
+            /**
+             * @member
+             * @type {ProfileLatencyChart | null}
+             */
+            this["latency"] = null;
+        }
+        if (!("traffic" in $$source)) {
+            /**
+             * @member
+             * @type {OverviewTrafficChart}
+             */
+            this["traffic"] = (new OverviewTrafficChart());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ConnectionChart instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ConnectionChart}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType0;
+        const $$createField2_0 = $$createType2;
+        const $$createField3_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("interfaces" in $$parsedSource) {
+            $$parsedSource["interfaces"] = $$createField1_0($$parsedSource["interfaces"]);
+        }
+        if ("latency" in $$parsedSource) {
+            $$parsedSource["latency"] = $$createField2_0($$parsedSource["latency"]);
+        }
+        if ("traffic" in $$parsedSource) {
+            $$parsedSource["traffic"] = $$createField3_0($$parsedSource["traffic"]);
+        }
+        return new ConnectionChart(/** @type {Partial<ConnectionChart>} */($$parsedSource));
+    }
+}
+
+/**
  * ConnectionDetails is the Connections page's detail view of one connection.
  */
 export class ConnectionDetails {
@@ -244,7 +310,7 @@ export class ConnectionDetails {
      * @returns {ConnectionDetails}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType2;
+        const $$createField1_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("legs" in $$parsedSource) {
             $$parsedSource["legs"] = $$createField1_0($$parsedSource["legs"]);
@@ -287,7 +353,7 @@ export class ConnectionLeg {
      * @returns {ConnectionLeg}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType3;
+        const $$createField0_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("route" in $$parsedSource) {
             $$parsedSource["route"] = $$createField0_0($$parsedSource["route"]);
@@ -355,6 +421,44 @@ export class DefaultInterfaceFallback {
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new DefaultInterfaceFallback(/** @type {Partial<DefaultInterfaceFallback>} */($$parsedSource));
+    }
+}
+
+/**
+ * DiagramBackups: Count ready routes, Ping the best of them (ms).
+ */
+export class DiagramBackups {
+    /**
+     * Creates a new DiagramBackups instance.
+     * @param {Partial<DiagramBackups>} [$$source = {}] - The source object to create the DiagramBackups.
+     */
+    constructor($$source = {}) {
+        if (!("count" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["count"] = 0;
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DiagramBackups instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DiagramBackups}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DiagramBackups(/** @type {Partial<DiagramBackups>} */($$parsedSource));
     }
 }
 
@@ -508,7 +612,7 @@ export class DiagramInterface {
      * @returns {DiagramInterface}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType4;
+        const $$createField2_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("view" in $$parsedSource) {
             $$parsedSource["view"] = $$createField2_0($$parsedSource["view"]);
@@ -677,6 +781,15 @@ export class DiagramRoute {
              */
             this["score"] = 0;
         }
+        if (!("planned" in $$source)) {
+            /**
+             * Planned: a path the settings call for that the live session is not
+             * using (yet); it only fills the diagram up to the route count.
+             * @member
+             * @type {boolean}
+             */
+            this["planned"] = false;
+        }
 
         Object.assign(this, $$source);
     }
@@ -687,7 +800,7 @@ export class DiagramRoute {
      * @returns {DiagramRoute}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType6;
+        const $$createField4_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("hops" in $$parsedSource) {
             $$parsedSource["hops"] = $$createField4_0($$parsedSource["hops"]);
@@ -726,8 +839,8 @@ export class DiagramView {
      * @returns {DiagramView}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType7;
-        const $$createField1_0 = $$createType8;
+        const $$createField0_0 = $$createType10;
+        const $$createField1_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("routes" in $$parsedSource) {
             $$parsedSource["routes"] = $$createField0_0($$parsedSource["routes"]);
@@ -970,11 +1083,11 @@ export class InterfaceMonitorDetail {
      * @returns {InterfaceMonitorDetail}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType9;
-        const $$createField2_0 = $$createType10;
-        const $$createField3_0 = $$createType11;
-        const $$createField4_0 = $$createType12;
-        const $$createField7_0 = $$createType14;
+        const $$createField1_0 = $$createType12;
+        const $$createField2_0 = $$createType13;
+        const $$createField3_0 = $$createType14;
+        const $$createField4_0 = $$createType3;
+        const $$createField7_0 = $$createType16;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interface" in $$parsedSource) {
             $$parsedSource["interface"] = $$createField1_0($$parsedSource["interface"]);
@@ -1073,8 +1186,8 @@ export class InterfacePing {
      * @returns {InterfacePing}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType15;
-        const $$createField4_0 = $$createType16;
+        const $$createField1_0 = $$createType17;
+        const $$createField4_0 = $$createType18;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField1_0($$parsedSource["stats"]);
@@ -1224,8 +1337,8 @@ export class InterfaceTraffic {
      * @returns {InterfaceTraffic}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType17;
-        const $$createField3_0 = $$createType17;
+        const $$createField2_0 = $$createType19;
+        const $$createField3_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("down" in $$parsedSource) {
             $$parsedSource["down"] = $$createField2_0($$parsedSource["down"]);
@@ -1320,10 +1433,10 @@ export class LocationMonitor {
      * @returns {LocationMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType19;
+        const $$createField2_0 = $$createType21;
         const $$createField5_0 = $$createType0;
-        const $$createField6_0 = $$createType11;
-        const $$createField7_0 = $$createType12;
+        const $$createField6_0 = $$createType14;
+        const $$createField7_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("details" in $$parsedSource) {
             $$parsedSource["details"] = $$createField2_0($$parsedSource["details"]);
@@ -1465,9 +1578,9 @@ export class NetworkInterfaceMonitor {
      * @returns {NetworkInterfaceMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField7_0 = $$createType20;
-        const $$createField8_0 = $$createType21;
-        const $$createField9_0 = $$createType23;
+        const $$createField7_0 = $$createType22;
+        const $$createField8_0 = $$createType23;
+        const $$createField9_0 = $$createType25;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("ping" in $$parsedSource) {
             $$parsedSource["ping"] = $$createField7_0($$parsedSource["ping"]);
@@ -1523,8 +1636,8 @@ export class NetworkMonitor {
      * @returns {NetworkMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType24;
-        const $$createField2_0 = $$createType25;
+        const $$createField1_0 = $$createType26;
+        const $$createField2_0 = $$createType27;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("summary" in $$parsedSource) {
             $$parsedSource["summary"] = $$createField1_0($$parsedSource["summary"]);
@@ -1687,9 +1800,9 @@ export class OverviewChart {
      * @returns {OverviewChart}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType26;
-        const $$createField2_0 = $$createType11;
-        const $$createField3_0 = $$createType12;
+        const $$createField1_0 = $$createType28;
+        const $$createField2_0 = $$createType14;
+        const $$createField3_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("quality" in $$parsedSource) {
             $$parsedSource["quality"] = $$createField1_0($$parsedSource["quality"]);
@@ -1764,8 +1877,8 @@ export class OverviewLatencyChart {
      * @returns {OverviewLatencyChart}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType15;
-        const $$createField4_0 = $$createType28;
+        const $$createField3_0 = $$createType17;
+        const $$createField4_0 = $$createType30;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -1814,8 +1927,8 @@ export class OverviewLatencySeries {
      * @returns {OverviewLatencySeries}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType16;
-        const $$createField2_0 = $$createType15;
+        const $$createField1_0 = $$createType18;
+        const $$createField2_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("points" in $$parsedSource) {
             $$parsedSource["points"] = $$createField1_0($$parsedSource["points"]);
@@ -2004,8 +2117,8 @@ export class OverviewTrafficChart {
      * @returns {OverviewTrafficChart}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType29;
-        const $$createField4_0 = $$createType31;
+        const $$createField3_0 = $$createType31;
+        const $$createField4_0 = $$createType33;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -2054,8 +2167,8 @@ export class OverviewTrafficSeries {
      * @returns {OverviewTrafficSeries}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType17;
-        const $$createField2_0 = $$createType17;
+        const $$createField1_0 = $$createType19;
+        const $$createField2_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("download" in $$parsedSource) {
             $$parsedSource["download"] = $$createField1_0($$parsedSource["download"]);
@@ -2368,9 +2481,9 @@ export class ProfileChart {
      */
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType0;
-        const $$createField4_0 = $$createType32;
-        const $$createField5_0 = $$createType12;
-        const $$createField6_0 = $$createType33;
+        const $$createField4_0 = $$createType1;
+        const $$createField5_0 = $$createType3;
+        const $$createField6_0 = $$createType34;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField3_0($$parsedSource["interfaces"]);
@@ -2455,6 +2568,15 @@ export class ProfileDiagram {
              */
             this["preview"] = null;
         }
+        if (!("backups" in $$source)) {
+            /**
+             * Backups are the measured routes the game is not on, ready to swap to
+             * the moment a live one fails (only while it has live legs).
+             * @member
+             * @type {DiagramBackups}
+             */
+            this["backups"] = (new DiagramBackups());
+        }
 
         Object.assign(this, $$source);
     }
@@ -2465,9 +2587,10 @@ export class ProfileDiagram {
      * @returns {ProfileDiagram}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType35;
-        const $$createField6_0 = $$createType4;
-        const $$createField7_0 = $$createType37;
+        const $$createField5_0 = $$createType36;
+        const $$createField6_0 = $$createType7;
+        const $$createField7_0 = $$createType38;
+        const $$createField8_0 = $$createType39;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField5_0($$parsedSource["interfaces"]);
@@ -2477,6 +2600,9 @@ export class ProfileDiagram {
         }
         if ("preview" in $$parsedSource) {
             $$parsedSource["preview"] = $$createField7_0($$parsedSource["preview"]);
+        }
+        if ("backups" in $$parsedSource) {
+            $$parsedSource["backups"] = $$createField8_0($$parsedSource["backups"]);
         }
         return new ProfileDiagram(/** @type {Partial<ProfileDiagram>} */($$parsedSource));
     }
@@ -2558,10 +2684,10 @@ export class ProfileLatencyChart {
      * @returns {ProfileLatencyChart}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType15;
-        const $$createField4_0 = $$createType39;
-        const $$createField5_0 = $$createType41;
-        const $$createField7_0 = $$createType43;
+        const $$createField3_0 = $$createType17;
+        const $$createField4_0 = $$createType41;
+        const $$createField5_0 = $$createType43;
+        const $$createField7_0 = $$createType45;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -2657,9 +2783,9 @@ export class ProfileLatencySeries {
      * @returns {ProfileLatencySeries}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType16;
-        const $$createField6_0 = $$createType15;
-        const $$createField7_0 = $$createType45;
+        const $$createField5_0 = $$createType18;
+        const $$createField6_0 = $$createType17;
+        const $$createField7_0 = $$createType47;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("points" in $$parsedSource) {
             $$parsedSource["points"] = $$createField5_0($$parsedSource["points"]);
@@ -2877,9 +3003,9 @@ export class ServerCityDetails {
      * @returns {ServerCityDetails}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType47;
-        const $$createField6_0 = $$createType49;
-        const $$createField7_0 = $$createType51;
+        const $$createField5_0 = $$createType49;
+        const $$createField6_0 = $$createType51;
+        const $$createField7_0 = $$createType53;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("connections" in $$parsedSource) {
             $$parsedSource["connections"] = $$createField5_0($$parsedSource["connections"]);
@@ -2939,7 +3065,7 @@ export class ServerDirectory {
      */
     static createFrom($$source = {}) {
         const $$createField1_0 = $$createType0;
-        const $$createField2_0 = $$createType53;
+        const $$createField2_0 = $$createType55;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField1_0($$parsedSource["interfaces"]);
@@ -3011,7 +3137,7 @@ export class ServerRegion {
      * @returns {ServerRegion}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType55;
+        const $$createField4_0 = $$createType57;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cities" in $$parsedSource) {
             $$parsedSource["cities"] = $$createField4_0($$parsedSource["cities"]);
@@ -3092,58 +3218,60 @@ export class TransportWarning {
 
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = ConnectionLeg.createFrom;
-const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = DiagramRoute.createFrom;
-const $$createType4 = DiagramView.createFrom;
-const $$createType5 = DiagramHop.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = $Create.Array($$createType3);
-const $$createType8 = DiagramEstimate.createFrom;
-const $$createType9 = NetworkInterfaceMonitor.createFrom;
-const $$createType10 = InterfaceInfo.createFrom;
-const $$createType11 = OverviewLatencyChart.createFrom;
-const $$createType12 = OverviewTrafficChart.createFrom;
-const $$createType13 = InterfaceGameRoute.createFrom;
-const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = OverviewLatencyStats.createFrom;
-const $$createType16 = $Create.Array($Create.Any);
-const $$createType17 = $Create.Array($Create.Any);
-const $$createType18 = ServerCityDetails.createFrom;
-const $$createType19 = $Create.Nullable($$createType18);
-const $$createType20 = InterfacePing.createFrom;
-const $$createType21 = InterfaceTraffic.createFrom;
-const $$createType22 = InterfaceServer.createFrom;
-const $$createType23 = $Create.Array($$createType22);
-const $$createType24 = NetworkMonitorSummary.createFrom;
-const $$createType25 = $Create.Array($$createType9);
-const $$createType26 = OverviewQuality.createFrom;
-const $$createType27 = OverviewLatencySeries.createFrom;
-const $$createType28 = $Create.Array($$createType27);
-const $$createType29 = OverviewTrafficStats.createFrom;
-const $$createType30 = OverviewTrafficSeries.createFrom;
-const $$createType31 = $Create.Array($$createType30);
-const $$createType32 = ProfileLatencyChart.createFrom;
-const $$createType33 = ProfileDiagram.createFrom;
-const $$createType34 = DiagramInterface.createFrom;
-const $$createType35 = $Create.Array($$createType34);
-const $$createType36 = DiagramPreview.createFrom;
-const $$createType37 = $Create.Nullable($$createType36);
-const $$createType38 = ProfileLatencySeries.createFrom;
-const $$createType39 = $Create.Array($$createType38);
-const $$createType40 = LossWarning.createFrom;
-const $$createType41 = $Create.Nullable($$createType40);
-const $$createType42 = TransportWarning.createFrom;
+const $$createType1 = ProfileLatencyChart.createFrom;
+const $$createType2 = $Create.Nullable($$createType1);
+const $$createType3 = OverviewTrafficChart.createFrom;
+const $$createType4 = ConnectionLeg.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = DiagramRoute.createFrom;
+const $$createType7 = DiagramView.createFrom;
+const $$createType8 = DiagramHop.createFrom;
+const $$createType9 = $Create.Array($$createType8);
+const $$createType10 = $Create.Array($$createType6);
+const $$createType11 = DiagramEstimate.createFrom;
+const $$createType12 = NetworkInterfaceMonitor.createFrom;
+const $$createType13 = InterfaceInfo.createFrom;
+const $$createType14 = OverviewLatencyChart.createFrom;
+const $$createType15 = InterfaceGameRoute.createFrom;
+const $$createType16 = $Create.Array($$createType15);
+const $$createType17 = OverviewLatencyStats.createFrom;
+const $$createType18 = $Create.Array($Create.Any);
+const $$createType19 = $Create.Array($Create.Any);
+const $$createType20 = ServerCityDetails.createFrom;
+const $$createType21 = $Create.Nullable($$createType20);
+const $$createType22 = InterfacePing.createFrom;
+const $$createType23 = InterfaceTraffic.createFrom;
+const $$createType24 = InterfaceServer.createFrom;
+const $$createType25 = $Create.Array($$createType24);
+const $$createType26 = NetworkMonitorSummary.createFrom;
+const $$createType27 = $Create.Array($$createType12);
+const $$createType28 = OverviewQuality.createFrom;
+const $$createType29 = OverviewLatencySeries.createFrom;
+const $$createType30 = $Create.Array($$createType29);
+const $$createType31 = OverviewTrafficStats.createFrom;
+const $$createType32 = OverviewTrafficSeries.createFrom;
+const $$createType33 = $Create.Array($$createType32);
+const $$createType34 = ProfileDiagram.createFrom;
+const $$createType35 = DiagramInterface.createFrom;
+const $$createType36 = $Create.Array($$createType35);
+const $$createType37 = DiagramPreview.createFrom;
+const $$createType38 = $Create.Nullable($$createType37);
+const $$createType39 = DiagramBackups.createFrom;
+const $$createType40 = ProfileLatencySeries.createFrom;
+const $$createType41 = $Create.Array($$createType40);
+const $$createType42 = LossWarning.createFrom;
 const $$createType43 = $Create.Nullable($$createType42);
-const $$createType44 = SeriesPath.createFrom;
-const $$createType45 = $Create.Array($$createType44);
-const $$createType46 = CityConnection.createFrom;
+const $$createType44 = TransportWarning.createFrom;
+const $$createType45 = $Create.Nullable($$createType44);
+const $$createType46 = SeriesPath.createFrom;
 const $$createType47 = $Create.Array($$createType46);
-const $$createType48 = CityRoute.createFrom;
+const $$createType48 = CityConnection.createFrom;
 const $$createType49 = $Create.Array($$createType48);
-const $$createType50 = CityServer.createFrom;
+const $$createType50 = CityRoute.createFrom;
 const $$createType51 = $Create.Array($$createType50);
-const $$createType52 = ServerRegion.createFrom;
+const $$createType52 = CityServer.createFrom;
 const $$createType53 = $Create.Array($$createType52);
-const $$createType54 = ServerCity.createFrom;
+const $$createType54 = ServerRegion.createFrom;
 const $$createType55 = $Create.Array($$createType54);
+const $$createType56 = ServerCity.createFrom;
+const $$createType57 = $Create.Array($$createType56);

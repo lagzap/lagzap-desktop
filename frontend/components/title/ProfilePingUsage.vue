@@ -36,4 +36,8 @@ const hasData = computed(() =>
   <div v-else-if="trafficOnly" class="text-center text-medium-emphasis py-8 text-body-2">
     {{ t("$vuetify.title.profile.noTrafficYet") }}
   </div>
+  <!-- The chart is a session's own: none while only the route preview shows. -->
+  <div v-else-if="chart?.diagram?.show" class="text-center text-medium-emphasis py-6 text-body-2">
+    {{ t("$vuetify.title.profile.noSessionChart") }}
+  </div>
 </template>

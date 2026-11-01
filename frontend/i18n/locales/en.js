@@ -521,6 +521,7 @@
             probingPing: 'Pinging',
             probeEstimatedPingHint: 'Click to ping the current routes now',
             noTrafficYet: 'No traffic through LagZap for this profile yet.',
+            noSessionChart: 'No session right now. Ping and traffic show here once the game connects.',
             estimatedPingActions: 'Click to measure now · right-click for more options',
             measurePingNow: 'Measure ping now',
             estimatedPingTip: "This is LagZap's estimate of your ping to the game server. Your game measures in its own way, so the number it shows can be a little higher or lower.",
@@ -587,6 +588,9 @@
             duration: 'Connected for',
             process: 'App',
             noLegs: 'No LagZap route details for this connection right now.',
+            thisConnection: 'This connection',
+            ended: 'Ended',
+            endedHint: 'This connection has ended. The chart shows it up to when it closed.',
             active: 'Active',
             standby: 'Standby (takes over if the active one drops)',
             mode: {
@@ -598,6 +602,8 @@
     },
     ms: 'ms',
     networkLatency: {
+        plannedRoute: 'Planned',
+        plannedRouteHint: 'not carrying the game yet',
         servers: {
             title: 'LagZap servers',
             subtitle: 'Ping from your internet to each LagZap location. Tap a city for details.',
@@ -696,6 +702,7 @@
         tryFixLag: 'Try fix lag',
         routeN: 'Route {0}',
         unstableNote: 'Unstable connection: every route is losing packets. LagZap is doing its best to keep your game from losing any.',
+        backupRoutesReady: 'Backup routes ready: {0}, best ping {1} ms. If a route fails, LagZap switches to one right away.',
         tryFixLagHint: 'Searches for fresh routes right now and moves this game onto the best ones. Your game stays connected while it switches.',
         session: 'Session',
         latencyGrid: 'Network Latency',

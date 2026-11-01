@@ -103,6 +103,12 @@ const transportNote = computed(() => {
     tip: t("$vuetify.title.profile.transportLaggingTip", lagging, using),
   };
 });
+// Spare routes measured and ready, shown when nothing needs warning about.
+const backupNote = computed(() => {
+  const backups = diagram.value?.backups;
+  if (!backups?.count || unstable.value || routeProtected.value || transportNote.value) return null;
+  return t("$vuetify.networkLatency.backupRoutesReady", backups.count, backups.ping);
+});
 const fixingLag = ref(false);
 async function fixLag() {
   if (fixingLag.value) return;
@@ -360,12 +366,14 @@ const routeSettingsText = computed(() => {
             <div
               v-bind="tipProps"
               class="profile-protection d-flex align-center ga-2 mt-2"
-              :style="{ visibility: unstable || routeProtected || transportNote ? 'visible' : 'hidden' }"
-              :aria-hidden="!unstable && !routeProtected && !transportNote"
+              :style="{ visibility: unstable || routeProtected || transportNote || backupNote ? 'visible' : 'hidden' }"
+              :aria-hidden="!unstable && !routeProtected && !transportNote && !backupNote"
             >
               <v-icon v-if="routeProtected" icon="mdi-check-circle" size="16" color="success" />
+              <v-icon v-else-if="backupNote" icon="mdi-information-outline" size="16" color="info" />
               <v-icon v-else :icon="transportNote ? 'mdi-swap-horizontal' : 'mdi-shield-alert'" size="16" color="warning" />
               <span v-if="routeProtected">{{ t("$vuetify.status.routeProtectedGeneric") }}</span>
+              <span v-else-if="backupNote">{{ backupNote }}</span>
               <span v-else>{{ transportNote ? transportNote.text : t("$vuetify.networkLatency.unstableNote") }}</span>
             </div>
           </template>
