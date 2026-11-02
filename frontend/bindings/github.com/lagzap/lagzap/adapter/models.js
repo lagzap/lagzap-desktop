@@ -1433,6 +1433,15 @@ export class LegQuality {
              */
             this["ping"] = 0;
         }
+        if (!("probe" in $$source)) {
+            /**
+             * Probe is this leg's own pings since the last report (sent on it alone,
+             * echo timed on it): the leg's round trip and loss, like an echo probe.
+             * @member
+             * @type {PingBatch}
+             */
+            this["probe"] = (new PingBatch());
+        }
         if (!("bursts" in $$source)) {
             /**
              * @member
@@ -1466,7 +1475,11 @@ export class LegQuality {
      * @returns {LegQuality}
      */
     static createFrom($$source = {}) {
+        const $$createField10_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("probe" in $$parsedSource) {
+            $$parsedSource["probe"] = $$createField10_0($$parsedSource["probe"]);
+        }
         return new LegQuality(/** @type {Partial<LegQuality>} */($$parsedSource));
     }
 }

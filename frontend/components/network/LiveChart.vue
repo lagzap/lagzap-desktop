@@ -45,6 +45,17 @@ function selectView(v: View) {
   emit("update:view", v);
 }
 const hidden = ref(new Set<string>());
+// With an actual ping line the probe lines start hidden (the actual ping and
+// the quality area are what matter); shown holds the ones turned back on.
+const shown = ref(new Set<string>());
+const hasActual = computed(() => !!latency.value?.series?.some((s) => s.actual));
+function isHidden(id: string) {
+  if (view.value === "latency" && hasActual.value) {
+    const s = latency.value?.series.find((x) => x.id === id);
+    if (s && !s.actual) return !shown.value.has(id);
+  }
+  return hidden.value.has(id);
+}
 const chartEl = ref<HTMLDivElement>();
 let instance: echarts.ECharts | null = null;
 let resizeObserver: ResizeObserver | null = null;
@@ -122,7 +133,7 @@ const legendGroups = computed<LegendGroup[]>(() => {
       id: s.id,
       label: s.actual ? t("$vuetify.networkLatency.actualPing") : routeName(s),
       color: seriesColor(s),
-      visible: !hidden.value.has(s.id),
+      visible: !isHidden(s.id),
       network: latestPath(s)?.network ?? s.network,
     });
   }
@@ -150,9 +161,11 @@ const hasData = computed(() =>
 );
 
 function toggle(name: string) {
-  const next = new Set(hidden.value);
+  const probe = view.value === "latency" && hasActual.value && !latency.value?.series.find((x) => x.id === name)?.actual;
+  const set = probe ? shown : hidden;
+  const next = new Set(set.value);
   next.has(name) ? next.delete(name) : next.add(name);
-  hidden.value = next;
+  set.value = next;
 }
 
 function chrome() {
@@ -293,7 +306,7 @@ const pointCount = () =>
 // when every route that was sampled timed out at the same moment.
 function latencySeries() {
   const c = latency.value!;
-  const visible = c.series.filter((s) => !hidden.value.has(s.id));
+  const visible = c.series.filter((s) => !isHidden(s.id));
   const allLost: (number | null)[] = new Array(pointCount()).fill(null);
   for (let i = 0; i < allLost.length; i++) {
     const sampled = visible.filter((s) => (s.points[i] ?? -1) >= 0);
@@ -590,7 +603,7 @@ function dispose() {
   instance = null;
 }
 
-watch([latency, traffic, view, hidden, () => theme.current.value.dark], () => nextTick(render));
+watch([latency, traffic, view, hidden, shown, () => theme.current.value.dark], () => nextTick(render));
 watch(hasData, (has) => !has && dispose());
 onMounted(() => {
   document.addEventListener("visibilitychange", onVisibility);

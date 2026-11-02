@@ -575,7 +575,7 @@
                 tipQueue: 'Extra delay building up on this leg compared with its best moment in the last 30 seconds. When it rises, the network is getting congested and loss often follows.',
                 tipBursts: 'Times this leg went quiet while others kept receiving, then delivered several packets at once: the network held them back and released them together.',
                 tipStall: 'The longest time this leg went quiet while other legs kept receiving, in ms.',
-                tipPing: 'Round trip over this leg, measured from the acknowledgements of your game traffic (no extra probes): your fastest uplink plus this leg back.',
+                tipPing: 'Round trip over this leg alone, measured inside the session: a tiny ping sent on this leg, timed when its echo comes back on it.',
             },
         },
         active: 'Active',
