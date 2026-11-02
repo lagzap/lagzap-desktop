@@ -204,7 +204,7 @@ function seriesColor(s: LiveLatencySeries) {
   return props.latencyColor(s.id);
 }
 
-// Network quality: red at 0, orange at 50, green at 100.
+// Route quality: red at 0, orange at 50, green at 100.
 const QUALITY_STOPS: [number, [number, number, number]][] = [
   [0, [229, 72, 77]],
   [50, [245, 158, 11]],
@@ -435,7 +435,7 @@ function tooltip(params: any[]) {
   const score = view.value === "latency" ? (latency.value?.quality?.[idx] ?? -1) : -1;
   const quality =
     score >= 0
-      ? `<div style="display:flex;gap:12px;justify-content:space-between;margin-bottom:2px"><span>${t("$vuetify.networkLatency.networkQuality")}</span><span style="color:${qualityColor(score, 1)};font-weight:600">${localDigits(score)}/${localDigits(100)}</span></div>`
+      ? `<div style="display:flex;gap:12px;justify-content:space-between;margin-bottom:2px"><span>${t("$vuetify.networkLatency.routeQuality")}</span><span style="color:${qualityColor(score, 1)};font-weight:600">${localDigits(score)}/${localDigits(100)}</span></div>`
       : "";
   const shown = params.filter((p) => !String(p.seriesName).startsWith("__"));
   const row = (marker: string, name: string, value: string) =>
@@ -509,7 +509,7 @@ function option() {
         },
         splitLine: { lineStyle: { type: "dashed", opacity: 0.22 } },
       },
-      // Network quality's own scale, never drawn.
+      // Route quality's own scale, never drawn.
       { type: "value", min: 0, max: 100, show: false },
     ],
     tooltip: {

@@ -24,7 +24,7 @@ export type LiveLatencyChart = {
   series: LiveLatencySeries[];
   /** Trailing points whose pings may still be answered (Go). */
   pending?: number;
-  /** The session's network quality (0-100) per point, all legs together;
+  /** The session's route quality (0-100) per point, all legs together;
    * -1 where it has none. Drawn as a colored area behind the pings. */
   quality?: number[] | null;
 };

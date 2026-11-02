@@ -14,7 +14,7 @@ type MaterialInterfacePalette = Record<MaterialShade, string>;
 /**
  * Interface hues in display order: gold → blue → pink → purple → cyan
  * (then extras if more adapters are present). No green or amber: green is
- * the network quality area's "good", and amber would read as the gold.
+ * the route quality area's "good", and amber would read as the gold.
  */
 const MATERIAL_INTERFACE_PALETTES: readonly MaterialInterfacePalette[] = [
   // 1 — Gold, the theme's primary (dark #E6D785 at 400, light #B8860B at 700)

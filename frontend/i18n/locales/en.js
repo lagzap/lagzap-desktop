@@ -543,7 +543,7 @@
             transportLaggingSingle: '{0} is lagging on your internet, using more {1} routes',
             transportLaggingTip: "On this network {0} keeps spiking or dropping while {1} stays steady, so Smart mode prefers {1} routes. LagZap keeps checking {0} in the background and switches back once it's steady again.",
             link: {
-                title: 'Connection quality',
+                title: 'Route quality',
                 steady: 'Your connection is steady: every path is delivering.',
                 someLosing: 'Some paths are losing packets. LagZap is carrying your game on the others.',
                 allLosing: 'Every path is losing packets right now. LagZap keeps resending so the game gets them.',
@@ -744,6 +744,7 @@
         networkMap: 'Latency Map',
         score: 'Network quality score',
         networkQuality: 'Network quality',
+        routeQuality: 'Route quality',
         scoreOutOf: '{0}/100',
         latency: 'Latency',
         bestInterface: 'Best interface',
