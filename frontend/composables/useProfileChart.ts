@@ -6,7 +6,7 @@ import { useTheme } from "vuetify";
 import { colorForChartSeries, interfaceBaseColor } from "~/composables/useLatencyMetrics";
 import { BEST_INTERFACE, useProfileViewInterface } from "~/composables/useProfileViewInterface";
 import type { OverviewRange } from "~/composables/useOverviewChart";
-import type { LiveLatencyChart } from "~/types/liveChart";
+import type { LiveLatencyChart, LiveLatencySeries } from "~/types/liveChart";
 
 // Go owns every number of a profile chart; this module tracks which profiles
 // are on screen and tells Go which range and NIC to stream for each.
@@ -111,18 +111,19 @@ export function useProfileChart(profileId: string) {
   const latency = computed<LiveLatencyChart | null>(() => {
     const c = e.chart.value?.latency;
     if (!c) return null;
-    return {
-      ...c,
-      series: (c.series ?? []).map((s) => ({
-        id: s.key,
-        label: s.label,
-        points: s.points,
-        iface: s.iface,
-        network: s.network,
-        pathKey: s.path_key,
-        paths: s.paths ?? undefined,
-      })),
-    };
+    const series: LiveLatencySeries[] = (c.series ?? []).map((s) => ({
+      id: s.key,
+      label: s.label,
+      points: s.points,
+      iface: s.iface,
+      network: s.network,
+      pathKey: s.path_key,
+      paths: s.paths ?? undefined,
+    }));
+    if (c.actual) {
+      series.unshift({ id: "actual", label: c.actual.label, points: c.actual.points, actual: true });
+    }
+    return { ...c, series };
   });
 
   return {

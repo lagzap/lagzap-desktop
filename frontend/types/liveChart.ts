@@ -11,6 +11,9 @@ export type LiveLatencySeries = {
   /** A connection's route line: the path it was on over time (oldest
    * first; path_key "" = pulled), so past pings show their own path. */
   paths?: { at: number; path_key: string; network: string }[];
+  /** The round trip the game's own traffic got, drawn solid green over the
+   * (faded) probe lines. */
+  actual?: boolean;
 };
 
 export type LiveLatencyChart = {
@@ -21,4 +24,7 @@ export type LiveLatencyChart = {
   series: LiveLatencySeries[];
   /** Trailing points whose pings may still be answered (Go). */
   pending?: number;
+  /** The session's network quality (0-100) per point, all legs together;
+   * -1 where it has none. Drawn as a colored area behind the pings. */
+  quality?: number[] | null;
 };

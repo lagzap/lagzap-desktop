@@ -118,7 +118,13 @@ const legendGroups = computed<LegendGroup[]>(() => {
       byIface.set(iface, group);
       groups.push(group);
     }
-    group.items.push({ id: s.id, label: routeName(s), color: props.latencyColor(s.id), visible: !hidden.value.has(s.id), network: latestPath(s)?.network ?? s.network });
+    group.items.push({
+      id: s.id,
+      label: s.actual ? t("$vuetify.networkLatency.actualPing") : routeName(s),
+      color: seriesColor(s),
+      visible: !hidden.value.has(s.id),
+      network: latestPath(s)?.network ?? s.network,
+    });
   }
   // Two routes with the same entry and transport on one adapter: number them.
   for (const group of groups) {
@@ -175,6 +181,65 @@ function area(color: string, top: number) {
 }
 
 const gap = (v: number) => (v > 0 ? v : null);
+
+// The actual ping (the game's own round trip) is solid green; probe lines
+// are faded so it stands out.
+const ACTUAL_COLOR = { dark: "#4ADE80", light: "#16A34A" };
+const PROBE_LINE_ALPHA = 0.45;
+function seriesColor(s: LiveLatencySeries) {
+  if (s.actual) return theme.current.value.dark ? ACTUAL_COLOR.dark : ACTUAL_COLOR.light;
+  return props.latencyColor(s.id);
+}
+
+// Network quality: red at 0, orange at 50, green at 100.
+const QUALITY_STOPS: [number, [number, number, number]][] = [
+  [0, [229, 72, 77]],
+  [50, [245, 158, 11]],
+  [75, [234, 179, 8]],
+  [100, [34, 197, 94]],
+];
+function qualityColor(v: number, a: number) {
+  let i = 1;
+  while (i < QUALITY_STOPS.length - 1 && v > QUALITY_STOPS[i][0]) i++;
+  const [v0, c0] = QUALITY_STOPS[i - 1];
+  const [v1, c1] = QUALITY_STOPS[i];
+  const f = Math.min(Math.max((v - v0) / (v1 - v0), 0), 1);
+  const ch = (k: number) => Math.round(c0[k] + (c1[k] - c0[k]) * f);
+  return `rgba(${ch(0)},${ch(1)},${ch(2)},${a})`;
+}
+const hasQuality = () => (latency.value?.quality ?? []).some((v) => v >= 0);
+
+// Left to right, each moment in its own score's color (a gradient on the
+// value axis would paint every area red at its foot). Pixel coordinates, so
+// leading gaps do not shift the colors.
+function qualityGradient(points: number[], a: number) {
+  const n = points.length;
+  const width = instance?.getWidth() ?? chartEl.value?.clientWidth ?? 0;
+  const stops = points
+    .map((v, i) => (v >= 0 ? { offset: n > 1 ? i / (n - 1) : 0, color: qualityColor(v, a) } : null))
+    .filter((s): s is { offset: number; color: string } => s !== null);
+  return new echarts.graphic.LinearGradient(GRID_LEFT_LATENCY, 0, width - GRID_RIGHT, 0, stops, true);
+}
+
+// Drawn first (series 0, under the pings) on its own hidden 0-100 axis.
+function qualitySeries() {
+  const points = latency.value?.quality ?? [];
+  return {
+    id: "__quality__",
+    name: "__quality__",
+    type: "line",
+    yAxisIndex: 1,
+    data: points.map((v) => (v >= 0 ? v : null)),
+    showSymbol: false,
+    connectNulls: false,
+    lineStyle: { width: 0 },
+    areaStyle: { color: qualityGradient(points, 0.14) },
+    tooltip: { show: false },
+    silent: true,
+    emphasis: { disabled: true },
+    z: 1,
+  };
+}
 
 const GRID_LEFT_LATENCY = 28;
 const GRID_LEFT_TRAFFIC = 56;
@@ -237,7 +302,7 @@ function latencySeries() {
   const lines: Record<string, unknown>[] = [];
   const dots: (Record<string, unknown> | null)[] = [];
   for (const s of visible) {
-    const color = props.latencyColor(s.id);
+    const color = seriesColor(s);
     let last = 0;
     const timeouts = s.points.map((v, i) => {
       if (v > 0) last = v;
@@ -252,11 +317,11 @@ function latencySeries() {
       data: values,
       showSymbol: false,
       connectNulls: false,
-      lineStyle: { width: 1.25, color },
+      lineStyle: s.actual ? { width: 1.75, color } : { width: 1.25, color: alpha(color, PROBE_LINE_ALPHA) },
       itemStyle: { color },
-      areaStyle: { color: area(color, 0.18) },
+      ...(s.actual ? {} : { areaStyle: { color: area(color, 0.08) } }),
       emphasis: { disabled: true },
-      z: 3,
+      z: s.actual ? 4 : 3,
     });
     if (!anyPoint(timeouts)) continue;
     dots.push({
@@ -264,14 +329,19 @@ function latencySeries() {
       name: `__timeout__${s.id}`,
       type: "scatter",
       data: timeouts,
-      symbolSize: 5,
-      itemStyle: { color: PING_TIMEOUT_COLOR, borderColor: color, borderWidth: 1.5 },
+      // Small and thin: a run of timeouts must not bury the lines.
+      symbolSize: 3.5,
+      itemStyle: { color: PING_TIMEOUT_COLOR, borderColor: color, borderWidth: 0.6 },
       tooltip: { show: false },
       silent: true,
       z: 4,
     });
   }
-  const out: Record<string, unknown>[] = [...lines, ...dots.filter((d): d is Record<string, unknown> => d !== null)];
+  const out: Record<string, unknown>[] = [
+    ...(hasQuality() ? [qualitySeries()] : []),
+    ...lines,
+    ...dots.filter((d): d is Record<string, unknown> => d !== null),
+  ];
   if (!anyPoint(allLost)) return out;
   return [
     ...out,
@@ -349,6 +419,11 @@ function tooltip(params: any[]) {
   const idx = params[0]?.dataIndex;
   if (!c || idx === undefined) return "";
   const at = formatTimeOfDay(new Date(c.end - (pointCount() - 1 - idx) * c.step));
+  const score = view.value === "latency" ? (latency.value?.quality?.[idx] ?? -1) : -1;
+  const quality =
+    score >= 0
+      ? `<div style="display:flex;gap:12px;justify-content:space-between;margin-bottom:2px"><span>${t("$vuetify.networkLatency.networkQuality")}</span><span style="color:${qualityColor(score, 1)};font-weight:600">${localDigits(score)}/${localDigits(100)}</span></div>`
+      : "";
   const shown = params.filter((p) => !String(p.seriesName).startsWith("__"));
   const row = (marker: string, name: string, value: string) =>
     `<div style="display:flex;gap:12px;justify-content:space-between"><span>${marker}${name}</span><span>${value}</span></div>`;
@@ -386,7 +461,7 @@ function tooltip(params: any[]) {
     const head = group.iface ? `<div style="color:${ch.muted};font-size:11px;margin-top:4px">${group.iface}</div>` : "";
     return head + rows.join("");
   });
-  return `<div style="opacity:.6;margin-bottom:2px">${at}</div>${blocks.join("")}`;
+  return `<div style="opacity:.6;margin-bottom:2px">${at}</div>${quality}${blocks.join("")}`;
 }
 
 function option() {
@@ -408,18 +483,22 @@ function option() {
       axisLine: { show: false },
       axisTick: { show: false },
     },
-    yAxis: {
-      type: "value",
-      min: 0,
-      max: yMax,
-      interval: yMax / (isLatency ? 5 : 4),
-      axisLabel: {
-        fontSize: 9,
-        color: ch.muted,
-        formatter: (v: number) => (isLatency ? localDigits(v) : speedAxisLabel(v, yMax)),
+    yAxis: [
+      {
+        type: "value",
+        min: 0,
+        max: yMax,
+        interval: yMax / (isLatency ? 5 : 4),
+        axisLabel: {
+          fontSize: 9,
+          color: ch.muted,
+          formatter: (v: number) => (isLatency ? localDigits(v) : speedAxisLabel(v, yMax)),
+        },
+        splitLine: { lineStyle: { type: "dashed", opacity: 0.22 } },
       },
-      splitLine: { lineStyle: { type: "dashed", opacity: 0.22 } },
-    },
+      // Network quality's own scale, never drawn.
+      { type: "value", min: 0, max: 100, show: false },
+    ],
     tooltip: {
       trigger: "axis",
       // In the chart's own DOM ECharts re-reads the container style on every

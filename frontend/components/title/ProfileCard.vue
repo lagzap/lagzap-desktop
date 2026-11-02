@@ -10,6 +10,7 @@ import ChangelogBadge from "~/components/title/ChangelogBadge.vue";
 import RouteDiagram from "~/components/title/RouteDiagram.vue";
 import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.vue";
 import ProfilePingUsage from "~/components/title/ProfilePingUsage.vue";
+import LinkQualityIndicator from "~/components/title/LinkQualityIndicator.vue";
 import { ProfileFlag } from "~/constants/profile";
 import { useProfileChart } from "~/composables/useProfileChart";
 import { FixProfileLag } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
@@ -361,11 +362,12 @@ const routeSettingsText = computed(() => {
         </v-tooltip>
         <RouteDiagram :profile="props.profile" />
         <!-- Always laid out, only shown with a warning: no jump in card height. -->
+        <div class="d-flex align-center ga-2 mt-2">
         <v-tooltip :disabled="!transportNote" location="bottom" max-width="320" open-delay="200">
           <template #activator="{ props: tipProps }">
             <div
               v-bind="tipProps"
-              class="profile-protection d-flex align-center ga-2 mt-2"
+              class="profile-protection d-flex align-center ga-2 flex-grow-1"
               :style="{ visibility: unstable || routeProtected || transportNote || backupNote ? 'visible' : 'hidden' }"
               :aria-hidden="!unstable && !routeProtected && !transportNote && !backupNote"
             >
@@ -379,6 +381,8 @@ const routeSettingsText = computed(() => {
           </template>
           {{ transportNote?.tip }}
         </v-tooltip>
+        <LinkQualityIndicator v-if="profileChart?.link" :link="profileChart.link" />
+        </div>
         <v-divider class="my-4" />
       </template>
       <ProfilePingUsage :profile-id="props.profile.id" class="mb-4" />

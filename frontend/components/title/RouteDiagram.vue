@@ -159,10 +159,40 @@ function fingerprintDiagramRoute(route: DiagramRoute): string {
 }
 
 /** Stable key — avoids deep-watching the entire routes store on every probe tick. */
+// The round trip the game's own traffic gets now (the actual ping line's
+// newest point): ms, 0 for a timeout, null when not measured.
+const actualPing = computed<number | null>(() => {
+  const points = profileChart.value?.latency?.actual?.points ?? [];
+  for (let i = points.length - 1; i >= Math.max(0, points.length - 6); i--) {
+    if (points[i] >= 0) return points[i];
+  }
+  return null;
+});
+
+// The diagram's score colors for a ping: green to 90ms, red past 300ms.
+function actualPingScore(ms: number): number {
+  if (ms <= 90) return 90;
+  if (ms <= 140) return 70;
+  if (ms <= 200) return 50;
+  if (ms <= 300) return 30;
+  return 10;
+}
+
+// Loss and bursts the game sees, last few seconds (null: not measured).
+const actualLoss = computed<number | null>(() => profileChart.value?.link?.loss ?? null);
+const actualBurst = computed<number | null>(() => profileChart.value?.link?.burst ?? null);
+
+function pctText(v: number) {
+  return localDigits(`${v < 10 ? v.toFixed(1) : Math.round(v)}%`);
+}
+
 const diagramChartFingerprint = computed(() => {
   const entries = activeDiagramEntries.value;
   return [
     shouldShowDiagram.value,
+    actualPing.value ?? -1,
+    actualLoss.value === null ? -1 : pctText(actualLoss.value),
+    actualBurst.value === null ? -1 : pctText(actualBurst.value),
     diagram.value?.route_cap ?? 0,
     selectedInterfaceKey.value,
     selectedAdapterName.value,
@@ -1122,6 +1152,53 @@ function updateChart() {
     tooltip: { show: false },
     lineStyle: flowLineStyle(),
   });
+
+  // Under the game: the ping it actually gets; packet loss and bursts only
+  // while there are any. The protocol resends every lost packet, so loss
+  // costs the game time, never data: the line under it says so.
+  if (actualPing.value !== null && !preview.value) {
+    const ms = actualPing.value;
+    const timedOut = ms === 0;
+    const color = getScoreColor(timedOut ? 10 : actualPingScore(ms));
+    const text = timedOut ? t("$vuetify.networkLatency.timeout") : formatMs(ms);
+    const muted = resolveDiagramLabelColors().text;
+    const lines = [`{a|${text}}`];
+    const loss = actualLoss.value ?? 0;
+    if (loss > 0) {
+      lines.push(`{l|${t("$vuetify.networkLatency.loss")} ${pctText(loss)}}`);
+      lines.push(`{r|${t("$vuetify.networkLatency.lossRecovered")}}`);
+    }
+    const burst = actualBurst.value ?? 0;
+    if (burst > 0) {
+      lines.push(`{bi|\u{F0430}}{b| ${t("$vuetify.networkLatency.burst")} ${pctText(burst)}}`);
+    }
+    const lossColor = getScoreColor(loss >= 5 ? 10 : 30);
+    const burstColor = getScoreColor(burst >= 20 ? 10 : 30);
+    const small = { fontSize: 10, lineHeight: 14, textAlign: "center" as const };
+    nodes.push({
+      id: "actual-ping",
+      name: text,
+      x: px(destConvergenceX + 70),
+      // Clear of the 40px game icon, whatever the line count.
+      y: px(centerY + 24 + lines.length * 7),
+      symbolSize: 0,
+      tooltip: { show: false },
+      silent: true,
+      z: 20,
+      label: {
+        show: true,
+        position: "inside",
+        formatter: lines.join("\n"),
+        rich: {
+          a: { color, lineHeight: 14, fontSize: 11, fontWeight: "bold", textAlign: "center" },
+          l: { ...small, color: lossColor },
+          r: { ...small, fontSize: 9, lineHeight: 12, color: muted },
+          bi: { ...small, color: burstColor, fontFamily: "Material Design Icons", fontSize: 11 },
+          b: { ...small, color: burstColor },
+        },
+      },
+    });
+  }
 
   const option = {
     animation: false,

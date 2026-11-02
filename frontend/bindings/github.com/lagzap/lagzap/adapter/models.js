@@ -1351,6 +1351,225 @@ export class InterfaceTraffic {
 }
 
 /**
+ * LegQuality is one leg's downlink: Loss is the % of packets other legs
+ * delivered that this one did not; First the % it delivered first; Lag the
+ * average ms its copies arrived behind the first; Queue the ms of delay
+ * building up on it; Bursts how often it went quiet and then rushed.
+ */
+export class LegQuality {
+    /**
+     * Creates a new LegQuality instance.
+     * @param {Partial<LegQuality>} [$$source = {}] - The source object to create the LegQuality.
+     */
+    constructor($$source = {}) {
+        if (!("iface" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["iface"] = "";
+        }
+        if (!("network" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["network"] = "";
+        }
+        if (!("path_key" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["path_key"] = "";
+        }
+        if (!("backup" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["backup"] = false;
+        }
+        if (!("received" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["received"] = 0;
+        }
+        if (!("loss" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["loss"] = 0;
+        }
+        if (!("first" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["first"] = 0;
+        }
+        if (!("lag" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["lag"] = 0;
+        }
+        if (!("queue" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["queue"] = 0;
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * round trip over this leg, ms (0: none yet)
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+        if (!("bursts" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["bursts"] = 0;
+        }
+        if (!("burst" in $$source)) {
+            /**
+             * % of its packets that arrived in a burst
+             * @member
+             * @type {number}
+             */
+            this["burst"] = 0;
+        }
+        if (!("stall" in $$source)) {
+            /**
+             * longest quiet spell while others received, ms
+             * @member
+             * @type {number}
+             */
+            this["stall"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LegQuality instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LegQuality}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LegQuality(/** @type {Partial<LegQuality>} */($$parsedSource));
+    }
+}
+
+/**
+ * LinkQuality is a live relay session's link, measured from its own traffic
+ * over the last few seconds.
+ */
+export class LinkQuality {
+    /**
+     * Creates a new LinkQuality instance.
+     * @param {Partial<LinkQuality>} [$$source = {}] - The source object to create the LinkQuality.
+     */
+    constructor($$source = {}) {
+        if (!("at" in $$source)) {
+            /**
+             * unix ms
+             * @member
+             * @type {number}
+             */
+            this["at"] = 0;
+        }
+        if (!("rtt" in $$source)) {
+            /**
+             * smoothed round trip, ms
+             * @member
+             * @type {number}
+             */
+            this["rtt"] = 0;
+        }
+        if (!("jitter" in $$source)) {
+            /**
+             * round-trip variation, ms
+             * @member
+             * @type {number}
+             */
+            this["jitter"] = 0;
+        }
+        if (!("resends" in $$source)) {
+            /**
+             * % of sent packets sent again
+             * @member
+             * @type {number}
+             */
+            this["resends"] = 0;
+        }
+        if (!("loss" in $$source)) {
+            /**
+             * Loss is the % of round trips that never came back (resent packets and
+             * unanswered pings), last few seconds: the loss the game sees.
+             * @member
+             * @type {number}
+             */
+            this["loss"] = 0;
+        }
+        if (!("burst" in $$source)) {
+            /**
+             * Burst is the % of packets that arrived in a burst on the leg carrying
+             * the game (the one first in most often), last few seconds.
+             * @member
+             * @type {number}
+             */
+            this["burst"] = 0;
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * Ping is the round trip the game got since the last report.
+             * @member
+             * @type {PingBatch}
+             */
+            this["ping"] = (new PingBatch());
+        }
+        if (!("legs" in $$source)) {
+            /**
+             * @member
+             * @type {LegQuality[]}
+             */
+            this["legs"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LinkQuality instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LinkQuality}
+     */
+    static createFrom($$source = {}) {
+        const $$createField6_0 = $$createType20;
+        const $$createField7_0 = $$createType22;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("ping" in $$parsedSource) {
+            $$parsedSource["ping"] = $$createField6_0($$parsedSource["ping"]);
+        }
+        if ("legs" in $$parsedSource) {
+            $$parsedSource["legs"] = $$createField7_0($$parsedSource["legs"]);
+        }
+        return new LinkQuality(/** @type {Partial<LinkQuality>} */($$parsedSource));
+    }
+}
+
+/**
  * LocationMonitor is one LagZap location's page: what the city is, the live
  * latency of every path into it and the traffic of every game routed
  * through it. Go builds every number; the page only renders.
@@ -1433,7 +1652,7 @@ export class LocationMonitor {
      * @returns {LocationMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType21;
+        const $$createField2_0 = $$createType24;
         const $$createField5_0 = $$createType0;
         const $$createField6_0 = $$createType14;
         const $$createField7_0 = $$createType3;
@@ -1578,9 +1797,9 @@ export class NetworkInterfaceMonitor {
      * @returns {NetworkInterfaceMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField7_0 = $$createType22;
-        const $$createField8_0 = $$createType23;
-        const $$createField9_0 = $$createType25;
+        const $$createField7_0 = $$createType25;
+        const $$createField8_0 = $$createType26;
+        const $$createField9_0 = $$createType28;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("ping" in $$parsedSource) {
             $$parsedSource["ping"] = $$createField7_0($$parsedSource["ping"]);
@@ -1636,8 +1855,8 @@ export class NetworkMonitor {
      * @returns {NetworkMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType26;
-        const $$createField2_0 = $$createType27;
+        const $$createField1_0 = $$createType29;
+        const $$createField2_0 = $$createType30;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("summary" in $$parsedSource) {
             $$parsedSource["summary"] = $$createField1_0($$parsedSource["summary"]);
@@ -1800,7 +2019,7 @@ export class OverviewChart {
      * @returns {OverviewChart}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType28;
+        const $$createField1_0 = $$createType31;
         const $$createField2_0 = $$createType14;
         const $$createField3_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -1878,7 +2097,7 @@ export class OverviewLatencyChart {
      */
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType17;
-        const $$createField4_0 = $$createType30;
+        const $$createField4_0 = $$createType33;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -2117,8 +2336,8 @@ export class OverviewTrafficChart {
      * @returns {OverviewTrafficChart}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType31;
-        const $$createField4_0 = $$createType33;
+        const $$createField3_0 = $$createType34;
+        const $$createField4_0 = $$createType36;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -2403,6 +2622,66 @@ export class PathPingRow {
 }
 
 /**
+ * PingBatch: OK acknowledgements came back first (Sum/Min/Max ms over
+ * them) and Lost packets had to be sent again.
+ */
+export class PingBatch {
+    /**
+     * Creates a new PingBatch instance.
+     * @param {Partial<PingBatch>} [$$source = {}] - The source object to create the PingBatch.
+     */
+    constructor($$source = {}) {
+        if (!("sum" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["sum"] = 0;
+        }
+        if (!("min" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["min"] = 0;
+        }
+        if (!("max" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["max"] = 0;
+        }
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["ok"] = 0;
+        }
+        if (!("lost" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["lost"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PingBatch instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {PingBatch}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PingBatch(/** @type {Partial<PingBatch>} */($$parsedSource));
+    }
+}
+
+/**
  * ProfileChart is the ready-to-render latency/traffic payload for one profile.
  * Series are the profile's best routes (sticky best-N), ordered best first.
  * Point encoding matches OverviewChart.
@@ -2470,6 +2749,14 @@ export class ProfileChart {
              */
             this["session_start"] = 0;
         }
+        if (!("link" in $$source)) {
+            /**
+             * Link is the shown connection's link quality (nil: none reported).
+             * @member
+             * @type {LinkQuality | null}
+             */
+            this["link"] = null;
+        }
 
         Object.assign(this, $$source);
     }
@@ -2483,7 +2770,8 @@ export class ProfileChart {
         const $$createField3_0 = $$createType0;
         const $$createField4_0 = $$createType1;
         const $$createField5_0 = $$createType3;
-        const $$createField6_0 = $$createType34;
+        const $$createField6_0 = $$createType37;
+        const $$createField8_0 = $$createType39;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField3_0($$parsedSource["interfaces"]);
@@ -2496,6 +2784,9 @@ export class ProfileChart {
         }
         if ("diagram" in $$parsedSource) {
             $$parsedSource["diagram"] = $$createField6_0($$parsedSource["diagram"]);
+        }
+        if ("link" in $$parsedSource) {
+            $$parsedSource["link"] = $$createField8_0($$parsedSource["link"]);
         }
         return new ProfileChart(/** @type {Partial<ProfileChart>} */($$parsedSource));
     }
@@ -2587,10 +2878,10 @@ export class ProfileDiagram {
      * @returns {ProfileDiagram}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType36;
+        const $$createField5_0 = $$createType41;
         const $$createField6_0 = $$createType7;
-        const $$createField7_0 = $$createType38;
-        const $$createField8_0 = $$createType39;
+        const $$createField7_0 = $$createType43;
+        const $$createField8_0 = $$createType44;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField5_0($$parsedSource["interfaces"]);
@@ -2674,6 +2965,24 @@ export class ProfileLatencyChart {
              */
             this["transport"] = null;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * Quality is the shown session's network quality (0-100) per point, all
+             * its legs together; -1 where it has none.
+             * @member
+             * @type {number[] | undefined}
+             */
+            this["quality"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Actual is the round trip the shown session's game traffic got (its
+             * acknowledgements, first copy in), resent packets counted as lost.
+             * @member
+             * @type {ProfileLatencySeries | null | undefined}
+             */
+            this["actual"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -2685,9 +2994,11 @@ export class ProfileLatencyChart {
      */
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType17;
-        const $$createField4_0 = $$createType41;
-        const $$createField5_0 = $$createType43;
-        const $$createField7_0 = $$createType45;
+        const $$createField4_0 = $$createType46;
+        const $$createField5_0 = $$createType48;
+        const $$createField7_0 = $$createType50;
+        const $$createField8_0 = $$createType18;
+        const $$createField9_0 = $$createType51;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -2700,6 +3011,12 @@ export class ProfileLatencyChart {
         }
         if ("transport" in $$parsedSource) {
             $$parsedSource["transport"] = $$createField7_0($$parsedSource["transport"]);
+        }
+        if ("quality" in $$parsedSource) {
+            $$parsedSource["quality"] = $$createField8_0($$parsedSource["quality"]);
+        }
+        if ("actual" in $$parsedSource) {
+            $$parsedSource["actual"] = $$createField9_0($$parsedSource["actual"]);
         }
         return new ProfileLatencyChart(/** @type {Partial<ProfileLatencyChart>} */($$parsedSource));
     }
@@ -2785,7 +3102,7 @@ export class ProfileLatencySeries {
     static createFrom($$source = {}) {
         const $$createField5_0 = $$createType18;
         const $$createField6_0 = $$createType17;
-        const $$createField7_0 = $$createType47;
+        const $$createField7_0 = $$createType53;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("points" in $$parsedSource) {
             $$parsedSource["points"] = $$createField5_0($$parsedSource["points"]);
@@ -3003,9 +3320,9 @@ export class ServerCityDetails {
      * @returns {ServerCityDetails}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType49;
-        const $$createField6_0 = $$createType51;
-        const $$createField7_0 = $$createType53;
+        const $$createField5_0 = $$createType55;
+        const $$createField6_0 = $$createType57;
+        const $$createField7_0 = $$createType59;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("connections" in $$parsedSource) {
             $$parsedSource["connections"] = $$createField5_0($$parsedSource["connections"]);
@@ -3065,7 +3382,7 @@ export class ServerDirectory {
      */
     static createFrom($$source = {}) {
         const $$createField1_0 = $$createType0;
-        const $$createField2_0 = $$createType55;
+        const $$createField2_0 = $$createType61;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField1_0($$parsedSource["interfaces"]);
@@ -3137,7 +3454,7 @@ export class ServerRegion {
      * @returns {ServerRegion}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType57;
+        const $$createField4_0 = $$createType63;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cities" in $$parsedSource) {
             $$parsedSource["cities"] = $$createField4_0($$parsedSource["cities"]);
@@ -3237,41 +3554,47 @@ const $$createType16 = $Create.Array($$createType15);
 const $$createType17 = OverviewLatencyStats.createFrom;
 const $$createType18 = $Create.Array($Create.Any);
 const $$createType19 = $Create.Array($Create.Any);
-const $$createType20 = ServerCityDetails.createFrom;
-const $$createType21 = $Create.Nullable($$createType20);
-const $$createType22 = InterfacePing.createFrom;
-const $$createType23 = InterfaceTraffic.createFrom;
-const $$createType24 = InterfaceServer.createFrom;
-const $$createType25 = $Create.Array($$createType24);
-const $$createType26 = NetworkMonitorSummary.createFrom;
-const $$createType27 = $Create.Array($$createType12);
-const $$createType28 = OverviewQuality.createFrom;
-const $$createType29 = OverviewLatencySeries.createFrom;
-const $$createType30 = $Create.Array($$createType29);
-const $$createType31 = OverviewTrafficStats.createFrom;
-const $$createType32 = OverviewTrafficSeries.createFrom;
+const $$createType20 = PingBatch.createFrom;
+const $$createType21 = LegQuality.createFrom;
+const $$createType22 = $Create.Array($$createType21);
+const $$createType23 = ServerCityDetails.createFrom;
+const $$createType24 = $Create.Nullable($$createType23);
+const $$createType25 = InterfacePing.createFrom;
+const $$createType26 = InterfaceTraffic.createFrom;
+const $$createType27 = InterfaceServer.createFrom;
+const $$createType28 = $Create.Array($$createType27);
+const $$createType29 = NetworkMonitorSummary.createFrom;
+const $$createType30 = $Create.Array($$createType12);
+const $$createType31 = OverviewQuality.createFrom;
+const $$createType32 = OverviewLatencySeries.createFrom;
 const $$createType33 = $Create.Array($$createType32);
-const $$createType34 = ProfileDiagram.createFrom;
-const $$createType35 = DiagramInterface.createFrom;
+const $$createType34 = OverviewTrafficStats.createFrom;
+const $$createType35 = OverviewTrafficSeries.createFrom;
 const $$createType36 = $Create.Array($$createType35);
-const $$createType37 = DiagramPreview.createFrom;
-const $$createType38 = $Create.Nullable($$createType37);
-const $$createType39 = DiagramBackups.createFrom;
-const $$createType40 = ProfileLatencySeries.createFrom;
+const $$createType37 = ProfileDiagram.createFrom;
+const $$createType38 = LinkQuality.createFrom;
+const $$createType39 = $Create.Nullable($$createType38);
+const $$createType40 = DiagramInterface.createFrom;
 const $$createType41 = $Create.Array($$createType40);
-const $$createType42 = LossWarning.createFrom;
+const $$createType42 = DiagramPreview.createFrom;
 const $$createType43 = $Create.Nullable($$createType42);
-const $$createType44 = TransportWarning.createFrom;
-const $$createType45 = $Create.Nullable($$createType44);
-const $$createType46 = SeriesPath.createFrom;
-const $$createType47 = $Create.Array($$createType46);
-const $$createType48 = CityConnection.createFrom;
-const $$createType49 = $Create.Array($$createType48);
-const $$createType50 = CityRoute.createFrom;
-const $$createType51 = $Create.Array($$createType50);
-const $$createType52 = CityServer.createFrom;
+const $$createType44 = DiagramBackups.createFrom;
+const $$createType45 = ProfileLatencySeries.createFrom;
+const $$createType46 = $Create.Array($$createType45);
+const $$createType47 = LossWarning.createFrom;
+const $$createType48 = $Create.Nullable($$createType47);
+const $$createType49 = TransportWarning.createFrom;
+const $$createType50 = $Create.Nullable($$createType49);
+const $$createType51 = $Create.Nullable($$createType45);
+const $$createType52 = SeriesPath.createFrom;
 const $$createType53 = $Create.Array($$createType52);
-const $$createType54 = ServerRegion.createFrom;
+const $$createType54 = CityConnection.createFrom;
 const $$createType55 = $Create.Array($$createType54);
-const $$createType56 = ServerCity.createFrom;
+const $$createType56 = CityRoute.createFrom;
 const $$createType57 = $Create.Array($$createType56);
+const $$createType58 = CityServer.createFrom;
+const $$createType59 = $Create.Array($$createType58);
+const $$createType60 = ServerRegion.createFrom;
+const $$createType61 = $Create.Array($$createType60);
+const $$createType62 = ServerCity.createFrom;
+const $$createType63 = $Create.Array($$createType62);
