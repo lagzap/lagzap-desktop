@@ -35,8 +35,9 @@ function clearBannerDelay() {
 }
 
 function recordVisit(titleId: string) {
+  // visited_at is Unix seconds (Go's VisitTitle).
   const prev = Number(store.titleStates[titleId]?.visited_at || 0);
-  changelogSince.value = Number.isFinite(prev) && prev > 0 ? prev : 0;
+  changelogSince.value = Number.isFinite(prev) && prev > 0 ? prev * 1000 : 0;
   void store.visitTitle(titleId);
 }
 

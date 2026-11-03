@@ -818,7 +818,8 @@ export const useStore = defineStore("index", () => {
   };
   const visitTitle = async (id: string) => {
     await VisitTitle(id);
-    titleStates.value[id].visited_at = Date.now();
+    // Unix seconds, as Go stores it.
+    titleStates.value[id].visited_at = Math.floor(Date.now() / 1000);
   };
 
   const upsertTitles = (titlesArray: Title[]) => {

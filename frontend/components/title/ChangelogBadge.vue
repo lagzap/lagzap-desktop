@@ -34,10 +34,18 @@ const props = withDefaults(
 
 const { t } = useLocale();
 const dialogOpen = ref(false);
+// When the dialog was last closed: what it showed has been read.
+const readAt = ref(0);
+
+watch(dialogOpen, (open, wasOpen) => {
+  if (!open && wasOpen) {
+    readAt.value = Date.now();
+  }
+});
 
 const { items, hasUnseen, visible, unseenItems, unseenCount } = useChangelog(
   () => props.entries,
-  () => props.since,
+  () => (props.since ? Math.max(props.since, readAt.value) : 0),
 );
 
 const unseenIdSet = computed(

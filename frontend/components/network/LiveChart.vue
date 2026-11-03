@@ -242,7 +242,7 @@ function qualitySeries() {
     data: points.map((v) => (v >= 0 ? v : null)),
     showSymbol: false,
     connectNulls: false,
-    lineStyle: { width: 1.5, color: qualityGradient(points, 0.85) },
+    lineStyle: { width: 1, color: qualityGradient(points, 0.85) },
     tooltip: { show: false },
     silent: true,
     emphasis: { disabled: true },
