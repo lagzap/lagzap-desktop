@@ -89,6 +89,8 @@ github.com/lagzap/lagzaprd v1.0.1 h1:+v7F18uawmJI4Gj7sy8REswArs8rNjZ6V1PBr2qdYj8
 github.com/lagzap/lagzaprd v1.0.1/go.mod h1:AMZ9Hh4vG76MjuXnKuGX95QHTc94w72B899yB+r/3rE=
 github.com/lagzap/zap v0.1.0-beta.18 h1:2iHTlI8dMbJljgyj0qubsX2jC9cJHzljj+eIaiurE3Y=
 github.com/lagzap/zap v0.1.0-beta.18/go.mod h1:vpKaTCBLYfManx7cI5B2IoZOagFZh30pIze000dX/qA=
+github.com/lagzap/zap v0.1.0-beta.19 h1:q7+fT8zXczaT7Se2a68hXwdi0+wa30V6lhFjd8F1Fdg=
+github.com/lagzap/zap v0.1.0-beta.19/go.mod h1:vpKaTCBLYfManx7cI5B2IoZOagFZh30pIze000dX/qA=
 github.com/logrusorgru/aurora v2.0.3+incompatible h1:tOpm7WcpBTn4fjmVfgpQq0EfczGlG91VSDkswnjF5A8=
 github.com/logrusorgru/aurora v2.0.3+incompatible/go.mod h1:7rIyQOR62GCctdiQpZ/zOJlFyk6y+94wXzv6RNZgaR4=
 github.com/matryer/is v1.4.1 h1:55ehd8zaGABKLXQUe2awZ99BD/PTc2ls+KV/dXphgEQ=

@@ -2,9 +2,10 @@ import { defineStore, acceptHMRUpdate } from "pinia";
 import { Events } from "@wailsio/runtime";
 import {
   CreateTicket,
-  GetTicket,
+  GetTicketWindow,
   ListMyTickets,
   ReplyTicket,
+  SetHelpCenterView,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { Ticket } from "~/bindings/github.com/lagzap/zap/data";
 
@@ -126,6 +127,36 @@ function clearLocalUnread(ticket: Ticket) {
   (ticket as Ticket & { unread_messages?: number }).unread_messages = 0;
 }
 
+type TicketMessageRow = NonNullable<Ticket["messages"]>[number];
+
+/** Messages of both lists by id, the newer copy winning, oldest first. A
+ * chat is loaded a window at a time, so nothing ever replaces it whole. */
+function mergeMessages(
+  have: Ticket["messages"] | undefined,
+  incoming: Ticket["messages"] | undefined,
+): TicketMessageRow[] {
+  const byId = new Map<string, TicketMessageRow>();
+  const order: string[] = [];
+  for (const message of [...(have ?? []), ...(incoming ?? [])]) {
+    if (!message?.id) continue;
+    if (!byId.has(message.id)) order.push(message.id);
+    byId.set(message.id, message);
+  }
+  const out = order.map((id) => byId.get(id)!);
+  // ISO times sort as strings; equal or missing ones keep their order.
+  return out
+    .map((message, i) => ({ message, i }))
+    .sort((a, b) => {
+      const at = a.message.created_at || "";
+      const bt = b.message.created_at || "";
+      return at && bt && at !== bt ? at.localeCompare(bt) : a.i - b.i;
+    })
+    .map(({ message }) => message);
+}
+
+/** How many messages a chat loads at a time. */
+const MESSAGE_PAGE = 50;
+
 function cloneTicket(ticket: Ticket): Ticket {
   return {
     ...ticket,
@@ -144,6 +175,9 @@ export const useTicketsStore = defineStore("tickets", () => {
   const loaded = ref(false);
   const activeTicket = ref<Ticket | null>(null);
   const activeLoading = ref(false);
+  /** Whether a chat has messages before those loaded (scroll up for more). */
+  const hasOlder = ref<Record<string, boolean>>({});
+  const loadingOlder = ref(false);
   /** Whole tickets popup session (list and/or chat). */
   const popupActive = ref(false);
   const popupTicketId = ref<string | null>(null);
@@ -162,24 +196,17 @@ export const useTicketsStore = defineStore("tickets", () => {
       return;
     }
     const prev = ticketById.value[ticket.id];
-    const next =
-      prev &&
-      !(ticket.messages?.length) &&
-      (prev.messages?.length ?? 0) > 0
-        ? ({ ...ticket, messages: prev.messages } as Ticket)
-        : ticket;
+    const next = {
+      ...ticket,
+      messages: mergeMessages(prev?.messages, ticket.messages),
+    } as Ticket;
     ticketById.value = { ...ticketById.value, [ticket.id]: cloneTicket(next) };
     if (mergeList) {
       const idx = tickets.value.findIndex((t) => t.id === ticket.id);
       if (idx >= 0) {
-        const listPrev = tickets.value[idx];
-        const listNext =
-          !(ticket.messages?.length) && (listPrev.messages?.length ?? 0) > 0
-            ? ({ ...ticket, messages: listPrev.messages } as Ticket)
-            : ticket;
-        tickets.value.splice(idx, 1, listNext);
+        tickets.value.splice(idx, 1, next);
       } else {
-        tickets.value.unshift(ticket);
+        tickets.value.unshift(next);
       }
       tickets.value.sort((a, b) => {
         const aAt = a.updated_at || a.created_at || "";
@@ -231,19 +258,10 @@ export const useTicketsStore = defineStore("tickets", () => {
         .map((item) => normalizeTicket(item))
         .filter(Boolean) as Ticket[];
 
-      // Preserve richer cached detail (messages) when list rows are summaries.
+      // List rows are summaries: keep the messages already loaded.
       tickets.value = list.map((ticket) => {
-        const cached = ticketById.value[ticket.id];
-        if (cached && (cached.messages?.length ?? 0) > 0) {
-          const merged = {
-            ...ticket,
-            messages: cached.messages,
-          } as Ticket;
-          ticketById.value[ticket.id] = cloneTicket(merged);
-          return merged;
-        }
         rememberTicket(ticket, { mergeList: false });
-        return ticket;
+        return ticketById.value[ticket.id];
       });
 
       const resultAny = result as {
@@ -306,16 +324,23 @@ export const useTicketsStore = defineStore("tickets", () => {
     }
 
     try {
-      const ticket = normalizeTicket(await GetTicket(id));
+      // Loaded before: only what came after its newest message. First open:
+      // the newest page; older ones load when scrolled up to (loadOlder).
+      const newest = ticketById.value[id]?.messages?.at(-1)?.id ?? "";
+      const raw = await GetTicketWindow(id, "", newest, newest ? 0 : MESSAGE_PAGE);
+      const ticket = normalizeTicket(raw);
       if (seq !== openRequestSeq) {
         return ticket;
       }
       if (ticket) {
+        if (!newest) {
+          hasOlder.value = { ...hasOlder.value, [id]: !!raw?.has_older };
+        }
         // GET_TICKET marks seen server-side; clear local badge immediately.
         clearLocalUnread(ticket);
         rememberTicket(ticket);
         refreshUnreadFromList();
-        activeTicket.value = cloneTicket(ticket);
+        activeTicket.value = cloneTicket(ticketById.value[id] ?? ticket);
       }
       return ticket;
     } finally {
@@ -325,11 +350,38 @@ export const useTicketsStore = defineStore("tickets", () => {
     }
   };
 
+  /** Older messages of a chat, a page before the oldest one loaded. */
+  const loadOlder = async (id: string) => {
+    if (loadingOlder.value || !hasOlder.value[id]) {
+      return false;
+    }
+    const oldest = ticketById.value[id]?.messages?.[0]?.id;
+    if (!oldest) {
+      return false;
+    }
+    loadingOlder.value = true;
+    try {
+      const raw = await GetTicketWindow(id, oldest, "", MESSAGE_PAGE);
+      const ticket = normalizeTicket(raw);
+      if (!ticket) {
+        return false;
+      }
+      hasOlder.value = { ...hasOlder.value, [id]: !!raw?.has_older };
+      clearLocalUnread(ticket);
+      upsertTicket(ticket);
+      return (ticket.messages?.length ?? 0) > 0;
+    } finally {
+      loadingOlder.value = false;
+    }
+  };
+
   const replyTicket = async (id: string, body: string) => {
     const ticket = normalizeTicket(await ReplyTicket(id, body));
     if (!ticket) {
       throw new Error("ticket_reply_failed");
     }
+    // A reply is when an answer is most likely: poll at the fastest pace.
+    tellHelpCenterView();
     clearLocalUnread(ticket);
     upsertTicket(ticket);
     refreshUnreadFromList();
@@ -388,20 +440,102 @@ export const useTicketsStore = defineStore("tickets", () => {
     clearActive();
   };
 
+  /** The chat on screen, if any (popup or help page). */
+  const viewingId = () =>
+    popupOpen.value && popupTicketId.value
+      ? popupTicketId.value
+      : activeTicket.value?.id ?? null;
+
+  // Re-read the ticket on screen from the server: a push may be a summary
+  // without the new message, and reading it marks it seen for the staff.
+  let reloadTimer: ReturnType<typeof setTimeout> | undefined;
+  const reloadViewed = (id: string) => {
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(() => {
+      if (viewingId() === id) {
+        void openTicket(id).catch(() => undefined);
+      }
+    }, 150);
+  };
+
   const onTicketUpdated = (payload: unknown) => {
     const ticket = normalizeTicket(payload);
     if (!ticket) {
       return;
     }
     // Viewing this ticket: keep messages, do not bump unread badge.
-    if (activeTicket.value?.id === ticket.id) {
+    if (viewingId() === ticket.id) {
       clearLocalUnread(ticket);
       upsertTicket(ticket);
       refreshUnreadFromList();
+      reloadViewed(ticket.id);
       return;
     }
     upsertTicket(ticket);
     refreshUnreadFromList();
+  };
+
+  /** "ticket-receipts": the other side received or read messages. */
+  const onTicketReceipts = (payload: unknown) => {
+    const unwrapped =
+      payload && typeof payload === "object" && "data" in payload
+        ? (payload as { data: unknown }).data
+        : payload;
+    const raw = (Array.isArray(unwrapped) ? unwrapped[0] : unwrapped) as Record<string, unknown> | null;
+    if (!raw || typeof raw !== "object") {
+      return;
+    }
+    const ticketId = pickString(raw, "ticket_id", "ticketId", "TicketId");
+    if (!ticketId) {
+      return;
+    }
+    const receipts = new Map<string, { seen: string; received: string }>();
+    for (const item of (raw.receipts as Record<string, unknown>[] | undefined) ?? []) {
+      const id = pickString(item, "id", "Id");
+      if (id) {
+        receipts.set(id, {
+          seen: pickString(item, "seen_at", "seenAt", "SeenAt"),
+          received: pickString(item, "received_at", "receivedAt", "ReceivedAt"),
+        });
+      }
+    }
+    const apply = (ticket: Ticket): Ticket => {
+      const messages = (ticket.messages ?? []).map((message) => {
+        const r = message?.id ? receipts.get(message.id) : undefined;
+        if (!r) return message;
+        return {
+          ...message,
+          seen_at: r.seen || message.seen_at,
+          received_at: r.received || message.received_at,
+        };
+      });
+      const next = { ...ticket, messages } as Ticket;
+      if (viewingId() !== ticketId) {
+        next.unread = pickBool(raw, "unread", "Unread");
+        (next as Ticket & { unread_messages?: number }).unread_messages = pickNumber(
+          raw,
+          "unread_messages",
+          "unreadMessages",
+          "UnreadMessages",
+        );
+      }
+      return next;
+    };
+    const known = ticketById.value[ticketId] ?? tickets.value.find((t) => t.id === ticketId);
+    if (!known) {
+      return;
+    }
+    upsertTicket(apply(known));
+    refreshUnreadFromList();
+  };
+
+  // Without live pushes (HTTP sync, or the link down) Go asks the server for
+  // ticket changes, faster the closer the user is to the conversation; it
+  // also catches up after a reconnect. It learns where the user is here.
+  const helpCenterView = () =>
+    popupOpen.value ? (popupTicketId.value ? "chat" : "list") : "closed";
+  const tellHelpCenterView = () => {
+    void SetHelpCenterView(helpCenterView()).catch(() => undefined);
   };
 
   const ensureListeners = () => {
@@ -410,6 +544,8 @@ export const useTicketsStore = defineStore("tickets", () => {
     }
     listening = true;
     Events.On("ticket-updated", ({ data }) => onTicketUpdated(data));
+    Events.On("ticket-receipts", ({ data }) => onTicketReceipts(data));
+    watch([popupOpen, popupTicketId], tellHelpCenterView, { immediate: true });
   };
 
   const navBadgeCount = computed(() => {
@@ -430,6 +566,9 @@ export const useTicketsStore = defineStore("tickets", () => {
     loaded,
     activeTicket,
     activeLoading,
+    hasOlder,
+    loadingOlder,
+    loadOlder,
     popupTicketId,
     popupMinimized,
     popupActive,
@@ -451,6 +590,7 @@ export const useTicketsStore = defineStore("tickets", () => {
     upsertTicket,
     ensureListeners,
     onTicketUpdated,
+    onTicketReceipts,
   };
 });
 

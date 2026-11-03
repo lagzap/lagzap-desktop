@@ -1800,6 +1800,14 @@ export class Ticket {
              */
             this["answered_at"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * has_older: messages before the window sent remain (GET_TICKET).
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["has_older"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }

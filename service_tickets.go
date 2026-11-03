@@ -41,6 +41,23 @@ func (s *Service) GetTicket(ticketID string) (*D.Ticket, error) {
 	return s.coordinator.GetTicket(ticketID)
 }
 
+// GetTicketWindow reads a ticket with a window of its messages: the newest
+// limit, those before beforeID (scrolling up) or after afterID (catching up).
+func (s *Service) GetTicketWindow(ticketID, beforeID, afterID string, limit uint32) (*D.Ticket, error) {
+	if !s.IsReady() {
+		return nil, E.New("coordinator_not_ready")
+	}
+	return s.coordinator.GetTicketWindow(ticketID, beforeID, afterID, limit)
+}
+
+// SetHelpCenterView says what the help center shows ("closed", "list",
+// "chat"), and that the user is active in it.
+func (s *Service) SetHelpCenterView(view string) {
+	if s.coordinator != nil {
+		s.coordinator.SetHelpCenterView(view)
+	}
+}
+
 func (s *Service) ReplyTicket(ticketID, body string) (*D.Ticket, error) {
 	if !s.IsReady() {
 		return nil, E.New("coordinator_not_ready")

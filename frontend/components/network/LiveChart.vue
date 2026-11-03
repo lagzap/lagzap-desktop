@@ -47,7 +47,7 @@ function selectView(v: View) {
 }
 const hidden = ref(new Set<string>());
 // With an actual ping line the probe lines start hidden (the actual ping and
-// the quality area are what matter); shown holds the ones turned back on.
+// the quality line are what matter); shown holds the ones turned back on.
 const shown = ref(new Set<string>());
 const hasActual = computed(() => !!latency.value?.series?.some((s) => s.actual));
 function isHidden(id: string) {
@@ -230,7 +230,8 @@ function qualityGradient(points: number[], a: number) {
   return new echarts.graphic.LinearGradient(GRID_LEFT_LATENCY, 0, width - GRID_RIGHT, 0, stops, true);
 }
 
-// Drawn first (series 0, under the pings) on its own hidden 0-100 axis.
+// A line in each moment's score color (no area), drawn first (series 0,
+// under the pings) on its own hidden 0-100 axis.
 function qualitySeries() {
   const points = latency.value?.quality ?? [];
   return {
@@ -241,8 +242,7 @@ function qualitySeries() {
     data: points.map((v) => (v >= 0 ? v : null)),
     showSymbol: false,
     connectNulls: false,
-    lineStyle: { width: 0 },
-    areaStyle: { color: qualityGradient(points, 0.14) },
+    lineStyle: { width: 1.5, color: qualityGradient(points, 0.85) },
     tooltip: { show: false },
     silent: true,
     emphasis: { disabled: true },
@@ -328,7 +328,6 @@ function latencySeries() {
       connectNulls: false,
       lineStyle: { width: s.actual ? 1.75 : 1.25, color },
       itemStyle: { color },
-      ...(s.actual ? {} : { areaStyle: { color: area(color, 0.08) } }),
       emphasis: { disabled: true },
       z: s.actual ? 4 : 3,
     });

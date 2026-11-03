@@ -426,6 +426,7 @@ async function loadTicket() {
     await tickets.openTicket(ticketId.value);
     await nextTick();
     scrollThreadToBottom(true);
+    void maybeLoadOlder();
   } catch (error) {
     if (!tickets.activeTicket || tickets.activeTicket.id !== ticketId.value) {
       loadError.value = true;
@@ -442,6 +443,31 @@ function onThreadScroll() {
   const distanceFromBottom =
     el.scrollHeight - el.scrollTop - el.clientHeight;
   stickToBottom.value = distanceFromBottom <= BOTTOM_THRESHOLD_PX;
+  void maybeLoadOlder();
+}
+
+// A chat loads its newest page; older ones come in as the user scrolls up
+// to them (or while the page does not fill the thread), keeping the view
+// where it was.
+const TOP_THRESHOLD_PX = 120;
+async function maybeLoadOlder() {
+  const el = threadEl.value;
+  const id = ticketId.value;
+  if (!el || !id || tickets.loadingOlder || !tickets.hasOlder[id] || el.scrollTop > TOP_THRESHOLD_PX) {
+    return;
+  }
+  const fromBottom = el.scrollHeight - el.scrollTop;
+  try {
+    const loaded = await tickets.loadOlder(id);
+    if (!loaded || ticketId.value !== id) {
+      return;
+    }
+    await nextTick();
+    el.scrollTop = el.scrollHeight - fromBottom;
+    void maybeLoadOlder();
+  } catch (error) {
+    displayError(error, locale);
+  }
 }
 
 function scrollThreadToBottom(force = false) {
@@ -743,6 +769,9 @@ async function openEmojiPicker() {
                 @scroll.passive="onThreadScroll"
               >
                 <div class="ticket-popup__thread-inner">
+                  <div v-if="tickets.loadingOlder" class="d-flex justify-center py-2">
+                    <v-progress-circular indeterminate size="16" width="2" />
+                  </div>
                   <p
                     v-if="tickets.activeTicket.close_reason"
                     class="ticket-popup__notice text-caption text-medium-emphasis"

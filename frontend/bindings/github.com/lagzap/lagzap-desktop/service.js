@@ -365,6 +365,21 @@ export function GetTicket(ticketID) {
 }
 
 /**
+ * GetTicketWindow reads a ticket with a window of its messages: the newest
+ * limit, those before beforeID (scrolling up) or after afterID (catching up).
+ * @param {string} ticketID
+ * @param {string} beforeID
+ * @param {string} afterID
+ * @param {number} limit
+ * @returns {$CancellablePromise<data$0.Ticket | null>}
+ */
+export function GetTicketWindow(ticketID, beforeID, afterID, limit) {
+    return $Call.ByID(3315206039, ticketID, beforeID, afterID, limit).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<{ [_ in string]?: data$0.TitleState | null }>}
  */
 export function GetTitleStates() {
@@ -680,6 +695,16 @@ export function SetEndpoints(hostnames) {
  */
 export function SetHTTPPolling(enabled) {
     return $Call.ByID(184276766, enabled);
+}
+
+/**
+ * SetHelpCenterView says what the help center shows ("closed", "list",
+ * "chat"), and that the user is active in it.
+ * @param {string} view
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetHelpCenterView(view) {
+    return $Call.ByID(3621298740, view);
 }
 
 /**
