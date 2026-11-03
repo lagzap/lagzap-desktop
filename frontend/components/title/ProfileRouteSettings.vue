@@ -181,7 +181,18 @@ const totalLegs = computed(() => {
 });
 const showMultiPathRouteWarnings = computed(() => totalLegs.value <= 1);
 
+// Manual is saved as an explicit TCP/UDP split (no unified cap): picking it
+// stores the split shown right away, so it is still Manual next time.
 function enterAdvancedRouteOptions() {
+  const state = store.profileStates[props.profile.id];
+  if (state) {
+    // Without the Smart cap the split is the profile's own counts or the
+    // defaults: what Manual shows.
+    delete state.route_connections;
+    const normalized = normalizeRouteCounts(tcpRoutes.value, udpRoutes.value, "tcp");
+    state.tcp_connections = normalized.tcp ?? 0;
+    state.udp_connections = normalized.udp ?? 0;
+  }
   showAdvancedRouteOptions.value = true;
 }
 
@@ -192,11 +203,11 @@ function exitAdvancedRouteOptions() {
 
 function syncAdvancedRouteVisibility() {
   const state = store.profileStates[props.profile.id];
-  // Explicit TCP/UDP split (no unified cap) → Advanced.
+  // Explicit TCP/UDP split (no unified cap) → Manual, as Go reads it — UDP
+  // only (TCP 0) included.
   showAdvancedRouteOptions.value =
     state?.route_connections == null &&
-    (state?.tcp_connections != null || state?.udp_connections != null) &&
-    (state?.tcp_connections ?? 0) > 0;
+    (state?.tcp_connections != null || state?.udp_connections != null);
 }
 
 watch(
