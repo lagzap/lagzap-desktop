@@ -210,9 +210,7 @@ function legPath(leg: Leg): string {
         <v-chip v-if="ended" size="x-small" variant="tonal" rounded>
           {{ t("$vuetify.connections.details.ended") }}
         </v-chip>
-        <v-chip :color="c.network == 'tcp' ? 'green' : 'blue'" size="x-small" variant="tonal" rounded>
-          <span class="text-uppercase">{{ c.network }}</span>
-        </v-chip>
+        <NetworkLabel :network="c.network" />
         <v-btn icon="mdi-close" size="small" variant="text" @click="open = false" />
       </v-card-title>
 
@@ -293,9 +291,7 @@ function legPath(leg: Leg): string {
               >
                 <div class="d-flex align-center ga-2">
                   <span class="text-body-2 font-weight-medium">{{ leg.route.iface || "—" }}</span>
-                  <v-chip :color="leg.route.network == 'tcp' ? 'green' : 'blue'" size="x-small" variant="tonal" rounded>
-                    <span class="text-uppercase">{{ leg.route.network }}</span>
-                  </v-chip>
+                  <NetworkLabel :network="leg.route.network" />
                   <v-spacer />
                   <span class="text-body-2">{{ formatMs(leg.route.latency > 0 ? leg.route.latency : null) }}</span>
                   <span

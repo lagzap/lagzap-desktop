@@ -5,9 +5,9 @@ import { getScoreAccent } from "~/composables/useLatencyMetrics";
 import { useProfileEstimate } from "~/composables/useProfileChart";
 import { BEST_INTERFACE, useProfileViewInterface } from "~/composables/useProfileViewInterface";
 
-/** "Estimated Ping 101ms (21% loss)" in the profile card subtitle. Go picks
- * the ping and whether loss or lag is worth mentioning. Click measures now;
- * right-click holds the route view and Try fix lag. */
+/** "Estimated Ping 101ms" in the profile card subtitle (Go's loss or lag
+ * note shows in the card's notice row). Click measures now; right-click
+ * holds the route view and Try fix lag. */
 const props = defineProps<{
   profileId: string;
   /** "Show routes on" choices; empty when there is nothing to pick. */
@@ -22,14 +22,8 @@ const estimate = useProfileEstimate(props.profileId);
 const { selectedInterfaceKey } = useProfileViewInterface(props.profileId);
 
 const ping = computed(() => estimate.value?.ping ?? 0);
-const note = computed(() => estimate.value?.note ?? "");
 const color = computed(() =>
   ping.value > 0 ? getScoreAccent(estimate.value?.score ?? -1, theme.current.value.dark) ?? undefined : undefined
-);
-const noteText = computed(() =>
-  note.value === "loss"
-    ? t("$vuetify.title.profile.estimateLoss", localDigits(Math.round(estimate.value?.loss ?? 0)))
-    : t("$vuetify.title.profile.estimateLag")
 );
 
 const probing = ref(false);
@@ -73,16 +67,6 @@ const views = computed(() => props.views ?? []);
       </template>
       <div>{{ t("$vuetify.title.profile.estimatedPingTip") }}</div>
       <div class="est-ping__hint">{{ t("$vuetify.title.profile.estimatedPingActions") }}</div>
-    </v-tooltip>
-    <v-tooltip v-if="note" location="bottom" max-width="320" open-delay="150">
-      <template #activator="{ props: tip }">
-        <span
-          v-bind="tip"
-          class="est-ping__note"
-          :class="note === 'loss' ? 'text-error' : 'text-warning'"
-        >({{ noteText }})</span>
-      </template>
-      {{ note === "loss" ? t("$vuetify.title.profile.estimateLossTip") : t("$vuetify.title.profile.estimateLagTip") }}
     </v-tooltip>
     <span class="est-ping__sep">•</span>
 
@@ -153,10 +137,6 @@ const views = computed(() => props.views ?? []);
 .est-ping__value:disabled {
   cursor: progress;
   opacity: 0.7;
-}
-
-.est-ping__note {
-  cursor: help;
 }
 
 .est-ping__hint {

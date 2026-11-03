@@ -7,6 +7,9 @@ const dialog = defineModel<boolean>({
   default: false,
 });
 
+/** Prefills the subject (a profile's report-a-problem button). */
+const props = defineProps<{ subject?: string }>();
+
 const locale = useLocale();
 const { t } = locale;
 const route = useRoute();
@@ -54,7 +57,10 @@ const rules = {
 };
 
 const isDirty = computed(
-  () => !!subject.value.trim() || !!body.value.trim() || type.value !== "bug",
+  () =>
+    subject.value.trim() !== (props.subject ?? "").trim() ||
+    !!body.value.trim() ||
+    type.value !== "bug",
 );
 
 watch(dialog, (open) => {
@@ -62,7 +68,7 @@ watch(dialog, (open) => {
     return;
   }
   type.value = "bug";
-  subject.value = "";
+  subject.value = props.subject ?? "";
   body.value = "";
   attachContext.value = !!titleContext.value;
 });

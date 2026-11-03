@@ -87,14 +87,7 @@ function onRowClick(connectionId: string) {
       >
         <!-- Same transport tag as the Connections page. -->
         <td class="col-network">
-          <v-chip
-            :color="connection.network == 'tcp' ? 'green' : 'blue'"
-            size="x-small"
-            variant="tonal"
-            rounded
-          >
-            <span class="text-uppercase">{{ connection.network }}</span>
-          </v-chip>
+          <NetworkLabel :network="connection.network" />
         </td>
         <td class="text-no-wrap">
           <div class="d-flex align-center">

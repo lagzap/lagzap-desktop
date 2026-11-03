@@ -121,10 +121,7 @@ const headers = computed<DataTableHeader[]>(() => {
           </v-tooltip>
         </template>
         <template v-slot:item.network="{ item }">
-          <span v-if="item.network == 'tcp'" class="text-green">{{
-            t("$vuetify.network.tcp")
-          }}</span>
-          <span v-else class="text-blue">{{ t("$vuetify.network.udp") }}</span>
+          <NetworkLabel :network="item.network" />
         </template>
         <template v-slot:item.source="{ item }">
           <span>{{ item.source_ip }}:{{ item.source_port }}</span>

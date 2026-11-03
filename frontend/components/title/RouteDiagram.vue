@@ -21,6 +21,11 @@ const props = defineProps<{
   profile: Profile;
 }>();
 
+/** The "route preview" caption, for the card's notice row (null: live routes). */
+const emit = defineEmits<{
+  estimate: [note: { title: string; hint: string } | null];
+}>();
+
 const store = useStore();
 const { t } = useLocale();
 const theme = useTheme();
@@ -1088,9 +1093,9 @@ function updateChart() {
       show: true,
       position: "inside",
       distance: 0,
-      formatter: adapterLabel
-        ? `{a|${destinationName}}\n{b|${adapterLabel}}`
-        : `{a|${destinationName}}`,
+      // Always two lines (blank when no adapter is picked): one line sat
+      // centered on the dot, closer to it than the city with an adapter.
+      formatter: `{a|${destinationName}}\n{b|${adapterLabel || " "}}`,
       rich: {
         a: {
           color: chrome.hopLabel,
@@ -1153,10 +1158,27 @@ function updateChart() {
     lineStyle: flowLineStyle(),
   });
 
+  // The graph scales to fit its nodes, so the space under the game is held
+  // by a fixed, invisible node: the badge below (none, one line or several)
+  // never changes the diagram's scale and spacing. A preview or prediction
+  // has no badge and stays centered.
+  const badgeTop = px(centerY + 24); // clear of the 40px game icon
+  if (!isEstimate.value) nodes.push({
+    id: "badge-space",
+    name: "",
+    x: px(destConvergenceX + 70),
+    y: px(centerY + 38),
+    symbolSize: 0,
+    tooltip: { show: false },
+    silent: true,
+    itemStyle: { color: "transparent" },
+    label: { show: false },
+  });
+
   // Under the game: the ping it actually gets; packet loss and bursts only
   // while there are any. The protocol resends every lost packet, so loss
   // costs the game time, never data: the line under it says so.
-  if (actualPing.value !== null && !preview.value) {
+  if (actualPing.value !== null && !isEstimate.value) {
     const ms = actualPing.value;
     const timedOut = ms === 0;
     const color = getScoreColor(timedOut ? 10 : actualPingScore(ms));
@@ -1179,8 +1201,8 @@ function updateChart() {
       id: "actual-ping",
       name: text,
       x: px(destConvergenceX + 70),
-      // Clear of the 40px game icon, whatever the line count.
-      y: px(centerY + 24 + lines.length * 7),
+      // Lines grow down from badgeTop.
+      y: badgeTop,
       symbolSize: 0,
       tooltip: { show: false },
       silent: true,
@@ -1188,6 +1210,7 @@ function updateChart() {
       label: {
         show: true,
         position: "inside",
+        verticalAlign: "top",
         formatter: lines.join("\n"),
         rich: {
           a: { color, lineHeight: 14, fontSize: 11, fontWeight: "bold", textAlign: "center" },
@@ -1324,11 +1347,23 @@ function updateChart() {
 
 // The chart div only exists once Go reports show=true, usually after mount,
 // and is re-created when the diagram hides; follow the element itself.
+// The box's height eases between route counts (CSS); the chart follows it
+// frame by frame instead of jumping to the end size.
+let boxObserver: ResizeObserver | null = null;
+let resizeFrame = 0;
 watch(
   chartRef,
   (el) => {
     chart?.dispose();
+    boxObserver?.disconnect();
     chart = el ? quietChart(echarts.init(el, null, { useDirtyRect: true })) : null;
+    if (el) {
+      boxObserver = new ResizeObserver(() => {
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => chart?.resize());
+      });
+      boxObserver.observe(el);
+    }
     updateChart();
   },
   { flush: "post" }
@@ -1346,6 +1381,8 @@ onBeforeUnmount(() => {
   scheduleDiagramUpdate.cancel();
   debouncedResize.cancel();
   window.removeEventListener("resize", onResize);
+  boxObserver?.disconnect();
+  cancelAnimationFrame(resizeFrame);
   if (chart) {
     chart.dispose();
     chart = null;
@@ -1359,16 +1396,25 @@ const estimateCaption = computed(() => {
   return diagram.value?.idle ? t("$vuetify.title.profile.routePredictedHint") : "";
 });
 
+watch(
+  () =>
+    shouldShowDiagram.value && isEstimate.value
+      ? { title: t("$vuetify.title.profile.routePreview"), hint: estimateCaption.value }
+      : null,
+  (note) => emit("estimate", note),
+  { immediate: true, deep: true }
+);
+onBeforeUnmount(() => emit("estimate", null));
+
 // Selector must repaint immediately — debounced probe ticks are too slow.
 watch(selectedInterfaceKey, () => {
   updateChart();
 });
 
-// The chart box grows with the route count.
-watch(
-  () => drawnRoutes.value.length,
-  () => chart?.resize(),
-  { flush: "post" }
+// The chart box grows with the route count; a preview or prediction has no
+// ping badge under the game to make room for.
+const chartHeight = computed(
+  () => Math.max(1, drawnRoutes.value.length) * 50 + (isEstimate.value ? 60 : 80)
 );
 
 watch(
@@ -1389,19 +1435,8 @@ watch(
     <div
       ref="chartRef"
       class="route-diagram-chart"
-      :style="`width: 100%; margin: 0; padding: 0; max-height: 400px; aspect-ratio: 5/2; height: ${Math.max(150, Math.max(1, drawnRoutes.length) * 60 + 120)}px;`"
+      :style="`width: 100%; margin: 0; padding: 0; max-height: 400px; aspect-ratio: 5/2; height: ${chartHeight}px;`"
     ></div>
-    <div
-      v-if="isEstimate"
-      class="route-diagram-estimate"
-    >
-      <span class="route-diagram-estimate__title">
-        {{ t('$vuetify.title.profile.routePreview') }}
-      </span>
-      <span class="route-diagram-estimate__hint">
-        {{ estimateCaption }}
-      </span>
-    </div>
   </div>
   <div v-else-if="diagram" class="text-center pa-4 text-grey">
     Route diagram not available for this profile
@@ -1414,32 +1449,14 @@ watch(
   overflow: visible !important;
 }
 
+.route-diagram-chart {
+  transition: height 0.25s ease;
+}
+
 .route-diagram-chart :deep(canvas) {
   overflow: visible;
 }
 
-.route-diagram-estimate {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  pointer-events: none;
-  line-height: 14px;
-}
-
-.route-diagram-estimate__title {
-  font-size: 11px;
-  color: rgba(var(--v-theme-on-surface), 0.7);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.route-diagram-estimate__hint {
-  font-size: 11px;
-  color: rgba(var(--v-theme-on-surface), 0.45);
-}
 
 
 

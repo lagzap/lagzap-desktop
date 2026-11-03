@@ -12,7 +12,7 @@ import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.
 import ProfilePingUsage from "~/components/title/ProfilePingUsage.vue";
 import LinkQualityIndicator from "~/components/title/LinkQualityIndicator.vue";
 import { ProfileFlag } from "~/constants/profile";
-import { useProfileChart } from "~/composables/useProfileChart";
+import { useProfileChart, useProfileEstimate } from "~/composables/useProfileChart";
 import { FixProfileLag } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import { useProfileConnectionStats } from "~/composables/useProfileConnectionStats";
 import {
@@ -29,6 +29,8 @@ const props = defineProps<{
 }>();
 
 const changelogHover = ref(false);
+// Report a problem: the bug dialog, subject prefilled with this profile.
+const reportOpen = ref(false);
 
 function onProfileFocusOut(event: FocusEvent) {
   const root = event.currentTarget as HTMLElement | null;
@@ -104,11 +106,63 @@ const transportNote = computed(() => {
     tip: t("$vuetify.title.profile.transportLaggingTip", lagging, using),
   };
 });
-// Spare routes measured and ready, shown when nothing needs warning about.
-const backupNote = computed(() => {
+// The diagram's "route preview" caption, while it draws a prediction.
+const estimateNote = ref<{ title: string; hint: string } | null>(null);
+const estimate = useProfileEstimate(props.profile.id);
+
+type CardNotice = {
+  icon: string;
+  color?: string;
+  text: string;
+  /** Uppercase lead before text (the route preview). */
+  title?: string;
+  tip?: string;
+};
+// One line under the diagram, most important first: a route rescue, warnings,
+// lag or loss (no longer beside Estimated Ping), the route preview, spare
+// routes, else that all is well while the game is relayed.
+const notice = computed<CardNotice | null>(() => {
+  if (routeProtected.value) {
+    return { icon: "mdi-check-circle", color: "success", text: t("$vuetify.status.routeProtectedGeneric") };
+  }
+  if (unstable.value) {
+    return { icon: "mdi-shield-alert", color: "warning", text: t("$vuetify.networkLatency.unstableNote") };
+  }
+  if (transportNote.value) {
+    return { icon: "mdi-swap-horizontal", color: "warning", text: transportNote.value.text, tip: transportNote.value.tip };
+  }
+  const est = estimate.value;
+  if (est?.note === "loss") {
+    return {
+      icon: "mdi-signal-off",
+      color: "error",
+      text: t("$vuetify.title.profile.routeLossNote", localDigits(Math.round(est.loss ?? 0))),
+      tip: t("$vuetify.title.profile.estimateLossTip"),
+    };
+  }
+  if (est?.note === "lag") {
+    return {
+      icon: "mdi-speedometer-slow",
+      color: "warning",
+      text: t("$vuetify.title.profile.routeLagNote"),
+      tip: t("$vuetify.title.profile.estimateLagTip"),
+    };
+  }
+  if (estimateNote.value) {
+    return { icon: "mdi-map-marker-path", title: estimateNote.value.title, text: estimateNote.value.hint };
+  }
   const backups = diagram.value?.backups;
-  if (!backups?.count || unstable.value || routeProtected.value || transportNote.value) return null;
-  return t("$vuetify.networkLatency.backupRoutesReady", backups.count, backups.ping);
+  if (backups?.count) {
+    return {
+      icon: "mdi-information-outline",
+      color: "info",
+      text: t("$vuetify.networkLatency.backupRoutesReady", backups.count, backups.ping),
+    };
+  }
+  if (canFixLag.value && (est?.ping ?? 0) > 0) {
+    return { icon: "mdi-check-circle-outline", color: "success", text: t("$vuetify.title.profile.routeGoodNote") };
+  }
+  return null;
 });
 const fixingLag = ref(false);
 async function fixLag() {
@@ -158,7 +212,7 @@ const profileDescription = computed(() => {
 
 const hasProfileDescription = computed(() => profileDescription.value.length > 0);
 
-// Connections captured by LagZap but sent straight to the game server.
+// Connections LagZap rejected: no server in the profile's location could carry them.
 const { connections: monitoredConnections } = useMonitoringStore();
 const notRelayedCount = computed(
   () =>
@@ -290,6 +344,7 @@ const routeSettingsText = computed(() => {
 
     <template #subtitle>
       <span class="text-caption ms-3 profile-card-subtitle">
+        <LinkQualityIndicator v-if="profileChart?.link" :link="profileChart.link" />
         <ProfileEstimatedPing
           :profile-id="props.profile.id"
           :views="showInterfaceSelector && !smartRoutes ? interfaceSelectItems : []"
@@ -323,6 +378,28 @@ const routeSettingsText = computed(() => {
     </template>
 
     <template #append>
+      <v-tooltip :text="t('$vuetify.tickets.reportProblem')" location="top" open-delay="300">
+        <template #activator="{ props: tipProps }">
+          <!-- Shown on hover like the changelog, in its color. -->
+          <v-btn
+            v-bind="tipProps"
+            class="profile-report"
+            :class="{ 'profile-report--hidden': !changelogHover && !reportOpen }"
+            variant="text"
+            size="small"
+            icon
+            :tabindex="changelogHover ? 0 : -1"
+            :aria-label="t('$vuetify.tickets.reportProblem')"
+            @click="reportOpen = true"
+          >
+            <v-icon class="profile-report__icon" icon="mdi-bug-outline" size="18" />
+          </v-btn>
+        </template>
+      </v-tooltip>
+      <DialogBugFeedback
+        v-model="reportOpen"
+        :subject="t('$vuetify.tickets.reportSubject', store.localized(props.profile.name))"
+      />
       <v-tooltip v-if="canRate" :text="t('$vuetify.sessionRating.rateButton')" location="top" open-delay="300">
         <template #activator="{ props: tipProps }">
           <v-btn
@@ -360,28 +437,36 @@ const routeSettingsText = computed(() => {
             </div>
           </template>
         </v-tooltip>
-        <RouteDiagram :profile="props.profile" />
+        <RouteDiagram :profile="props.profile" @estimate="estimateNote = $event" />
         <!-- Always laid out, only shown with a warning: no jump in card height. -->
         <div class="d-flex align-center ga-2 mt-2">
-        <v-tooltip :disabled="!transportNote" location="bottom" max-width="320" open-delay="200">
+        <v-tooltip :disabled="!notice?.tip" location="bottom" max-width="320" open-delay="200">
           <template #activator="{ props: tipProps }">
             <div
               v-bind="tipProps"
-              class="profile-protection d-flex align-center ga-2 flex-grow-1"
-              :style="{ visibility: unstable || routeProtected || transportNote || backupNote ? 'visible' : 'hidden' }"
-              :aria-hidden="!unstable && !routeProtected && !transportNote && !backupNote"
+              class="profile-protection profile-notice d-flex align-start ga-2 flex-grow-1"
+              :style="{ visibility: notice ? 'visible' : 'hidden' }"
+              :aria-hidden="!notice"
             >
-              <v-icon v-if="routeProtected" icon="mdi-check-circle" size="16" color="success" />
-              <v-icon v-else-if="backupNote" icon="mdi-information-outline" size="16" color="info" />
-              <v-icon v-else :icon="transportNote ? 'mdi-swap-horizontal' : 'mdi-shield-alert'" size="16" color="warning" />
-              <span v-if="routeProtected">{{ t("$vuetify.status.routeProtectedGeneric") }}</span>
-              <span v-else-if="backupNote">{{ backupNote }}</span>
-              <span v-else>{{ transportNote ? transportNote.text : t("$vuetify.networkLatency.unstableNote") }}</span>
+              <template v-if="notice">
+                <v-icon
+                  :icon="notice.icon"
+                  size="16"
+                  :color="notice.color"
+                  :class="{ 'text-medium-emphasis': !notice.color }"
+                />
+                <span v-if="notice.title">
+                  <span class="profile-preview-note__title">{{ notice.title }}</span>
+                  <span v-if="notice.text" class="text-medium-emphasis"> · {{ notice.text }}</span>
+                </span>
+                <span v-else>{{ notice.text }}</span>
+              </template>
+              <!-- Holds the row's height while empty. -->
+              <span v-else>&nbsp;</span>
             </div>
           </template>
-          {{ transportNote?.tip }}
+          {{ notice?.tip }}
         </v-tooltip>
-        <LinkQualityIndicator v-if="profileChart?.link" :link="profileChart.link" />
         </div>
         <v-divider class="my-4" />
       </template>
@@ -449,5 +534,32 @@ const routeSettingsText = computed(() => {
   color: rgba(var(--v-theme-on-surface), 0.7);
   font-size: 0.75rem;
   line-height: 1.3;
+}
+
+/* A wrapped notice keeps its icon on the first line, not between lines. */
+.profile-notice {
+  line-height: 16px;
+}
+
+.profile-notice .v-icon {
+  flex-shrink: 0;
+}
+
+.profile-report {
+  transition: opacity 0.12s ease;
+}
+
+.profile-report--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.profile-report__icon {
+  color: rgba(var(--v-theme-on-surface), 0.38);
+}
+
+.profile-preview-note__title {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 </style>

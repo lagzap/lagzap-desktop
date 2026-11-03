@@ -1184,6 +1184,35 @@ export function useRegionSelection(profile: Profile) {
     return t('$vuetify.title.profile.server.global');
   });
 
+  // What the button shows beside currentSelectionText: a flag for a country
+  // or city, a continent for a region, else an icon.
+  type SelectionIcon =
+    | { flag: string }
+    | { continent: string }
+    | { icon: string };
+  const cityFlag = (cityKey?: string): SelectionIcon | null => {
+    const country = cityKey ? cityMap.value[cityKey]?.[0]?.country : "";
+    return country ? { flag: country } : null;
+  };
+  const currentSelectionIcon = computed<SelectionIcon>(() => {
+    const profileState = store.profileStates[profile.id];
+    const automatic = { icon: "mdi-auto-fix" };
+    const global = { icon: "mdi-earth" };
+    if (!profileState) return global;
+    const mode = profileState.mode;
+    if (mode === 10) return { icon: "mdi-call-split" };
+    if (isNodeSelectionMode.value || mode === 4) {
+      const [key] = profileSelectedCityKeys(profileState);
+      if (key === "direct") return { icon: "mdi-call-split" };
+      return cityFlag(key) ?? automatic;
+    }
+    if (mode === 1 && profileState.regions?.length) return { continent: profileState.regions[0] };
+    if (mode === 2 && profileState.countries?.length) return { flag: profileState.countries[0] };
+    if (mode === 3) return cityFlag(profileSelectedCityKeys(profileState)[0]) ?? global;
+    const multipath = (profile.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !== 0;
+    return !mode && !multipath ? automatic : global;
+  });
+
   // Auto-save functionality
   watch(
     () => store.profileStates[profile.id],
@@ -1276,5 +1305,6 @@ export function useRegionSelection(profile: Profile) {
     // Mode management
     mode,
     currentSelectionText,
+    currentSelectionIcon,
   };
 }

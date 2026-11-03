@@ -410,13 +410,7 @@ const connectionHeaders = computed<DataTableHeader[]>(() => {
                     </template>
 
                     <template v-slot:item.network="{ item: conn }">
-                      <v-chip
-                        :color="conn.network === 'tcp' ? 'success' : 'primary'"
-                        variant="tonal"
-                        size="small"
-                      >
-                        {{ conn.network?.toUpperCase() }}
-                      </v-chip>
+                      <NetworkLabel :network="conn.network" />
                     </template>
 
                     <template v-slot:item.source="{ item: conn }">

@@ -123,16 +123,18 @@ const columns = ["Leg", "Ping", "Loss", "First", "Lag", "Queue", "Bursts", "Stal
 
 <template>
   <!-- Opens and closes on click, so it stays put while reading it. -->
-  <v-menu :close-on-content-click="false" location="top end" max-width="640">
+  <v-menu :close-on-content-click="false" location="bottom start" max-width="640">
     <template #activator="{ props: menuProps }">
       <v-btn
         v-bind="menuProps"
         icon
         variant="text"
-        size="small"
+        size="x-small"
+        width="22"
+        height="22"
         :aria-label="t('$vuetify.title.profile.link.title')"
       >
-        <v-icon :icon="icon" :color="color" size="20" />
+        <v-icon :icon="icon" :color="color" size="14" />
       </v-btn>
     </template>
     <v-card rounded="lg" class="pa-3 link-card">

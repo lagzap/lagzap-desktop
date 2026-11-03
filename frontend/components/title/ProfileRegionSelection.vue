@@ -94,20 +94,41 @@ const {
   // Mode management
   mode,
   currentSelectionText,
+  currentSelectionIcon,
   
   // Ping data
   bestPingMsForCurrentSelection,
   bestPingScoreForCurrentSelection,
 } = useRegionSelection(props.profile);
 
-// While the game is relayed the chip shows Go's Estimated Ping, the same
-// number as the card subtitle; the probe-based value is only the fallback.
+// While the game is relayed the button is colored by Go's Estimated Ping, the
+// same number as the card subtitle; the probe-based score is the fallback.
 const estimate = useProfileEstimate(props.profile.id);
-const chipPingMs = computed(() =>
-  (estimate.value?.ping ?? 0) > 0 ? estimate.value!.ping : bestPingMsForCurrentSelection.value
-);
 const chipPingScore = computed(() =>
   (estimate.value?.ping ?? 0) > 0 ? estimate.value!.score : bestPingScoreForCurrentSelection.value
+);
+
+// The button takes the ping's color only while the profile has connections.
+const { connections } = useMonitoringStore();
+const hasConnections = computed(() =>
+  (connections.value ?? []).some((connection) => connection.profile_id === props.profile.id)
+);
+
+const modes = computed(() => [
+  { value: "global", icon: "mdi-auto-fix", text: t("$vuetify.title.profile.server.automatic") },
+  { value: "region", icon: "mdi-earth", text: t("$vuetify.title.profile.server.byRegion") },
+  { value: "country", icon: "mdi-flag-outline", text: t("$vuetify.title.profile.server.byCountry") },
+  { value: "city", icon: "mdi-city-variant-outline", text: t("$vuetify.title.profile.server.byCity") },
+  { value: "direct", icon: "mdi-call-split", text: t("$vuetify.title.profile.server.directWithoutServer") },
+]);
+
+// Direct lists the adapters to send through: load them when it is picked.
+watch(
+  mode,
+  (value) => {
+    if (value === "direct" && !(interfaces.value?.length > 0)) void updateInterfaces();
+  },
+  { immediate: true },
 );
 
 function getPingColor(score: number | null): string {
@@ -125,27 +146,14 @@ function getPingColor(score: number | null): string {
     return "red";
   }
 }
-
-function getPingIcon(score: number | null): string | null {
-  if (score === null || score < 0) {
-    return null;
-  }
-  if (score >= 80) {
-    return "mdi-signal-cellular-3";
-  } else if (score >= 60) {
-    return "mdi-signal-cellular-2";
-  } else {
-    return "mdi-signal-cellular-1";
-  }
-}
 </script>
 
 <template>
   <v-menu
     v-model="dialogOpen"
     min-width="350"
-    width="450"
-    max-width="500"
+    width="520"
+    max-width="560"
     :open-delay="0"
     :close-delay="0"
     scrollable
@@ -164,14 +172,17 @@ function getPingIcon(score: number | null): string | null {
           :text="currentSelectionText"
           class="text-none"
           variant="tonal"
-          :color="getPingColor(chipPingScore)"
-          :prepend-icon="getPingIcon(chipPingScore)"
+          :color="hasConnections ? getPingColor(chipPingScore) : undefined"
           v-bind="props"
         >
-          <template v-if="chipPingMs" #append>
-            <small>
-              {{ formatMs(chipPingMs) }}
-            </small>
+          <template #prepend>
+            <CountryFlag v-if="'flag' in currentSelectionIcon" :country="currentSelectionIcon.flag" size="small" />
+            <v-avatar v-else-if="'continent' in currentSelectionIcon" size="18" rounded="0">
+              <ContinentIcon :tag="currentSelectionIcon.continent" />
+            </v-avatar>
+            <v-icon v-else :icon="currentSelectionIcon.icon" />
+          </template>
+          <template #append>
             <v-icon :icon="dialogOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
           </template>
         </v-btn>
@@ -185,42 +196,28 @@ function getPingIcon(score: number | null): string | null {
         (profile.flags & ProfileFlag.MULTIPATH) != 0
       "
       variant="outlined"
-      width="400"
+      width="500"
     >
       <v-card-text>
-        <v-select
+        <v-chip-group
           v-if="!isNodeSelectionMode"
           v-model="mode"
-          :items="[
-            {
-              value: 'global',
-              text: t('$vuetify.title.profile.server.automatic'),
-            },
-            {
-              value: 'region',
-              text: t('$vuetify.title.profile.server.byRegion'),
-            },
-            {
-              value: 'country',
-              text: t('$vuetify.title.profile.server.byCountry'),
-            },
-            {
-              value: 'city',
-              text: t('$vuetify.title.profile.server.byCity'),
-            },
-            {
-              value: 'direct',
-              text: t('$vuetify.title.profile.server.directWithoutServer'),
-            },
-          ]"
-          prepend-inner-icon="mdi-earth"
-          color="accent"
-          variant="outlined"
-          item-title="text"
-          item-value="value"
+          mandatory
+          show-arrows
+          color="primary"
           :disabled="!store.appReady"
-          hide-details
-        />
+        >
+          <v-chip
+            v-for="item in modes"
+            :key="item.value"
+            :value="item.value"
+            :prepend-icon="item.icon"
+            variant="tonal"
+            rounded="pill"
+          >
+            {{ item.text }}
+          </v-chip>
+        </v-chip-group>
 
         <!-- Search Input -->
         <v-text-field
@@ -525,6 +522,64 @@ function getPingIcon(score: number | null): string | null {
             <span class="text-grey">
               No cities found matching "{{ searchQuery }}"
             </span>
+          </template>
+        </v-list-item>
+      </v-list>
+
+      <!-- Direct: split tunneling — the adapter this profile's games go
+           straight out through, no LagZap server. -->
+      <v-list
+        v-if="mode === 'direct'"
+        style="flex: 1"
+        width="100%"
+        density="compact"
+        :disabled="!store.appReady"
+      >
+        <v-list-subheader class="d-flex align-center">
+          {{ t("$vuetify.title.profile.server.directThrough") }}
+          <v-btn
+            icon
+            size="x-small"
+            variant="text"
+            class="ms-1"
+            :loading="loadingInterfaces"
+            @click.stop="updateInterfaces"
+          >
+            <v-icon size="16">mdi-refresh</v-icon>
+          </v-btn>
+        </v-list-subheader>
+        <v-list-item @click="store.profileStates[profile.id].default_interface = ''">
+          <template #prepend>
+            <v-radio
+              hide-details
+              class="me-2"
+              density="compact"
+              color="primary"
+              :model-value="!store.profileStates[profile.id].default_interface"
+            />
+          </template>
+          <template #title>
+            <v-icon size="16" class="me-2">mdi-auto-fix</v-icon>
+            <span class="text-body-2">{{ t("$vuetify.title.profile.server.directSystemDefault") }}</span>
+          </template>
+        </v-list-item>
+        <v-list-item
+          v-for="iface in interfaces"
+          :key="iface.Name"
+          @click="store.profileStates[profile.id].default_interface = iface.Name"
+        >
+          <template #prepend>
+            <v-radio
+              hide-details
+              class="me-2"
+              density="compact"
+              color="primary"
+              :model-value="store.profileStates[profile.id].default_interface === iface.Name"
+            />
+          </template>
+          <template #title>
+            <v-icon size="16" class="me-2">mdi-network</v-icon>
+            <span class="text-body-2">{{ iface.Name }}</span>
           </template>
         </v-list-item>
       </v-list>

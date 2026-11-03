@@ -91,11 +91,23 @@ async function send() {
   }
 }
 
+// Live asks are answered on the profile's chart (QuickRating.vue).
+const { liveRequests } = useSessionRating();
+function askLive(next: RatingRequest | null) {
+  if (!next?.profile_id) return;
+  liveRequests.value = { ...liveRequests.value, [next.profile_id]: { ...next, at: Date.now() } };
+}
+
 let off: (() => void) | undefined;
+let offLive: (() => void) | undefined;
 onMounted(() => {
   off = Events.On("stats-rate-session", ({ data }: any) => ask(asRequest(data)));
+  offLive = Events.On("stats-rate-live", ({ data }: any) => askLive(asRequest(data)));
 });
-onUnmounted(() => off?.());
+onUnmounted(() => {
+  off?.();
+  offLive?.();
+});
 </script>
 
 <template>

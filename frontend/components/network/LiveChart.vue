@@ -8,6 +8,7 @@ import { useHumanSpeed } from "~/composables/helper";
 import type { OverviewTrafficChart } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import type { LiveLatencyChart, LiveLatencySeries } from "~/types/liveChart";
 import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
+import { useNetworkColor } from "~/composables/useNetworkColor";
 
 // Presentational chart: every number arrives ready from Go.
 
@@ -151,10 +152,7 @@ const legendGroups = computed<LegendGroup[]>(() => {
 });
 const legend = computed(() => legendGroups.value.flatMap((g) => g.items));
 
-function networkColor(network?: string) {
-  const dark = theme.current.value.dark;
-  return network === "tcp" ? (dark ? "#64B5F6" : "#1565C0") : dark ? "#81C784" : "#2E7D32";
-}
+const networkColor = useNetworkColor();
 
 const hasData = computed(() =>
   view.value === "latency" ? !!latency.value?.series?.length : !!traffic.value?.series?.length
@@ -195,10 +193,8 @@ function area(color: string, top: number) {
 
 const gap = (v: number) => (v > 0 ? v : null);
 
-// The actual ping (the game's own round trip) is solid green; probe lines
-// are faded so it stands out.
+// The actual ping (the game's own round trip) is green.
 const ACTUAL_COLOR = { dark: "#4ADE80", light: "#16A34A" };
-const PROBE_LINE_ALPHA = 0.45;
 function seriesColor(s: LiveLatencySeries) {
   if (s.actual) return theme.current.value.dark ? ACTUAL_COLOR.dark : ACTUAL_COLOR.light;
   return props.latencyColor(s.id);
@@ -330,7 +326,7 @@ function latencySeries() {
       data: values,
       showSymbol: false,
       connectNulls: false,
-      lineStyle: s.actual ? { width: 1.75, color } : { width: 1.25, color: alpha(color, PROBE_LINE_ALPHA) },
+      lineStyle: { width: s.actual ? 1.75 : 1.25, color },
       itemStyle: { color },
       ...(s.actual ? {} : { areaStyle: { color: area(color, 0.08) } }),
       emphasis: { disabled: true },

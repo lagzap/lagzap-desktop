@@ -179,16 +179,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
         </template>
         <template #header.data-table-group />
         <template #item.data-table-group="{ item }">
-          <v-chip
-            :color="item.network == 'tcp' ? 'green' : 'blue'"
-            size="x-small"
-            variant="tonal"
-            rounded
-          >
-            <span class="text-uppercase">
-              {{ item.network }}
-            </span>
-          </v-chip>
+          <NetworkLabel :network="item.network" />
         </template>
         <template #group-header="{ item, toggleGroup }">
           <tr v-ripple class="cursor-pointer bg" @click="toggleGroup(item)">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useLocale } from "vuetify";
 import LiveChart from "~/components/network/LiveChart.vue";
+import QuickRating from "~/components/title/QuickRating.vue";
 import { useProfileChart } from "~/composables/useProfileChart";
 import type { OverviewRange } from "~/composables/useOverviewChart";
 
@@ -19,8 +20,8 @@ const hasData = computed(() =>
 </script>
 
 <template>
+  <div v-if="hasData" class="ping-usage">
   <LiveChart
-    v-if="hasData"
     :id="trafficOnly ? undefined : `profile-chart-${profileId}`"
     v-model:view="view"
     :fixed-view="trafficOnly ? 'traffic' : undefined"
@@ -33,6 +34,8 @@ const hasData = computed(() =>
     :session-start="chart?.session_start ?? 0"
     @update:range="(r) => setRange(r as OverviewRange)"
   />
+  <QuickRating v-if="!trafficOnly" :profile-id="profileId" />
+  </div>
   <div v-else-if="trafficOnly" class="text-center text-medium-emphasis py-8 text-body-2">
     {{ t("$vuetify.title.profile.noTrafficYet") }}
   </div>
@@ -41,3 +44,9 @@ const hasData = computed(() =>
     {{ t("$vuetify.title.profile.noSessionChart") }}
   </div>
 </template>
+
+<style scoped>
+.ping-usage {
+  position: relative;
+}
+</style>

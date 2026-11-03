@@ -166,6 +166,8 @@ async function close() {
 
   <DialogSessionRating v-if="!isOverlayWindow" />
 
+  <DialogConnectionRejected v-if="!isOverlayWindow" />
+
   <RouteProtectedNotice v-if="!isOverlayWindow" />
 
   <SessionIntervalRecorder v-if="!isOverlayWindow" />
