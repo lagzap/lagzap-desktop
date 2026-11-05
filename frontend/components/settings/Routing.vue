@@ -24,6 +24,7 @@ const {
   setRealtimeOptimization,
   setProxyDnsRequests,
   setInternetPingTarget,
+  setGamingPriority,
   getRouteAccuracyOptions,
   getRouteProtocolOptions,
   getRouteIpOptions,
@@ -141,6 +142,15 @@ const internetPingTargetItems = computed(() => [
         variant="outlined"
         class="mb-4"
         @update:model-value="setInternetPingTarget($event as InternetPingTargetId)"
+      />
+
+      <v-checkbox
+        class="mb-4"
+        :label="t('$vuetify.settings.route.gamingPriority')"
+        :hint="t('$vuetify.settings.route.gamingPriorityHint')"
+        persistent-hint
+        :model-value="settings.gamingPriority"
+        @update:model-value="setGamingPriority"
       />
     </v-card-text>
   </v-card>

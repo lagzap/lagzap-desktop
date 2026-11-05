@@ -310,6 +310,16 @@ func (s *Service) SetRoutingSettings(routeAccuracy int, routeProtocol int, route
 	})
 }
 
+// SetGamingPriority turns on marking Gaming Traffic profiles' legs as
+// real-time traffic, for routers and networks that prioritize it.
+func (s *Service) SetGamingPriority(enabled bool) {
+	s.gamingPriority = enabled
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetGamingPriority(enabled)
+}
+
 func (s *Service) GetProxyDNSRequests() bool {
 	return s.proxyDNSRequests
 }

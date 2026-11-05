@@ -235,6 +235,8 @@ export default {
             realTimeOptimization: 'بهینه‌سازی به صورت خودکار در پس زمینه انجام شود',
             proxyDnsRequests: 'پروکسی درخواست‌های DNS',
             proxyDnsRequestsHint: 'جست‌وجوی DNS از طریق نودهای CDN و پروکسی انجام شود',
+            gamingPriority: 'اولویت دادن به ترافیک بازی',
+            gamingPriorityHint: 'بازی‌های شما را به‌عنوان ترافیک بلادرنگ علامت‌گذاری می‌کند. اگر مودم، وای‌فای یا اینترنت شما از اولویت‌بندی ترافیک (QoS) پشتیبانی کند، بازی‌ها جلوتر از دانلود و استریم ارسال می‌شوند و لگ کمتری دارید. در غیر این صورت چیزی تغییر نمی‌کند.',
             transportFallback: 'تعویض پروتکل در صورت خطا',
             transportFallbackHint: 'اگر مسیر TCP یا UDP متصل نشود، پروتکل دیگر برای همان اسلات امتحان شود',
             protocol: {
@@ -850,6 +852,7 @@ export default {
         fabProgress: '{0}% · {1}',
         newInterfaceTitle: 'اتصال اینترنت جدید',
         recoveredInterfaceTitle: 'اتصال اینترنت برگشت',
+        ipChangedInterfaceTitle: 'مسیر اینترنت شما تغییر کرد',
         ifaceChecking: 'در حال بررسی اینترنت…',
         ifaceProbing: 'آزمایش سرورها {0} / {1}',
         ifaceReady: 'آماده · بهترین {0} م.ث · {1} سرور',

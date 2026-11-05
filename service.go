@@ -35,6 +35,9 @@ type Service struct {
 	// proxyDNSApplied: proxyDNSAppliedValue is what the running service uses.
 	proxyDNSApplied      bool
 	proxyDNSAppliedValue bool
+	// gamingPriority: Settings > Routing "Prioritize gaming traffic", kept
+	// here so a service restart applies it again.
+	gamingPriority bool
 	// virtualAdapter: on Windows, capture through LagZap's TUN instead of
 	// the NDIS driver (service_proxy_windows.go).
 	virtualAdapter bool
@@ -86,6 +89,7 @@ func (s *Service) ReloadService() error {
 		s.app.Event.Emit(event, data)
 	})
 	s.applyUIBackground()
+	s.coordinator.SetGamingPriority(s.gamingPriority)
 	if settings := s.coordinator.GetClientSettings(); settings != nil && settings.ProxyDnsRequests != nil {
 		s.proxyDNSRequests = settings.GetProxyDnsRequests()
 	}

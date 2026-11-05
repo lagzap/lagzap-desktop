@@ -9,6 +9,7 @@ import {
   SetClientSettings,
   SetInternetPingTarget,
   SetAdapterOrder,
+  SetGamingPriority,
   SetRoutingSettings,
   SetVirtualAdapter,
 } from '~/bindings/github.com/lagzap/lagzap-desktop/service'
@@ -45,6 +46,9 @@ interface AppSettings {
   routeIp?: RouteIPSetting
   realtimeOptimization?: boolean
   proxyDnsRequests?: boolean
+  /** Mark Gaming Traffic profiles as real-time traffic, for routers and
+   * networks that prioritize it. */
+  gamingPriority?: boolean
   internetPingTarget?: InternetPingTargetId
   relayTransportFallback?: boolean
   /** Show game and app names in English while the UI is in another language. */
@@ -72,6 +76,7 @@ const defaultRoutingSettings: Required<
     | 'routeIp'
     | 'realtimeOptimization'
     | 'proxyDnsRequests'
+    | 'gamingPriority'
     | 'internetPingTarget'
     | 'relayTransportFallback'
   >
@@ -81,6 +86,7 @@ const defaultRoutingSettings: Required<
   routeIp: 'dualstack',
   realtimeOptimization: true,
   proxyDnsRequests: false,
+  gamingPriority: false,
   internetPingTarget: DEFAULT_INTERNET_PING_TARGET,
   relayTransportFallback: false,
 }
@@ -266,6 +272,7 @@ export const useSettings = (locale?: any, theme?: any) => {
       await SetClientSettings(await buildClientSettingsPayload())
       await SetInternetPingTarget(settings.value.internetPingTarget ?? DEFAULT_INTERNET_PING_TARGET)
       await SetAdapterOrder(settings.value.adapterOrder ?? [])
+      await SetGamingPriority(settings.value.gamingPriority ?? false)
     } catch (error) {
       console.warn('Could not sync routing settings to backend:', error)
     }
@@ -400,6 +407,10 @@ export const useSettings = (locale?: any, theme?: any) => {
 
   const setProxyDnsRequests = async (proxyDnsRequests: boolean) => {
     await saveSettings({ proxyDnsRequests })
+  }
+
+  const setGamingPriority = async (gamingPriority: boolean) => {
+    await saveSettings({ gamingPriority })
   }
 
   const setRelayTransportFallback = async (relayTransportFallback: boolean) => {
@@ -569,6 +580,7 @@ export const useSettings = (locale?: any, theme?: any) => {
     setRouteIp,
     setRealtimeOptimization,
     setProxyDnsRequests,
+    setGamingPriority,
     setRelayTransportFallback,
     setEnglishTitleNames,
     setVirtualAdapter,

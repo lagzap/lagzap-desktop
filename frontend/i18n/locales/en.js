@@ -235,6 +235,8 @@
             realTimeOptimization: 'Real-time optimization',
             proxyDnsRequests: 'Proxy DNS requests',
             proxyDnsRequestsHint: 'Route DNS lookups through CDN nodes via the proxy',
+            gamingPriority: 'Prioritize gaming traffic',
+            gamingPriorityHint: 'Marks your games as real-time traffic. If your router, Wi-Fi or internet provider supports traffic priority (QoS), your games go ahead of downloads and streams and lag less. Otherwise nothing changes.',
             transportFallback: 'Switch transport on failure',
             transportFallbackHint: 'If a TCP or UDP route fails to connect, try the other transport for the same slot',
             protocol: {
@@ -836,6 +838,7 @@
         fabProgress: '{0}% · {1}',
         newInterfaceTitle: 'New internet connection',
         recoveredInterfaceTitle: 'Internet connection is back',
+        ipChangedInterfaceTitle: 'Your internet route changed',
         ifaceChecking: 'Checking internet…',
         ifaceProbing: 'Testing servers {0} / {1}',
         ifaceReady: 'Ready · best {0} ms · {1} servers',

@@ -18,6 +18,8 @@ interface IfaceStatus {
   reachable: number;
   best_ms?: number;
   recovered?: boolean;
+  /** Its public IP changed (the ISP moved the route): a background re-check. */
+  ip_changed?: boolean;
   seq: number;
 }
 
@@ -60,7 +62,12 @@ onMounted(() => {
     const prev = rows.value[status.name];
     // Events arrive asynchronously; never let an older one overwrite a newer.
     if (prev && Number(status.seq) <= Number(prev.seq)) return;
-    if (!prev) minimized.value = false;
+    // A re-check after a public IP change runs in the background: alone, it
+    // shows only the small button; it never opens the panel by itself.
+    if (!prev) {
+      if (!status.ip_changed) minimized.value = false;
+      else if (!Object.keys(rows.value).length) minimized.value = true;
+    }
     rows.value = { ...rows.value, [status.name]: status };
     if (status.state === "done") scheduleHide(status.name, DONE_HIDE_MS);
     else if (status.state === "unavailable") scheduleHide(status.name, UNAVAILABLE_HIDE_MS);
@@ -73,12 +80,15 @@ onUnmounted(() => {
 });
 
 const list = computed(() => Object.values(rows.value));
-// Every row is a known connection whose internet came back after an outage.
-const title = computed(() =>
-  list.value.length && list.value.every((row) => row.recovered)
-    ? t("$vuetify.routeAnalysis.recoveredInterfaceTitle")
-    : t("$vuetify.routeAnalysis.newInterfaceTitle")
-);
+// Every row is a known connection whose internet came back after an outage,
+// or whose route changed.
+const title = computed(() => {
+  if (list.value.length && list.value.every((row) => row.recovered))
+    return t("$vuetify.routeAnalysis.recoveredInterfaceTitle");
+  if (list.value.length && list.value.every((row) => row.ip_changed))
+    return t("$vuetify.routeAnalysis.ipChangedInterfaceTitle");
+  return t("$vuetify.routeAnalysis.newInterfaceTitle");
+});
 const visible = computed(() => list.value.length > 0 && !store.optimizing);
 const active = computed(() =>
   list.value.some((row) => row.state === "checking" || row.state === "probing")
