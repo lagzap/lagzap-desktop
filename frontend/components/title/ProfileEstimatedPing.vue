@@ -7,7 +7,7 @@ import { BEST_INTERFACE, useProfileViewInterface } from "~/composables/useProfil
 
 /** "Estimated Ping 101ms" in the profile card subtitle (Go's loss or lag
  * note shows in the card's notice row). Click measures now; right-click
- * holds the route view and Try fix lag. */
+ * holds Try fix lag and the route view. */
 const props = defineProps<{
   profileId: string;
   /** "Show routes on" choices; empty when there is nothing to pick. */
@@ -43,6 +43,7 @@ async function probe() {
 const menuOpen = ref(false);
 const menuAt = ref<[number, number]>([0, 0]);
 function openMenu(event: MouseEvent) {
+  if (!props.canFixLag && !views.value.length) return;
   menuAt.value = [event.clientX, event.clientY];
   menuOpen.value = true;
 }
@@ -73,13 +74,14 @@ const views = computed(() => props.views ?? []);
     <v-menu v-model="menuOpen" :target="menuAt" location="bottom start" :close-on-content-click="true">
       <v-list density="compact" min-width="170" class="est-menu py-1">
         <v-list-item
-          prepend-icon="mdi-radar"
-          :title="t('$vuetify.title.profile.measurePingNow')"
-          :disabled="probing"
-          @click="probe"
+          v-if="canFixLag"
+          prepend-icon="mdi-auto-fix"
+          :title="t('$vuetify.networkLatency.tryFixLag')"
+          :disabled="fixingLag"
+          @click="emit('fixLag')"
         />
         <template v-if="views.length">
-          <v-divider class="my-1" />
+          <v-divider v-if="canFixLag" class="my-1" />
           <v-list-subheader>{{ t("$vuetify.title.profile.showRoutesOn") }}</v-list-subheader>
           <v-list-item
             v-for="view in views"
@@ -93,15 +95,6 @@ const views = computed(() => props.views ?? []);
               <v-icon :icon="selectedInterfaceKey === view.value ? 'mdi-radiobox-marked' : 'mdi-radiobox-blank'" />
             </template>
           </v-list-item>
-        </template>
-        <template v-if="canFixLag">
-          <v-divider class="my-1" />
-          <v-list-item
-            prepend-icon="mdi-auto-fix"
-            :title="t('$vuetify.networkLatency.tryFixLag')"
-            :disabled="fixingLag"
-            @click="emit('fixLag')"
-          />
         </template>
       </v-list>
     </v-menu>
