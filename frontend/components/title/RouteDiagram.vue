@@ -221,6 +221,7 @@ const scheduleDiagramUpdate = debounce(() => {
 
 const debouncedResize = debounce(() => {
   chart?.resize();
+  updateChart();
 }, 150);
 
 function routeDiagramColor(routeIndex: number): string {
@@ -388,6 +389,21 @@ const FLOW_LINE_COLOR = "#424242";
 /** Snap layout coords to whole pixels. */
 function px(n: number) {
   return Math.round(n);
+}
+
+/** The scale ECharts' graph gives data units: it fits the nodes' box into
+ * 80% of the chart's width or height, keeping its aspect. `dataHeight`
+ * depends on the scale (it holds pixel room), so settle it in a few steps. */
+function diagramScale(dataWidth: number, dataHeight: (scale: number) => number) {
+  const w = chart?.getWidth() ?? 0;
+  const h = chart?.getHeight() ?? 0;
+  if (!w || !h || dataWidth <= 0) return 1;
+  const byWidth = (0.8 * w) / dataWidth;
+  let s = byWidth;
+  for (let i = 0; i < 12; i++) {
+    s = Math.max(0.2, Math.min(byWidth, (0.8 * h) / dataHeight(s)));
+  }
+  return s;
 }
 
 function elbowNode(id: string, x: number, y: number) {
@@ -815,6 +831,19 @@ function updateChart() {
   // Destination convergence X (shared by all routes)
   const destConvergenceX = px(startX + (maxHops + 1) * hopSpacing);
 
+  // Labels are drawn in pixels, but node positions scale with the chart, and
+  // one route draws far larger than several. Work out the scale ECharts
+  // will use and keep pixel room above the top route (city names) and below
+  // the bottom route or the game's ping badge, so no label leaves the canvas.
+  const badgeLinesPx = actualPing.value !== null && !isEstimate.value ? 14 : 0;
+  const ROOM_ABOVE = 40;
+  const ROOM_BELOW = 40;
+  const BADGE_GAP = 24; // clear of the 40px game icon
+  const badgeRoom = badgeLinesPx ? BADGE_GAP + badgeLinesPx + 4 : 0;
+  const halfSpan = totalRouteHeight / 2;
+  const roomBelow = (s: number) => Math.max(halfSpan + ROOM_BELOW / s, badgeRoom / s);
+  const scale = diagramScale(destConvergenceX + 70 - startX, (s) => halfSpan + ROOM_ABOVE / s + roomBelow(s));
+
   // Add route nodes and links with equal spacing
   routes.forEach((route, routeIndex) => {
     const routeY = px(centerY - totalRouteHeight / 2 + routeIndex * routeSpacing);
@@ -1158,50 +1187,38 @@ function updateChart() {
     lineStyle: flowLineStyle(),
   });
 
-  // The graph scales to fit its nodes, so the space under the game is held
-  // by a fixed, invisible node: the badge below (none, one line or several)
-  // never changes the diagram's scale and spacing. A preview or prediction
-  // has no badge and stays centered.
-  const badgeTop = px(centerY + 24); // clear of the 40px game icon
-  if (!isEstimate.value) nodes.push({
-    id: "badge-space",
-    name: "",
-    x: px(destConvergenceX + 70),
-    y: px(centerY + 38),
-    symbolSize: 0,
-    tooltip: { show: false },
-    silent: true,
-    itemStyle: { color: "transparent" },
-    label: { show: false },
-  });
+  // The graph scales to fit its nodes: two invisible nodes hold the room
+  // worked out above, above the top route and below the bottom route or
+  // the badge under the game.
+  const badgeTop = centerY + BADGE_GAP / scale;
+  for (const [id, y] of [
+    ["room-above", centerY - halfSpan - ROOM_ABOVE / scale],
+    ["room-below", centerY + roomBelow(scale)],
+  ] as const) {
+    nodes.push({
+      id,
+      name: "",
+      x: px(destConvergenceX + 70),
+      y,
+      symbolSize: 0,
+      tooltip: { show: false },
+      silent: true,
+      itemStyle: { color: "transparent" },
+      label: { show: false },
+    });
+  }
 
-  // Under the game: the ping it actually gets; packet loss and bursts only
-  // while there are any. The protocol resends every lost packet, so loss
-  // costs the game time, never data: the line under it says so.
+  // Under the game: only the ping it actually gets. Loss and bursts show in
+  // the note at the chart's bottom-right corner, so the chart never moves.
   if (actualPing.value !== null && !isEstimate.value) {
     const ms = actualPing.value;
     const timedOut = ms === 0;
     const color = getScoreColor(timedOut ? 10 : actualPingScore(ms));
     const text = timedOut ? t("$vuetify.networkLatency.timeout") : formatMs(ms);
-    const muted = resolveDiagramLabelColors().text;
-    const lines = [`{a|${text}}`];
-    const loss = actualLoss.value ?? 0;
-    if (loss > 0) {
-      lines.push(`{l|${t("$vuetify.networkLatency.loss")} ${pctText(loss)}}`);
-      lines.push(`{r|${t("$vuetify.networkLatency.lossRecovered")}}`);
-    }
-    const burst = actualBurst.value ?? 0;
-    if (burst > 0) {
-      lines.push(`{bi|\u{F0430}}{b| ${t("$vuetify.networkLatency.burst")} ${pctText(burst)}}`);
-    }
-    const lossColor = getScoreColor(loss >= 5 ? 10 : 30);
-    const burstColor = getScoreColor(burst >= 20 ? 10 : 30);
-    const small = { fontSize: 10, lineHeight: 14, textAlign: "center" as const };
     nodes.push({
       id: "actual-ping",
       name: text,
       x: px(destConvergenceX + 70),
-      // Lines grow down from badgeTop.
       y: badgeTop,
       symbolSize: 0,
       tooltip: { show: false },
@@ -1211,13 +1228,9 @@ function updateChart() {
         show: true,
         position: "inside",
         verticalAlign: "top",
-        formatter: lines.join("\n"),
+        formatter: `{a|${text}}`,
         rich: {
           a: { color, lineHeight: 14, fontSize: 11, fontWeight: "bold", textAlign: "center" },
-          l: { ...small, color: lossColor },
-          r: { ...small, fontSize: 9, lineHeight: 12, color: muted },
-          bi: { ...small, color: burstColor, fontFamily: "Material Design Icons", fontSize: 11 },
-          b: { ...small, color: burstColor },
         },
       },
     });
@@ -1360,7 +1373,11 @@ watch(
     if (el) {
       boxObserver = new ResizeObserver(() => {
         cancelAnimationFrame(resizeFrame);
-        resizeFrame = requestAnimationFrame(() => chart?.resize());
+        // Label room depends on the chart's size: lay it out again.
+        resizeFrame = requestAnimationFrame(() => {
+          chart?.resize();
+          updateChart();
+        });
       });
       boxObserver.observe(el);
     }
@@ -1411,10 +1428,27 @@ watch(selectedInterfaceKey, () => {
   updateChart();
 });
 
-// The chart box grows with the route count; a preview or prediction has no
-// ping badge under the game to make room for.
+// Loss and bursts of the game's own connection, for the corner note: shown
+// only while there are any. The protocol resends every lost packet, so loss
+// costs the game time, never data: the note says so.
+const linkNote = computed(() => {
+  if (actualPing.value === null || isEstimate.value) return null;
+  const loss = actualLoss.value ?? 0;
+  const burst = actualBurst.value ?? 0;
+  if (loss <= 0 && burst <= 0) return null;
+  return {
+    loss: loss > 0 ? pctText(loss) : "",
+    lossColor: getScoreColor(loss >= 5 ? 10 : 30),
+    burst: burst > 0 ? pctText(burst) : "",
+    burstColor: getScoreColor(burst >= 20 ? 10 : 30),
+  };
+});
+
+// The chart box grows with the route count only; a preview or prediction
+// has no ping under the game to make room for. The last 24px held the
+// card's notice row, which now sits on the chart's bottom-left corner.
 const chartHeight = computed(
-  () => Math.max(1, drawnRoutes.value.length) * 50 + (isEstimate.value ? 60 : 80)
+  () => Math.max(1, drawnRoutes.value.length) * 50 + (isEstimate.value ? 60 : 80) + 24
 );
 
 watch(
@@ -1437,6 +1471,18 @@ watch(
       class="route-diagram-chart"
       :style="`width: 100%; margin: 0; padding: 0; max-height: 400px; aspect-ratio: 5/2; height: ${chartHeight}px;`"
     ></div>
+    <div v-if="linkNote" class="route-diagram-note">
+      <div v-if="linkNote.loss" :style="{ color: linkNote.lossColor }">
+        {{ t("$vuetify.networkLatency.loss") }} {{ linkNote.loss }}
+      </div>
+      <div v-if="linkNote.loss" class="route-diagram-note__muted">
+        {{ t("$vuetify.networkLatency.lossRecovered") }}
+      </div>
+      <div v-if="linkNote.burst" :style="{ color: linkNote.burstColor }">
+        <v-icon icon="mdi-pulse" size="12" />
+        {{ t("$vuetify.networkLatency.burst") }} {{ linkNote.burst }}
+      </div>
+    </div>
   </div>
   <div v-else-if="diagram" class="text-center pa-4 text-grey">
     Route diagram not available for this profile
@@ -1455,6 +1501,25 @@ watch(
 
 .route-diagram-chart :deep(canvas) {
   overflow: visible;
+}
+
+/* Loss and bursts sit in the bottom-right corner, out of the chart, so the
+ * chart keeps its size and layout whatever they show. */
+.route-diagram-note {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: right;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.route-diagram-note__muted {
+  font-size: 9px;
+  line-height: 12px;
+  color: rgba(var(--v-theme-on-surface), 0.7);
 }
 
 

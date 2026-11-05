@@ -437,18 +437,16 @@ const routeSettingsText = computed(() => {
             </div>
           </template>
         </v-tooltip>
-        <RouteDiagram :profile="props.profile" @estimate="estimateNote = $event" />
-        <!-- Always laid out, only shown with a warning: no jump in card height. -->
-        <div class="d-flex align-center ga-2 mt-2">
-        <v-tooltip :disabled="!notice?.tip" location="bottom" max-width="320" open-delay="200">
-          <template #activator="{ props: tipProps }">
-            <div
-              v-bind="tipProps"
-              class="profile-protection profile-notice d-flex align-start ga-2 flex-grow-1"
-              :style="{ visibility: notice ? 'visible' : 'hidden' }"
-              :aria-hidden="!notice"
-            >
-              <template v-if="notice">
+        <!-- The notice sits on the chart's bottom-left corner (loss and
+             bursts take the bottom-right), so the chart has the whole area. -->
+        <div class="profile-diagram">
+          <RouteDiagram :profile="props.profile" @estimate="estimateNote = $event" />
+          <v-tooltip v-if="notice" :disabled="!notice.tip" location="bottom" max-width="320" open-delay="200">
+            <template #activator="{ props: tipProps }">
+              <div
+                v-bind="tipProps"
+                class="profile-protection profile-notice profile-diagram__notice d-flex align-start ga-2"
+              >
                 <v-icon
                   :icon="notice.icon"
                   size="16"
@@ -460,13 +458,10 @@ const routeSettingsText = computed(() => {
                   <span v-if="notice.text" class="text-medium-emphasis"> · {{ notice.text }}</span>
                 </span>
                 <span v-else>{{ notice.text }}</span>
-              </template>
-              <!-- Holds the row's height while empty. -->
-              <span v-else>&nbsp;</span>
-            </div>
-          </template>
-          {{ notice?.tip }}
-        </v-tooltip>
+              </div>
+            </template>
+            {{ notice.tip }}
+          </v-tooltip>
         </div>
         <v-divider class="my-4" />
       </template>
@@ -534,6 +529,18 @@ const routeSettingsText = computed(() => {
   color: rgba(var(--v-theme-on-surface), 0.7);
   font-size: 0.75rem;
   line-height: 1.3;
+}
+
+.profile-diagram {
+  position: relative;
+}
+
+.profile-diagram__notice {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  max-width: calc(100% - 150px);
+  z-index: 1;
 }
 
 /* A wrapped notice keeps its icon on the first line, not between lines. */
