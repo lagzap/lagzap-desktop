@@ -32,6 +32,9 @@ type Service struct {
 	logFactory       log.ObservableFactory
 	localProxy       *localproxy.Proxy
 	proxyDNSRequests bool
+	// proxyDNSApplied: proxyDNSAppliedValue is what the running service uses.
+	proxyDNSApplied      bool
+	proxyDNSAppliedValue bool
 	// virtualAdapter: on Windows, capture through LagZap's TUN instead of
 	// the NDIS driver (service_proxy_windows.go).
 	virtualAdapter bool
@@ -86,9 +89,6 @@ func (s *Service) ReloadService() error {
 	if settings := s.coordinator.GetClientSettings(); settings != nil && settings.ProxyDnsRequests != nil {
 		s.proxyDNSRequests = settings.GetProxyDnsRequests()
 	}
-	if err := s.applyProxyDNSConfig(); err != nil {
-		fmt.Printf("proxy dns config: %v\n", err)
-	}
 	s.lagzap = instance
 
 	if err := s.discoverAndStartLocalProxy(); err != nil {
@@ -100,6 +100,11 @@ func (s *Service) ReloadService() error {
 	go s.startMonitoring()
 
 	s.logFactory = instance.Logger()
+	// Needs s.lagzap and s.logFactory: called any earlier it did nothing, and
+	// "Proxy DNS requests" stayed off until toggled.
+	if err := s.applyProxyDNSConfig(); err != nil {
+		fmt.Printf("proxy dns config: %v\n", err)
+	}
 	go s.startLogging()
 	return nil
 }
@@ -116,6 +121,7 @@ func (s *Service) StopService() error {
 			winpkFilter.SetProxyDNSRequests(false)
 		}
 	}
+	s.proxyDNSApplied = false
 	_ = s.StopProxy()
 	if s.cancel != nil {
 		s.cancel()

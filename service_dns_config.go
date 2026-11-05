@@ -39,6 +39,9 @@ func (s *Service) applyProxyDNSConfig() error {
 		return E.Cause(err, "update default dns server")
 	}
 
+	s.proxyDNSApplied = true
+	s.proxyDNSAppliedValue = s.proxyDNSRequests
+
 	if s.coordinator != nil {
 		_ = s.coordinator.ApplyAllProfileStates()
 	}

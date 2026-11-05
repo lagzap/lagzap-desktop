@@ -284,10 +284,12 @@ func (s *Service) GetInternetPingTarget() string {
 }
 
 func (s *Service) SetRoutingSettings(routeAccuracy int, routeProtocol int, routeIp int, realtimeOptimization bool, proxyDNSRequests bool) {
-	previousProxyDNS := s.proxyDNSRequests
 	s.proxyDNSRequests = proxyDNSRequests
 
-	if previousProxyDNS != proxyDNSRequests {
+	// Apply when the running service uses another value (or none yet), not
+	// only on a change here: the first sync after start sends the same value
+	// the service read from its settings.
+	if !s.proxyDNSApplied || s.proxyDNSAppliedValue != proxyDNSRequests {
 		if err := s.applyProxyDNSConfig(); err != nil {
 			fmt.Printf("proxy dns config update: %v\n", err)
 		}
