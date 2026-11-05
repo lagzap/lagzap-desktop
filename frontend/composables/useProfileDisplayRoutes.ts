@@ -395,12 +395,21 @@ type ConnectionRouteSource = {
   } | null;
 };
 
-/** Best latency to relay for a live connection row. */
+/**
+ * A live connection row's latency: its own (a relayed connection's is the
+ * round trip its session measures on the game's traffic), else its route's
+ * best probe.
+ */
 export function connectionRelayLatency(
   connection: ConnectionRouteSource | null | undefined
 ): number | null {
   if (!connection) {
     return null;
+  }
+
+  const own = connection.avg_latency || connection.min_latency || 0;
+  if (own > 0) {
+    return Math.round(own);
   }
 
   const routes = connection.relay_route?.routes;
@@ -410,9 +419,7 @@ export function connectionRelayLatency(
       return Math.round(best.ping);
     }
   }
-
-  const fallback = connection.min_latency || connection.avg_latency || 0;
-  return fallback > 0 ? Math.round(fallback) : null;
+  return null;
 }
 
 export function relayRoutesForNode(
