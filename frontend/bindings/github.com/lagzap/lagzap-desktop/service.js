@@ -561,6 +561,16 @@ export function OpenLatencyOverlay() {
 }
 
 /**
+ * PlanLimits is what the subscriber's plan allows (zero: no limit).
+ * @returns {$CancellablePromise<adapter$0.PlanLimits>}
+ */
+export function PlanLimits() {
+    return $Call.ByID(3723209718).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType52($result);
+    }));
+}
+
+/**
  * ProbeNodeRoutes pings the given relay paths immediately and returns updated
  * routes with live latency (used by Estimated Ping on the route diagram).
  * iface binds the probe to that NIC when set.
@@ -570,7 +580,7 @@ export function OpenLatencyOverlay() {
  */
 export function ProbeNodeRoutes(routes, iface) {
     return $Call.ByID(980278603, routes, iface).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType54($result);
+        return $$createType55($result);
     }));
 }
 
@@ -718,7 +728,7 @@ export function SetHelpCenterView(view) {
  */
 export function SetInterfaceMonitorRange(watcher, iface, key, lang) {
     return $Call.ByID(3480031081, watcher, iface, key, lang).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType56($result);
+        return $$createType57($result);
     }));
 }
 
@@ -751,7 +761,7 @@ export function SetLatencyOverlayAlwaysOnTop(alwaysOnTop) {
  */
 export function SetLocationMonitor(watcher, key, rangeKey, lang, manual) {
     return $Call.ByID(1266297978, watcher, key, rangeKey, lang, manual).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType58($result);
+        return $$createType59($result);
     }));
 }
 
@@ -773,7 +783,7 @@ export function SetLogLevel(logLevel) {
  */
 export function SetNetworkMonitorRange(watcher, key) {
     return $Call.ByID(1699016496, watcher, key).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType60($result);
+        return $$createType61($result);
     }));
 }
 
@@ -786,7 +796,7 @@ export function SetNetworkMonitorRange(watcher, key) {
  */
 export function SetOverviewRange(watcher, key) {
     return $Call.ByID(1243669937, watcher, key).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType62($result);
+        return $$createType63($result);
     }));
 }
 
@@ -948,7 +958,7 @@ export function VisitTitle(titleId) {
  */
 export function WatchProfileChart(profileID, rangeKey, iface, connectionID) {
     return $Call.ByID(969705923, profileID, rangeKey, iface, connectionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType64($result);
+        return $$createType65($result);
     }));
 }
 
@@ -1005,16 +1015,17 @@ const $$createType48 = $models.MyTicketsResult.createFrom;
 const $$createType49 = $Create.Nullable($$createType48);
 const $$createType50 = adapter$0.PathPingRow.createFrom;
 const $$createType51 = $Create.Array($$createType50);
-const $$createType52 = data$0.NodeRoute.createFrom;
-const $$createType53 = $Create.Nullable($$createType52);
-const $$createType54 = $Create.Array($$createType53);
-const $$createType55 = adapter$0.InterfaceMonitorDetail.createFrom;
-const $$createType56 = $Create.Nullable($$createType55);
-const $$createType57 = adapter$0.LocationMonitor.createFrom;
-const $$createType58 = $Create.Nullable($$createType57);
-const $$createType59 = adapter$0.NetworkMonitor.createFrom;
-const $$createType60 = $Create.Nullable($$createType59);
-const $$createType61 = adapter$0.OverviewChart.createFrom;
-const $$createType62 = $Create.Nullable($$createType61);
-const $$createType63 = adapter$0.ProfileChart.createFrom;
-const $$createType64 = $Create.Nullable($$createType63);
+const $$createType52 = adapter$0.PlanLimits.createFrom;
+const $$createType53 = data$0.NodeRoute.createFrom;
+const $$createType54 = $Create.Nullable($$createType53);
+const $$createType55 = $Create.Array($$createType54);
+const $$createType56 = adapter$0.InterfaceMonitorDetail.createFrom;
+const $$createType57 = $Create.Nullable($$createType56);
+const $$createType58 = adapter$0.LocationMonitor.createFrom;
+const $$createType59 = $Create.Nullable($$createType58);
+const $$createType60 = adapter$0.NetworkMonitor.createFrom;
+const $$createType61 = $Create.Nullable($$createType60);
+const $$createType62 = adapter$0.OverviewChart.createFrom;
+const $$createType63 = $Create.Nullable($$createType62);
+const $$createType64 = adapter$0.ProfileChart.createFrom;
+const $$createType65 = $Create.Nullable($$createType64);

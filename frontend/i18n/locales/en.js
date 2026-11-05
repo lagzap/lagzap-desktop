@@ -184,6 +184,7 @@
             udp: 'UDP Routes',
             routesTitle: 'Routes per adapter',
             routesDescription: 'How many TCP and UDP routes each Multi Internet adapter opens. Change one adapter on its card; leave it empty to use these numbers.',
+            planInternets: 'Your plan uses up to {0} internets together: the first ones in this order.',
             orderTip: 'Drag to change the order. Backups take over in this order; the first is the Default.',
             virtualAdapterTitle: 'Adapter switching',
             virtualAdapterDescription: 'How LagZap picks up your games. Standard only takes over games on the adapter they use. The virtual adapter gives games a connection that stays up while you unplug a cable, swap adapters or disable one.',

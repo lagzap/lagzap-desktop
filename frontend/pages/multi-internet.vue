@@ -8,6 +8,7 @@ import { localDigits } from "~/utils/localeFormat";
 import { MAX_ROUTES } from "~/composables/routeCountUtils";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 import { useNetworkMonitor } from "~/composables/useNetworkMonitor";
+import { PlanLimits } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 /** Which adapters LagZap uses: the default one, the ones joined together for
  * Multi Internet and the backups for prevent-disconnect. Only what matters
@@ -33,6 +34,18 @@ const { settings, setRelayTransportFallback, setVirtualAdapter, setAdapterOrder 
 const { monitor, colorOf } = useNetworkMonitor();
 
 const names = computed(() => interfaces.value.map((iface) => iface.Name).filter(Boolean));
+
+// The plan caps how many internets work together: Go uses the first ones in
+// this page's order. Shown only when there are more adapters than that.
+const maxInternets = ref(0);
+onMounted(async () => {
+  try {
+    maxInternets.value = (await PlanLimits())?.max_internets ?? 0;
+  } catch {
+    // service not running
+  }
+});
+const planCapsInternets = computed(() => maxInternets.value > 0 && names.value.length > maxInternets.value);
 const monitorOf = (name: string) => monitor.value?.interfaces?.find((iface) => iface.name === name);
 const effectiveDefault = computed(() => defaultInterfaceOverride.value ?? defaultInterface.value);
 
@@ -180,6 +193,14 @@ const pools = computed(() => [
           density="compact"
           class="mb-4"
           :text="t('$vuetify.settings.multiInternetPage.singleNote')"
+        />
+        <v-alert
+          v-if="planCapsInternets"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          :text="t('$vuetify.settings.multiInternetPage.planInternets', localDigits(maxInternets))"
         />
 
         <div v-if="names.length" class="multi-internet__grid">

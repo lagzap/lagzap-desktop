@@ -84,6 +84,14 @@ func (s *Service) Credentials() D.CredentialsPayload {
 	return *s.coordinator.GetCredentials()
 }
 
+// PlanLimits is what the subscriber's plan allows (zero: no limit).
+func (s *Service) PlanLimits() adapter.PlanLimits {
+	if !s.IsReady() {
+		return adapter.PlanLimits{}
+	}
+	return s.coordinator.GetPlanLimits()
+}
+
 func (s *Service) SyncData() error {
 	if !s.IsReady() {
 		return E.New("coordinator_not_ready")

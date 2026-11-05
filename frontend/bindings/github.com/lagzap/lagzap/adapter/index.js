@@ -41,6 +41,7 @@ export {
     OverviewTrafficStats,
     PathPingRow,
     PingBatch,
+    PlanLimits,
     ProfileChart,
     ProfileDiagram,
     ProfileLatencyChart,

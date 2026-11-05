@@ -2695,6 +2695,50 @@ export class PingBatch {
 }
 
 /**
+ * PlanLimits are what the subscriber's plan allows, from the /data reply.
+ * Zero means no limit (and is what servers without these fields send).
+ */
+export class PlanLimits {
+    /**
+     * Creates a new PlanLimits instance.
+     * @param {Partial<PlanLimits>} [$$source = {}] - The source object to create the PlanLimits.
+     */
+    constructor($$source = {}) {
+        if (!("max_hops" in $$source)) {
+            /**
+             * MaxHops is how many LagZap servers one route may pass through: 1 is a
+             * single server (no multi-hop), 2 an entry server and the relay, 3 the
+             * longest routes built.
+             * @member
+             * @type {number}
+             */
+            this["max_hops"] = 0;
+        }
+        if (!("max_internets" in $$source)) {
+            /**
+             * MaxInternets is how many internet adapters may be used together
+             * (multi internet, or the main one plus backups).
+             * @member
+             * @type {number}
+             */
+            this["max_internets"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PlanLimits instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {PlanLimits}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PlanLimits(/** @type {Partial<PlanLimits>} */($$parsedSource));
+    }
+}
+
+/**
  * ProfileChart is the ready-to-render latency/traffic payload for one profile.
  * Series are the profile's best routes (sticky best-N), ordered best first.
  * Point encoding matches OverviewChart.
