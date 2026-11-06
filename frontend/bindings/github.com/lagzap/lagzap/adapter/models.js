@@ -809,6 +809,94 @@ export class DiagramRoute {
     }
 }
 
+/**
+ * DiagramSession is the live session at the relay: how the relay reaches
+ * the game server (Network "tcp"/"udp", IPVersion 4/6, 0 unknown; Server
+ * ip:port), the round trip the game gets (Ping ms) and its link Score
+ * (0-100; both 0 until the session reports), the internets its legs use, the
+ * connections it carries and when it started (StartedAt unix ms).
+ */
+export class DiagramSession {
+    /**
+     * Creates a new DiagramSession instance.
+     * @param {Partial<DiagramSession>} [$$source = {}] - The source object to create the DiagramSession.
+     */
+    constructor($$source = {}) {
+        if (!("network" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["network"] = "";
+        }
+        if (!("ip_version" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["ip_version"] = 0;
+        }
+        if (!("server" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["server"] = "";
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+        if (!("score" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["score"] = 0;
+        }
+        if (!("internets" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["internets"] = [];
+        }
+        if (!("connections" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["connections"] = 0;
+        }
+        if (!("started_at" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["started_at"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DiagramSession instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DiagramSession}
+     */
+    static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("internets" in $$parsedSource) {
+            $$parsedSource["internets"] = $$createField5_0($$parsedSource["internets"]);
+        }
+        return new DiagramSession(/** @type {Partial<DiagramSession>} */($$parsedSource));
+    }
+}
+
 export class DiagramView {
     /**
      * Creates a new DiagramView instance.
@@ -2894,6 +2982,14 @@ export class ProfileDiagram {
              */
             this["top_connection_id"] = "";
         }
+        if (!("session" in $$source)) {
+            /**
+             * Session is the live relay session the diagram follows (nil: none).
+             * @member
+             * @type {DiagramSession | null}
+             */
+            this["session"] = null;
+        }
         if (!("interfaces" in $$source)) {
             /**
              * @member
@@ -2936,21 +3032,25 @@ export class ProfileDiagram {
      */
     static createFrom($$source = {}) {
         const $$createField5_0 = $$createType41;
-        const $$createField6_0 = $$createType7;
-        const $$createField7_0 = $$createType43;
-        const $$createField8_0 = $$createType44;
+        const $$createField6_0 = $$createType43;
+        const $$createField7_0 = $$createType7;
+        const $$createField8_0 = $$createType45;
+        const $$createField9_0 = $$createType46;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("session" in $$parsedSource) {
+            $$parsedSource["session"] = $$createField5_0($$parsedSource["session"]);
+        }
         if ("interfaces" in $$parsedSource) {
-            $$parsedSource["interfaces"] = $$createField5_0($$parsedSource["interfaces"]);
+            $$parsedSource["interfaces"] = $$createField6_0($$parsedSource["interfaces"]);
         }
         if ("best" in $$parsedSource) {
-            $$parsedSource["best"] = $$createField6_0($$parsedSource["best"]);
+            $$parsedSource["best"] = $$createField7_0($$parsedSource["best"]);
         }
         if ("preview" in $$parsedSource) {
-            $$parsedSource["preview"] = $$createField7_0($$parsedSource["preview"]);
+            $$parsedSource["preview"] = $$createField8_0($$parsedSource["preview"]);
         }
         if ("backups" in $$parsedSource) {
-            $$parsedSource["backups"] = $$createField8_0($$parsedSource["backups"]);
+            $$parsedSource["backups"] = $$createField9_0($$parsedSource["backups"]);
         }
         return new ProfileDiagram(/** @type {Partial<ProfileDiagram>} */($$parsedSource));
     }
@@ -3051,11 +3151,11 @@ export class ProfileLatencyChart {
      */
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType17;
-        const $$createField4_0 = $$createType46;
-        const $$createField5_0 = $$createType48;
-        const $$createField7_0 = $$createType50;
+        const $$createField4_0 = $$createType48;
+        const $$createField5_0 = $$createType50;
+        const $$createField7_0 = $$createType52;
         const $$createField8_0 = $$createType18;
-        const $$createField9_0 = $$createType51;
+        const $$createField9_0 = $$createType53;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -3159,7 +3259,7 @@ export class ProfileLatencySeries {
     static createFrom($$source = {}) {
         const $$createField5_0 = $$createType18;
         const $$createField6_0 = $$createType17;
-        const $$createField7_0 = $$createType53;
+        const $$createField7_0 = $$createType55;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("points" in $$parsedSource) {
             $$parsedSource["points"] = $$createField5_0($$parsedSource["points"]);
@@ -3377,9 +3477,9 @@ export class ServerCityDetails {
      * @returns {ServerCityDetails}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType55;
-        const $$createField6_0 = $$createType57;
-        const $$createField7_0 = $$createType59;
+        const $$createField5_0 = $$createType57;
+        const $$createField6_0 = $$createType59;
+        const $$createField7_0 = $$createType61;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("connections" in $$parsedSource) {
             $$parsedSource["connections"] = $$createField5_0($$parsedSource["connections"]);
@@ -3439,7 +3539,7 @@ export class ServerDirectory {
      */
     static createFrom($$source = {}) {
         const $$createField1_0 = $$createType0;
-        const $$createField2_0 = $$createType61;
+        const $$createField2_0 = $$createType63;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField1_0($$parsedSource["interfaces"]);
@@ -3511,7 +3611,7 @@ export class ServerRegion {
      * @returns {ServerRegion}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType63;
+        const $$createField4_0 = $$createType65;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cities" in $$parsedSource) {
             $$parsedSource["cities"] = $$createField4_0($$parsedSource["cities"]);
@@ -3631,27 +3731,29 @@ const $$createType36 = $Create.Array($$createType35);
 const $$createType37 = ProfileDiagram.createFrom;
 const $$createType38 = LinkQuality.createFrom;
 const $$createType39 = $Create.Nullable($$createType38);
-const $$createType40 = DiagramInterface.createFrom;
-const $$createType41 = $Create.Array($$createType40);
-const $$createType42 = DiagramPreview.createFrom;
-const $$createType43 = $Create.Nullable($$createType42);
-const $$createType44 = DiagramBackups.createFrom;
-const $$createType45 = ProfileLatencySeries.createFrom;
-const $$createType46 = $Create.Array($$createType45);
-const $$createType47 = LossWarning.createFrom;
-const $$createType48 = $Create.Nullable($$createType47);
-const $$createType49 = TransportWarning.createFrom;
+const $$createType40 = DiagramSession.createFrom;
+const $$createType41 = $Create.Nullable($$createType40);
+const $$createType42 = DiagramInterface.createFrom;
+const $$createType43 = $Create.Array($$createType42);
+const $$createType44 = DiagramPreview.createFrom;
+const $$createType45 = $Create.Nullable($$createType44);
+const $$createType46 = DiagramBackups.createFrom;
+const $$createType47 = ProfileLatencySeries.createFrom;
+const $$createType48 = $Create.Array($$createType47);
+const $$createType49 = LossWarning.createFrom;
 const $$createType50 = $Create.Nullable($$createType49);
-const $$createType51 = $Create.Nullable($$createType45);
-const $$createType52 = SeriesPath.createFrom;
-const $$createType53 = $Create.Array($$createType52);
-const $$createType54 = CityConnection.createFrom;
+const $$createType51 = TransportWarning.createFrom;
+const $$createType52 = $Create.Nullable($$createType51);
+const $$createType53 = $Create.Nullable($$createType47);
+const $$createType54 = SeriesPath.createFrom;
 const $$createType55 = $Create.Array($$createType54);
-const $$createType56 = CityRoute.createFrom;
+const $$createType56 = CityConnection.createFrom;
 const $$createType57 = $Create.Array($$createType56);
-const $$createType58 = CityServer.createFrom;
+const $$createType58 = CityRoute.createFrom;
 const $$createType59 = $Create.Array($$createType58);
-const $$createType60 = ServerRegion.createFrom;
+const $$createType60 = CityServer.createFrom;
 const $$createType61 = $Create.Array($$createType60);
-const $$createType62 = ServerCity.createFrom;
+const $$createType62 = ServerRegion.createFrom;
 const $$createType63 = $Create.Array($$createType62);
+const $$createType64 = ServerCity.createFrom;
+const $$createType65 = $Create.Array($$createType64);

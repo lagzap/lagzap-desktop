@@ -17,6 +17,7 @@ export {
     DiagramInterface,
     DiagramPreview,
     DiagramRoute,
+    DiagramSession,
     DiagramView,
     InterfaceGameRoute,
     InterfaceInfo,

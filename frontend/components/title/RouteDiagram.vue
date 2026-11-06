@@ -191,6 +191,13 @@ function pctText(v: number) {
   return localDigits(`${v < 10 ? v.toFixed(1) : Math.round(v)}%`);
 }
 
+/** What the session chip and its tooltip show (time is read on hover). */
+function sessionFingerprint(): string {
+  const s = diagram.value?.session;
+  if (!s) return "";
+  return [s.network, s.ip_version, s.ping, s.score, s.connections, s.started_at, s.server, (s.internets ?? []).join(",")].join("|");
+}
+
 const diagramChartFingerprint = computed(() => {
   const entries = activeDiagramEntries.value;
   return [
@@ -204,6 +211,7 @@ const diagramChartFingerprint = computed(() => {
     theme.current.value.dark,
     isEstimate.value,
     preview.value?.cities ?? 0,
+    sessionFingerprint(),
     entries
       .map(
         (entry, index) =>
@@ -289,6 +297,36 @@ function hopProtocolLabel(
     return "UDP/TCP";
   }
   return `${transport}${resolveHopIpVersion(hop)}`;
+}
+
+/** The live session at the relay: its way to the game server (UDPv4, ...)
+ * and the internets its legs use (null: no live session, or a preview). */
+function sessionTransport(): {
+  transport: HopTransport;
+  label: string;
+  internets: string;
+} | null {
+  const session = diagram.value?.session;
+  if (preview.value || !session?.network) {
+    return null;
+  }
+  const transport: HopTransport = session.network === "tcp" ? "TCP" : "UDP";
+  const version = session.ip_version === 6 ? "v6" : session.ip_version === 4 ? "v4" : "";
+  const names = session.internets ?? [];
+  const internets =
+    names.length > 1
+      ? t("$vuetify.title.profile.internets", localDigits(names.length))
+      : names[0] ?? "";
+  return { transport, label: `${transport}${version}`, internets };
+}
+
+/** Elapsed time as a timer: 4:07, 1:05:12. */
+function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = String(total % 60).padStart(2, "0");
+  return localDigits(h > 0 ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`);
 }
 
 function transportChipStyle(transport: HopTransport, dark: boolean) {
@@ -599,7 +637,23 @@ type EndpointTooltipPayload = {
   score: number;
 };
 
-type DiagramTooltipPayload = RouteTooltipPayload | EndpointTooltipPayload;
+/** The relay's session chip: the game's real round trip and session info. */
+type SessionTooltipPayload = {
+  sessionTooltip: true;
+  title?: string;
+  country?: string;
+  ping: number;
+  score: number;
+  internets: string[];
+  connections: number;
+  startedAt: number;
+  server: string;
+};
+
+type DiagramTooltipPayload =
+  | RouteTooltipPayload
+  | EndpointTooltipPayload
+  | SessionTooltipPayload;
 
 function countryDisplayName(iso2?: string | null): string | undefined {
   if (!iso2) {
@@ -637,13 +691,36 @@ function buildEndpointTooltipPayload(
         (n) => n.ipv4 === ip || n.ipv6 === ip
       )
     : null;
-  const hopLatency = hop?.latency || 0;
+  // The route's whole ping: a hop's own latency is only its last segment
+  // (edge to relay), a few ms, not what the game sees.
   return {
     endpointTooltip: true,
     title: locationForHopIp(ip),
     country: countryDisplayName(node?.country),
-    ping: hopLatency > 0 ? hopLatency : route?.latency ?? 0,
+    ping: route?.latency ?? 0,
     score: route?.score ?? 0,
+  };
+}
+
+/** The live session's tooltip at the exit relay, with its city (null: no
+ * live session, or a preview). */
+function buildSessionTooltipPayload(
+  endpoint: EndpointTooltipPayload | null
+): SessionTooltipPayload | null {
+  const session = diagram.value?.session;
+  if (preview.value || !session?.network) {
+    return null;
+  }
+  return {
+    sessionTooltip: true,
+    title: endpoint?.title,
+    country: endpoint?.country,
+    ping: session.ping,
+    score: session.score,
+    internets: session.internets ?? [],
+    connections: session.connections,
+    startedAt: session.started_at,
+    server: session.server,
   };
 }
 
@@ -727,9 +804,41 @@ function formatEndpointTooltip(payload: EndpointTooltipPayload): string {
   return diagramTooltipTable(rows);
 }
 
+function formatSessionTooltip(payload: SessionTooltipPayload): string {
+  const scoreColor = payload.score > 0 ? getScoreColor(payload.score) : undefined;
+  const rows: string[] = [];
+  if (payload.title) {
+    rows.push(diagramTooltipRow("City", payload.title));
+  }
+  if (payload.country) {
+    rows.push(diagramTooltipRow("Country", payload.country));
+  }
+  if (payload.ping > 0) {
+    rows.push(diagramTooltipRow(t("$vuetify.networkLatency.sessionPing"), formatMs(payload.ping), scoreColor));
+  }
+  if (payload.score > 0) {
+    rows.push(diagramTooltipRow(t("$vuetify.networkLatency.sessionScore"), localDigits(payload.score), scoreColor));
+  }
+  if (payload.internets.length > 0) {
+    rows.push(diagramTooltipRow(t("$vuetify.networkLatency.sessionInternets"), payload.internets.join(", ")));
+  }
+  rows.push(diagramTooltipRow(t("$vuetify.networkLatency.sessionConnections"), localDigits(payload.connections)));
+  if (payload.startedAt > 0) {
+    rows.push(diagramTooltipRow(t("$vuetify.networkLatency.sessionTime"), formatElapsed(Date.now() - payload.startedAt)));
+  }
+  if (payload.server) {
+    // An address: digits stay Latin, left to right.
+    rows.push(diagramTooltipRow(t("$vuetify.networkLatency.gameServer"), `<span dir="ltr">${payload.server}</span>`));
+  }
+  return diagramTooltipTable(rows);
+}
+
 function formatDiagramTooltip(payload: DiagramTooltipPayload | undefined): string | null {
   if (!payload) {
     return null;
+  }
+  if ("sessionTooltip" in payload && payload.sessionTooltip) {
+    return formatSessionTooltip(payload);
   }
   if ("routeTooltip" in payload && payload.routeTooltip) {
     return formatRouteTooltip(payload);
@@ -1034,10 +1143,12 @@ function updateChart() {
     const bestForEndpoint = routes[activeView.value?.estimate.best ?? -1] ?? routes[0];
     const endpointHop =
       bestForEndpoint.hops?.[bestForEndpoint.hops.length - 1] ?? null;
-    const rightSpineTooltip = buildEndpointTooltipPayload(
+    const endpointTooltip = buildEndpointTooltipPayload(
       endpointHop,
       bestForEndpoint
     );
+    const rightSpineTooltip: DiagramTooltipPayload =
+      buildSessionTooltipPayload(endpointTooltip) ?? endpointTooltip;
 
     const spineHit = (
       id: string,
@@ -1102,49 +1213,77 @@ function updateChart() {
     ? chrome.hopSub
     : routes.length > 0 ? routeDiagramColor(0) : "#424242";
 
-  // Final exit hop: city above, adapter name below (empty slot in the path)
+  // Final exit hop: city above, adapter name below (empty slot in the path).
+  // With a live session the relay shows how it reaches the game (UDPv4, ...)
+  // as a transport chip in place of the dot.
   const adapterLabel = selectedAdapterName.value || "";
-  nodes.push({
-    id: "destination",
-    name: destinationName,
-    x: px(destConvergenceX + 30),
-    y: px(centerY),
-    symbol: "circle",
-    symbolSize: 10,
-    tooltip: { show: false },
-    silent: true,
-    itemStyle: {
-      color: destColor,
-      borderColor: destColor,
-      borderWidth: 0,
-    },
-    label: {
-      show: true,
-      position: "inside",
-      distance: 0,
-      // Always two lines (blank when no adapter is picked): one line sat
-      // centered on the dot, closer to it than the city with an adapter.
-      formatter: `{a|${destinationName}}\n{b|${adapterLabel || " "}}`,
-      rich: {
-        a: {
-          color: chrome.hopLabel,
-          fontSize: 11,
-          fontWeight: "normal",
-          lineHeight: 14,
-          align: "center",
-          padding: [0, 0, 22, 0],
-        },
-        b: {
-          color: chrome.hopSub,
-          fontSize: 9,
-          fontWeight: "normal",
-          lineHeight: 14,
-          align: "center",
-          padding: [22, 0, 0, 0],
+  const session = sessionTransport();
+  const tip = buildSessionTooltipPayload(
+    lastHop ? buildEndpointTooltipPayload(lastHop, bestRoute) : null
+  );
+  if (session && tip) {
+    nodes.push({
+      ...hopMarkerNode(
+        "destination",
+        destConvergenceX + 30,
+        centerY,
+        destinationName,
+        session.transport,
+        session.label,
+        session.internets,
+        chrome,
+        destColor
+      ),
+      // A hit area the size of the chip, so hovering it shows the session.
+      symbol: "rect",
+      symbolSize: [46, 20],
+      silent: false,
+      tooltip: { show: true },
+      value: tip,
+    });
+  } else {
+    nodes.push({
+      id: "destination",
+      name: destinationName,
+      x: px(destConvergenceX + 30),
+      y: px(centerY),
+      symbol: "circle",
+      symbolSize: 10,
+      tooltip: { show: false },
+      silent: true,
+      itemStyle: {
+        color: destColor,
+        borderColor: destColor,
+        borderWidth: 0,
+      },
+      label: {
+        show: true,
+        position: "inside",
+        distance: 0,
+        // Always two lines (blank when no adapter is picked): one line sat
+        // centered on the dot, closer to it than the city with an adapter.
+        formatter: `{a|${destinationName}}\n{b|${adapterLabel || " "}}`,
+        rich: {
+          a: {
+            color: chrome.hopLabel,
+            fontSize: 11,
+            fontWeight: "normal",
+            lineHeight: 14,
+            align: "center",
+            padding: [0, 0, 22, 0],
+          },
+          b: {
+            color: chrome.hopSub,
+            fontSize: 9,
+            fontWeight: "normal",
+            lineHeight: 14,
+            align: "center",
+            padding: [22, 0, 0, 0],
+          },
         },
       },
-    },
-  });
+    });
+  }
 
   links.push({
     source: destConvergenceId,

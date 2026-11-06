@@ -675,6 +675,12 @@ export default {
     networkLatency: {
         plannedRoute: 'برنامه‌ریزی‌شده',
         plannedRouteHint: 'هنوز ترافیک بازی از آن عبور نمی‌کند',
+        sessionPing: 'پینگ واقعی',
+        sessionScore: 'امتیاز',
+        sessionInternets: 'اینترنت‌ها',
+        sessionConnections: 'اتصال‌ها',
+        sessionTime: 'مدت اتصال',
+        gameServer: 'سرور بازی',
         servers: {
             title: 'سرورهای LagZap',
             subtitle: 'پینگ اینترنت شما تا هر موقعیت LagZap. برای جزئیات روی یک شهر بزنید.',

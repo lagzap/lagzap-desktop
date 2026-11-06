@@ -661,6 +661,12 @@
     networkLatency: {
         plannedRoute: 'Planned',
         plannedRouteHint: 'not carrying the game yet',
+        sessionPing: 'Real ping',
+        sessionScore: 'Score',
+        sessionInternets: 'Internets',
+        sessionConnections: 'Connections',
+        sessionTime: 'Connected for',
+        gameServer: 'Game server',
         servers: {
             title: 'LagZap servers',
             subtitle: 'Ping from your internet to each LagZap location. Tap a city for details.',
