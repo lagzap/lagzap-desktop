@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
           class="text-subtitle-1"
           @click="router.push({ name: 'title-id', params: { id: title.id } })"
         >
-          <span>{{ title ? store.titleName(title.name) : "" }}</span>
+          {{ title ? store.titleName(title.name) : "" }}
         </v-app-bar-title>
 
         <v-spacer />

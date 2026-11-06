@@ -71,6 +71,12 @@ button,
   --wails-draggable: drag;
   backdrop-filter: blur(8px);
   background-color: transparent !important;
+
+  // Wails only drags when the press lands inside the element's client box,
+  // and inline elements have none, so title text would not move the window.
+  .v-toolbar-title span {
+    display: inline-block;
+  }
 }
 
 .v-card {
