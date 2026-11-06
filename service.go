@@ -118,6 +118,10 @@ func (s *Service) StopService() error {
 		return nil
 	}
 	if s.coordinator != nil {
+		// First, while every leg and the network stack are still up: relay
+		// sessions tell their relay so the game servers see the player leave,
+		// and the games' own connections close cleanly.
+		s.coordinator.CloseAllConnections()
 		s.coordinator.Disconnect()
 	}
 	if s.runtimeCtx != nil {
