@@ -57,7 +57,7 @@ const onSubmit = handleSubmit(async (values) => {
       return;
     }
 
-    displayAlert(data?.value?.message, "info", 3000);
+    displayServerMessage(data?.value?.message, locale);
 
     await login({
       type: props.type,
@@ -83,7 +83,7 @@ async function requestOTP() {
 
     otpID = data?.value?.otpID;
 
-    displayAlert(data?.value?.message, "info", 3000);
+    displayServerMessage(data?.value?.message, locale);
   } catch (e) {
     displayError(e, locale);
   }

@@ -2,6 +2,13 @@ import type { LocaleInstance } from "vuetify";
 import { useMessagesStore } from "~/stores/messages";
 import { getNetworkFailureKind } from "~/utils/httpError";
 
+/** A server code's translation, or the text as it came when there is none. */
+export const translateServerMessage = (message: string, locale: LocaleInstance): string => {
+  const key = `$vuetify.server_errors.${message.trim()}`;
+  const translated = locale.t(key);
+  return translated === key ? message : translated;
+};
+
 export const displayAlert = (
   text: string,
   color: "error" | "success" | "warning" | "info" | undefined = "info",
@@ -9,6 +16,30 @@ export const displayAlert = (
 ) => {
   const messagesStore = useMessagesStore();
   messagesStore.add({ text, color, timeout });
+};
+
+/** A message from a successful server response. */
+export const displayServerMessage = (
+  message: string | undefined,
+  locale: LocaleInstance,
+  timeout: number = 3000,
+) => {
+  if (message) {
+    displayAlert(translateServerMessage(message, locale), "info", timeout);
+  }
+};
+
+const STATUS_MESSAGES: Record<number, { key: string; code?: string; fallback: string }> = {
+  400: { key: "request_failed", code: "0x00011", fallback: "An error occurred. Code: 0x00011" },
+  401: { key: "request_failed", code: "0x00021", fallback: "An error occurred. Code: 0x00021" },
+  403: { key: "request_failed", code: "0x00041", fallback: "An error occurred. Code: 0x00041" },
+  404: { key: "request_failed", code: "0x00044", fallback: "An error occurred. Code: 0x00044" },
+  500: { key: "internal", code: "0x00069", fallback: "Internal server error. Code: 0x00069" },
+  501: { key: "not_implemented", code: "0x00079", fallback: "Feature is not implemented yet. Code: 0x00079" },
+  502: { key: "request_not_sent", code: "0x00070", fallback: "Request could not be made. Code: 0x00070" },
+  503: { key: "unavailable", fallback: "Service is unavailable at the moment, please try again later!" },
+  504: { key: "unavailable", fallback: "Service is unavailable at the moment, please try again later!" },
+  521: { key: "server_down", fallback: "Server is down, please try again later!" },
 };
 
 function networkFailureMessage(
@@ -65,53 +96,22 @@ export const getErrorMessage = (error: any, locale: (LocaleInstance) | undefined
     }
   }
 
-  switch (statusCode) {
-    case 400:
-      message = 'An error occurred. Code: 0x00011'
-      break
-    case 401:
-      message = 'An error occurred. Code: 0x00021'
-      break
-    case 403:
-      message = 'An error occurred. Code: 0x00041'
-      break
-    case 404:
-      message = 'An error occurred. Code: 0x00044'
-      break
-    case 500:
-      message = 'Internal server error. Code: 0x00069'
-      break
-    case 501:
-      message = 'Feature is not implemented yet. Code: 0x00079'
-      break
-    case 502:
-      message = 'Request could not be made. Code: 0x00070'
-      break
-    case 503:
-      message = 'Service is unavailable at the moment, please try again later!'
-      break
-    case 504:
-      message = 'Service is unavailable at the moment, please try again later!'
-      break
-    case 521:
-      message = 'Server is down, please try again later!'
-      break
-    default: {
-      const rawMessage = typeof message === "string" ? message : ""
-      if (rawMessage.includes("<no response>") || rawMessage.includes("FetchError")) {
-        message = locale
-          ? locale.t("$vuetify.startService.serverUnreachable")
-          : "Can't reach LagZap servers. Check your internet and try again."
-        break
-      }
-      if (rawMessage && rawMessage !== "An error occurred") {
-        break
-      }
-      message = locale
-        ? locale.t("$vuetify.startService.serverUnreachable")
-        : "Can't reach LagZap servers. Check your internet and try again."
-      break
-    }
+  const statusMessage = STATUS_MESSAGES[statusCode];
+  if (statusMessage) {
+    return locale
+      ? locale.t(`$vuetify.http_errors.${statusMessage.key}`, statusMessage.code)
+      : statusMessage.fallback;
+  }
+
+  const rawMessage = typeof message === "string" ? message : ""
+  if (rawMessage.includes("<no response>") || rawMessage.includes("FetchError") || !rawMessage || rawMessage === "An error occurred") {
+    return locale
+      ? locale.t("$vuetify.startService.serverUnreachable")
+      : "Can't reach LagZap servers. Check your internet and try again."
+  }
+  // A code with no translation yet is not for the user to read.
+  if (locale && /^[a-z0-9_]+$/.test(rawMessage)) {
+    return locale.t("$vuetify.http_errors.unknown")
   }
 
   return message

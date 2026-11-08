@@ -39,7 +39,7 @@ const onSubmit = handleSubmit(async (values) => {
       }
     })
 
-    displayAlert(data.message, "info", 3000)
+    displayServerMessage(data.message, locale)
   } catch (e) {
     displayError(e, locale)
   }

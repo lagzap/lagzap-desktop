@@ -33,12 +33,10 @@ const onSubmit = handleSubmit(async (values) => {
     })
 
     if (error.value) {
-      return displayError(error)
+      return displayError(error.value, locale)
     }
 
-    if (data.value) {
-      displayAlert(data.value.message, "info", 3000)
-    }
+    displayServerMessage(data.value?.message, locale)
   } catch (e) {
     displayError(e, locale)
   }
@@ -57,16 +55,14 @@ async function requestOTP() {
     })
 
     if (error.value) {
-      return displayError(error)
+      return displayError(error.value, locale)
     }
 
     otpID =  data.value?.otpID
 
-    if (data.value) {
-      displayAlert(data.value.message, "info", 3000)
-    }
+    displayServerMessage(data.value?.message, locale)
   } catch (e) {
-    displayError(e)
+    displayError(e, locale)
   }
 }
 </script>

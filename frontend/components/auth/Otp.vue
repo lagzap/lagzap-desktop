@@ -72,9 +72,9 @@ async function requestOTP() {
     otpID =  data?.value?.otpID
 
     startCooldown()
-    displayAlert(data?.value?.message, "info", 1000)
+    displayServerMessage(data?.value?.message, locale, 1000)
   } catch (e) {
-    displayError(e)
+    displayError(e, locale)
   }
 }
 
