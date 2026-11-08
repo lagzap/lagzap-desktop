@@ -5,7 +5,6 @@ declare module "*.vue" {
 
 interface DataResponse {
   user: Subscriber
-  endpoints: string[]
   log_level: string
   dns_servers: string[]
   abilities?: string[]

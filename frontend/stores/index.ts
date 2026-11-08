@@ -12,7 +12,6 @@ import {
   SaveProfileState,
   Status,
   SetAccessToken,
-  SetEndpoints,
   SetLogLevel,
   Connect,
   Disconnect,
@@ -954,11 +953,10 @@ export const useStore = defineStore("index", () => {
       if (!isAuthenticated) {
         return;
       }
-      const { endpoints, log_level } = user.value;
+      const { log_level } = user.value;
       abilities.value = user.value.abilities || [];
       const accessToken = (await getToken("lz.access_token")) ?? "";
       await SetAccessToken(accessToken);
-      await SetEndpoints(endpoints);
       await SetLogLevel(log_level);
       if (startupCanceled.value) {
         return;

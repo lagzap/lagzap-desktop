@@ -692,14 +692,6 @@ export function SetClientSettings(settings) {
 }
 
 /**
- * @param {string[]} hostnames
- * @returns {$CancellablePromise<void>}
- */
-export function SetEndpoints(hostnames) {
-    return $Call.ByID(2787700031, hostnames);
-}
-
-/**
  * SetGamingPriority turns on marking Gaming Traffic profiles' legs as
  * real-time traffic, for routers and networks that prioritize it.
  * @param {boolean} enabled

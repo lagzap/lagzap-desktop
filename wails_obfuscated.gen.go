@@ -67,7 +67,6 @@ func init() {
 	application.RegisterBindingMethodID((*Service).SaveTitleState, 3308223747)
 	application.RegisterBindingMethodID((*Service).SetAccessToken, 2196676062)
 	application.RegisterBindingMethodID((*Service).SetClientSettings, 2779893929)
-	application.RegisterBindingMethodID((*Service).SetEndpoints, 2787700031)
 	application.RegisterBindingMethodID((*Service).SetHTTPPolling, 184276766)
 	application.RegisterBindingMethodID((*Service).SetInternetPingTarget, 825293975)
 	application.RegisterBindingMethodID((*Service).SetLatencyOverlayAlwaysOnTop, 3790210944)

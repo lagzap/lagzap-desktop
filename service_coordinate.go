@@ -31,19 +31,6 @@ func (s *Service) SetHTTPPolling(enabled bool) {
 	s.coordinator.SetHTTPPolling(enabled)
 }
 
-func (s *Service) SetEndpoints(hostnames []string) {
-	if s.coordinator == nil {
-		return
-	}
-	s.coordinator.SetEndpoints(hostnames)
-	if len(hostnames) == 0 || !s.IsRunning() {
-		return
-	}
-	if err := s.rediscoverLocalProxyUpstream(); err != nil {
-		fmt.Printf("localproxy: rediscover after SetEndpoints: %v\n", err)
-	}
-}
-
 func (s *Service) SetLogLevel(logLevel string) {
 	if s.coordinator == nil || s.logFactory == nil {
 		return

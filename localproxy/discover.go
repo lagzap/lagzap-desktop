@@ -2,7 +2,9 @@ package localproxy
 
 import (
 	"context"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,76 +14,144 @@ import (
 	mDNS "github.com/miekg/dns"
 )
 
-const lagZapRoot = "lagzap.network"
+// lagZapRoots are the domains endpoints are discovered from, in order.
+var lagZapRoots = []string{"lagzap-network.ir", "lagzap.network", "lagzap.one"}
 
-func ChannelHost(version string) string {
+const (
+	txtLookupTimeout = 3 * time.Second
+	txtListGrace     = 250 * time.Millisecond
+)
+
+var errTXTLookupTimeout = errors.New("TXT lookup timed out")
+
+func channelName(version string) string {
 	v := strings.ToLower(strings.TrimSpace(version))
 	switch {
 	case strings.HasSuffix(v, "-alpha"), strings.Contains(v, "-alpha."):
-		return "alpha." + lagZapRoot
+		return "alpha"
 	case strings.HasSuffix(v, "-beta"), strings.Contains(v, "-beta."):
-		return "beta." + lagZapRoot
+		return "beta"
 	case strings.HasSuffix(v, "-dev"), strings.Contains(v, "-dev."):
-		return "dev." + lagZapRoot
-	case strings.HasSuffix(v, "-beta"), strings.Contains(v, "-beta."):
-		return "beta." + lagZapRoot
+		return "dev"
 	default:
-		return "prod." + lagZapRoot
+		return "prod"
 	}
 }
 
-// channelFallbackHosts are known alternates when TXT discovery is unavailable.
-// Must match ChannelHost() return values (currently *.lagzap.network).
-func channelFallbackHosts(version string) []string {
-	switch ChannelHost(version) {
-	case "dev.lagzap.network":
-		return []string{"dev.lagzap-network.ir"}
-	default:
-		return nil
-	}
+// ChannelHost is the channel's domain on the first root.
+func ChannelHost(version string) string {
+	return channelDomains(version)[0]
 }
 
-func channelCoordinatorHostnames(version string) []string {
-	host := ChannelHost(version)
-	out := make([]string, 0, 1+len(channelFallbackHosts(version)))
-	seen := make(map[string]struct{}, cap(out))
-	for _, h := range channelFallbackHosts(version) {
-		if h == "" {
-			continue
-		}
-		if _, ok := seen[h]; ok {
-			continue
-		}
-		seen[h] = struct{}{}
-		out = append(out, h)
-	}
-	if _, ok := seen[host]; !ok {
-		out = append(out, host)
+// channelDomains is the channel's domain on every root, in order.
+func channelDomains(version string) []string {
+	channel := channelName(version)
+	out := make([]string, 0, len(lagZapRoots))
+	for _, root := range lagZapRoots {
+		out = append(out, channel+"."+root)
 	}
 	return out
 }
 
-func DiscoverUpstream(ctx context.Context, dns adapter.DNSRouter, version string, coordinatorHosts []string) (string, error) {
-	var txtEndpoints []string
-	var txtErr error
-	if dns != nil {
-		txtEndpoints, txtErr = lookupTXTCDNs(ctx, dns, ChannelHost(version))
+// txtLookup returns the endpoints a domain's TXT record lists.
+type txtLookup func(ctx context.Context, host string) ([]string, error)
+
+// channelEndpoints reads the TXT record of every channel domain, each a comma
+// separated list of available endpoints, and returns them in domain order.
+// If no domain lists any, it falls back to the channel's domain on the first
+// root; the lookup error is returned in that case alone.
+//
+// The wait is bounded here, not by ctx: the Windows resolver ignores ctx and
+// takes 11s on a domain that does not exist. Once a domain has given a list,
+// the others only get txtListGrace.
+func channelEndpoints(ctx context.Context, lookup txtLookup, version string) ([]string, error) {
+	type answer struct {
+		index     int
+		endpoints []string
+		err       error
 	}
-	candidates := upstreamCandidates(version, txtEndpoints, coordinatorHosts)
+	domains := channelDomains(version)
+	answers := make(chan answer, len(domains))
+	lookupCtx, cancel := context.WithTimeout(ctx, txtLookupTimeout)
+	defer cancel()
+	for i, domain := range domains {
+		go func() {
+			list, err := lookup(lookupCtx, domain)
+			answers <- answer{i, list, err}
+		}()
+	}
+	lists := make([][]string, len(domains))
+	var errs []error
+	deadline := time.NewTimer(txtLookupTimeout)
+	defer deadline.Stop()
+	listed := false
+collect:
+	for range domains {
+		select {
+		case a := <-answers:
+			lists[a.index] = a.endpoints
+			if a.err != nil {
+				errs = append(errs, a.err)
+			}
+			if len(a.endpoints) > 0 && !listed {
+				listed = true
+				deadline.Reset(txtListGrace)
+			}
+		case <-deadline.C:
+			errs = append(errs, errTXTLookupTimeout)
+			break collect
+		case <-ctx.Done():
+			errs = append(errs, ctx.Err())
+			break collect
+		}
+	}
+	if listed {
+		var out []string
+		for _, list := range lists {
+			out = append(out, list...)
+		}
+		return dedupePreserveOrder(out), nil
+	}
+	return []string{normalizeAPIBase(domains[0])}, errors.Join(errs...)
+}
+
+// BootstrapDNSServer is the DNS server the app's "bootstrap" rule sends the
+// root domains to. TXT is read from it directly while the service is off, so
+// discovery sees the same records with and without the service: the system
+// resolver (often the home router) can hold an old record for minutes.
+const BootstrapDNSServer = "8.8.8.8"
+
+// channelTXTLookup asks the app's DNS router, else BootstrapDNSServer
+// directly (no router yet: the bootstrap proxy starts first), and the system
+// resolver only when both failed.
+func channelTXTLookup(dns adapter.DNSRouter) txtLookup {
+	return func(ctx context.Context, host string) ([]string, error) {
+		if dns != nil {
+			if endpoints, err := lookupTXTCDNs(ctx, dns, host); err == nil {
+				return endpoints, nil
+			}
+		}
+		if endpoints, err := lookupTXTServer(ctx, net.JoinHostPort(BootstrapDNSServer, "53"), host); err == nil {
+			return endpoints, nil
+		}
+		return lookupTXTSystem(ctx, host)
+	}
+}
+
+func DiscoverUpstream(ctx context.Context, dns adapter.DNSRouter, version string, coordinatorHosts []string) (string, error) {
+	endpoints, txtErr := channelEndpoints(ctx, channelTXTLookup(dns), version)
+	candidates := upstreamCandidates(coordinatorHosts, endpoints)
 	for _, ep := range candidates {
 		if probeURL(ctx, ep) {
 			return ep, txtErr
 		}
 	}
-	if len(candidates) > 0 {
-		return candidates[0], txtErr
-	}
-	return normalizeAPIBase(ChannelHost(version)), txtErr
+	return candidates[0], txtErr
 }
 
-func upstreamCandidates(version string, txtEndpoints, coordinatorHosts []string) []string {
+func upstreamCandidates(coordinatorHosts, endpoints []string) []string {
 	seen := make(map[string]struct{})
-	out := make([]string, 0, len(txtEndpoints)+len(coordinatorHosts)+1)
+	out := make([]string, 0, len(coordinatorHosts)+len(endpoints))
 	add := func(raw string) {
 		u := normalizeAPIBase(raw)
 		if u == "" {
@@ -96,44 +166,28 @@ func upstreamCandidates(version string, txtEndpoints, coordinatorHosts []string)
 	for _, h := range coordinatorHosts {
 		add(h)
 	}
-	for _, h := range channelFallbackHosts(version) {
-		add(h)
-	}
-	for _, ep := range dedupePreserveOrder(txtEndpoints) {
+	for _, ep := range endpoints {
 		add(ep)
 	}
-	add(ChannelHost(version))
 	return out
 }
 
+// DiscoverCoordinatorHosts returns the channel's coordinator hosts.
 func DiscoverCoordinatorHosts(ctx context.Context, dns adapter.DNSRouter, version string) ([]string, error) {
-	host := ChannelHost(version)
-	if dns == nil {
-		return []string{host}, nil
-	}
-	endpoints, err := lookupTXTCDNs(ctx, dns, host)
-	if err != nil {
-		return channelCoordinatorHostnames(version), err
-	}
-	if len(endpoints) == 0 {
-		return []string{host}, nil
-	}
+	endpoints, err := channelEndpoints(ctx, channelTXTLookup(dns), version)
+	return endpointHostnames(endpoints), err
+}
+
+func endpointHostnames(endpoints []string) []string {
 	out := make([]string, 0, len(endpoints))
-	for _, ep := range dedupePreserveOrder(endpoints) {
-		u, parseErr := url.Parse(ep)
-		if parseErr != nil {
+	for _, ep := range endpoints {
+		u, err := url.Parse(ep)
+		if err != nil || u.Hostname() == "" {
 			continue
 		}
-		h := u.Hostname()
-		if h == "" {
-			continue
-		}
-		out = append(out, h)
+		out = append(out, u.Hostname())
 	}
-	if len(out) == 0 {
-		return []string{host}, nil
-	}
-	return dedupePreserveOrder(out), nil
+	return dedupePreserveOrder(out)
 }
 
 func lookupTXTCDNs(ctx context.Context, dns adapter.DNSRouter, host string) ([]string, error) {
@@ -149,23 +203,65 @@ func lookupTXTCDNs(ctx context.Context, dns adapter.DNSRouter, host string) ([]s
 	if err != nil {
 		return nil, err
 	}
-	if resp.Rcode != mDNS.RcodeSuccess {
-		return nil, nil
+	return txtAnswerEndpoints(resp), nil
+}
+
+func txtQuery(host string) *mDNS.Msg {
+	msg := new(mDNS.Msg)
+	msg.SetQuestion(mDNS.Fqdn(host), mDNS.TypeTXT)
+	return msg
+}
+
+// lookupTXTServer asks one DNS server (host:port), over TCP when the UDP
+// answer was truncated.
+func lookupTXTServer(ctx context.Context, server, host string) ([]string, error) {
+	client := &mDNS.Client{Net: "udp"}
+	resp, _, err := client.ExchangeContext(ctx, txtQuery(host), server)
+	if err == nil && resp.Truncated {
+		client.Net = "tcp"
+		resp, _, err = client.ExchangeContext(ctx, txtQuery(host), server)
 	}
-	var out []string
+	if err != nil {
+		return nil, err
+	}
+	return txtAnswerEndpoints(resp), nil
+}
+
+func txtAnswerEndpoints(resp *mDNS.Msg) []string {
+	if resp == nil || resp.Rcode != mDNS.RcodeSuccess {
+		return nil
+	}
+	var records []string
 	for _, a := range resp.Answer {
-		rr, ok := a.(*mDNS.TXT)
-		if !ok {
-			continue
+		if rr, ok := a.(*mDNS.TXT); ok {
+			records = append(records, strings.Join(rr.Txt, ""))
 		}
-		chunk := strings.Join(rr.Txt, "")
-		for _, part := range strings.Split(chunk, ",") {
-			if u := normalizeAPIBase(strings.TrimSpace(part)); u != "" {
+	}
+	return parseTXTEndpoints(records)
+}
+
+func lookupTXTSystem(ctx context.Context, host string) ([]string, error) {
+	records, err := net.DefaultResolver.LookupTXT(ctx, host)
+	if err != nil {
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return parseTXTEndpoints(records), nil
+}
+
+func parseTXTEndpoints(records []string) []string {
+	var out []string
+	for _, record := range records {
+		for _, part := range strings.Split(record, ",") {
+			if u := normalizeAPIBase(part); u != "" {
 				out = append(out, u)
 			}
 		}
 	}
-	return out, nil
+	return dedupePreserveOrder(out)
 }
 
 func normalizeAPIBase(raw string) string {

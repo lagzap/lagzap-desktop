@@ -3,6 +3,7 @@ package main
 import (
 	"net/netip"
 
+	"github.com/lagzap/lagzap-desktop/localproxy"
 	C "github.com/lagzap/lagzap/constant"
 	"github.com/lagzap/lagzap/constant/goos"
 	"github.com/lagzap/lagzap/option"
@@ -81,6 +82,7 @@ func (c *Service) generateConfig() option.Options {
 								DomainSuffix: []string{
 									"lagzap.network",
 									"lagzap-network.ir",
+									"lagzap.one",
 								},
 							},
 							DNSRuleAction: option.DNSRuleAction{
@@ -152,7 +154,7 @@ func (c *Service) generateConfig() option.Options {
 						Tag:  "bootstrap",
 						Options: &option.RemoteDNSServerOptions{
 							DNSServerAddressOptions: option.DNSServerAddressOptions{
-								Server:     "8.8.8.8",
+								Server:     localproxy.BootstrapDNSServer,
 								ServerPort: 53,
 							},
 						},
