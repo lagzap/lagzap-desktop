@@ -27,7 +27,7 @@ tasks:
           BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
           VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
-          RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+          RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
       - cmd: powershell Remove-Item -ErrorAction SilentlyContinue *.syso
         platforms: [windows]
       - cmd: rm -f *.syso
@@ -36,7 +36,7 @@ tasks:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
       BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
-      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
     env:
       GOOS: windows
@@ -46,7 +46,7 @@ tasks:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
       BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
-      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
 
   compile:
     summary: Compile LagZap.exe
@@ -55,7 +55,7 @@ tasks:
     vars:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
-      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
       BUILD_FLAGS: >-
         {{if eq .BUILD_TYPE "production"}}
@@ -84,7 +84,7 @@ tasks:
     vars:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
-      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+      RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
       BUILD_FLAGS: >-
         -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0
         -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.DevBuild=true' -checklinkname=0"

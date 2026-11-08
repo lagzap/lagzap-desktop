@@ -16,7 +16,7 @@ const items = computed(
   () =>
     connections.value
       // Only profile-tagged flows. Untagged side channels (Bnet :443 etc.) that
-      // once transferred bytes used to linger here as Title/Cyrex/Latency = "-".
+      // once transferred bytes used to linger here as Title/LagZap/Latency = "-".
       ?.filter((c) => !!c.profile_id)
       .sort((a, b) =>
         a.download_speed + a.upload_speed > b.download_speed + b.upload_speed
@@ -42,7 +42,7 @@ const headers = ref<DataTableHeader[]>([
     nowrap: true,
   },
   {
-    title: t("$vuetify.connections.cyrexServer"),
+    title: t("$vuetify.connections.lagzapServer"),
     key: "destination",
     sortable: false,
     nowrap: true,

@@ -16,7 +16,7 @@ permissions:
 
 env:
   APP_NAME: LagZap
-  PUBLIC_RELEASES_REPO: lagzap/cyrex-releases
+  PUBLIC_RELEASES_REPO: lagzap/lagzap-releases
   INTERNAL_RELEASES_REPO: lagzap/lagzap-desktop
   GO_VERSION: "1.25.0"
   GOPRIVATE: github.com/lagzap/*
@@ -138,7 +138,7 @@ jobs:
           fi
           echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
 
-          # Internal channels land on lagzap/current; beta + public/stable/rc on cyrex-releases.
+          # Internal channels land on lagzap/current; beta + public/stable/rc on lagzap-releases.
           case "$CHANNEL" in
             alpha|dev)
               RELEASES_REPO="${{ env.INTERNAL_RELEASES_REPO }}"

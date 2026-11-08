@@ -4,7 +4,7 @@
  */
 
 export type HistoryPathRef = {
-  /** Cyrex node ids for resolved hops (empty if unknown). */
+  /** LagZap node ids for resolved hops (empty if unknown). */
   node_ids: string[];
   /** Human label e.g. "Frankfurt" or "Tehran → Frankfurt" — never an IP. */
   label: string;

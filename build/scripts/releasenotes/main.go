@@ -6,7 +6,7 @@
 //	  -version v0.1.0-beta.1 \
 //	  -build 42 \
 //	  -channel beta \
-//	  -public-repo lagzap/cyrex-releases \
+//	  -public-repo lagzap/lagzap-releases \
 //	  -output release-body.md
 package main
 
@@ -25,7 +25,7 @@ func main() {
 	version := flag.String("version", "", "Git tag (e.g. v0.1.0-beta.1)")
 	build := flag.String("build", "0", "CI build number")
 	channel := flag.String("channel", "", "Release channel (dev|beta|alpha|prod)")
-	publicRepo := flag.String("public-repo", "lagzap/cyrex-releases", "Public releases owner/repo")
+	publicRepo := flag.String("public-repo", "lagzap/lagzap-releases", "Public releases owner/repo")
 	changelogPath := flag.String("changelog", "CHANGELOG.md", "Path to CHANGELOG.md")
 	templatePath := flag.String("template", ".github/release-notes-template.md", "Release notes template")
 	outputPath := flag.String("output", "release-body.md", "Where to write the rendered body")

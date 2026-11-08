@@ -229,7 +229,7 @@ function legPath(leg: Leg): string {
             <CountryFlag v-if="c.country_code" :country="c.country_code" size="small" />
             <span>{{ c.destination_ip }}:{{ c.destination_port }}</span>
           </div>
-          <div class="text-caption text-medium-emphasis">{{ t("$vuetify.connections.cyrexServer") }}</div>
+          <div class="text-caption text-medium-emphasis">{{ t("$vuetify.connections.lagzapServer") }}</div>
           <RelayServerCell :connection="c" text-class="text-body-2" />
           <template v-if="processName">
             <div class="text-caption text-medium-emphasis">{{ t("$vuetify.connections.details.process") }}</div>

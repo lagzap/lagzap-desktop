@@ -2,7 +2,7 @@
 </script>
 
 <template>
-  <span class="cyrex-name">Lag<span class="logo-name__z">Z</span>ap</span>
+  <span class="lagzap-name">Lag<span class="logo-name__z">Z</span>ap</span>
 </template>
 
 <style scoped>

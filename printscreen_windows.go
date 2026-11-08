@@ -51,7 +51,7 @@ var (
 )
 
 // startPrintScreenBridge installs a low-level keyboard hook so bare PrtScn
-// opens Snipping Tool while Cyrex is focused (WebView2 swallows it otherwise).
+// opens Snipping Tool while LagZap is focused (WebView2 swallows it otherwise).
 // Alt/Ctrl/Shift+PrtSc are left alone for normal Windows behavior.
 func startPrintScreenBridge() {
 	printScreenOnce.Do(func() {

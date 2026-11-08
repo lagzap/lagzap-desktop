@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to Cyrex are documented here. Before each release, add a section for the tag you are about to push.
+All notable changes to LagZap are documented here. Before each release, add a section for the tag you are about to push.
 
-Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI reads the matching section and renders it with `.github/release-notes-template.md` on the public [cyrex-releases](https://github.com/lagzap/cyrex-releases) GitHub Release.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI reads the matching section and renders it with `.github/release-notes-template.md` on the public [lagzap-releases](https://github.com/lagzap/lagzap-releases) GitHub Release.
 
 ## [Unreleased]
 

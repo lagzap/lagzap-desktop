@@ -63,7 +63,7 @@ function onRowClick(connectionId: string) {
       <tr>
         <th class="col-network" />
         <th>{{ t("$vuetify.connections.gameServer") }}</th>
-        <th>{{ t("$vuetify.connections.cyrexServer") }}</th>
+        <th>{{ t("$vuetify.connections.lagzapServer") }}</th>
         <th class="text-center col-latency">{{ t("$vuetify.connections.latency") }}</th>
         <th class="col-speed">{{ t("$vuetify.connections.download") }}</th>
         <th class="col-speed">{{ t("$vuetify.connections.upload") }}</th>

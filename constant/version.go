@@ -15,7 +15,7 @@ var FileVersion = "0.0.0.0"
 
 // ReleasesRepo is the public GitHub owner/repo that hosts downloadable releases
 // for the auto-updater. Override via ldflags if needed.
-var ReleasesRepo = "lagzap/cyrex-releases"
+var ReleasesRepo = "lagzap/lagzap-releases"
 
 // DevBuild is set to "true" via ldflags for wails dev backend builds.
 var DevBuild = ""

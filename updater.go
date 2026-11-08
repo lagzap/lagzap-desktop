@@ -20,7 +20,7 @@ const (
 	updaterWindowName   = "updater"
 	updaterWindowWidth  = 460
 	updaterWindowHeight = 580
-	eventUpdaterRetry   = "cyrex:updater:retry"
+	eventUpdaterRetry   = "lagzap:updater:retry"
 )
 
 //go:embed updater.key.pub
@@ -30,9 +30,9 @@ var updaterPublicKey []byte
 var updaterWindowHTML string
 
 var (
-	updaterMu sync.Mutex
-	updaterWin *application.WebviewWindow
-	updaterReady bool
+	updaterMu      sync.Mutex
+	updaterWin     *application.WebviewWindow
+	updaterReady   bool
 	startMinimized bool
 	// startupGatePending: main starts hidden while the first check runs; clear
 	// once so we Show+Focus main without reloading it or touching the service.

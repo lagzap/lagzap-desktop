@@ -153,7 +153,7 @@ const navigateIcon = computed(() =>
         <tr>
           <th>{{ t("$vuetify.connections.title") }}</th>
           <th>{{ t("$vuetify.connections.gameServer") }}</th>
-          <th>{{ t("$vuetify.connections.cyrexServer") }}</th>
+          <th>{{ t("$vuetify.connections.lagzapServer") }}</th>
           <th class="text-center">{{ t("$vuetify.connections.latency") }}</th>
           <th>{{ t("$vuetify.connections.download") }}</th>
           <th>{{ t("$vuetify.connections.upload") }}</th>

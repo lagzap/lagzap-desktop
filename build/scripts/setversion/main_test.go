@@ -13,7 +13,7 @@ func TestPatchConfigYML_preservesCommentSpacing(t *testing.T) {
 	content := `version: '3'
 
 info:
-  productName: "Cyrex"
+  productName: "LagZap"
   version: "0.1.0.0" # The application version
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {

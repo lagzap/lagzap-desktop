@@ -17,7 +17,7 @@ vars:
   # Override with VERSION=v0.2.0-beta.3. CI sets this from the git tag.
   VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
   BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
-  RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/cyrex-releases"}}'
+  RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
   CORE_VERSION:
     sh: |
       if [ -f ./../../cmd/internal/read_tag/main.go ]; then

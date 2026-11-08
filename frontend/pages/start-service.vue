@@ -402,7 +402,7 @@ async function initApp() {
       </template>
     </div>
     <v-dialog v-model="driverDialog" width="500" persistent>
-      <v-card :title="t('$vuetify.startService.installCyrexDriver')">
+      <v-card :title="t('$vuetify.startService.installLagZapDriver')">
         <v-card-text>
           {{ t('$vuetify.service.driverMustBeInstalled') }}
           <br />
@@ -473,7 +473,7 @@ async function initApp() {
   font-size: 1.5rem;
 }
 
-.cyrex-name {
+.lagzap-name {
   font-weight: 600;
   font-size: 1.5rem;
 }

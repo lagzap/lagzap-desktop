@@ -23,8 +23,8 @@ export function setLatencyOverlayAlwaysOnTop(alwaysOnTop: boolean) {
   return SetLatencyOverlayAlwaysOnTop(alwaysOnTop);
 }
 
-const OPACITY_KEY = "cyrex.latencyOverlay.opacity";
-const ALWAYS_ON_TOP_KEY = "cyrex.latencyOverlay.alwaysOnTop";
+const OPACITY_KEY = "lagzap.latencyOverlay.opacity";
+const ALWAYS_ON_TOP_KEY = "lagzap.latencyOverlay.alwaysOnTop";
 
 export function loadOverlayOpacity(): number {
   if (typeof localStorage === "undefined") {

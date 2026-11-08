@@ -713,7 +713,7 @@ body {
   if (els.btnRestart) els.btnRestart.addEventListener("click", function () { Events.Emit("wails:updater:user:restart"); });
   if (els.btnRetry) els.btnRetry.addEventListener("click", function () {
     resetForRetry();
-    Events.Emit("cyrex:updater:retry");
+    Events.Emit("lagzap:updater:retry");
   });
   if (els.btnErrorSkip) els.btnErrorSkip.addEventListener("click", function () {
     Events.Emit("wails:updater:user:cancel");
