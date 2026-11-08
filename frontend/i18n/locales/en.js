@@ -99,7 +99,7 @@
         mobile: 'Mobile & Other',
         networkLatency: 'Network Latency',
         connections: 'Connections',
-        monitoring: 'Network Monitoring',
+        monitoring: 'Network Status',
         multiInternet: 'Multi Internet',
         logs: 'Logs',
         quickAccess: 'Quick Access',

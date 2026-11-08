@@ -100,7 +100,7 @@ export default {
         mobile: 'موبایل و سایر',
         networkLatency: 'پینگ شبکه',
         connections: 'اتصالات',
-        monitoring: 'نظارت شبکه',
+        monitoring: 'وضعیت شبکه',
         multiInternet: 'چند اینترنتی',
         logs: 'گزارشات',
         quickAccess: 'دسترسی‌سریع',
