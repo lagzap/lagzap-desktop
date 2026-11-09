@@ -61,7 +61,7 @@ tasks:
         {{if eq .BUILD_TYPE "production"}}
         -tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui -checklinkname=0"
         {{else}}
-        -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -checklinkname=0" -gcflags=all="-l"
+        -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -H windowsgui -checklinkname=0" -gcflags=all="-l"
         {{end}}
     env:
       GOOS: windows
@@ -87,7 +87,7 @@ tasks:
       RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
       BUILD_FLAGS: >-
         -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0
-        -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.DevBuild=true' -checklinkname=0"
+        -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.DevBuild=true' -H windowsgui -checklinkname=0"
         -gcflags=all="-l"
     env:
       GOOS: windows
