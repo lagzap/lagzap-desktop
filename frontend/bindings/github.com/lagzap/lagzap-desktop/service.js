@@ -743,6 +743,15 @@ export function SetInternetPingTarget(target) {
 }
 
 /**
+ * SetJumpList updates the taskbar Jump List.
+ * @param {$models.JumpListContent} content
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetJumpList(content) {
+    return $Call.ByID(1196448631, content);
+}
+
+/**
  * SetLatencyOverlayAlwaysOnTop toggles always-on-top for the latency overlay window.
  * @param {boolean} alwaysOnTop
  * @returns {$CancellablePromise<void>}
@@ -921,6 +930,14 @@ export function StopService() {
  */
 export function SyncData() {
     return $Call.ByID(2544177658);
+}
+
+/**
+ * TakeJumpListRoute returns the Jump List entry the user opened, once.
+ * @returns {$CancellablePromise<string>}
+ */
+export function TakeJumpListRoute() {
+    return $Call.ByID(3712555611);
 }
 
 /**

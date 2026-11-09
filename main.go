@@ -68,6 +68,8 @@ func main() {
 					window.Restore()
 					window.Focus()
 				}
+				// A Jump List entry starts LagZap again with its target.
+				service.openJumpTarget(jumpTargetFromArgs(data.Args))
 			},
 		},
 		PanicHandler: func(panicDetails *application.PanicDetails) {
@@ -94,6 +96,8 @@ func main() {
 		},
 	})
 	service.New(ctx, app)
+	// Started from a Jump List entry: the frontend takes it once it is ready.
+	jumpList.setPending(jumpTargetFromArgs(os.Args[1:]))
 	for _, arg := range os.Args[1:] {
 		if arg == startupMinimizeArg {
 			startMinimized = true

@@ -8,5 +8,8 @@ export {
 };
 
 export {
+    JumpListContent,
+    JumpListLabels,
+    JumpListTitle,
     MyTicketsResult
 } from "./models.js";

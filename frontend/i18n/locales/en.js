@@ -43,6 +43,11 @@
         phone_otp_sent: 'An SMS with OTP has been sent to your phone number.',
         register_successful: 'You have been registered successfully!',
     },
+    jumpList: {
+        general: 'General',
+        internetPing: 'Internet Ping: {0}ms',
+        internetPingNone: 'Internet Ping: -',
+    },
     http_errors: {
         request_failed: 'An error occurred. Code: {0}',
         internal: 'Internal server error. Code: {0}',

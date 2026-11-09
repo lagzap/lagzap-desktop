@@ -11,6 +11,195 @@ import { Create as $Create } from "@wailsio/runtime";
 import * as data$0 from "../zap/data/models.js";
 
 /**
+ * JumpListContent is what the frontend sends. The icons are PNG data URLs.
+ */
+export class JumpListContent {
+    /**
+     * Creates a new JumpListContent instance.
+     * @param {Partial<JumpListContent>} [$$source = {}] - The source object to create the JumpListContent.
+     */
+    constructor($$source = {}) {
+        if (!("labels" in $$source)) {
+            /**
+             * @member
+             * @type {JumpListLabels}
+             */
+            this["labels"] = (new JumpListLabels());
+        }
+        if (!("pingIcon" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["pingIcon"] = "";
+        }
+        if (!("settingsIcon" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["settingsIcon"] = "";
+        }
+        if (!("favorites" in $$source)) {
+            /**
+             * @member
+             * @type {JumpListTitle[]}
+             */
+            this["favorites"] = [];
+        }
+        if (!("recent" in $$source)) {
+            /**
+             * @member
+             * @type {JumpListTitle[]}
+             */
+            this["recent"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new JumpListContent instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {JumpListContent}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType0;
+        const $$createField3_0 = $$createType2;
+        const $$createField4_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("labels" in $$parsedSource) {
+            $$parsedSource["labels"] = $$createField0_0($$parsedSource["labels"]);
+        }
+        if ("favorites" in $$parsedSource) {
+            $$parsedSource["favorites"] = $$createField3_0($$parsedSource["favorites"]);
+        }
+        if ("recent" in $$parsedSource) {
+            $$parsedSource["recent"] = $$createField4_0($$parsedSource["recent"]);
+        }
+        return new JumpListContent(/** @type {Partial<JumpListContent>} */($$parsedSource));
+    }
+}
+
+/**
+ * JumpListLabels are the translated texts. InternetPing holds {0} for the ms.
+ */
+export class JumpListLabels {
+    /**
+     * Creates a new JumpListLabels instance.
+     * @param {Partial<JumpListLabels>} [$$source = {}] - The source object to create the JumpListLabels.
+     */
+    constructor($$source = {}) {
+        if (!("general" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["general"] = "";
+        }
+        if (!("overview" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["overview"] = "";
+        }
+        if (!("settings" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["settings"] = "";
+        }
+        if (!("favorites" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["favorites"] = "";
+        }
+        if (!("recent" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["recent"] = "";
+        }
+        if (!("internetPing" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["internetPing"] = "";
+        }
+        if (!("internetPingNone" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["internetPingNone"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new JumpListLabels instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {JumpListLabels}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new JumpListLabels(/** @type {Partial<JumpListLabels>} */($$parsedSource));
+    }
+}
+
+/**
+ * JumpListTitle is a favorite or recent title.
+ */
+export class JumpListTitle {
+    /**
+     * Creates a new JumpListTitle instance.
+     * @param {Partial<JumpListTitle>} [$$source = {}] - The source object to create the JumpListTitle.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("iconUrl" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["iconUrl"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new JumpListTitle instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {JumpListTitle}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new JumpListTitle(/** @type {Partial<JumpListTitle>} */($$parsedSource));
+    }
+}
+
+/**
  * MyTicketsResult is the Wails-friendly shape for ListMyTickets.
  */
 export class MyTicketsResult {
@@ -50,7 +239,7 @@ export class MyTicketsResult {
      * @returns {MyTicketsResult}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType2;
+        const $$createField0_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tickets" in $$parsedSource) {
             $$parsedSource["tickets"] = $$createField0_0($$parsedSource["tickets"]);
@@ -60,6 +249,9 @@ export class MyTicketsResult {
 }
 
 // Private type creation functions
-const $$createType0 = data$0.Ticket.createFrom;
-const $$createType1 = $Create.Nullable($$createType0);
+const $$createType0 = JumpListLabels.createFrom;
+const $$createType1 = JumpListTitle.createFrom;
 const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = data$0.Ticket.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = $Create.Array($$createType4);

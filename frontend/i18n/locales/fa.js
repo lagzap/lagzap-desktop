@@ -43,6 +43,11 @@ export default {
         phone_otp_sent: 'یک پیامک با کد یکبار مصرف به شماره همراه شما ارسال شده است.',
         register_successful: 'شما با موفقیت ثبت نام شدید!',
     },
+    jumpList: {
+        general: 'عمومی',
+        internetPing: 'پینگ اینترنت: {0}ms',
+        internetPingNone: 'پینگ اینترنت: -',
+    },
     http_errors: {
         request_failed: 'خطایی رخ داد. کد: {0}',
         internal: 'خطای داخلی سرور. کد: {0}',
