@@ -5,9 +5,12 @@ import { useLocale } from "vuetify";
 import ProfileCard from "~/components/title/ProfileCard.vue";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 import ChangelogBadge from "~/components/title/ChangelogBadge.vue";
+import { usePlanAccess } from "~/composables/usePlanAccess";
+import PlanLock from "~/components/plan/PlanLock.vue";
 
 const { t } = useLocale();
 const store = useStore();
+const { titleLocked, titleBlocked, titleUnavailable, canUpgrade, openUpgrade } = usePlanAccess();
 const route = useRoute();
 const router = useRouter();
 const data = useSanctumUser<DataResponse>();
@@ -25,6 +28,8 @@ const profiles = computed(() =>
 const changelogSince = ref(0);
 
 const showInactiveBanner = ref(false);
+/** Locked, or no active plan: the title cannot be turned on. */
+const cannotActivate = computed(() => !!title.value && (store.planBlocked || titleBlocked(title.value.id)));
 let bannerDelayTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearBannerDelay() {
@@ -108,7 +113,9 @@ onBeforeUnmount(() => {
           :since="changelogSince"
         />
         <TitleFavoriteButton v-if="title" :title-id="title.id" />
+        <PlanLock v-if="title && cannotActivate" :unavailable="titleUnavailable(title.id)" />
         <v-switch
+          v-else
           :model-value="store.isTitleActive(title.id)"
           hide-details
           :disabled="!store.appReady"
@@ -120,7 +127,7 @@ onBeforeUnmount(() => {
       </template>
       <v-expand-transition v-if="store.appReady">
         <v-banner
-          v-if="showInactiveBanner"
+          v-if="showInactiveBanner && !cannotActivate"
           color="primary"
           lines="one"
         >
@@ -140,6 +147,24 @@ onBeforeUnmount(() => {
         </v-banner>
       </v-expand-transition>
 
+      <v-expand-transition>
+        <v-banner
+          v-if="title && titleLocked(title.id) && !store.planBlocked"
+          color="warning"
+          lines="one"
+        >
+          <template #prepend>
+            <v-avatar color="warning" variant="tonal" icon="mdi-lock-outline" />
+          </template>
+          <v-banner-text>{{ t("$vuetify.plan.titleLocked") }}</v-banner-text>
+
+          <template v-if="canUpgrade" #actions>
+            <v-btn variant="tonal" prepend-icon="mdi-cart-outline" @click="openUpgrade">
+              {{ t("$vuetify.plan.unlock") }}
+            </v-btn>
+          </template>
+        </v-banner>
+      </v-expand-transition>
       <div v-if="title" class="d-flex flex-column" style="column-gap: 0.5rem">
         <template v-for="profile in profiles" :key="profile.id">
           <ProfileCard

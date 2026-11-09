@@ -7,6 +7,7 @@ import CountryFlag from "vue-country-flag-next";
 import { ProfileFlag } from "~/constants/profile";
 import { useRegionSelection } from "~/composables/useRegionSelection";
 import { useProfileEstimate } from "~/composables/useProfileChart";
+import { usePlanAccess } from "~/composables/usePlanAccess";
 
 const props = defineProps<{
   profile: Profile;
@@ -15,6 +16,11 @@ const props = defineProps<{
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
+const plan = usePlanAccess();
+/** Some servers are outside the plan: the list says better plans have more. */
+const moreWithBetterPlan = computed(() =>
+  Object.values(plan.access.value?.nodes ?? {}).some((a) => a === "locked"),
+);
 
 const {
   // State
@@ -198,6 +204,21 @@ function getPingColor(score: number | null): string {
       variant="outlined"
       width="500"
     >
+      <v-alert
+        v-if="moreWithBetterPlan"
+        type="info"
+        variant="tonal"
+        density="compact"
+        icon="mdi-rocket-launch-outline"
+        class="ma-3 mb-0"
+        :text="t('$vuetify.plan.moreAccess')"
+      >
+        <template v-if="plan.canUpgrade.value" #append>
+          <v-btn size="small" variant="tonal" color="primary" @click="plan.openUpgrade">
+            {{ t("$vuetify.plan.upgrade") }}
+          </v-btn>
+        </template>
+      </v-alert>
       <v-card-text>
         <v-chip-group
           v-if="!isNodeSelectionMode"
@@ -234,6 +255,52 @@ function getPingColor(score: number | null): string {
           class="mt-3"
         />
       </v-card-text>
+
+      <!-- Automatic: the servers it picks from, so people see what will be
+           used. Only what this profile's groups and the plan allow. -->
+      <v-list
+        v-if="mode === 'global'"
+        style="flex: 1"
+        density="compact"
+        class="automatic-servers"
+      >
+        <v-list-subheader>{{ t("$vuetify.title.profile.server.automaticServers") }}</v-list-subheader>
+        <template v-for="regionTag in Object.keys(cityHierarchy)" :key="`auto-${regionTag}`">
+          <template
+            v-for="countryIso2 in Object.keys(cityHierarchy[regionTag])"
+            :key="`auto-${regionTag}-${countryIso2}`"
+          >
+            <v-list-item
+              v-for="city in getSortedCitiesForCountry(regionTag, countryIso2)"
+              :key="`auto-${city}`"
+              density="compact"
+            >
+              <template #title>
+                <v-avatar size="24" rounded="0">
+                  <span style="height: 40px">
+                    <CountryFlag :country="cityMap[city]?.[0]?.country" />
+                  </span>
+                </v-avatar>
+                <span class="text-caption ms-2">{{ getCityLabel(city) }}</span>
+              </template>
+              <template #append>
+                <Ping
+                  v-if="lowestPingForCity(city) !== null"
+                  :tag="lowestPingForCity(city).tag"
+                />
+                <Ping v-else :tag="firstNodeIdForCity(city)" />
+              </template>
+            </v-list-item>
+          </template>
+        </template>
+        <v-list-item v-if="Object.keys(cityHierarchy).length === 0">
+          <template #title>
+            <span class="text-caption text-medium-emphasis">
+              {{ t("$vuetify.title.profile.server.automaticNone") }}
+            </span>
+          </template>
+        </v-list-item>
+      </v-list>
 
       <!-- Region Selector -->
       <v-list

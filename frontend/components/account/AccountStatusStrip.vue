@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { useLocale } from "vuetify";
+import { useRouteLevel } from "~/composables/useRouteLevel";
+import { useRouteLevels } from "~/composables/useRouteLevels";
+import { usePlanAccess } from "~/composables/usePlanAccess";
+import { localDigits } from "~/utils/localeFormat";
 
 /**
  * Overview controls: routing switch · plan · account.
@@ -9,10 +13,19 @@ const { displayName, planName, planStatus, planStatusLabel, user } =
   useAccountStatus();
 const { t } = useLocale();
 const store = useStore();
+const { levelName } = useRouteLevel();
+const { levels } = useRouteLevels();
+const { canUpgrade, openUpgrade } = usePlanAccess();
+const levelLabel = computed(() =>
+  levels.value?.plan ? t("$vuetify.routeLevel.routes", levelName(levels.value.plan)) : "",
+);
+const upgrade = computed(() =>
+  levels.value?.upgrade_level && levels.value.upgrade_ms > 0 ? levels.value : null,
+);
 
 const routingOn = computed(() => store.ndisRunning);
 const avatarLetter = computed(() => {
-  const raw = user.value?.name || user.value?.email || "";
+  const raw = user.value?.name || "";
   return raw.length ? raw[0].toUpperCase() : "";
 });
 
@@ -56,6 +69,22 @@ async function onRoutingToggle(wantOn: boolean | null) {
         >
           {{ planStatusLabel }}
         </span>
+        <span v-if="levelLabel" class="account-strip__level">{{ levelLabel }}</span>
+        <v-tooltip v-if="upgrade" :text="t('$vuetify.routeLevel.upgradeOverviewTip')" location="bottom">
+          <template #activator="{ props }">
+            <v-chip
+              v-bind="props"
+              size="small"
+              variant="tonal"
+              color="amber"
+              prepend-icon="mdi-rocket-launch-outline"
+              :disabled="!canUpgrade"
+              @click="openUpgrade"
+            >
+              {{ t("$vuetify.routeLevel.upgradeChip", levelName(upgrade.upgrade_level), localDigits(upgrade.upgrade_ms)) }}
+            </v-chip>
+          </template>
+        </v-tooltip>
       </div>
       <NuxtLink
         :to="{ name: 'profile' }"
@@ -160,6 +189,7 @@ async function onRoutingToggle(wantOn: boolean | null) {
 }
 
 .account-strip__badge--active,
+.account-strip__badge--admin,
 .account-strip__badge--trial {
   background: rgba(230, 215, 133, 0.14);
   color: #e6d785;
@@ -170,7 +200,9 @@ async function onRoutingToggle(wantOn: boolean | null) {
   color: #ffa726;
 }
 
-.account-strip__badge--expired {
+.account-strip__badge--expired,
+.account-strip__badge--none,
+.account-strip__badge--unavailable {
   background: rgba(239, 83, 80, 0.16);
   color: #ef5350;
 }
@@ -188,5 +220,11 @@ async function onRoutingToggle(wantOn: boolean | null) {
   font-weight: 500;
   color: rgba(var(--v-theme-on-surface), 0.65);
   max-width: 140px;
+}
+
+.account-strip__level {
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  white-space: nowrap;
 }
 </style>

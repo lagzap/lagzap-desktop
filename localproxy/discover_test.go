@@ -155,3 +155,21 @@ func TestLookupTXTServerReadsGivenServer(t *testing.T) {
 		t.Fatalf("got %v, %v, want %v", got, err, want)
 	}
 }
+
+// Coordinator hosts keep a port other than 443, so a dev server stays
+// reachable.
+func TestEndpointHostnamesKeepPort(t *testing.T) {
+	got := endpointHostnames([]string{"http://localhost:4000", "https://coord.example.com", "https://other.example.com:443"})
+	want := []string{"localhost:4000", "coord.example.com", "other.example.com"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestIsLocalHost(t *testing.T) {
+	for host, want := range map[string]bool{"localhost:4000": true, "127.0.0.1:4000": true, "[::1]:4000": true, "coord.example.com:443": false, "93.114.56.14:443": false} {
+		if got := isLocalHost(host); got != want {
+			t.Errorf("%s: got %v", host, got)
+		}
+	}
+}

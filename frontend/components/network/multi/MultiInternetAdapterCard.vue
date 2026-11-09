@@ -3,6 +3,7 @@ import { useLocale } from "vuetify";
 import Sparkline from "~/components/network/monitor/Sparkline.vue";
 import { qualityColor } from "~/composables/useNetworkMonitor";
 import { MAX_ROUTES } from "~/composables/routeCountUtils";
+import PlanLock from "~/components/plan/PlanLock.vue";
 import type { NetworkInterfaceMonitor } from "~/bindings/github.com/lagzap/lagzap/adapter";
 
 /** One adapter on the Multi Internet page: its internet ping, a small chart
@@ -21,6 +22,10 @@ const props = defineProps<{
   /** Route counts over this adapter; null when it is not in Multi Internet.
    * tcp/udp are this adapter's own values, null = the page default. */
   routes?: { tcp: number | null; udp: number | null; tcpDefault: number; udpDefault: number } | null;
+  /** Outside the plan: it cannot join Multi Internet or backups. */
+  planLocked?: boolean;
+  /** The plan's route limit for the inputs. */
+  routeMax?: number;
 }>();
 const emit = defineEmits<{
   setDefault: [on: boolean];
@@ -65,10 +70,12 @@ const roles = computed(() => [
     icon: "mdi-call-split",
     label: t("$vuetify.settings.multiInternetPage.multi"),
     on: props.inMulti,
-    locked: props.inMulti && !props.canLeaveMulti,
-    tip: props.inMulti && !props.canLeaveMulti
-      ? t("$vuetify.settings.multiInternetPage.lastTip")
-      : t("$vuetify.settings.multiInternetPage.multiTip"),
+    locked: (props.inMulti && !props.canLeaveMulti) || (props.planLocked && !props.inMulti),
+    tip: props.planLocked && !props.inMulti
+      ? t("$vuetify.plan.lockedTip")
+      : props.inMulti && !props.canLeaveMulti
+        ? t("$vuetify.settings.multiInternetPage.lastTip")
+        : t("$vuetify.settings.multiInternetPage.multiTip"),
     set: (on: boolean) => emit("setMulti", on),
   },
   {
@@ -76,10 +83,12 @@ const roles = computed(() => [
     icon: "mdi-shield-check-outline",
     label: t("$vuetify.settings.multiInternetPage.backup"),
     on: props.inBackup,
-    locked: props.inBackup && !props.canLeaveBackup,
-    tip: props.inBackup && !props.canLeaveBackup
-      ? t("$vuetify.settings.multiInternetPage.lastTip")
-      : t("$vuetify.settings.multiInternetPage.backupTip"),
+    locked: (props.inBackup && !props.canLeaveBackup) || (props.planLocked && !props.inBackup),
+    tip: props.planLocked && !props.inBackup
+      ? t("$vuetify.plan.lockedTip")
+      : props.inBackup && !props.canLeaveBackup
+        ? t("$vuetify.settings.multiInternetPage.lastTip")
+        : t("$vuetify.settings.multiInternetPage.backupTip"),
     set: (on: boolean) => emit("setBackup", on),
   },
 ]);
@@ -97,6 +106,7 @@ const roles = computed(() => [
           {{ t("$vuetify.networkLatency.monitor.statusNoInternet") }}
         </v-chip>
         <v-spacer />
+        <PlanLock v-if="planLocked" />
         <span
           class="adapter-card__ping text-h6 font-weight-bold"
           :class="ping && ping.now > 0 ? `text-${qualityColor(ping.quality)}` : 'text-medium-emphasis'"
@@ -150,7 +160,7 @@ const roles = computed(() => [
             :label="t('$vuetify.settings.multiInternetPage.tcp')"
             :placeholder="String(routes.tcpDefault)"
             :min="0"
-            :max="MAX_ROUTES"
+            :max="routeMax ?? MAX_ROUTES"
             persistent-placeholder
             control-variant="split"
             variant="outlined"
@@ -165,7 +175,7 @@ const roles = computed(() => [
             :label="t('$vuetify.settings.multiInternetPage.udp')"
             :placeholder="String(routes.udpDefault)"
             :min="0"
-            :max="MAX_ROUTES"
+            :max="routeMax ?? MAX_ROUTES"
             persistent-placeholder
             control-variant="split"
             variant="outlined"

@@ -10,12 +10,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lagzap/lagzap-desktop/constant"
 	"github.com/lagzap/lagzap/adapter"
 	mDNS "github.com/miekg/dns"
 )
 
 // lagZapRoots are the domains endpoints are discovered from, in order.
 var lagZapRoots = []string{"lagzap-network.ir", "lagzap.network", "lagzap.one"}
+
+// DevCoordinatorEndpoint is the local coordinator dev builds try before the
+// discovered ones.
+const DevCoordinatorEndpoint = "http://localhost:4000"
+
+// buildEndpoints are the endpoints this build tries before discovery.
+func buildEndpoints() []string {
+	if constant.IsDevBuild() {
+		return []string{DevCoordinatorEndpoint}
+	}
+	return nil
+}
 
 const (
 	txtLookupTimeout = 3 * time.Second
@@ -140,7 +153,7 @@ func channelTXTLookup(dns adapter.DNSRouter) txtLookup {
 
 func DiscoverUpstream(ctx context.Context, dns adapter.DNSRouter, version string, coordinatorHosts []string) (string, error) {
 	endpoints, txtErr := channelEndpoints(ctx, channelTXTLookup(dns), version)
-	candidates := upstreamCandidates(coordinatorHosts, endpoints)
+	candidates := upstreamCandidates(coordinatorHosts, append(buildEndpoints(), endpoints...))
 	for _, ep := range candidates {
 		if probeURL(ctx, ep) {
 			return ep, txtErr
@@ -175,7 +188,7 @@ func upstreamCandidates(coordinatorHosts, endpoints []string) []string {
 // DiscoverCoordinatorHosts returns the channel's coordinator hosts.
 func DiscoverCoordinatorHosts(ctx context.Context, dns adapter.DNSRouter, version string) ([]string, error) {
 	endpoints, err := channelEndpoints(ctx, channelTXTLookup(dns), version)
-	return endpointHostnames(endpoints), err
+	return endpointHostnames(append(buildEndpoints(), endpoints...)), err
 }
 
 func endpointHostnames(endpoints []string) []string {
@@ -185,7 +198,11 @@ func endpointHostnames(endpoints []string) []string {
 		if err != nil || u.Hostname() == "" {
 			continue
 		}
-		out = append(out, u.Hostname())
+		host := u.Host
+		if h, port, err := net.SplitHostPort(host); err == nil && port == "443" {
+			host = h
+		}
+		out = append(out, host)
 	}
 	return dedupePreserveOrder(out)
 }

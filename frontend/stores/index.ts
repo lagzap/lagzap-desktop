@@ -45,9 +45,10 @@ import {
   ClientInfo,
 } from "~/bindings/github.com/lagzap/zap/data";
 import { Events } from "@wailsio/runtime";
-import { displayError } from "~/composables/alert";
+import { displayAlert, displayError } from "~/composables/alert";
+import { usePlanAccess } from "~/composables/usePlanAccess";
 import { getToken } from "~/utils/indexedDB";
-import { clearAuthSession } from "~/composables/useAuthSession";
+import { clearAuthSession, handleAuthFailure } from "~/composables/useAuthSession";
 import { useMonitoringStore } from "~/stores/monitoring";
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/constants/status";
@@ -174,6 +175,7 @@ function normalizeTitle(raw: any): Title | null {
 
 export const useStore = defineStore("index", () => {
   const locale = useLocale();
+  const planAccess = usePlanAccess();
   // State
   const status = ref<ConnectionStatus>(ConnectionStatus.StatusDisconnected);
   const abilities = ref<string[]>([]);
@@ -485,6 +487,24 @@ export const useStore = defineStore("index", () => {
     appReady.value = false;
     await check();
   });
+  // The account changed on the server (plan bought, renewed or expired,
+  // limits or node groups edited). Go already applied it, and plan access
+  // follows on "plan-access"; here the signed-in user and abilities catch up.
+  const nuxtApp = useNuxtApp();
+  Events.On("account", () =>
+    void nuxtApp.runWithContext(async () => {
+      try {
+        const { refreshIdentity, user } = useSanctumAuth<DataResponse>();
+        await refreshIdentity();
+        abilities.value = user.value?.abilities || [];
+      } catch {
+        // identity refresh failed: the next account update or start retries
+      }
+      displayAlert(locale.t("$vuetify.plan.updated"), "info", 4000);
+    }),
+  );
+  // The token was refused (account deleted or token revoked): sign out.
+  Events.On("account-invalid", () => void nuxtApp.runWithContext(() => handleAuthFailure()));
   Events.On("titles", ({ data }) => upsertTitles(asEntityList(data)));
   Events.On("title-delete", ({ data }) => deleteTitle(asEntityID(data)));
   Events.On("profiles", ({ data }) => upsertProfiles(asEntityList(data)));
@@ -766,16 +786,36 @@ export const useStore = defineStore("index", () => {
   const setDisplayLimit = (limit: number) => {
     displayLimit.value = limit;
   };
+  /** No active plan: nothing can be on. */
+  const planBlocked = computed(
+    () => planAccess.status.value !== "loading" && !planAccess.active.value,
+  );
   const isTitleActive = (id: string): boolean => {
+    if (planBlocked.value || planAccess.titleBlocked(id)) {
+      return false;
+    }
     return titleStates.value[id]?.active === true;
   };
   const isProfileActive = (profileId: string): boolean => {
+    if (planBlocked.value || planAccess.profileBlocked(profileId)) {
+      return false;
+    }
     return (
       profileStates.value[profileId] !== undefined &&
       profileStates.value[profileId].active
     );
   };
+  // Not in the user's plan: never turned on (the lock offers the plans).
+  const planLocked = (locked: boolean) => {
+    if (locked) {
+      displayAlert(locale.t("$vuetify.plan.lockedAlert"), "warning", 3000);
+    }
+    return locked;
+  };
   const activateTitle = async (id: string) => {
+    if (planLocked(planAccess.titleBlocked(id))) {
+      return;
+    }
     if (!titleStates.value[id]) {
       titleStates.value = await GetTitleStates()
     }
@@ -797,6 +837,9 @@ export const useStore = defineStore("index", () => {
     }
   };
   const activateProfile = async (profileId: string) => {
+    if (planLocked(planAccess.profileBlocked(profileId))) {
+      return;
+    }
     if (profileStates.value[profileId]) {
       profileStates.value[profileId].active = true;
     }
@@ -1280,6 +1323,7 @@ export const useStore = defineStore("index", () => {
     online,
     usable,
     appReady,
+    planBlocked,
     internetStatus,
     status,
     abilities,

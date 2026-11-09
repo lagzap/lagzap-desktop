@@ -3,9 +3,12 @@ import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
+import TitleAvatar from "~/components/plan/TitleAvatar.vue";
+import { usePlanAccess } from "~/composables/usePlanAccess";
 
 const { t } = useLocale();
 const store = useStore();
+const { titleLocked } = usePlanAccess();
 const { overviewSource, overviewTitles } = useFavoriteTitles();
 
 const sectionLabel = computed(() => {
@@ -38,11 +41,7 @@ const sectionLabel = computed(() => {
           class="overview-titles__tile text-decoration-none"
         >
           <div class="overview-titles__icon">
-            <v-avatar
-              :size="40"
-              :image="title.icon_url || undefined"
-              class="rounded-lg"
-            />
+            <TitleAvatar :size="40" :image="title.icon_url" />
             <span class="overview-titles__fav">
               <TitleFavoriteButton :title-id="title.id" size="x-small" />
             </span>

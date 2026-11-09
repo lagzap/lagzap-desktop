@@ -84,7 +84,9 @@ export type RelayIssueCode =
   | "no_relay_available"
   | "no_relay_on_the_way"
   | "no_route"
-  | "selection_fallback";
+  | "selection_fallback"
+  | "plan_required"
+  | "plan_locked";
 
 export interface RelayIssue {
   code: RelayIssueCode;

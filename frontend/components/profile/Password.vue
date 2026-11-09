@@ -69,12 +69,7 @@ async function requestOTP() {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card
-      :title="t('$vuetify.profile.updatePassword')"
-      class="mt-3 bg-transparent"
-      flat
-      max-width="500"
-    >
+    <v-card :title="t('$vuetify.profile.updatePassword')" rounded="xl" class="pa-2">
       <v-card-text class="pb-0 pt-3">
         <v-text-field
           v-model="password"

@@ -2,12 +2,15 @@
 import type { Title } from "~/bindings/github.com/lagzap/zap/data";
 import { useLocale } from "vuetify";
 import { useMonitoringStore } from "~/stores/monitoring";
+import { usePlanAccess } from "~/composables/usePlanAccess";
+import PlanLock from "~/components/plan/PlanLock.vue";
 
 const props = defineProps<{
   title: Title;
 }>();
 
 const store = useStore();
+const { titleBlocked, titleUnavailable } = usePlanAccess();
 const { t } = useLocale();
 const { connections } = useMonitoringStore();
 
@@ -69,8 +72,9 @@ async function onToggle() {
 </script>
 
 <template>
+  <PlanLock v-if="titleBlocked(props.title.id)" :unavailable="titleUnavailable(props.title.id)" />
   <v-tooltip
-    v-if="showConnectionChip"
+    v-else-if="showConnectionChip"
     location="end"
     open-delay="200"
     max-width="280"
@@ -84,7 +88,7 @@ async function onToggle() {
         variant="elevated"
         rounded="xl"
         label
-        :disabled="!store.appReady"
+        :disabled="!store.appReady || store.planBlocked"
         @click.stop.prevent="onToggle"
       >
         {{ localDigits(connectionCount) }}
@@ -128,7 +132,7 @@ async function onToggle() {
         :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
         variant="text"
         size="md"
-        :disabled="!store.appReady"
+        :disabled="!store.appReady || store.planBlocked"
         @click.stop.prevent="onToggle"
       />
     </template>

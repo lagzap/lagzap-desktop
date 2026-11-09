@@ -1,83 +1,70 @@
 import { useLocale } from "vuetify";
+import { useAccountPlan } from "~/composables/useAccountPlan";
 
 export type ServiceTone = "ok" | "warn" | "busy" | "off";
 
-export type PlanStatus = "active" | "trial" | "expiring" | "expired" | "unknown";
+export type PlanStatus =
+  | "active"
+  | "trial"
+  | "admin"
+  | "expiring"
+  | "expired"
+  | "none"
+  | "loading"
+  | "unavailable";
 
-/**
- * Account / service / plan display for Overview + drawer.
- * Plan fields are stubbed until subscription API exists.
- */
+/** Account / service / plan display for Overview + drawer. */
 export function useAccountStatus() {
   const store = useStore();
   const data = useSanctumUser<DataResponse>();
   const { t } = useLocale();
+  const plan = useAccountPlan();
 
   const user = computed(() => data.value?.user ?? null);
 
   const displayName = computed(
     () =>
+      // Never the email: it is personal (streamers keep the app on screen).
       user.value?.name?.trim() ||
-      user.value?.email?.trim() ||
       t("$vuetify.status.player1")
   );
 
-  const planName = computed(
-    () => user.value?.plan_name?.trim() || t("$vuetify.status.unlimited")
-  );
-
-  const planStatus = computed<PlanStatus>(() => {
-    const raw = (user.value?.plan_status || "active").toLowerCase();
-    if (
-      raw === "active" ||
-      raw === "trial" ||
-      raw === "expiring" ||
-      raw === "expired"
-    ) {
-      return raw;
-    }
-    return "unknown";
+  const planName = computed(() => {
+    const name = plan.name.value || t(`$vuetify.profile.status.${plan.status.value}`);
+    const access = plan.access.value;
+    if (access?.source !== "team") return name;
+    return access.team_role !== "owner" && access.team_owner
+      ? `${name} · ${t("$vuetify.team.badgeVia", access.team_owner)}`
+      : `${name} · ${t("$vuetify.team.badge")}`;
   });
 
-  const expiresAt = computed(() => user.value?.expires_at ?? null);
+  /** An active plan ending within a week reads as expiring. */
+  const planStatus = computed<PlanStatus>(() => {
+    const status = plan.status.value as PlanStatus;
+    if (status === "active" && plan.daysLeft.value != null && plan.daysLeft.value <= 7) {
+      return "expiring";
+    }
+    return status;
+  });
+
+  const expiresAt = computed(() => plan.access.value?.expires_at || null);
 
   const planStatusLabel = computed(() => {
     switch (planStatus.value) {
-      case "trial":
-        return t("$vuetify.accountStatus.planTrial");
       case "expiring":
         return t("$vuetify.accountStatus.planExpiring");
-      case "expired":
-        return t("$vuetify.accountStatus.planExpired");
-      case "active":
-        return t("$vuetify.status.active");
       default:
-        return t("$vuetify.accountStatus.planUnknown");
+        return t(`$vuetify.profile.status.${planStatus.value}`);
     }
   });
 
   const planHint = computed(() => {
-    if (planStatus.value === "expired") {
-      return t("$vuetify.accountStatus.planExpiredHint");
+    if (!plan.active.value) {
+      return planStatus.value === "loading" ? "" : t(`$vuetify.profile.inactive.${planStatus.value}`);
     }
-    if (!expiresAt.value) {
-      return t("$vuetify.accountStatus.noExpiry");
-    }
-    try {
-      const d = new Date(expiresAt.value);
-      if (Number.isNaN(d.getTime())) {
-        return t("$vuetify.accountStatus.noExpiry");
-      }
-      return t("$vuetify.accountStatus.expiresOn", [
-        d.toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
-      ]);
-    } catch {
-      return t("$vuetify.accountStatus.noExpiry");
-    }
+    return plan.expiresText.value
+      ? t("$vuetify.accountStatus.expiresOn", [plan.expiresText.value])
+      : t("$vuetify.accountStatus.noExpiry");
   });
 
   const service = computed(() => {

@@ -97,12 +97,18 @@ func (s *Service) GetTitles() map[string]*D.Title {
 	if !s.IsReady() {
 		return nil
 	}
+	if plan, ok := s.coordinator.(adapter.PlanAccessProvider); ok {
+		return plan.VisibleTitles()
+	}
 	return s.coordinator.GetTitles()
 }
 
 func (s *Service) GetProfiles() map[string]*D.Profile {
 	if !s.IsReady() {
 		return nil
+	}
+	if plan, ok := s.coordinator.(adapter.PlanAccessProvider); ok {
+		return plan.VisibleProfiles()
 	}
 	return s.coordinator.GetProfiles()
 }
@@ -132,7 +138,36 @@ func (s *Service) GetNodes() map[string]*D.Node {
 	if !s.IsReady() {
 		return nil
 	}
+	if plan, ok := s.coordinator.(adapter.PlanAccessProvider); ok {
+		return plan.VisibleNodes()
+	}
 	return s.coordinator.GetNodes()
+}
+
+// GetRouteLevels is the plan's route level and the biggest gain a higher
+// level measured, for the overview and the profile page.
+func (s *Service) GetRouteLevels() *adapter.RouteLevel {
+	if !s.IsReady() {
+		return nil
+	}
+	if reporter, ok := s.coordinator.(adapter.RouteLevelReporter); ok {
+		levels := reporter.GetRouteLevels()
+		return &levels
+	}
+	return nil
+}
+
+// GetPlanAccess is what the user's plan makes locked or hidden, and its
+// limits; Strict false means the server sends no plan data yet.
+func (s *Service) GetPlanAccess() *adapter.PlanAccess {
+	if !s.IsReady() {
+		return nil
+	}
+	if plan, ok := s.coordinator.(adapter.PlanAccessProvider); ok {
+		access := plan.GetPlanAccess()
+		return &access
+	}
+	return nil
 }
 
 func (s *Service) VisitTitle(titleId string) {

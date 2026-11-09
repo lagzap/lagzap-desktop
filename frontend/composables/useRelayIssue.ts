@@ -16,6 +16,10 @@ export function useRelayIssueMessage() {
     switch (issue.code) {
       case "no_route":
         return t("$vuetify.connections.relayIssueNoRoute");
+      case "plan_required":
+        return t("$vuetify.connections.relayIssuePlanRequired");
+      case "plan_locked":
+        return t("$vuetify.connections.relayIssuePlanLocked");
       default:
         return issue.detail
           ? t("$vuetify.connections.relayIssueNoRelayAvailableIn", issue.detail)

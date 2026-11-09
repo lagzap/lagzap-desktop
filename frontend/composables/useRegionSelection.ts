@@ -1,4 +1,5 @@
 import { computed, ref, watch } from 'vue';
+import { usePlanAccess } from "~/composables/usePlanAccess";
 import { useStore } from '@/stores';
 import { RoutingMode, type Node, type RelayRoute, NodeFlag } from '~/bindings/github.com/lagzap/zap/data';
 import type { Profile } from '~/bindings/github.com/lagzap/zap/data';
@@ -36,6 +37,8 @@ export function useRegionSelection(profile: Profile) {
     return displayScoreForRelay(routeData);
   }
   
+  const planAccess = usePlanAccess();
+
   // Reactive state
   const dialogOpen = ref(false);
   const searchQuery = ref('');
@@ -45,6 +48,17 @@ export function useRegionSelection(profile: Profile) {
   const shouldShowNode = (node: Node): boolean => {
     // Exclude nodes in maintenance mode - this is the strictest filter, applied first
     if ((node.flags & NodeFlag.NodeFlag_NODE_FLAG_MAINTENANCE) !== 0) {
+      return false;
+    }
+    // Servers outside the user's plan cannot be picked; the list says better
+    // plans have more.
+    if (planAccess.nodeLocked(node.id)) {
+      return false;
+    }
+    // Only the relays the profile's node groups allow (their include and
+    // exclude rules): a relay left out cannot carry this profile.
+    const allowed = planAccess.access.value?.profile_nodes?.[profile.id];
+    if (allowed && !allowed.includes(node.id)) {
       return false;
     }
 

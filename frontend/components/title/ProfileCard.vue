@@ -21,6 +21,9 @@ import {
 } from "~/composables/useProfileViewInterface";
 import { useLocale } from "vuetify";
 import { isConnectionNotRelayed } from "~/composables/useRelayIssue";
+import { usePlanAccess } from "~/composables/usePlanAccess";
+import { useRouteLevel } from "~/composables/useRouteLevel";
+import RouteLevelText from "~/components/plan/RouteLevelText.vue";
 
 const props = defineProps<{
   profile: Profile;
@@ -66,6 +69,11 @@ const isHighTrafficProfile = computed(
 );
 
 const store = useStore();
+const { profileLocked, profileUnavailable, canUpgrade, openUpgrade } = usePlanAccess();
+/** Not in the user's plan: shown with the unlock offer, never turned on. */
+const locked = computed(() => profileLocked(props.profile.id));
+/** No plan offers it yet: a gray lock, nothing to purchase or pick. */
+const unavailable = computed(() => profileUnavailable(props.profile.id));
 const { settings } = useSettings();
 const { rateProfile } = useSessionRating();
 // Rating needs the session statistics, which follow "Send anonymous usage data".
@@ -75,6 +83,14 @@ const { chart: profileChart, view: chartView } = useProfileChart(props.profile.i
 // Usage → the profile's traffic: the chart below when the card has one,
 // else a popup with the same live chart.
 const trafficDialog = ref(false);
+/** The ping opens the chart below on Latency, as the traffic chip opens it
+ * on Traffic. */
+function showLatency() {
+  const el = document.getElementById(`profile-chart-${props.profile.id}`);
+  if (!el) return;
+  chartView.value = "latency";
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+}
 function showTraffic() {
   const el = document.getElementById(`profile-chart-${props.profile.id}`);
   if (el) {
@@ -85,6 +101,11 @@ function showTraffic() {
   trafficDialog.value = true;
 }
 const diagram = computed(() => profileChart.value?.diagram ?? null);
+const { levelName } = useRouteLevel();
+/** Route levels for this profile: the plan's level (shown, as in Route
+ * Settings) and what a higher one measured. The level of the route in use
+ * is not shown: the fastest route can be a short one on any plan. */
+const routeLevel = computed(() => diagram.value?.level ?? null);
 const interfaceRouteGroups = computed(() => diagram.value?.interfaces ?? []);
 const canFixLag = computed(() => !!diagram.value?.show && !diagram.value?.idle);
 // Go sets this while every route is losing packets.
@@ -114,6 +135,8 @@ type CardNotice = {
   icon: string;
   color?: string;
   text: string;
+  /** Clicking the notice opens the plans page. */
+  upgrade?: boolean;
   /** Uppercase lead before text (the route preview). */
   title?: string;
   tip?: string;
@@ -150,6 +173,18 @@ const notice = computed<CardNotice | null>(() => {
   }
   if (estimateNote.value) {
     return { icon: "mdi-map-marker-path", title: estimateNote.value.title, text: estimateNote.value.hint };
+  }
+  // A higher plan's routes measured faster here: say so instead of the
+  // spare routes.
+  const level = routeLevel.value;
+  if (level?.upgrade_level && level.upgrade_ms > 0) {
+    return {
+      icon: "mdi-rocket-launch-outline",
+      color: "amber",
+      upgrade: true,
+      text: t("$vuetify.routeLevel.upgradeNote", levelName(level.upgrade_level), localDigits(level.upgrade_ms)),
+      tip: t("$vuetify.routeLevel.upgradeTip", levelName(level.plan), levelName(level.upgrade_level)),
+    };
   }
   const backups = diagram.value?.backups;
   if (backups?.count) {
@@ -351,7 +386,13 @@ const routeSettingsText = computed(() => {
           :can-fix-lag="canFixLag"
           :fixing-lag="fixingLag"
           @fix-lag="fixLag"
+          @show-latency="showLatency"
         />
+        <!-- The ping already ends with a separator. -->
+        <template v-if="routeLevel?.plan">
+          <RouteLevelText :level="routeLevel.plan" />
+          <span class="profile-card-subtitle__sep">•</span>
+        </template>
         <template v-if="showUsageInSubtitle">
           <template v-if="keepBypassSanctions">
             <span>{{ t("$vuetify.title.profile.bypassSanctions") }}</span>
@@ -366,13 +407,30 @@ const routeSettingsText = computed(() => {
     </template>
 
     <template #prepend>
+      <!-- Not in the plan: the switch stays, disabled and halfway, with a lock
+           in its thumb. -->
       <v-switch
+        v-if="locked || unavailable"
+        inset
+        density="compact"
+        :model-value="null"
+        indeterminate
+        hide-details
+        disabled
+        class="profile-card__locked-switch"
+      >
+        <template #thumb>
+          <v-icon icon="mdi-lock" size="12" />
+        </template>
+      </v-switch>
+      <v-switch
+        v-else
         inset
         density="compact"
         :model-value="store.isProfileActive(props.profile.id)"
         hide-details
         color="cyan"
-        :disabled="!store.appReady"
+        :disabled="!store.appReady || locked || unavailable || store.planBlocked"
         @update:model-value="toggleProfile"
       />
     </template>
@@ -412,7 +470,18 @@ const routeSettingsText = computed(() => {
           />
         </template>
       </v-tooltip>
-      <ProfileRegionSelection :profile="props.profile" />
+      <v-btn
+        v-if="locked"
+        class="profile-card__unlock text-none"
+        variant="flat"
+        color="amber"
+        prepend-icon="mdi-lock-open-variant"
+        :disabled="!canUpgrade"
+        @click.stop="openUpgrade"
+      >
+        {{ t("$vuetify.plan.unlock") }}
+      </v-btn>
+      <ProfileRegionSelection v-else-if="!unavailable" :profile="props.profile" />
       <ProfileRouteSettings :profile="props.profile" />
     </template>
 
@@ -446,6 +515,8 @@ const routeSettingsText = computed(() => {
               <div
                 v-bind="tipProps"
                 class="profile-protection profile-notice profile-diagram__notice d-flex align-start ga-2"
+                :class="{ 'profile-notice--upgrade': notice.upgrade }"
+                @click="notice.upgrade && openUpgrade()"
               >
                 <v-icon
                   :icon="notice.icon"
@@ -463,9 +534,8 @@ const routeSettingsText = computed(() => {
             {{ notice.tip }}
           </v-tooltip>
         </div>
-        <v-divider class="my-4" />
       </template>
-      <ProfilePingUsage :profile-id="props.profile.id" class="mb-4" />
+      <ProfilePingUsage :profile-id="props.profile.id" :divided="showProfileSections" class="mb-4" />
       <ProfileConnectionsTable
         v-if="showProfileSections && hasProfileConnections"
         :profile-id="props.profile.id"
@@ -568,5 +638,21 @@ const routeSettingsText = computed(() => {
 .profile-preview-note__title {
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.profile-card__locked-switch :deep(.v-switch__thumb) {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.profile-notice--upgrade {
+  cursor: pointer;
+}
+
+.profile-notice--upgrade:hover {
+  text-decoration: underline;
+}
+
+.profile-card-subtitle__level {
+  white-space: nowrap;
 }
 </style>

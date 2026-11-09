@@ -14,6 +14,9 @@ import {
   resolveProfileRouteCounts,
 } from "~/composables/routeCountUtils";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
+import { usePlanAccess } from "~/composables/usePlanAccess";
+import PlanLock from "~/components/plan/PlanLock.vue";
+import RouteLevelText from "~/components/plan/RouteLevelText.vue";
 
 const props = defineProps<{
   profile: Profile;
@@ -22,6 +25,18 @@ const props = defineProps<{
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
+const plan = usePlanAccess();
+/** The plan's route limit, within what the inputs offer anyway. */
+const routeMax = computed(() => {
+  const max = plan.limits.value?.max_routes ?? 0;
+  return max > 0 ? Math.min(MAX_ROUTES, max) : MAX_ROUTES;
+});
+const planRoutesCapped = computed(() => routeMax.value < MAX_ROUTES);
+/** The plan's route level (max_hops; 0 is no limit). */
+const planLevel = computed(() => {
+  const hops = plan.limits.value?.max_hops ?? 0;
+  return hops > 0 && hops < 3 ? hops : 3;
+});
 
 const {
   resolvedGlobalTcp,
@@ -374,8 +389,10 @@ onMounted(async () => {
       </v-btn>
     </template>
     <v-card>
-      <v-card-title class="d-flex align-center">
+      <v-card-title class="d-flex align-center ga-2">
         <span>{{ t("$vuetify.title.profile.routeSettings") }}</span>
+        <v-spacer />
+        <RouteLevelText :level="planLevel" />
       </v-card-title>
 
       <v-card-text>
@@ -430,6 +447,12 @@ onMounted(async () => {
                 </div>
               </div>
 
+              <div v-if="planRoutesCapped" class="d-flex flex-wrap align-center ga-2 mb-2">
+                <span v-if="planRoutesCapped" class="text-caption text-medium-emphasis">
+                  {{ t("$vuetify.plan.routesLimit", routeMax) }}
+                </span>
+                <PlanLock v-if="planRoutesCapped" chip />
+              </div>
               <template v-if="!showAdvancedRouteOptions">
                 <v-number-input
                   v-model="totalRouteCap"
@@ -441,7 +464,7 @@ onMounted(async () => {
                   inset
                   clearable
                   :min="1"
-                  :max="MAX_ROUTES"
+                  :max="routeMax"
                   :disabled="!store.appReady"
                   hide-details="auto"
                 />
@@ -460,7 +483,7 @@ onMounted(async () => {
                       inset
                       clearable
                       :min="tcpRoutesMin"
-                      :max="MAX_ROUTES"
+                      :max="routeMax"
                       :disabled="!store.appReady"
                     />
                   </v-col>
@@ -475,7 +498,7 @@ onMounted(async () => {
                       inset
                       clearable
                       :min="udpRoutesMin"
-                      :max="MAX_ROUTES"
+                      :max="routeMax"
                       :disabled="!store.appReady"
                     />
                   </v-col>

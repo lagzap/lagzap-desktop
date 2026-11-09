@@ -4,6 +4,7 @@ import { useLocale } from "vuetify";
 import ContinentIcon from "~/components/icons/ContinentIcon.vue";
 import { qualityColor } from "~/composables/useNetworkMonitor";
 import { useServerDirectory } from "~/composables/useServerDirectory";
+import PlanLock from "~/components/plan/PlanLock.vue";
 
 /** Public list of LagZap locations with the ping from your connection.
  * Go measures, labels and sorts; this only renders. */
@@ -97,7 +98,7 @@ function openCity(key: string) {
           :key="city.key"
           type="button"
           class="city-card"
-          :class="{ 'city-card--off': city.status === 'unreachable' }"
+          :class="{ 'city-card--off': city.status === 'unreachable', 'city-card--locked': city.locked }"
           @click="openCity(city.key)"
         >
           <CountryFlag :country="city.country" size="normal" class="city-card__flag" />
@@ -111,6 +112,7 @@ function openCity(key: string) {
                 color="primary"
                 :title="t('$vuetify.networkLatency.servers.usedByGames')"
               />
+              <PlanLock v-if="city.locked" :size="14" />
             </div>
             <span class="text-caption" :class="`text-${STATUS_COLOR[city.status] ?? 'grey'}`">
               {{ t(`$vuetify.networkLatency.servers.status.${city.status}`) }}
@@ -135,6 +137,9 @@ function openCity(key: string) {
 </template>
 
 <style scoped>
+.city-card--locked {
+  opacity: 0.7;
+}
 .region-title {
   letter-spacing: 0.06em;
 }

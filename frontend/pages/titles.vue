@@ -2,10 +2,14 @@
 import { useLocale } from "vuetify";
 import Container from "~/components/layout/Container.vue";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
+import TitleAvatar from "~/components/plan/TitleAvatar.vue";
+import PlanLock from "~/components/plan/PlanLock.vue";
+import { usePlanAccess } from "~/composables/usePlanAccess";
 
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
+const { titleBlocked, titleUnavailable } = usePlanAccess();
 const titles = computed(() => store.getTitles);
 const requestOpen = ref(false);
 </script>
@@ -36,16 +40,22 @@ const requestOpen = ref(false);
                   :to="{ name: 'title-id', params: { id: item.raw.id } }"
                   class="py-1 mb-1 titles-card"
                 >
-                  <v-list-item
-                    :prepend-avatar="item.raw.icon_url"
-                    :title="store.titleName(item.raw.name)"
-                  >
+                  <v-list-item :title="store.titleName(item.raw.name)">
+                    <template #prepend>
+                      <TitleAvatar
+                        :size="40"
+                        :image="item.raw.icon_url"
+                        class="me-4"
+                      />
+                    </template>
                     <template #append>
                       <div class="d-flex align-center">
                         <span class="titles-card__fav">
                           <TitleFavoriteButton :title-id="item.raw.id" />
                         </span>
+                        <PlanLock v-if="titleBlocked(item.raw.id)" :unavailable="titleUnavailable(item.raw.id)" />
                         <v-tooltip
+                          v-else
                           :text="
                             store.isTitleActive(item.raw.id)
                               ? store.ndisRunning
@@ -69,7 +79,7 @@ const requestOpen = ref(false);
                               "
                               variant="text"
                               size="md"
-                              :disabled="!store.appReady"
+                              :disabled="!store.appReady || store.planBlocked || titleBlocked(item.raw.id)"
                               @click.stop.prevent="
                                 store.toggleTitleState(item.raw)
                               "

@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useDisplay, useLocale } from "vuetify";
 import { useFuzzySearch } from "~/composables/useFuzzySearch";
+import PlanBanner from "~/components/plan/PlanBanner.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -138,6 +139,7 @@ onMounted(() => {
         class="h-100"
         :class="props.flush ? 'overflow-hidden' : 'overflow-y-auto'"
       >
+        <PlanBanner />
         <slot />
       </div>
     </v-card>

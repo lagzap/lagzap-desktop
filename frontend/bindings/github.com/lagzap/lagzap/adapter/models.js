@@ -1806,6 +1806,48 @@ export class LossWarning {
 }
 
 /**
+ * NameResult is the gamer tag after a change, or why it was refused.
+ */
+export class NameResult {
+    /**
+     * Creates a new NameResult instance.
+     * @param {Partial<NameResult>} [$$source = {}] - The source object to create the NameResult.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {TeamError | null | undefined}
+             */
+            this["error"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NameResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {NameResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType26;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("error" in $$parsedSource) {
+            $$parsedSource["error"] = $$createField1_0($$parsedSource["error"]);
+        }
+        return new NameResult(/** @type {Partial<NameResult>} */($$parsedSource));
+    }
+}
+
+/**
  * NetworkInterfaceMonitor is one internet connection (NIC).
  */
 export class NetworkInterfaceMonitor {
@@ -1898,9 +1940,9 @@ export class NetworkInterfaceMonitor {
      * @returns {NetworkInterfaceMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField7_0 = $$createType25;
-        const $$createField8_0 = $$createType26;
-        const $$createField9_0 = $$createType28;
+        const $$createField7_0 = $$createType27;
+        const $$createField8_0 = $$createType28;
+        const $$createField9_0 = $$createType30;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("ping" in $$parsedSource) {
             $$parsedSource["ping"] = $$createField7_0($$parsedSource["ping"]);
@@ -1956,8 +1998,8 @@ export class NetworkMonitor {
      * @returns {NetworkMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType29;
-        const $$createField2_0 = $$createType30;
+        const $$createField1_0 = $$createType31;
+        const $$createField2_0 = $$createType32;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("summary" in $$parsedSource) {
             $$parsedSource["summary"] = $$createField1_0($$parsedSource["summary"]);
@@ -2120,7 +2162,7 @@ export class OverviewChart {
      * @returns {OverviewChart}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType31;
+        const $$createField1_0 = $$createType33;
         const $$createField2_0 = $$createType14;
         const $$createField3_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -2198,7 +2240,7 @@ export class OverviewLatencyChart {
      */
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType17;
-        const $$createField4_0 = $$createType33;
+        const $$createField4_0 = $$createType35;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -2437,8 +2479,8 @@ export class OverviewTrafficChart {
      * @returns {OverviewTrafficChart}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType34;
-        const $$createField4_0 = $$createType36;
+        const $$createField3_0 = $$createType36;
+        const $$createField4_0 = $$createType38;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -2783,6 +2825,158 @@ export class PingBatch {
 }
 
 /**
+ * PlanAccess is the plan as the client applies it. Titles, Profiles and
+ * Nodes list only what is locked or hidden; anything absent is available.
+ */
+export class PlanAccess {
+    /**
+     * Creates a new PlanAccess instance.
+     * @param {Partial<PlanAccess>} [$$source = {}] - The source object to create the PlanAccess.
+     */
+    constructor($$source = {}) {
+        if (!("active" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["active"] = false;
+        }
+        if (!("status" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["status"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("expires_at" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["expires_at"] = "";
+        }
+        if (!("features" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["features"] = [];
+        }
+        if (!("upgrade_url" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["upgrade_url"] = "";
+        }
+        if (!("source" in $$source)) {
+            /**
+             * Source is own or team (empty without a plan). With a team plan,
+             * TeamOwner is the owner's gamer tag and TeamRole owner or member.
+             * @member
+             * @type {string}
+             */
+            this["source"] = "";
+        }
+        if (!("team_owner" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["team_owner"] = "";
+        }
+        if (!("team_role" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["team_role"] = "";
+        }
+        if (!("limits" in $$source)) {
+            /**
+             * @member
+             * @type {PlanLimits}
+             */
+            this["limits"] = (new PlanLimits());
+        }
+        if (!("titles" in $$source)) {
+            /**
+             * @member
+             * @type {{ [_ in string]?: string }}
+             */
+            this["titles"] = {};
+        }
+        if (!("profiles" in $$source)) {
+            /**
+             * @member
+             * @type {{ [_ in string]?: string }}
+             */
+            this["profiles"] = {};
+        }
+        if (!("nodes" in $$source)) {
+            /**
+             * @member
+             * @type {{ [_ in string]?: string }}
+             */
+            this["nodes"] = {};
+        }
+        if (!("profile_nodes" in $$source)) {
+            /**
+             * ProfileNodes lists, per relaying profile with node groups, the relays
+             * its groups allow (locked ones included); hidden relays are left out.
+             * The location menu offers only these. Absent: no restriction.
+             * @member
+             * @type {{ [_ in string]?: string[] }}
+             */
+            this["profile_nodes"] = {};
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PlanAccess instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {PlanAccess}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType0;
+        const $$createField9_0 = $$createType39;
+        const $$createField10_0 = $$createType40;
+        const $$createField11_0 = $$createType40;
+        const $$createField12_0 = $$createType40;
+        const $$createField13_0 = $$createType41;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("features" in $$parsedSource) {
+            $$parsedSource["features"] = $$createField4_0($$parsedSource["features"]);
+        }
+        if ("limits" in $$parsedSource) {
+            $$parsedSource["limits"] = $$createField9_0($$parsedSource["limits"]);
+        }
+        if ("titles" in $$parsedSource) {
+            $$parsedSource["titles"] = $$createField10_0($$parsedSource["titles"]);
+        }
+        if ("profiles" in $$parsedSource) {
+            $$parsedSource["profiles"] = $$createField11_0($$parsedSource["profiles"]);
+        }
+        if ("nodes" in $$parsedSource) {
+            $$parsedSource["nodes"] = $$createField12_0($$parsedSource["nodes"]);
+        }
+        if ("profile_nodes" in $$parsedSource) {
+            $$parsedSource["profile_nodes"] = $$createField13_0($$parsedSource["profile_nodes"]);
+        }
+        return new PlanAccess(/** @type {Partial<PlanAccess>} */($$parsedSource));
+    }
+}
+
+/**
  * PlanLimits are what the subscriber's plan allows, from the /data reply.
  * Zero means no limit (and is what servers without these fields send).
  */
@@ -2794,9 +2988,9 @@ export class PlanLimits {
     constructor($$source = {}) {
         if (!("max_hops" in $$source)) {
             /**
-             * MaxHops is how many LagZap servers one route may pass through: 1 is a
-             * single server (no multi-hop), 2 an entry server and the relay, 3 the
-             * longest routes built.
+             * MaxHops is the plan's route level: how many LagZap servers a route may
+             * pass through, the relay included. 1 Basic (the relay alone), 2 Advanced
+             * (one entry server, then the relay), 3 Ultimate (two). 0 means no limit.
              * @member
              * @type {number}
              */
@@ -2810,6 +3004,15 @@ export class PlanLimits {
              * @type {number}
              */
             this["max_internets"] = 0;
+        }
+        if (!("max_routes" in $$source)) {
+            /**
+             * MaxRoutes is how many routes a profile may use per connection, for
+             * each of TCP and UDP (or in total with Smart routes).
+             * @member
+             * @type {number}
+             */
+            this["max_routes"] = 0;
         }
 
         Object.assign(this, $$source);
@@ -2915,8 +3118,8 @@ export class ProfileChart {
         const $$createField3_0 = $$createType0;
         const $$createField4_0 = $$createType1;
         const $$createField5_0 = $$createType3;
-        const $$createField6_0 = $$createType37;
-        const $$createField8_0 = $$createType39;
+        const $$createField6_0 = $$createType42;
+        const $$createField8_0 = $$createType44;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField3_0($$parsedSource["interfaces"]);
@@ -2990,6 +3193,15 @@ export class ProfileDiagram {
              */
             this["session"] = null;
         }
+        if (!("level" in $$source)) {
+            /**
+             * Level is the route level of the primary relay's best route, and what
+             * a higher plan level measured (nil: nothing measured yet).
+             * @member
+             * @type {RouteLevel | null}
+             */
+            this["level"] = null;
+        }
         if (!("interfaces" in $$source)) {
             /**
              * @member
@@ -3031,26 +3243,30 @@ export class ProfileDiagram {
      * @returns {ProfileDiagram}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType41;
-        const $$createField6_0 = $$createType43;
-        const $$createField7_0 = $$createType7;
-        const $$createField8_0 = $$createType45;
-        const $$createField9_0 = $$createType46;
+        const $$createField5_0 = $$createType46;
+        const $$createField6_0 = $$createType48;
+        const $$createField7_0 = $$createType50;
+        const $$createField8_0 = $$createType7;
+        const $$createField9_0 = $$createType52;
+        const $$createField10_0 = $$createType53;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("session" in $$parsedSource) {
             $$parsedSource["session"] = $$createField5_0($$parsedSource["session"]);
         }
+        if ("level" in $$parsedSource) {
+            $$parsedSource["level"] = $$createField6_0($$parsedSource["level"]);
+        }
         if ("interfaces" in $$parsedSource) {
-            $$parsedSource["interfaces"] = $$createField6_0($$parsedSource["interfaces"]);
+            $$parsedSource["interfaces"] = $$createField7_0($$parsedSource["interfaces"]);
         }
         if ("best" in $$parsedSource) {
-            $$parsedSource["best"] = $$createField7_0($$parsedSource["best"]);
+            $$parsedSource["best"] = $$createField8_0($$parsedSource["best"]);
         }
         if ("preview" in $$parsedSource) {
-            $$parsedSource["preview"] = $$createField8_0($$parsedSource["preview"]);
+            $$parsedSource["preview"] = $$createField9_0($$parsedSource["preview"]);
         }
         if ("backups" in $$parsedSource) {
-            $$parsedSource["backups"] = $$createField9_0($$parsedSource["backups"]);
+            $$parsedSource["backups"] = $$createField10_0($$parsedSource["backups"]);
         }
         return new ProfileDiagram(/** @type {Partial<ProfileDiagram>} */($$parsedSource));
     }
@@ -3151,11 +3367,11 @@ export class ProfileLatencyChart {
      */
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType17;
-        const $$createField4_0 = $$createType48;
-        const $$createField5_0 = $$createType50;
-        const $$createField7_0 = $$createType52;
+        const $$createField4_0 = $$createType55;
+        const $$createField5_0 = $$createType57;
+        const $$createField7_0 = $$createType59;
         const $$createField8_0 = $$createType18;
-        const $$createField9_0 = $$createType53;
+        const $$createField9_0 = $$createType60;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -3259,7 +3475,7 @@ export class ProfileLatencySeries {
     static createFrom($$source = {}) {
         const $$createField5_0 = $$createType18;
         const $$createField6_0 = $$createType17;
-        const $$createField7_0 = $$createType55;
+        const $$createField7_0 = $$createType62;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("points" in $$parsedSource) {
             $$parsedSource["points"] = $$createField5_0($$parsedSource["points"]);
@@ -3271,6 +3487,71 @@ export class ProfileLatencySeries {
             $$parsedSource["paths"] = $$createField7_0($$parsedSource["paths"]);
         }
         return new ProfileLatencySeries(/** @type {Partial<ProfileLatencySeries>} */($$parsedSource));
+    }
+}
+
+/**
+ * RouteLevel is a route's depth through LagZap's network, as users see it:
+ * 1 Basic (the relay alone), 2 Advanced (one entry server), 3 Ultimate (two).
+ */
+export class RouteLevel {
+    /**
+     * Creates a new RouteLevel instance.
+     * @param {Partial<RouteLevel>} [$$source = {}] - The source object to create the RouteLevel.
+     */
+    constructor($$source = {}) {
+        if (!("plan" in $$source)) {
+            /**
+             * Plan is the highest level the plan allows.
+             * @member
+             * @type {number}
+             */
+            this["plan"] = 0;
+        }
+        if (!("current" in $$source)) {
+            /**
+             * Current is the level of the best route the plan allows.
+             * @member
+             * @type {number}
+             */
+            this["current"] = 0;
+        }
+        if (!("upgrade_level" in $$source)) {
+            /**
+             * UpgradeLevel is the level of a faster route above the plan, measured
+             * but not used (0: none faster), and UpgradeMs how much faster it is.
+             * @member
+             * @type {number}
+             */
+            this["upgrade_level"] = 0;
+        }
+        if (!("upgrade_ms" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["upgrade_ms"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * RelayID is the relay the gain was measured on (overview summary).
+             * @member
+             * @type {string | undefined}
+             */
+            this["relay_id"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RouteLevel instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {RouteLevel}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RouteLevel(/** @type {Partial<RouteLevel>} */($$parsedSource));
     }
 }
 
@@ -3385,6 +3666,14 @@ export class ServerCity {
              */
             this["servers"] = 0;
         }
+        if (!("locked" in $$source)) {
+            /**
+             * Locked: none of the city's servers is in the user's plan.
+             * @member
+             * @type {boolean}
+             */
+            this["locked"] = false;
+        }
 
         Object.assign(this, $$source);
     }
@@ -3477,9 +3766,9 @@ export class ServerCityDetails {
      * @returns {ServerCityDetails}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType57;
-        const $$createField6_0 = $$createType59;
-        const $$createField7_0 = $$createType61;
+        const $$createField5_0 = $$createType64;
+        const $$createField6_0 = $$createType66;
+        const $$createField7_0 = $$createType68;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("connections" in $$parsedSource) {
             $$parsedSource["connections"] = $$createField5_0($$parsedSource["connections"]);
@@ -3539,7 +3828,7 @@ export class ServerDirectory {
      */
     static createFrom($$source = {}) {
         const $$createField1_0 = $$createType0;
-        const $$createField2_0 = $$createType63;
+        const $$createField2_0 = $$createType70;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField1_0($$parsedSource["interfaces"]);
@@ -3611,7 +3900,7 @@ export class ServerRegion {
      * @returns {ServerRegion}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType65;
+        const $$createField4_0 = $$createType72;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cities" in $$parsedSource) {
             $$parsedSource["cities"] = $$createField4_0($$parsedSource["cities"]);
@@ -3650,6 +3939,507 @@ export const SyncTransportMode = {
     SyncTransportWebSocket: 1,
     SyncTransportHTTP: 2,
 };
+
+/**
+ * Team is the team the user is in.
+ */
+export class Team {
+    /**
+     * Creates a new Team instance.
+     * @param {Partial<Team>} [$$source = {}] - The source object to create the Team.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("role" in $$source)) {
+            /**
+             * Role is owner or member.
+             * @member
+             * @type {string}
+             */
+            this["role"] = "";
+        }
+        if (!("active" in $$source)) {
+            /**
+             * Active false: the team ended or expired; the user is on their own plan.
+             * @member
+             * @type {boolean}
+             */
+            this["active"] = false;
+        }
+        if (!("in_use" in $$source)) {
+            /**
+             * InUse false while Active: the user's own plan ranks higher.
+             * @member
+             * @type {boolean}
+             */
+            this["in_use"] = false;
+        }
+        if (!("plan" in $$source)) {
+            /**
+             * @member
+             * @type {TeamPlan}
+             */
+            this["plan"] = (new TeamPlan());
+        }
+        if (!("owner" in $$source)) {
+            /**
+             * @member
+             * @type {TeamPerson}
+             */
+            this["owner"] = (new TeamPerson());
+        }
+        if (!("seats" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["seats"] = 0;
+        }
+        if (!("used" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["used"] = 0;
+        }
+        if (!("free" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["free"] = 0;
+        }
+        if (!("ends_at" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["ends_at"] = "";
+        }
+        if (!("cooldown_days" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["cooldown_days"] = 0;
+        }
+        if (!("members" in $$source)) {
+            /**
+             * @member
+             * @type {TeamPerson[]}
+             */
+            this["members"] = [];
+        }
+        if (!("locked_seats" in $$source)) {
+            /**
+             * @member
+             * @type {TeamLockedSeat[]}
+             */
+            this["locked_seats"] = [];
+        }
+        if (!("pending_invites" in $$source)) {
+            /**
+             * @member
+             * @type {TeamPendingInvite[]}
+             */
+            this["pending_invites"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Team instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Team}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType73;
+        const $$createField5_0 = $$createType74;
+        const $$createField11_0 = $$createType75;
+        const $$createField12_0 = $$createType77;
+        const $$createField13_0 = $$createType79;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("plan" in $$parsedSource) {
+            $$parsedSource["plan"] = $$createField4_0($$parsedSource["plan"]);
+        }
+        if ("owner" in $$parsedSource) {
+            $$parsedSource["owner"] = $$createField5_0($$parsedSource["owner"]);
+        }
+        if ("members" in $$parsedSource) {
+            $$parsedSource["members"] = $$createField11_0($$parsedSource["members"]);
+        }
+        if ("locked_seats" in $$parsedSource) {
+            $$parsedSource["locked_seats"] = $$createField12_0($$parsedSource["locked_seats"]);
+        }
+        if ("pending_invites" in $$parsedSource) {
+            $$parsedSource["pending_invites"] = $$createField13_0($$parsedSource["pending_invites"]);
+        }
+        return new Team(/** @type {Partial<Team>} */($$parsedSource));
+    }
+}
+
+/**
+ * TeamError is a refused team or name action. Message is the server's rule
+ * (see the TeamError* constants); UnlocksAt is set for seat_locked.
+ */
+export class TeamError {
+    /**
+     * Creates a new TeamError instance.
+     * @param {Partial<TeamError>} [$$source = {}] - The source object to create the TeamError.
+     */
+    constructor($$source = {}) {
+        if (!("code" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["code"] = "";
+        }
+        if (!("message" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["message"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["unlocks_at"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TeamError instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TeamError}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TeamError(/** @type {Partial<TeamError>} */($$parsedSource));
+    }
+}
+
+/**
+ * TeamInvite is an invitation addressed to the user.
+ */
+export class TeamInvite {
+    /**
+     * Creates a new TeamInvite instance.
+     * @param {Partial<TeamInvite>} [$$source = {}] - The source object to create the TeamInvite.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("team_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["team_id"] = "";
+        }
+        if (!("owner_name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["owner_name"] = "";
+        }
+        if (!("plan_name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["plan_name"] = "";
+        }
+        if (!("seats" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["seats"] = 0;
+        }
+        if (!("expires_at" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["expires_at"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TeamInvite instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TeamInvite}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TeamInvite(/** @type {Partial<TeamInvite>} */($$parsedSource));
+    }
+}
+
+/**
+ * TeamLockedSeat is a seat freed by a removal or a leave, closed until
+ * UnlocksAt (or the plan period's end, whichever comes first).
+ */
+export class TeamLockedSeat {
+    /**
+     * Creates a new TeamLockedSeat instance.
+     * @param {Partial<TeamLockedSeat>} [$$source = {}] - The source object to create the TeamLockedSeat.
+     */
+    constructor($$source = {}) {
+        if (!("unlocks_at" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["unlocks_at"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TeamLockedSeat instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TeamLockedSeat}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TeamLockedSeat(/** @type {Partial<TeamLockedSeat>} */($$parsedSource));
+    }
+}
+
+/**
+ * TeamPendingInvite is an invite the owner sent and nobody accepted yet. It
+ * holds a seat. Only the owner gets these.
+ */
+export class TeamPendingInvite {
+    /**
+     * Creates a new TeamPendingInvite instance.
+     * @param {Partial<TeamPendingInvite>} [$$source = {}] - The source object to create the TeamPendingInvite.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("kind" in $$source)) {
+            /**
+             * account | code
+             * @member
+             * @type {string}
+             */
+            this["kind"] = "";
+        }
+        if (!("invitee_name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["invitee_name"] = "";
+        }
+        if (!("expires_at" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["expires_at"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TeamPendingInvite instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TeamPendingInvite}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TeamPendingInvite(/** @type {Partial<TeamPendingInvite>} */($$parsedSource));
+    }
+}
+
+/**
+ * TeamPerson is the owner or a member, by gamer tag only (never their email
+ * or phone).
+ */
+export class TeamPerson {
+    /**
+     * Creates a new TeamPerson instance.
+     * @param {Partial<TeamPerson>} [$$source = {}] - The source object to create the TeamPerson.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["role"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["joined_at"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TeamPerson instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TeamPerson}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TeamPerson(/** @type {Partial<TeamPerson>} */($$parsedSource));
+    }
+}
+
+/**
+ * TeamPlan is the team's plan.
+ */
+export class TeamPlan {
+    /**
+     * Creates a new TeamPlan instance.
+     * @param {Partial<TeamPlan>} [$$source = {}] - The source object to create the TeamPlan.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["id"] = 0;
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TeamPlan instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TeamPlan}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TeamPlan(/** @type {Partial<TeamPlan>} */($$parsedSource));
+    }
+}
+
+/**
+ * TeamResult is what every team action answers: the team and the user's
+ * invitations after it, the one-time invite code when one was made, or the
+ * refusal.
+ */
+export class TeamResult {
+    /**
+     * Creates a new TeamResult instance.
+     * @param {Partial<TeamResult>} [$$source = {}] - The source object to create the TeamResult.
+     */
+    constructor($$source = {}) {
+        if (!("team" in $$source)) {
+            /**
+             * @member
+             * @type {Team | null}
+             */
+            this["team"] = null;
+        }
+        if (!("team_invites" in $$source)) {
+            /**
+             * @member
+             * @type {TeamInvite[]}
+             */
+            this["team_invites"] = [];
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Code is a new invite code, returned once and never again.
+             * @member
+             * @type {string | undefined}
+             */
+            this["code"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {TeamError | null | undefined}
+             */
+            this["error"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TeamResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TeamResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType81;
+        const $$createField1_0 = $$createType83;
+        const $$createField3_0 = $$createType26;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("team" in $$parsedSource) {
+            $$parsedSource["team"] = $$createField0_0($$parsedSource["team"]);
+        }
+        if ("team_invites" in $$parsedSource) {
+            $$parsedSource["team_invites"] = $$createField1_0($$parsedSource["team_invites"]);
+        }
+        if ("error" in $$parsedSource) {
+            $$parsedSource["error"] = $$createField3_0($$parsedSource["error"]);
+        }
+        return new TeamResult(/** @type {Partial<TeamResult>} */($$parsedSource));
+    }
+}
 
 /**
  * TransportWarning: Lagging ("udp" | "tcp") behaves worse than the other
@@ -3716,44 +4506,62 @@ const $$createType21 = LegQuality.createFrom;
 const $$createType22 = $Create.Array($$createType21);
 const $$createType23 = ServerCityDetails.createFrom;
 const $$createType24 = $Create.Nullable($$createType23);
-const $$createType25 = InterfacePing.createFrom;
-const $$createType26 = InterfaceTraffic.createFrom;
-const $$createType27 = InterfaceServer.createFrom;
-const $$createType28 = $Create.Array($$createType27);
-const $$createType29 = NetworkMonitorSummary.createFrom;
-const $$createType30 = $Create.Array($$createType12);
-const $$createType31 = OverviewQuality.createFrom;
-const $$createType32 = OverviewLatencySeries.createFrom;
-const $$createType33 = $Create.Array($$createType32);
-const $$createType34 = OverviewTrafficStats.createFrom;
-const $$createType35 = OverviewTrafficSeries.createFrom;
-const $$createType36 = $Create.Array($$createType35);
-const $$createType37 = ProfileDiagram.createFrom;
-const $$createType38 = LinkQuality.createFrom;
-const $$createType39 = $Create.Nullable($$createType38);
-const $$createType40 = DiagramSession.createFrom;
-const $$createType41 = $Create.Nullable($$createType40);
-const $$createType42 = DiagramInterface.createFrom;
-const $$createType43 = $Create.Array($$createType42);
-const $$createType44 = DiagramPreview.createFrom;
-const $$createType45 = $Create.Nullable($$createType44);
-const $$createType46 = DiagramBackups.createFrom;
-const $$createType47 = ProfileLatencySeries.createFrom;
-const $$createType48 = $Create.Array($$createType47);
-const $$createType49 = LossWarning.createFrom;
-const $$createType50 = $Create.Nullable($$createType49);
-const $$createType51 = TransportWarning.createFrom;
+const $$createType25 = TeamError.createFrom;
+const $$createType26 = $Create.Nullable($$createType25);
+const $$createType27 = InterfacePing.createFrom;
+const $$createType28 = InterfaceTraffic.createFrom;
+const $$createType29 = InterfaceServer.createFrom;
+const $$createType30 = $Create.Array($$createType29);
+const $$createType31 = NetworkMonitorSummary.createFrom;
+const $$createType32 = $Create.Array($$createType12);
+const $$createType33 = OverviewQuality.createFrom;
+const $$createType34 = OverviewLatencySeries.createFrom;
+const $$createType35 = $Create.Array($$createType34);
+const $$createType36 = OverviewTrafficStats.createFrom;
+const $$createType37 = OverviewTrafficSeries.createFrom;
+const $$createType38 = $Create.Array($$createType37);
+const $$createType39 = PlanLimits.createFrom;
+const $$createType40 = $Create.Map($Create.Any, $Create.Any);
+const $$createType41 = $Create.Map($Create.Any, $$createType0);
+const $$createType42 = ProfileDiagram.createFrom;
+const $$createType43 = LinkQuality.createFrom;
+const $$createType44 = $Create.Nullable($$createType43);
+const $$createType45 = DiagramSession.createFrom;
+const $$createType46 = $Create.Nullable($$createType45);
+const $$createType47 = RouteLevel.createFrom;
+const $$createType48 = $Create.Nullable($$createType47);
+const $$createType49 = DiagramInterface.createFrom;
+const $$createType50 = $Create.Array($$createType49);
+const $$createType51 = DiagramPreview.createFrom;
 const $$createType52 = $Create.Nullable($$createType51);
-const $$createType53 = $Create.Nullable($$createType47);
-const $$createType54 = SeriesPath.createFrom;
+const $$createType53 = DiagramBackups.createFrom;
+const $$createType54 = ProfileLatencySeries.createFrom;
 const $$createType55 = $Create.Array($$createType54);
-const $$createType56 = CityConnection.createFrom;
-const $$createType57 = $Create.Array($$createType56);
-const $$createType58 = CityRoute.createFrom;
-const $$createType59 = $Create.Array($$createType58);
-const $$createType60 = CityServer.createFrom;
-const $$createType61 = $Create.Array($$createType60);
-const $$createType62 = ServerRegion.createFrom;
-const $$createType63 = $Create.Array($$createType62);
-const $$createType64 = ServerCity.createFrom;
-const $$createType65 = $Create.Array($$createType64);
+const $$createType56 = LossWarning.createFrom;
+const $$createType57 = $Create.Nullable($$createType56);
+const $$createType58 = TransportWarning.createFrom;
+const $$createType59 = $Create.Nullable($$createType58);
+const $$createType60 = $Create.Nullable($$createType54);
+const $$createType61 = SeriesPath.createFrom;
+const $$createType62 = $Create.Array($$createType61);
+const $$createType63 = CityConnection.createFrom;
+const $$createType64 = $Create.Array($$createType63);
+const $$createType65 = CityRoute.createFrom;
+const $$createType66 = $Create.Array($$createType65);
+const $$createType67 = CityServer.createFrom;
+const $$createType68 = $Create.Array($$createType67);
+const $$createType69 = ServerRegion.createFrom;
+const $$createType70 = $Create.Array($$createType69);
+const $$createType71 = ServerCity.createFrom;
+const $$createType72 = $Create.Array($$createType71);
+const $$createType73 = TeamPlan.createFrom;
+const $$createType74 = TeamPerson.createFrom;
+const $$createType75 = $Create.Array($$createType74);
+const $$createType76 = TeamLockedSeat.createFrom;
+const $$createType77 = $Create.Array($$createType76);
+const $$createType78 = TeamPendingInvite.createFrom;
+const $$createType79 = $Create.Array($$createType78);
+const $$createType80 = Team.createFrom;
+const $$createType81 = $Create.Nullable($$createType80);
+const $$createType82 = TeamInvite.createFrom;
+const $$createType83 = $Create.Array($$createType82);

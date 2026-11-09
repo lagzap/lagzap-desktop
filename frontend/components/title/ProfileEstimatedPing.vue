@@ -15,7 +15,7 @@ const props = defineProps<{
   canFixLag?: boolean;
   fixingLag?: boolean;
 }>();
-const emit = defineEmits<{ fixLag: [] }>();
+const emit = defineEmits<{ fixLag: []; showLatency: [] }>();
 const { t } = useLocale();
 const theme = useTheme();
 const estimate = useProfileEstimate(props.profileId);
@@ -43,7 +43,6 @@ async function probe() {
 const menuOpen = ref(false);
 const menuAt = ref<[number, number]>([0, 0]);
 function openMenu(event: MouseEvent) {
-  if (!props.canFixLag && !views.value.length) return;
   menuAt.value = [event.clientX, event.clientY];
   menuOpen.value = true;
 }
@@ -60,8 +59,7 @@ const views = computed(() => props.views ?? []);
           type="button"
           class="est-ping__value"
           :style="{ color }"
-          :disabled="probing"
-          @click.stop="probe"
+          @click.stop="emit('showLatency')"
         >
           {{ probing ? t("$vuetify.title.profile.probingPing") : formatMs(ping) }}
         </button>
@@ -73,6 +71,12 @@ const views = computed(() => props.views ?? []);
 
     <v-menu v-model="menuOpen" :target="menuAt" location="bottom start" :close-on-content-click="true">
       <v-list density="compact" min-width="170" class="est-menu py-1">
+        <v-list-item
+          prepend-icon="mdi-refresh"
+          :title="t('$vuetify.title.profile.measurePing')"
+          :disabled="probing"
+          @click="probe"
+        />
         <v-list-item
           v-if="canFixLag"
           prepend-icon="mdi-auto-fix"

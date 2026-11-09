@@ -8,7 +8,7 @@ import { localDigits } from "~/utils/localeFormat";
 import { MAX_ROUTES } from "~/composables/routeCountUtils";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 import { useNetworkMonitor } from "~/composables/useNetworkMonitor";
-import { PlanLimits } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { usePlanAccess } from "~/composables/usePlanAccess";
 
 /** Which adapters LagZap uses: the default one, the ones joined together for
  * Multi Internet and the backups for prevent-disconnect. Only what matters
@@ -36,16 +36,19 @@ const { monitor, colorOf } = useNetworkMonitor();
 const names = computed(() => interfaces.value.map((iface) => iface.Name).filter(Boolean));
 
 // The plan caps how many internets work together: Go uses the first ones in
-// this page's order. Shown only when there are more adapters than that.
-const maxInternets = ref(0);
-onMounted(async () => {
-  try {
-    maxInternets.value = (await PlanLimits())?.max_internets ?? 0;
-  } catch {
-    // service not running
-  }
-});
+// this page's order. Without an active plan none joins Multi Internet or
+// backups, and route counts stop at the plan's.
+const store = useStore();
+const plan = usePlanAccess();
+const maxInternets = computed(() => plan.limits.value?.max_internets ?? 0);
 const planCapsInternets = computed(() => maxInternets.value > 0 && names.value.length > maxInternets.value);
+const routeMax = computed(() => {
+  const max = plan.limits.value?.max_routes ?? 0;
+  return max > 0 ? Math.min(MAX_ROUTES, max) : MAX_ROUTES;
+});
+/** The adapter at this place in the order is outside the plan. */
+const planLocked = (index: number) =>
+  store.planBlocked || (maxInternets.value > 0 && index >= maxInternets.value);
 const monitorOf = (name: string) => monitor.value?.interfaces?.find((iface) => iface.name === name);
 const effectiveDefault = computed(() => defaultInterfaceOverride.value ?? defaultInterface.value);
 
@@ -177,6 +180,7 @@ const pools = computed(() => [
             v-for="item in pools"
             :key="item.key"
             v-model="item.pool.auto.value"
+            :disabled="store.planBlocked || planCapsInternets"
             :label="item.label"
             color="primary"
             density="compact"
@@ -243,6 +247,8 @@ const pools = computed(() => [
               :in-backup="backupInterfaces.has(name)"
               :can-leave-backup="backupInterfaces.canRemove(name)"
               :routes="routesOf(name)"
+              :plan-locked="planLocked(index)"
+              :route-max="routeMax"
               @set-default="setDefault(name, $event)"
               @set-multi="multiInternet.toggle(name, $event)"
               @set-backup="backupInterfaces.toggle(name, $event)"
@@ -266,7 +272,7 @@ const pools = computed(() => [
               :label="t('$vuetify.settings.multiInternetPage.tcp')"
               :placeholder="String(resolvedGlobalTcp)"
               :min="0"
-              :max="MAX_ROUTES"
+              :max="routeMax"
               persistent-placeholder
               control-variant="split"
               variant="outlined"
@@ -274,6 +280,7 @@ const pools = computed(() => [
               hide-details
               clearable
               inset
+              :disabled="store.planBlocked"
               @update:model-value="setGlobalTcp"
             />
             <v-number-input
@@ -281,7 +288,7 @@ const pools = computed(() => [
               :label="t('$vuetify.settings.multiInternetPage.udp')"
               :placeholder="String(resolvedGlobalUdp)"
               :min="0"
-              :max="MAX_ROUTES"
+              :max="routeMax"
               persistent-placeholder
               control-variant="split"
               variant="outlined"
@@ -289,6 +296,7 @@ const pools = computed(() => [
               hide-details
               clearable
               inset
+              :disabled="store.planBlocked"
               @update:model-value="setGlobalUdp"
             />
           </div>

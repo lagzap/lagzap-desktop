@@ -171,15 +171,15 @@ async function exit() {
               <template #prepend>
                 <v-avatar
                   :variant="
-                    (user.name || user.email)?.length
+                    user.name?.length
                       ? 'tonal'
                       : 'text'
                   "
                 >
                   <span
-                    v-if="(user.name || user.email)?.length"
+                    v-if="user.name?.length"
                     class="text-xl text-uppercase"
-                    >{{ (user.name || user.email)[0] }}</span
+                    >{{ user.name[0] }}</span
                   >
                   <v-icon v-else icon="mdi-account-circle" size="x-large" />
                 </v-avatar>

@@ -4,6 +4,8 @@ import { useDisplay, useLocale } from "vuetify";
 import NavigationDrawer from "~/components/layout/NavigationDrawer.vue";
 import TicketChatPopup from "~/components/tickets/TicketChatPopup.vue";
 import InterfaceOptimizePanel from "~/components/layout/InterfaceOptimizePanel.vue";
+import GamerTagGate from "~/components/account/GamerTagGate.vue";
+import TeamInvitePopup from "~/components/team/TeamInvitePopup.vue";
 
 const { mobile } = useDisplay();
 const { t } = useLocale();
@@ -171,6 +173,8 @@ function expandOptimize() {
 
     <TicketChatPopup />
     <InterfaceOptimizePanel />
+    <GamerTagGate />
+    <TeamInvitePopup />
 
     <Teleport to="body">
       <v-btn

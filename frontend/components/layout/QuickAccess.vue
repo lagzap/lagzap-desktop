@@ -5,9 +5,12 @@ import type { Title } from "~/bindings/github.com/lagzap/zap/data";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 import TitleActiveToggle from "~/components/title/TitleActiveToggle.vue";
+import TitleAvatar from "~/components/plan/TitleAvatar.vue";
+import { usePlanAccess } from "~/composables/usePlanAccess";
 
 const { t } = useLocale();
 const store = useStore();
+const { titleLocked } = usePlanAccess();
 const router = useRouter();
 const route = useRoute();
 const {
@@ -222,11 +225,7 @@ onBeforeUnmount(() => {
             @click="onFavoriteClick(title, $event)"
           >
             <template #prepend>
-              <v-avatar
-                :size="32"
-                :image="title.icon_url || undefined"
-                class="rounded-lg"
-              />
+              <TitleAvatar :size="32" :image="title.icon_url" class="me-4" />
             </template>
 
             <template #append>
@@ -280,11 +279,7 @@ onBeforeUnmount(() => {
         lines="one"
       >
         <template #prepend>
-          <v-avatar
-            :size="32"
-            :image="title.icon_url || undefined"
-            class="rounded-lg"
-          />
+          <TitleAvatar :size="32" :image="title.icon_url" class="me-4" />
         </template>
 
         <template #append>

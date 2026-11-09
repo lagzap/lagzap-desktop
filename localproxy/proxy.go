@@ -307,6 +307,12 @@ func newTransport(cfg transportConfig) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	b := &boundDialers{ctx: cfg.ctx}
 	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		// A local coordinator (dev server) is on this machine, not out an
+		// internet adapter.
+		if isLocalHost(addr) {
+			var d net.Dialer
+			return d.DialContext(ctx, network, addr)
+		}
 		bound := b.forIface(currentIface(cfg.bindIface))
 		if bound == nil {
 			return net.Dial("tcp", addr)
@@ -325,6 +331,18 @@ func newTransport(cfg transportConfig) http.RoundTripper {
 		return bound.DialContext(ctx, network, M.ParseSocksaddrHostPort(ip.String(), destination.Port))
 	}
 	return &rebindingTransport{Transport: transport, bindIface: cfg.bindIface}
+}
+
+func isLocalHost(hostport string) bool {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip, err := netip.ParseAddr(strings.Trim(host, "[]"))
+	return err == nil && ip.IsLoopback()
 }
 
 func currentIface(bindIface func() string) string {

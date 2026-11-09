@@ -3,6 +3,7 @@ import { useForm } from "vee-validate";
 import { object, string } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
 import { useLocale } from "vuetify";
+import GamerTagDialog from "~/components/account/GamerTagDialog.vue";
 
 const locale = useLocale();
 const { t } = locale
@@ -27,6 +28,7 @@ const [phone, phoneAttrs] = defineField("phone", vuetifyConfig);
 const [email, emailAttrs] = defineField("email", vuetifyConfig);
 
 name.value = user.value?.name ?? ''
+const editingTag = ref(false)
 phone.value = user.value?.phone ?? null
 email.value = user.value?.email ?? ''
 
@@ -48,30 +50,29 @@ const onSubmit = handleSubmit(async (values) => {
 
 <template>
   <v-form @submit="onSubmit">
-    <v-card
-      :title="t('$vuetify.profile.basicInformation')"
-      class="mt-3 bg-transparent"
-      flat
-      max-width="500"
-    >
+    <v-card :title="t('$vuetify.profile.basicInformation')" rounded="xl" class="pa-2">
       <v-card-text class="pb-0 pt-3">
-       a {{ clientInfo }}
         <v-text-field
-          v-model="name"
-          v-bind="nameAttrs"
-          :label="t('$vuetify.profile.name')"
+          :model-value="data?.user?.name ?? ''"
+          :label="t('$vuetify.gamerTag.label')"
           :hint="t('$vuetify.profile.nameHint')"
+          persistent-hint
+          readonly
           density="comfortable"
           class="mb-4"
           variant="outlined"
+          append-inner-icon="mdi-pencil-outline"
+          @click:append-inner="editingTag = true"
+          @click="editingTag = true"
         />
+        <GamerTagDialog v-model="editingTag" @saved="(n: string) => (name = n)" />
         <v-text-field
           v-model="phone"
           v-bind="phoneAttrs"
           :label="t('$vuetify.profile.phone')"
           :hint="t('$vuetify.profile.phoneHint')"
           density="comfortable"
-          class="mb-4"
+          class="mb-4 lz-sensitive-field"
           variant="outlined"
         />
         <v-text-field
@@ -80,6 +81,7 @@ const onSubmit = handleSubmit(async (values) => {
           :label="t('$vuetify.profile.email')"
           :hint="t('$vuetify.profile.emailHint')"
           density="comfortable"
+          class="lz-sensitive-field"
           variant="outlined"
           type="email"
         />

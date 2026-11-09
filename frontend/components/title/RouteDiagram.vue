@@ -444,6 +444,27 @@ function diagramScale(dataWidth: number, dataHeight: (scale: number) => number) 
   return s;
 }
 
+/** Column spacing that fills the width. With several routes the height
+ * sets the scale, and a fixed spacing then left the diagram narrow in the
+ * middle; the columns spread instead (up to 3x), the height staying as it
+ * is. `extra` is the width beyond the columns (to the game icon). */
+function stretchedHopSpacing(
+  base: number,
+  columns: number,
+  extra: number,
+  dataHeight: (scale: number) => number,
+) {
+  const w = chart?.getWidth() ?? 0;
+  const h = chart?.getHeight() ?? 0;
+  if (!w || !h || columns <= 0) return base;
+  let s = 1;
+  for (let i = 0; i < 12; i++) {
+    s = Math.max(0.2, (0.8 * h) / dataHeight(s));
+  }
+  const fill = ((0.8 * w) / s - extra) / columns;
+  return Math.max(base, Math.min(base * 3, fill));
+}
+
 function elbowNode(id: string, x: number, y: number) {
   return {
     id,
@@ -889,10 +910,25 @@ function updateChart() {
   // Calculate layout positions for clean grid-like structure
   const startX = 50; // More space from left edge
   const routeSpacing = 40; // Reduced space between routes
-  const hopSpacing = 100; // Spacing between hops
 
   // Calculate dynamic center based on layout direction
   const totalRouteHeight = (routes.length - 1) * routeSpacing;
+
+  // Labels are drawn in pixels, but node positions scale with the chart, and
+  // one route draws far larger than several. Work out the scale ECharts
+  // will use and keep pixel room above the top route (city names) and below
+  // the bottom route or the game's ping badge, so no label leaves the canvas.
+  const badgeLinesPx = actualPing.value !== null && !isEstimate.value ? 14 : 0;
+  const ROOM_ABOVE = 40;
+  const ROOM_BELOW = 40;
+  const BADGE_GAP = 24; // clear of the 40px game icon
+  const badgeRoom = badgeLinesPx ? BADGE_GAP + badgeLinesPx + 4 : 0;
+  const halfSpan = totalRouteHeight / 2;
+  const roomBelow = (s: number) => Math.max(halfSpan + ROOM_BELOW / s, badgeRoom / s);
+  const diagramHeight = (s: number) => halfSpan + ROOM_ABOVE / s + roomBelow(s);
+  // Spacing between hops: 100, wider when the height limits the scale so
+  // the diagram still fills the width.
+  const hopSpacing = stretchedHopSpacing(100, maxHops + 1, 70, diagramHeight);
   const centerY = 0; // Keep center at 0, routes will be distributed around it
   const centerX = 0; // For vertical layout
 
@@ -940,18 +976,7 @@ function updateChart() {
   // Destination convergence X (shared by all routes)
   const destConvergenceX = px(startX + (maxHops + 1) * hopSpacing);
 
-  // Labels are drawn in pixels, but node positions scale with the chart, and
-  // one route draws far larger than several. Work out the scale ECharts
-  // will use and keep pixel room above the top route (city names) and below
-  // the bottom route or the game's ping badge, so no label leaves the canvas.
-  const badgeLinesPx = actualPing.value !== null && !isEstimate.value ? 14 : 0;
-  const ROOM_ABOVE = 40;
-  const ROOM_BELOW = 40;
-  const BADGE_GAP = 24; // clear of the 40px game icon
-  const badgeRoom = badgeLinesPx ? BADGE_GAP + badgeLinesPx + 4 : 0;
-  const halfSpan = totalRouteHeight / 2;
-  const roomBelow = (s: number) => Math.max(halfSpan + ROOM_BELOW / s, badgeRoom / s);
-  const scale = diagramScale(destConvergenceX + 70 - startX, (s) => halfSpan + ROOM_ABOVE / s + roomBelow(s));
+  const scale = diagramScale(destConvergenceX + 70 - startX, diagramHeight);
 
   // Add route nodes and links with equal spacing
   routes.forEach((route, routeIndex) => {

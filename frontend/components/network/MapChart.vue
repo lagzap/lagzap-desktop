@@ -155,12 +155,12 @@ function buildSeriesForSelection(nodeId: string | null) {
   // add current client/user location as a special marker so it appears on the map
   if (Number.isFinite(client.longitude) && Number.isFinite(client.latitude)) {
     nodesData.push({
-      name: user.value?.user?.name ?? client.ip ?? "you",
+      name: user.value?.user?.name || "you",
       value: [client.longitude, client.latitude, 0],
       isUser: true,
       label: {
         show: true,
-        formatter: user.value?.user?.name ?? client.ip ?? "you",
+        formatter: user.value?.user?.name || "you",
         position: "inside",
         fontSize: 12,
         color: "#fff",

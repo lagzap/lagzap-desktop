@@ -155,3 +155,62 @@ body {
 .v-locale--is-rtl .v-messages__message {
   line-height: 1.6;
 }
+
+/* Panels: bordered sections on the theme's surface, as on Network Status. */
+.lz-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px;
+  border: thin solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 12px;
+  background: rgba(var(--v-theme-surface), 0.45);
+  min-width: 0;
+}
+
+.lz-panel--danger {
+  border-color: rgba(var(--v-theme-error), 0.35);
+}
+
+.lz-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lz-label {
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.lz-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 12px 24px;
+}
+
+.lz-metrics--wide {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.lz-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lz-metric__value {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+
+/* Personal data in a form field (email, phone): blurred until the field is
+   focused, so it never shows on a stream by accident. */
+.lz-sensitive-field input:not(:focus) {
+  filter: blur(5px);
+}
