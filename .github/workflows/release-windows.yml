@@ -247,10 +247,19 @@ jobs:
       - name: Verify signatures
         shell: pwsh
         run: |
+          # A test certificate profile ("Public Trust Test", subject says
+          # TEST ONLY) signs fine but chains to a root Windows doesn't trust:
+          # allowed, with a warning. Unsigned or any other failure stops.
           foreach ($f in 'bin\LagZap.exe', 'bin\LagZap-windows-amd64-setup.exe') {
             $sig = Get-AuthenticodeSignature $f
-            Write-Host "$f : $($sig.Status) ($($sig.SignerCertificate.Subject))"
-            if ($sig.Status -ne 'Valid') { throw "$f is not validly signed: $($sig.StatusMessage)" }
+            $subject = "$($sig.SignerCertificate.Subject)"
+            Write-Host "$f : $($sig.Status) ($subject)"
+            if ($sig.Status -eq 'Valid') { continue }
+            if ($sig.Status -eq 'UnknownError' -and $subject -match 'TEST ONLY') {
+              Write-Host "::warning file=$f::Signed with a TEST certificate (untrusted root). Users will still see an unknown-publisher warning."
+              continue
+            }
+            throw "$f is not validly signed: $($sig.StatusMessage)"
           }
 
       - name: Updater zip and checksums
