@@ -118,35 +118,24 @@ wails3 task common:generate:bindings:obfuscated
 
 Windows Defender may flag Garble intermediates — exclude Go temp + the project path on build machines ([Wails obfuscation guide](https://v3.wails.io/guides/build/obfuscation/)).
 
-## Code signing (Authenticode)
+## Code signing (Azure Artifact Signing)
 
-### Beta (current)
+Release CI signs `LagZap.exe` and `LagZap-windows-amd64-setup.exe` with Azure
+Artifact Signing (formerly Trusted Signing), using `Azure/artifact-signing-action`.
+The release runs in three tasks so signing can happen between them:
 
-**Ship unsigned.** Do not self-sign for external testers — SmartScreen still shows Unknown publisher, same as unsigned.
+1. `task release:windows:build`: builds `bin/LagZap.exe`. CI then signs it.
+2. `task release:windows:package`: wraps the signed exe in the NSIS setup (no rebuild). CI then signs `setup.exe`.
+3. `task release:windows:finish`: updater zip (with the signed exe) and `SHA256SUMS`.
 
-Tell testers: More info → Run anyway.
+CI checks both files with `Get-AuthenticodeSignature` before it publishes. A
+release fails if any signing secret is missing.
 
-### Production (later)
+The Azure app registration (`AZURE_CLIENT_ID`) needs the **Artifact Signing
+Certificate Profile Signer** role on the signing account (or on the certificate
+profile).
 
-1. Buy an OV/EV code signing certificate (PFX).
-2. Store PFX as CI secret `WINDOWS_CERT_PFX` (base64) and password as `WAILS_WINDOWS_CERT_PASSWORD`.
-3. Locally: `wails3 setup signing` or set Task vars:
-
-```yaml
-# build/windows/Taskfile.yml vars
-SIGN_CERTIFICATE: path/to/cert.pfx
-# or SIGN_THUMBPRINT: ...
-TIMESTAMP_SERVER: http://timestamp.digicert.com
-```
-
-4. After build:
-
-```bash
-wails3 task windows:sign
-wails3 task windows:sign:installer
-```
-
-Self-signed certs are only for dry-running this pipeline — not for beta distribution.
+`task release:windows` still does all three steps in one go, unsigned, for local builds.
 
 ## CI secrets (private `lagzap-desktop`)
 
@@ -155,8 +144,12 @@ Self-signed certs are only for dry-running this pipeline — not for beta distri
 | `GO_MODULE_TOKEN` | Fine-grained PAT with **Contents: Read** on every private module repo. Must include at least `lagzap/echo`, `lagzap/lagzap`, `lagzap/zap`, and any other `github.com/lagzap/*` in `go.mod`. CI writes this to `%USERPROFILE%\_netrc` for Windows `go mod` / Task subprocesses. |
 | `RELEASES_TOKEN` | PAT / GitHub App token with `contents: write` on **both** `lagzap/lagzap-releases` and `lagzap/current` |
 | `UPDATER_PRIVATE_KEY` | Ed25519 private key PEM for update signing |
-| `WINDOWS_CERT_PFX` | (later) Base64 PFX for Authenticode |
-| `WAILS_WINDOWS_CERT_PASSWORD` | (later) PFX password |
+| `AZURE_TENANT_ID` | Azure tenant of the signing app registration |
+| `AZURE_CLIENT_ID` | App registration (client) ID |
+| `AZURE_CLIENT_SECRET` | App registration client secret |
+| `TRUSTED_SIGNING_ENDPOINT` | Signing account endpoint, e.g. `https://eus.codesigning.azure.net/` (must match the account's region) |
+| `TRUSTED_SIGNING_ACCOUNT` | Signing account name |
+| `TRUSTED_SIGNING_PROFILE` | Certificate profile name |
 
 `GO_MODULE_TOKEN` can be the same fine-grained PAT as `RELEASES_TOKEN` if you grant it read on private module repos **and** write on both release repos. Locally you use `go.work` replaces; CI has no `go.work` (gitignored) so it downloads modules from GitHub.
 

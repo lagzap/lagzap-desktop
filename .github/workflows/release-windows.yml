@@ -165,7 +165,28 @@ jobs:
         shell: bash
         run: bun install --cwd frontend
 
-      - name: Build release artifacts
+      # Azure code signing (Artifact Signing). Fails early, before the long
+      # build, when a secret is missing.
+      - name: Check code signing secrets
+        shell: bash
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          TRUSTED_SIGNING_ENDPOINT: ${{ secrets.TRUSTED_SIGNING_ENDPOINT }}
+          TRUSTED_SIGNING_ACCOUNT: ${{ secrets.TRUSTED_SIGNING_ACCOUNT }}
+          TRUSTED_SIGNING_PROFILE: ${{ secrets.TRUSTED_SIGNING_PROFILE }}
+        run: |
+          missing=0
+          for name in AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET TRUSTED_SIGNING_ENDPOINT TRUSTED_SIGNING_ACCOUNT TRUSTED_SIGNING_PROFILE; do
+            if [ -z "${!name}" ]; then
+              echo "$name secret missing (Azure code signing)" >&2
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Build app
         shell: bash
         env:
           VERSION: ${{ steps.ver.outputs.version }}
@@ -178,12 +199,63 @@ jobs:
           GIT_TERMINAL_PROMPT: "0"
           CI_SKIP_GO_MOD_TIDY: "1"
         run: |
-          task release:windows \
+          task release:windows:build \
             VERSION="$VERSION" \
             BUILD_NUMBER="$BUILD_NUMBER" \
             RELEASES_REPO="$RELEASES_REPO" \
             CORE_VERSION="$CORE_VERSION" \
             BUILD_TYPE=production
+
+      - name: Sign app
+        uses: Azure/artifact-signing-action@v2.0.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.TRUSTED_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\bin\LagZap.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: LagZap
+          description-url: https://lagzap.com
+
+      # The installer wraps the signed LagZap.exe, then is signed itself
+      # before the updater zip and checksums are made.
+      - name: Build installer
+        shell: bash
+        run: task release:windows:package
+
+      - name: Sign installer
+        uses: Azure/artifact-signing-action@v2.0.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.TRUSTED_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\bin\LagZap-windows-amd64-setup.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: LagZap
+          description-url: https://lagzap.com
+
+      - name: Verify signatures
+        shell: pwsh
+        run: |
+          foreach ($f in 'bin\LagZap.exe', 'bin\LagZap-windows-amd64-setup.exe') {
+            $sig = Get-AuthenticodeSignature $f
+            Write-Host "$f : $($sig.Status) ($($sig.SignerCertificate.Subject))"
+            if ($sig.Status -ne 'Valid') { throw "$f is not validly signed: $($sig.StatusMessage)" }
+          }
+
+      - name: Updater zip and checksums
+        shell: bash
+        run: task release:windows:finish
 
       - name: Sign update artifacts
         shell: bash

@@ -80,6 +80,33 @@ tasks:
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
 
+  # Release CI runs these three in order and code-signs between them:
+  # LagZap.exe after build, setup.exe after package (release-windows.yml).
+  release:windows:build:
+    summary: Build LagZap.exe for a release (step 1 of 3)
+    deps:
+      - task: sync:version
+    cmds:
+      - task: windows:build
+        vars:
+          BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
+          VERSION: '{{.VERSION}}'
+          CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
+          BUILD_NUMBER: '{{.BUILD_NUMBER}}'
+          RELEASES_REPO: '{{.RELEASES_REPO}}'
+
+  release:windows:package:
+    summary: Wrap the signed LagZap.exe in setup.exe (step 2 of 3)
+    cmds:
+      - task: windows:nsis:compile
+      - task: windows:rename:artifacts
+
+  release:windows:finish:
+    summary: Updater zip and SHA256SUMS from the signed files (step 3 of 3)
+    cmds:
+      - task: windows:create:update:zip
+      - task: windows:create:checksums
+
   run:
     summary: Runs the application
     cmds:
