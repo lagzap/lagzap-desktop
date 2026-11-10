@@ -244,7 +244,10 @@ jobs:
           description: LagZap
           description-url: https://lagzap.com
 
+      # Skipped for now (test certificate profile). Remove the `if` to turn
+      # the check back on once a Public Trust profile is in use.
       - name: Verify signatures
+        if: ${{ false }}
         shell: pwsh
         run: |
           # A test certificate profile ("Public Trust Test", subject says
