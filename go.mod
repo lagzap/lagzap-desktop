@@ -3,8 +3,8 @@ module github.com/lagzap/lagzap-desktop
 go 1.25.0
 
 require (
-	github.com/lagzap/lagzap v0.1.0-beta.59
-	github.com/lagzap/zap v0.1.0-beta.19
+	github.com/lagzap/lagzap v0.1.3
+	github.com/lagzap/zap v0.1.0-beta.20
 	github.com/miekg/dns v1.1.67
 	github.com/wailsapp/wails/v3 v3.0.0-alpha2.116
 	golang.org/x/sys v0.43.0
@@ -31,9 +31,9 @@ require (
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/klauspost/reedsolomon v1.14.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
-	github.com/lagzap/echo v1.0.2 // indirect
-	github.com/lagzap/geoip v0.1.0-beta.1 // indirect
-	github.com/lagzap/lagzap-tun v0.1.0-beta.4 // indirect
+	github.com/lagzap/echo v1.0.4 // indirect
+	github.com/lagzap/geoip v0.1.0-beta.2 // indirect
+	github.com/lagzap/lagzap-tun v0.1.0-beta.5 // indirect
 	github.com/lagzap/lagzaprd v1.0.1 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
