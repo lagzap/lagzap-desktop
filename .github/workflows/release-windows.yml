@@ -296,11 +296,26 @@ jobs:
             bin/SHA256SUMS
             bin/update.manifest.json
 
+      # Notes only: the release is already published above, so a failure here
+      # never fails the release. Edits a release made by hand for the tag
+      # (or by the publish step for internal channels) instead of creating one,
+      # and prints GitHub's real error when it can't.
       - name: Mirror release notes on lagzap-desktop (private)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.ver.outputs.version }}
-          name: LagZap ${{ steps.ver.outputs.semver }}
-          body_path: release-body.md
-          prerelease: ${{ steps.ver.outputs.prerelease }}
-          make_latest: false
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.version }}
+          TITLE: LagZap ${{ steps.ver.outputs.semver }}
+          PRERELEASE: ${{ steps.ver.outputs.prerelease }}
+        run: |
+          set -e
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --notes-file release-body.md \
+              --prerelease="$PRERELEASE" --draft=false --latest=false
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "$TITLE" --notes-file release-body.md \
+              --prerelease="$PRERELEASE" --latest=false
+          fi
