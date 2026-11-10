@@ -66,7 +66,7 @@ async function copyId() {
         </template>
       </div>
       <div class="d-flex flex-wrap align-center ga-2 mt-2">
-        <v-chip v-if="planName" size="small" variant="tonal" rounded="pill" color="primary" prepend-icon="mdi-crown-outline">
+        <v-chip v-if="planName" size="small" variant="tonal" rounded="pill" color="primary" prepend-icon="mdi-crown-outline" :to="{ name: 'plans' }">
           {{ planName }}
         </v-chip>
         <TeamPlanBadge />
@@ -76,24 +76,28 @@ async function copyId() {
       </div>
     </div>
 
-    <v-tooltip
-      v-if="subscriber?.id"
-      :text="copied ? t('$vuetify.profile.copied') : t('$vuetify.profile.copyId')"
-      location="top"
-    >
-      <template #activator="{ props }">
-        <v-chip
-          v-bind="props"
-          size="small"
-          variant="tonal"
-          :prepend-icon="copied ? 'mdi-check' : 'mdi-identifier'"
-          class="account-header__id"
-          @click="copyId"
-        >
-          {{ subscriber.id.slice(0, 8) }}
-        </v-chip>
-      </template>
-    </v-tooltip>
+    <!-- The ID on top, the page's actions (the "actions" slot) under it. -->
+    <div class="account-header__side">
+      <v-tooltip
+        v-if="subscriber?.id"
+        :text="copied ? t('$vuetify.profile.copied') : t('$vuetify.profile.copyId')"
+        location="top"
+      >
+        <template #activator="{ props }">
+          <v-chip
+            v-bind="props"
+            size="small"
+            variant="tonal"
+            :prepend-icon="copied ? 'mdi-check' : 'mdi-identifier'"
+            class="account-header__id"
+            @click="copyId"
+          >
+            {{ subscriber.id.slice(0, 8) }}
+          </v-chip>
+        </template>
+      </v-tooltip>
+      <slot name="actions" />
+    </div>
   </section>
 </template>
 
@@ -106,9 +110,17 @@ async function copyId() {
   gap: 16px;
 }
 
+.account-header__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  align-self: stretch;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
 .account-header__id {
   font-family: monospace;
-  flex: 0 0 auto;
-  align-self: flex-start;
 }
 </style>

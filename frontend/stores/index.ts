@@ -509,6 +509,10 @@ export const useStore = defineStore("index", () => {
   Events.On("title-delete", ({ data }) => deleteTitle(asEntityID(data)));
   Events.On("profiles", ({ data }) => upsertProfiles(asEntityList(data)));
   Events.On("profile-delete", ({ data }) => deleteProfile(asEntityID(data)));
+  Events.On("active-titles-trimmed", ({ data }) => {
+    const value = (Array.isArray(data) ? data[0] : data) as { limit: number; titles: string[] } | null;
+    if (value?.titles?.length) titlesTrimmed.value = value;
+  });
   Events.On("title_states", ({ data }) =>
     upsertTitleStates(asStatesById(data, ["titleId", "title_id"]))
   );
@@ -812,15 +816,45 @@ export const useStore = defineStore("index", () => {
     }
     return locked;
   };
+  /* ----- Active titles: the plan caps how many are on at once ----- */
+  // Only this app's (this device's) titles count: title state is stored per
+  // device and nothing counts across devices. Titles deleted or disabled on
+  // the server do not count. Go enforces the same limit.
+  /** The plan's limit; 0 is none. */
+  const activeTitleLimit = computed(() => planAccess.limits.value?.max_active_titles || 0);
+  const titleCounts = (id: string) => {
+    const title = titles.value.find((t) => t.id === id);
+    return !!title && (title.enabled === true || ((title.flags ?? 0) & 2) !== 0);
+  };
+  /** Active titles, most recently used first. */
+  const activeTitleIds = computed(() =>
+    Object.values(titleStates.value)
+      .filter((s) => s?.active === true && titleCounts(s.titleId))
+      .sort((a, b) => (b.visited_at || 0) - (a.visited_at || 0))
+      .map((s) => s.titleId),
+  );
+  /** The title the user tried to turn on at the limit (the dialog asks). */
+  const titleLimitRequest = ref<string | null>(null);
+  /** Titles Go turned off after the limit dropped (one notice). */
+  const titlesTrimmed = ref<{ limit: number; titles: string[] } | null>(null);
+  const atTitleLimit = (id: string) =>
+    activeTitleLimit.value > 0 &&
+    titleStates.value[id]?.active !== true &&
+    activeTitleIds.value.length >= activeTitleLimit.value;
+
   const activateTitle = async (id: string) => {
     if (planLocked(planAccess.titleBlocked(id))) {
+      return;
+    }
+    if (atTitleLimit(id)) {
+      titleLimitRequest.value = id;
       return;
     }
     if (!titleStates.value[id]) {
       titleStates.value = await GetTitleStates()
     }
     titleStates.value[id].active = true;
-    saveTitleState(id);
+    await saveTitleState(id);
   };
   const deactivateTitle = async (id: string) => {
     if (!titleStates.value[id]) {
@@ -833,6 +867,12 @@ export const useStore = defineStore("index", () => {
     try {
       await SaveTitleState(titleStates.value[id]);
     } catch (e) {
+      if (String((e as Error)?.message ?? e).includes("active_title_limit")) {
+        // Go refused one over the limit: back off, and ask.
+        titleStates.value[id].active = false;
+        titleLimitRequest.value = id;
+        return;
+      }
       displayError(e, locale);
     }
   };
@@ -1370,6 +1410,10 @@ export const useStore = defineStore("index", () => {
     setDisplayLimit,
     isTitleActive,
     isProfileActive,
+    activeTitleLimit,
+    activeTitleIds,
+    titleLimitRequest,
+    titlesTrimmed,
     activateTitle,
     deactivateTitle,
     saveTitleState,

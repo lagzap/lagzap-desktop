@@ -281,6 +281,9 @@ func (h requestHeaders) apply(out, in *http.Request) {
 	out.Header.Set("X-Version-Core", C.Version)
 	out.Header.Set("X-Version-Client", constant.Version)
 	out.Header.Set("X-Client-ID", device.DeviceHash())
+	if device.IsVirtualMachine() {
+		out.Header.Set("X-Device-Virtual", "1")
+	}
 }
 
 func clientIP(r *http.Request) string {

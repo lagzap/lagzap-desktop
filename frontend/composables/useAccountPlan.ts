@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import { useLocale } from "vuetify";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import { formatLocale } from "~/utils/localeFormat";
 
@@ -7,6 +8,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Status → chip color. */
 export const PLAN_STATUS_COLOR: Record<string, string> = {
   active: "success",
+  free: "grey",
   trial: "info",
   admin: "primary",
   expired: "error",
@@ -22,7 +24,11 @@ export function useAccountPlan() {
   const user = useSanctumUser<DataResponse>();
   const subscriber = computed(() => user.value?.user);
 
-  const name = computed(() => plan.access.value?.name ?? "");
+  const { t } = useLocale();
+  // The free tier has no plan name of its own.
+  const name = computed(
+    () => plan.access.value?.name || (plan.status.value === "free" ? t("$vuetify.profile.freePlan") : ""),
+  );
   const status = plan.status;
   const expiresAt = computed(() => {
     const raw = plan.access.value?.expires_at ?? "";

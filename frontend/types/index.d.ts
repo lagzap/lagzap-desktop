@@ -13,6 +13,8 @@ interface DataResponse {
   team?: import("~/bindings/github.com/lagzap/lagzap/adapter/models").Team | null
   /** Invitations addressed to the user. */
   team_invites?: import("~/bindings/github.com/lagzap/lagzap/adapter/models").TeamInvite[]
+  /** The beta or free trial on offer; absent when none. */
+  access_offer?: import("~/bindings/github.com/lagzap/lagzap/adapter/models").AccessOffer | null
 }
 
 interface SessionResponse {

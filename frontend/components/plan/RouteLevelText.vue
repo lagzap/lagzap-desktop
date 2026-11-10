@@ -9,17 +9,17 @@ import { usePlanAccess } from "~/composables/usePlanAccess";
  * one adds; below Ultimate, clicking opens the plans page. */
 const props = defineProps<{ level: number }>();
 
-const LEVEL_COLOR: Record<number, string> = { 1: "#ff9800", 2: "#2196f3", 3: "#cddc39" };
+const LEVEL_COLOR: Record<number, string> = { 0: "#9e9e9e", 1: "#ff9800", 2: "#2196f3", 3: "#cddc39" };
 
 const { t } = useLocale();
-const { levelName, levelHint } = useRouteLevel();
+const { levelName, levelHint, routesText } = useRouteLevel();
 const plan = usePlanAccess();
 
-const next = computed(() => (props.level >= 1 && props.level < 3 && !plan.admin.value ? props.level + 1 : 0));
+const next = computed(() => (props.level >= 0 && props.level < 3 && !plan.admin.value ? props.level + 1 : 0));
 const upgradable = computed(() => next.value > 0 && plan.canUpgrade.value);
 
 function onClick() {
-  if (upgradable.value) plan.openUpgrade();
+  if (upgradable.value) plan.openUpgrade({ option: "max_hops", value: next.value });
 }
 </script>
 
@@ -33,7 +33,7 @@ function onClick() {
         :style="{ color: LEVEL_COLOR[level] }"
         @click.stop="onClick"
       >
-        {{ t("$vuetify.routeLevel.routes", levelName(level)) }}
+        {{ routesText(level) }}
       </span>
     </template>
     <div class="font-weight-medium">{{ t("$vuetify.routeLevel.using", levelName(level)) }}</div>

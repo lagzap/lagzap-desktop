@@ -13,8 +13,23 @@ import {
   type InternetPingTargetId,
 } from '~/composables/internetPingTargets'
 
+import { usePlanAccess } from '~/composables/usePlanAccess'
+
 const locale = useLocale()
 const { t } = locale
+
+// Basic route level: no live route switching, accuracy up to Medium (Go
+// enforces it too). Advanced and up unlock both.
+const plan = usePlanAccess()
+const basicPlan = computed(() => !plan.admin.value && plan.limits.value?.max_hops === 1)
+const ACCURACY_ORDER: RouteAccuracySetting[] = ['veryLow', 'low', 'medium', 'high']
+const allowedAccuracy = (value: RouteAccuracySetting) =>
+  !basicPlan.value || ACCURACY_ORDER.indexOf(value) <= ACCURACY_ORDER.indexOf('medium')
+const shownAccuracy = computed(() => {
+  const value = settings.value.routeAccuracy
+  return value && !allowedAccuracy(value) ? 'medium' : value
+})
+const unlockAdvanced = () => plan.openUpgrade({ option: 'max_hops', value: 2 })
 
 const {
   settings,
@@ -34,6 +49,7 @@ const accuracyItems = computed(() =>
   getRouteAccuracyOptions().map((item) => ({
     value: item.value,
     text: t(`$vuetify.settings.route.accuracy.${item.value}`),
+    props: { disabled: !allowedAccuracy(item.value as RouteAccuracySetting) },
   }))
 )
 
@@ -75,7 +91,7 @@ const internetPingTargetItems = computed(() => [
         {{ t('$vuetify.settings.route.routeOptimizationAccuracy') }}
       </v-card-subtitle>
       <v-select
-        :model-value="settings.routeAccuracy"
+        :model-value="shownAccuracy"
         :items="accuracyItems"
         item-value="value"
         item-title="text"
@@ -120,9 +136,17 @@ const internetPingTargetItems = computed(() => [
         hide-details
         class="mb-1"
         :label="t('$vuetify.settings.route.realTimeOptimization')"
-        :model-value="settings.realtimeOptimization"
+        :model-value="basicPlan ? false : settings.realtimeOptimization"
+        :disabled="basicPlan"
         @update:model-value="setRealtimeOptimization"
       />
+      <div v-if="basicPlan" class="d-flex align-center ga-2 mb-3 text-caption text-medium-emphasis">
+        <v-icon icon="mdi-lock" size="14" />
+        <span class="flex-grow-1">{{ t('$vuetify.settings.route.basicLimit') }}</span>
+        <v-btn size="x-small" variant="tonal" color="amber" prepend-icon="mdi-cart-outline" @click="unlockAdvanced">
+          {{ t('$vuetify.plan.unlock') }}
+        </v-btn>
+      </div>
       <v-checkbox
         class="mb-4"
         :label="t('$vuetify.settings.route.proxyDnsRequests')"

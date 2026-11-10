@@ -5,16 +5,20 @@ import { PLAN_STATUS_COLOR, useAccountPlan } from "~/composables/useAccountPlan"
 import { localDigits } from "~/utils/localeFormat";
 import RouteLevelMeter from "~/components/plan/RouteLevelMeter.vue";
 import TeamPlanBadge from "~/components/team/TeamPlanBadge.vue";
+import { useAccessOffer } from "~/composables/useAccessOffer";
 
 /** The subscription: plan, status, when it ends, and what it includes. */
 const { t } = useLocale();
 const plan = useAccountPlan();
+const { offer, open: offerOpen, screenOpen } = useAccessOffer();
 
 const statusColor = computed(() => PLAN_STATUS_COLOR[plan.status.value] ?? "grey");
 const endingSoon = computed(() => plan.daysLeft.value != null && plan.daysLeft.value <= 7);
 const limit = (n: number | undefined) => (n && n > 0 ? localDigits(n) : t("$vuetify.profile.unlimited"));
 const upgradeLabel = computed(() =>
-  plan.active.value && plan.status.value !== "trial" ? t("$vuetify.profile.managePlan") : t("$vuetify.profile.upgrade"),
+  plan.active.value && plan.status.value !== "trial" && plan.status.value !== "free"
+    ? t("$vuetify.profile.managePlan")
+    : t("$vuetify.profile.upgrade"),
 );
 </script>
 
@@ -64,6 +68,16 @@ const upgradeLabel = computed(() =>
     <div v-else class="text-body-2">{{ t(`$vuetify.profile.inactive.${plan.status.value}`) }}</div>
 
     <div class="d-flex flex-wrap ga-2 mt-1">
+      <v-btn
+        v-if="offerOpen"
+        variant="flat"
+        color="primary"
+        rounded="lg"
+        prepend-icon="mdi-gift-outline"
+        @click="screenOpen = true"
+      >
+        {{ offer?.kind === "trial" ? t("$vuetify.accessOffer.claimTrial") : t("$vuetify.accessOffer.claimBeta") }}
+      </v-btn>
       <v-btn
         v-if="plan.canUpgrade.value"
         variant="tonal"

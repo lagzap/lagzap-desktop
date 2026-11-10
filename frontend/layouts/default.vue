@@ -6,6 +6,8 @@ import TicketChatPopup from "~/components/tickets/TicketChatPopup.vue";
 import InterfaceOptimizePanel from "~/components/layout/InterfaceOptimizePanel.vue";
 import GamerTagGate from "~/components/account/GamerTagGate.vue";
 import TeamInvitePopup from "~/components/team/TeamInvitePopup.vue";
+import ActiveTitleLimit from "~/components/title/ActiveTitleLimit.vue";
+import AccessOfferDialog from "~/components/plan/AccessOfferDialog.vue";
 
 const { mobile } = useDisplay();
 const { t } = useLocale();
@@ -175,6 +177,8 @@ function expandOptimize() {
     <InterfaceOptimizePanel />
     <GamerTagGate />
     <TeamInvitePopup />
+    <ActiveTitleLimit />
+    <AccessOfferDialog />
 
     <Teleport to="body">
       <v-btn

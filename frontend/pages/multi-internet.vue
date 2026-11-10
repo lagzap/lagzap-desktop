@@ -248,6 +248,7 @@ const pools = computed(() => [
               :can-leave-backup="backupInterfaces.canRemove(name)"
               :routes="routesOf(name)"
               :plan-locked="planLocked(index)"
+              :unlock-internets="index + 1"
               :route-max="routeMax"
               @set-default="setDefault(name, $event)"
               @set-multi="multiInternet.toggle(name, $event)"

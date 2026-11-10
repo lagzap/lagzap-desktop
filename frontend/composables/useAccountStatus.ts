@@ -5,6 +5,7 @@ export type ServiceTone = "ok" | "warn" | "busy" | "off";
 
 export type PlanStatus =
   | "active"
+  | "free"
   | "trial"
   | "admin"
   | "expiring"

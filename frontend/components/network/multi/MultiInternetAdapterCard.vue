@@ -24,6 +24,8 @@ const props = defineProps<{
   routes?: { tcp: number | null; udp: number | null; tcpDefault: number; udpDefault: number } | null;
   /** Outside the plan: it cannot join Multi Internet or backups. */
   planLocked?: boolean;
+  /** How many internets a plan must combine to unlock this one. */
+  unlockInternets?: number;
   /** The plan's route limit for the inputs. */
   routeMax?: number;
 }>();
@@ -106,7 +108,7 @@ const roles = computed(() => [
           {{ t("$vuetify.networkLatency.monitor.statusNoInternet") }}
         </v-chip>
         <v-spacer />
-        <PlanLock v-if="planLocked" />
+        <PlanLock v-if="planLocked" :need="unlockInternets ? { option: 'max_internets', value: unlockInternets } : undefined" />
         <span
           class="adapter-card__ping text-h6 font-weight-bold"
           :class="ping && ping.now > 0 ? `text-${qualityColor(ping.quality)}` : 'text-medium-emphasis'"

@@ -1,5 +1,5 @@
 import { computed, ref } from "vue";
-import { Browser, Events } from "@wailsio/runtime";
+import { Events } from "@wailsio/runtime";
 import { GetPlanAccess } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { PlanAccess } from "~/bindings/github.com/lagzap/lagzap/adapter/models";
 
@@ -37,7 +37,8 @@ export function usePlanAccess() {
   const status = computed(() => access.value?.status ?? "loading");
   const admin = computed(() => status.value === "admin");
   const limits = computed(() => access.value?.limits);
-  const canUpgrade = computed(() => !!access.value?.upgrade_url);
+  /** The Plans screen is always there to buy from. */
+  const canUpgrade = computed(() => true);
 
   /** Locked: a plan offers it, so it can be purchased. */
   const titleLocked = (id: string) => access.value?.titles?.[id] === LOCKED;
@@ -53,11 +54,13 @@ export function usePlanAccess() {
   const hasFeature = (feature: string) =>
     admin.value || (access.value?.features ?? []).includes(feature);
 
-  const openUpgrade = () => {
-    const url = access.value?.upgrade_url;
-    if (url) {
-      void Browser.OpenURL(url);
-    }
+  /** Opens the Plans screen. need names the limit that would unlock what
+   * the user tried (max_internets 3, ...), so the plan that has it is
+   * picked; click handlers may pass their event, which is ignored. */
+  const openUpgrade = (need?: { option: string; value: number } | Event) => {
+    const query: Record<string, string> = {};
+    if (need && !(need instanceof Event) && need.option) query.need = `${need.option}:${need.value}`;
+    void navigateTo({ name: "plans", query });
   };
 
   return {

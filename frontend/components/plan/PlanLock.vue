@@ -6,14 +6,20 @@ import { usePlanAccess } from "~/composables/usePlanAccess";
  * turns amber on hover and opens the plans page. `chip` shows it with the
  * purchase label instead. `unavailable`: no plan offers it yet, so the lock
  * stays gray and only says so. */
-const props = withDefaults(defineProps<{ chip?: boolean; size?: number | string; unavailable?: boolean }>(), {
-  chip: false,
-  size: 14,
-  unavailable: false,
-});
+const props = withDefaults(
+  defineProps<{
+    chip?: boolean;
+    size?: number | string;
+    unavailable?: boolean;
+    /** The plan limit that would unlock it, so Plans picks that plan. */
+    need?: { option: string; value: number };
+  }>(),
+  { chip: false, size: 14, unavailable: false, need: undefined },
+);
 
 const { t } = useLocale();
 const { canUpgrade, openUpgrade } = usePlanAccess();
+const purchase = () => openUpgrade(props.need);
 </script>
 
 <template>
@@ -31,7 +37,7 @@ const { canUpgrade, openUpgrade } = usePlanAccess();
         color="amber"
         prepend-icon="mdi-lock"
         :disabled="!canUpgrade"
-        @click.stop.prevent="openUpgrade"
+        @click.stop.prevent="purchase"
       >
         {{ t("$vuetify.plan.unlock") }}
       </v-chip>
@@ -46,7 +52,7 @@ const { canUpgrade, openUpgrade } = usePlanAccess();
         size="x-small"
         class="plan-lock"
         :aria-label="t('$vuetify.plan.unlock')"
-        @click.stop.prevent="openUpgrade"
+        @click.stop.prevent="purchase"
       >
         <v-icon icon="mdi-lock" :size="props.size" />
       </v-btn>

@@ -22,21 +22,43 @@ const changingPassword = ref(false);
           {{ t('$vuetify.profile.title') }}
         </v-app-bar-title>
 
-        <v-spacer />
-
-        <v-btn variant="tonal" class="me-2" prepend-icon="mdi-account-edit-outline" @click="editingProfile = true">
-          {{ t('$vuetify.profile.basicInformation') }}
-        </v-btn>
-        <v-btn variant="tonal" class="me-2" prepend-icon="mdi-lock-reset" @click="changingPassword = true">
-          {{ t('$vuetify.profile.updatePassword') }}
-        </v-btn>
-        <v-btn variant="tonal" color="red" prepend-icon="mdi-logout" @click="logout">
-          {{ t('$vuetify.profile.logout') }}
-        </v-btn>
       </template>
 
       <div class="profile-page">
-        <AccountHeader />
+        <AccountHeader>
+          <template #actions>
+            <v-menu location="bottom end">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  icon="mdi-dots-vertical"
+                  variant="text"
+                  size="small"
+                  :aria-label="t('$vuetify.profile.moreOptions')"
+                />
+              </template>
+              <v-list density="compact" rounded="lg" min-width="220">
+                <v-list-item
+                  prepend-icon="mdi-account-edit-outline"
+                  :title="t('$vuetify.profile.basicInformation')"
+                  @click="editingProfile = true"
+                />
+                <v-list-item
+                  prepend-icon="mdi-lock-reset"
+                  :title="t('$vuetify.profile.updatePassword')"
+                  @click="changingPassword = true"
+                />
+                <v-divider class="my-1" />
+                <v-list-item
+                  prepend-icon="mdi-logout"
+                  base-color="error"
+                  :title="t('$vuetify.profile.logout')"
+                  @click="logout"
+                />
+              </v-list>
+            </v-menu>
+          </template>
+        </AccountHeader>
 
         <div class="profile-grid">
           <SubscriptionPanel />

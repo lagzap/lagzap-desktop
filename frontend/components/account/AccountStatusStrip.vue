@@ -13,11 +13,11 @@ const { displayName, planName, planStatus, planStatusLabel, user } =
   useAccountStatus();
 const { t } = useLocale();
 const store = useStore();
-const { levelName } = useRouteLevel();
+const { levelName, routesText } = useRouteLevel();
 const { levels } = useRouteLevels();
 const { canUpgrade, openUpgrade } = usePlanAccess();
 const levelLabel = computed(() =>
-  levels.value?.plan ? t("$vuetify.routeLevel.routes", levelName(levels.value.plan)) : "",
+  levels.value ? routesText(levels.value.plan) : "",
 );
 const upgrade = computed(() =>
   levels.value?.upgrade_level && levels.value.upgrade_ms > 0 ? levels.value : null,
@@ -62,13 +62,15 @@ async function onRoutingToggle(wantOn: boolean | null) {
 
     <div class="account-strip__end">
       <div class="account-strip__meta">
-        <span class="account-strip__plan">{{ planName }}</span>
-        <span
-          class="account-strip__badge"
-          :class="`account-strip__badge--${planStatus}`"
-        >
-          {{ planStatusLabel }}
-        </span>
+        <NuxtLink :to="{ name: 'plans' }" class="account-strip__plan-link text-decoration-none">
+          <span class="account-strip__plan">{{ planName }}</span>
+          <span
+            class="account-strip__badge"
+            :class="`account-strip__badge--${planStatus}`"
+          >
+            {{ planStatusLabel }}
+          </span>
+        </NuxtLink>
         <span v-if="levelLabel" class="account-strip__level">{{ levelLabel }}</span>
         <v-tooltip v-if="upgrade" :text="t('$vuetify.routeLevel.upgradeOverviewTip')" location="bottom">
           <template #activator="{ props }">
@@ -107,6 +109,24 @@ async function onRoutingToggle(wantOn: boolean | null) {
 </template>
 
 <style scoped>
+.account-strip__plan-link {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: opacity 0.15s ease;
+}
+
+.account-strip__plan-link:hover {
+  opacity: 0.8;
+}
+
+.account-strip__plan-link:hover .account-strip__plan {
+  text-decoration: underline;
+}
+
 .account-strip {
   display: flex;
   align-items: center;

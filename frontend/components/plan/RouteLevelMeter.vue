@@ -17,11 +17,11 @@ const plan = usePlanAccess();
 const planLevel = computed(() => levels.value?.plan ?? 0);
 const upgradeLevel = computed(() => levels.value?.upgrade_level ?? 0);
 const upgradeMs = computed(() => levels.value?.upgrade_ms ?? 0);
-const nextLevel = computed(() => (planLevel.value > 0 && planLevel.value < 3 ? planLevel.value + 1 : 0));
+const nextLevel = computed(() => (levels.value && planLevel.value < 3 ? planLevel.value + 1 : 0));
 </script>
 
 <template>
-  <div v-if="planLevel" class="route-level">
+  <div v-if="levels" class="route-level">
     <div class="d-flex align-center ga-2">
       <span class="lz-label">{{ t("$vuetify.routeLevel.title") }}</span>
       <v-spacer />
@@ -55,7 +55,7 @@ const nextLevel = computed(() => (planLevel.value > 0 && planLevel.value < 3 ? p
         color="amber"
         class="text-none"
         prepend-icon="mdi-cart-outline"
-        @click="plan.openUpgrade"
+        @click="plan.openUpgrade({ option: 'max_hops', value: upgradeLevel })"
       >
         {{ t("$vuetify.plan.unlock") }}
       </v-btn>

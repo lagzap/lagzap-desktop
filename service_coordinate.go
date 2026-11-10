@@ -144,6 +144,31 @@ func (s *Service) GetNodes() map[string]*D.Node {
 	return s.coordinator.GetNodes()
 }
 
+// GetAccessOffer is the beta or trial on offer (nil: none).
+func (s *Service) GetAccessOffer() *adapter.AccessOffer {
+	if provider, ok := s.coordinator.(adapter.AccessOfferProvider); ok && s.IsReady() {
+		return provider.GetAccessOffer()
+	}
+	return nil
+}
+
+// CheckAccessOffer refetches the account and returns the offer; the offer
+// screen polls it while open.
+func (s *Service) CheckAccessOffer() *adapter.AccessOffer {
+	if provider, ok := s.coordinator.(adapter.AccessOfferProvider); ok && s.IsReady() {
+		return provider.CheckAccessOffer()
+	}
+	return nil
+}
+
+// ClaimAccess claims the offer's campaign.
+func (s *Service) ClaimAccess(campaign string) adapter.AccessClaimResult {
+	if provider, ok := s.coordinator.(adapter.AccessOfferProvider); ok && s.IsReady() {
+		return provider.ClaimAccess(campaign)
+	}
+	return adapter.AccessClaimResult{Code: adapter.AccessClaimUnreachable}
+}
+
 // GetRouteLevels is the plan's route level and the biggest gain a higher
 // level measured, for the overview and the profile page.
 func (s *Service) GetRouteLevels() *adapter.RouteLevel {
@@ -180,6 +205,9 @@ func (s *Service) VisitTitle(titleId string) {
 func (s *Service) SaveTitleState(titleState *D.TitleState) error {
 	if !s.IsReady() {
 		return E.New("coordinator_not_ready")
+	}
+	if titleState != nil && titleState.Active && !s.coordinator.CanActivateTitle(titleState.TitleId) {
+		return E.New("active_title_limit")
 	}
 	err := s.coordinator.SaveTitleState(titleState)
 	if err != nil {

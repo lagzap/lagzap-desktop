@@ -5,6 +5,7 @@ import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 import TitleAvatar from "~/components/plan/TitleAvatar.vue";
 import PlanLock from "~/components/plan/PlanLock.vue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
+import { localDigits } from "~/utils/localeFormat";
 
 const locale = useLocale();
 const { t } = locale;
@@ -21,6 +22,15 @@ const requestOpen = ref(false);
         <v-app-bar-title class="text-subtitle-1">
           {{ t("$vuetify.navigation.titles") }}
         </v-app-bar-title>
+        <v-chip
+          v-if="store.activeTitleLimit > 0"
+          size="small"
+          variant="tonal"
+          :color="store.activeTitleIds.length >= store.activeTitleLimit ? 'warning' : undefined"
+          class="me-2"
+        >
+          {{ t("$vuetify.titleLimit.counter", localDigits(store.activeTitleIds.length), localDigits(store.activeTitleLimit)) }}
+        </v-chip>
       </template>
 
       <v-card-text class="mb-16">
