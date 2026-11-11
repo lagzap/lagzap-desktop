@@ -40,6 +40,9 @@ const showOptimizeUi = ref(false);
 const fadeInner = ref(false);
 const fadeOuter = ref(false);
 const holdComplete = ref(false);
+/** Analysis finished: the app is about to be ready, so the spinner does not
+ * come back for the moment between the arcs fading and the app opening. */
+const optimizeFinished = ref(false);
 let fadeToken = 0;
 
 /** Feel-good display progress — stays active until fade finishes. */
@@ -71,6 +74,7 @@ async function runCompletionFade() {
   fadeOuter.value = true;
   await sleep(340);
   if (token !== fadeToken) return;
+  optimizeFinished.value = true;
   showOptimizeUi.value = false;
   fadeInner.value = false;
   fadeOuter.value = false;
@@ -277,6 +281,7 @@ watch(
   async (on) => {
     if (on) {
       fadeToken += 1;
+      optimizeFinished.value = false;
       fadeInner.value = false;
       fadeOuter.value = false;
       holdComplete.value = false;
@@ -319,7 +324,10 @@ watch(progressPct, (p) => {
 watch(
   () => props.loading,
   (on) => {
-    if (on) return;
+    if (on) {
+      optimizeFinished.value = false;
+      return;
+    }
     fadeToken += 1;
     showOptimizeUi.value = false;
     fadeInner.value = false;
@@ -344,9 +352,11 @@ onUnmounted(() => {
 <template>
   <div class="animated-logo-container">
     <div class="logo-container">
+      <!-- Loaders fade in and out; both are absolutely placed, so they cross-fade. -->
+      <Transition name="logo-loader-fade">
       <!-- Normal spin loader -->
       <div
-        v-if="loading && !showOptimizeUi"
+        v-if="loading && !showOptimizeUi && !optimizeFinished"
         class="logo-loader"
         :class="{ 'logo-loader--light': !isDark }"
         aria-hidden="true"
@@ -440,6 +450,7 @@ onUnmounted(() => {
           <g ref="sparkLayer" />
         </svg>
       </div>
+      </Transition>
 
       <LagzapLogo
         class="splash-logo"
@@ -481,9 +492,14 @@ onUnmounted(() => {
   z-index: 0;
 }
 
-.logo-loader--optimize {
+.logo-loader-fade-enter-active,
+.logo-loader-fade-leave-active {
+  transition: opacity 0.45s ease;
+}
+
+.logo-loader-fade-enter-from,
+.logo-loader-fade-leave-to {
   opacity: 0;
-  animation: loaderFadeIn 0.45s ease forwards;
 }
 
 .logo-progress {
@@ -595,15 +611,6 @@ onUnmounted(() => {
 .animated-logo.animated-logo--light {
   filter: none;
   animation: logoPulse 1.4s ease-in-out infinite;
-}
-
-@keyframes loaderFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 @keyframes logoSpin {

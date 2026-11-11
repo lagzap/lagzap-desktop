@@ -17,16 +17,23 @@ const { settings } = useSettings();
 const isPreview = computed(
   () => route.query.preview === "1" || route.query.preview === "true"
 );
+/** The analysis finished: the app opens next, so it already reads as ready. */
+const optimizeComplete = computed(() => store.optimizeProgress?.is_complete === true);
+
 const showStartupOptimize = computed(
   () =>
     !isPreview.value &&
     !store.appReady &&
     !store.startupOptimizeDone &&
-    store.optimizeProgress != null
+    store.optimizeProgress != null &&
+    !optimizeComplete.value
 );
 
 const showStartupReady = computed(
-  () => !isPreview.value && store.startupOptimizeDone && !store.appReady
+  () =>
+    !isPreview.value &&
+    !store.appReady &&
+    (store.startupOptimizeDone || optimizeComplete.value)
 );
 
 /** Spin/arcs only until optimize/analysis finishes — not through StartProxy. */
