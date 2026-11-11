@@ -18,15 +18,25 @@ var FileVersion = "0.0.0.0"
 var ReleasesRepo = "lagzap/lagzap-releases"
 
 // UpdateMirrors are update manifest URLs tried before GitHub Releases, in
-// order and comma separated (Arvan, then Cloudflare). {{channel}} in a URL
-// becomes UpdateChannel(). Set via ldflags from the UPDATE_MIRRORS repository
-// variable; empty means GitHub only.
+// order and comma separated. {{channel}} in a URL becomes UpdateChannel().
+// The UPDATE_MIRRORS repository variable overrides them via ldflags; left
+// empty, DefaultUpdateMirrors are used.
 var UpdateMirrors = ""
 
-// UpdateMirrorURLs is UpdateMirrors as a list.
+// DefaultUpdateMirrors: Arvan (updates.lagzap.ir), then Cloudflare R2
+// (updates.lagzap.com). Each domain serves its bucket's root, where release
+// CI uploads <channel>/windows/.
+const DefaultUpdateMirrors = "https://updates.lagzap.ir/{{channel}}/windows/update.manifest.json," +
+	"https://updates.lagzap.com/{{channel}}/windows/update.manifest.json"
+
+// UpdateMirrorURLs is UpdateMirrors (or DefaultUpdateMirrors) as a list.
 func UpdateMirrorURLs() []string {
+	mirrors := UpdateMirrors
+	if strings.TrimSpace(mirrors) == "" {
+		mirrors = DefaultUpdateMirrors
+	}
 	var out []string
-	for _, u := range strings.Split(UpdateMirrors, ",") {
+	for _, u := range strings.Split(mirrors, ",") {
 		if u = strings.TrimSpace(u); u != "" {
 			out = append(out, u)
 		}

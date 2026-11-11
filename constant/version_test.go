@@ -136,8 +136,10 @@ func TestUpdateMirrorsAndChannel(t *testing.T) {
 	t.Cleanup(func() { UpdateMirrors, Version = origMirrors, origVersion })
 
 	UpdateMirrors = ""
-	if got := UpdateMirrorURLs(); len(got) != 0 {
-		t.Fatalf("empty: %v", got)
+	if got := UpdateMirrorURLs(); len(got) != 2 ||
+		got[0] != "https://updates.lagzap.ir/{{channel}}/windows/update.manifest.json" ||
+		got[1] != "https://updates.lagzap.com/{{channel}}/windows/update.manifest.json" {
+		t.Fatalf("defaults: %v", got)
 	}
 	UpdateMirrors = " https://a.example/{{channel}}/m.json , ,https://b.example/m.json"
 	if got := UpdateMirrorURLs(); len(got) != 2 || got[0] != "https://a.example/{{channel}}/m.json" {
