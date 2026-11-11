@@ -107,8 +107,10 @@ const requestOpen = ref(false);
       </v-card-text>
 
       <template #outside>
+        <!-- Hidden while its dialog is open. -->
         <v-fab
           appear
+          :active="!requestOpen"
           size="large"
           color="info"
           variant="elevated"
