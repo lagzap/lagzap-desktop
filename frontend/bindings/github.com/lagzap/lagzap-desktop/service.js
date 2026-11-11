@@ -390,11 +390,21 @@ export function GetProxyDNSRequests() {
 }
 
 /**
+ * GetRecentLogs returns the remembered log lines, oldest first.
+ * @returns {$CancellablePromise<$models.Log[]>}
+ */
+export function GetRecentLogs() {
+    return $Call.ByID(1410091743).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType36($result);
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<{ [_ in string]?: data$0.Region | null }>}
  */
 export function GetRegions() {
     return $Call.ByID(3658744404).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType37($result);
+        return $$createType39($result);
     }));
 }
 
@@ -405,7 +415,7 @@ export function GetRegions() {
  */
 export function GetRouteLevels() {
     return $Call.ByID(723784787).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType39($result);
+        return $$createType41($result);
     }));
 }
 
@@ -414,7 +424,7 @@ export function GetRouteLevels() {
  */
 export function GetRoutes() {
     return $Call.ByID(3754855629).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType42($result);
+        return $$createType44($result);
     }));
 }
 
@@ -423,7 +433,7 @@ export function GetRoutes() {
  */
 export function GetRoutes2() {
     return $Call.ByID(1361573229).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType45($result);
+        return $$createType47($result);
     }));
 }
 
@@ -436,7 +446,7 @@ export function GetRoutes2() {
  */
 export function GetServerCityDetails(key, lang) {
     return $Call.ByID(2241714291, key, lang).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType47($result);
+        return $$createType49($result);
     }));
 }
 
@@ -449,7 +459,7 @@ export function GetServerCityDetails(key, lang) {
  */
 export function GetServerDirectory(iface, lang) {
     return $Call.ByID(3341425063, iface, lang).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType49($result);
+        return $$createType51($result);
     }));
 }
 
@@ -492,7 +502,7 @@ export function GetTicketWindow(ticketID, beforeID, afterID, limit) {
  */
 export function GetTitleStates() {
     return $Call.ByID(2788903497).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType52($result);
+        return $$createType54($result);
     }));
 }
 
@@ -501,7 +511,7 @@ export function GetTitleStates() {
  */
 export function GetTitles() {
     return $Call.ByID(94823092).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType55($result);
+        return $$createType57($result);
     }));
 }
 
@@ -638,7 +648,7 @@ export function LeaveTeam() {
  */
 export function ListMyTickets() {
     return $Call.ByID(1689100492).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType57($result);
+        return $$createType59($result);
     }));
 }
 
@@ -648,7 +658,7 @@ export function ListMyTickets() {
  */
 export function ListPathPings(refresh) {
     return $Call.ByID(1141368899, refresh).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType59($result);
+        return $$createType61($result);
     }));
 }
 
@@ -705,7 +715,7 @@ export function OpenLatencyOverlay() {
  */
 export function PlanLimits() {
     return $Call.ByID(3723209718).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType60($result);
+        return $$createType62($result);
     }));
 }
 
@@ -717,7 +727,7 @@ export function PlanLimits() {
  */
 export function PricingPlans(currency) {
     return $Call.ByID(2672787099, currency).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType61($result);
+        return $$createType63($result);
     }));
 }
 
@@ -731,7 +741,7 @@ export function PricingPlans(currency) {
  */
 export function ProbeNodeRoutes(routes, iface) {
     return $Call.ByID(980278603, routes, iface).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType64($result);
+        return $$createType66($result);
     }));
 }
 
@@ -743,7 +753,7 @@ export function ProbeNodeRoutes(routes, iface) {
  */
 export function ProbePath(kind, fromID, toID) {
     return $Call.ByID(838015066, kind, fromID, toID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType58($result);
+        return $$createType60($result);
     }));
 }
 
@@ -764,7 +774,7 @@ export function ProbeProfileRoutes(profileID, iface) {
  */
 export function Quote(req) {
     return $Call.ByID(3940694183, req).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType65($result);
+        return $$createType67($result);
     }));
 }
 
@@ -880,7 +890,7 @@ export function SetClientSettings(settings) {
  */
 export function SetGamerTag(name) {
     return $Call.ByID(442699695, name).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType66($result);
+        return $$createType68($result);
     }));
 }
 
@@ -923,7 +933,7 @@ export function SetHelpCenterView(view) {
  */
 export function SetInterfaceMonitorRange(watcher, iface, key, lang) {
     return $Call.ByID(3480031081, watcher, iface, key, lang).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType68($result);
+        return $$createType70($result);
     }));
 }
 
@@ -965,7 +975,7 @@ export function SetLatencyOverlayAlwaysOnTop(alwaysOnTop) {
  */
 export function SetLocationMonitor(watcher, key, rangeKey, lang, manual) {
     return $Call.ByID(1266297978, watcher, key, rangeKey, lang, manual).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType70($result);
+        return $$createType72($result);
     }));
 }
 
@@ -987,7 +997,7 @@ export function SetLogLevel(logLevel) {
  */
 export function SetNetworkMonitorRange(watcher, key) {
     return $Call.ByID(1699016496, watcher, key).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType72($result);
+        return $$createType74($result);
     }));
 }
 
@@ -1000,7 +1010,7 @@ export function SetNetworkMonitorRange(watcher, key) {
  */
 export function SetOverviewRange(watcher, key) {
     return $Call.ByID(1243669937, watcher, key).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType74($result);
+        return $$createType76($result);
     }));
 }
 
@@ -1139,7 +1149,7 @@ export function TakeJumpListRoute() {
  */
 export function TestSpecificNode(nodeId) {
     return $Call.ByID(5819569, nodeId).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType42($result);
+        return $$createType44($result);
     }));
 }
 
@@ -1170,7 +1180,7 @@ export function VisitTitle(titleId) {
  */
 export function WatchProfileChart(profileID, rangeKey, iface, connectionID) {
     return $Call.ByID(969705923, profileID, rangeKey, iface, connectionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType76($result);
+        return $$createType78($result);
     }));
 }
 
@@ -1210,45 +1220,47 @@ const $$createType31 = $Create.Map($Create.Any, $$createType30);
 const $$createType32 = data$0.Profile.createFrom;
 const $$createType33 = $Create.Nullable($$createType32);
 const $$createType34 = $Create.Map($Create.Any, $$createType33);
-const $$createType35 = data$0.Region.createFrom;
-const $$createType36 = $Create.Nullable($$createType35);
-const $$createType37 = $Create.Map($Create.Any, $$createType36);
-const $$createType38 = adapter$0.RouteLevel.createFrom;
-const $$createType39 = $Create.Nullable($$createType38);
-const $$createType40 = data$0.RelayRoute.createFrom;
+const $$createType35 = $models.Log.createFrom;
+const $$createType36 = $Create.Array($$createType35);
+const $$createType37 = data$0.Region.createFrom;
+const $$createType38 = $Create.Nullable($$createType37);
+const $$createType39 = $Create.Map($Create.Any, $$createType38);
+const $$createType40 = adapter$0.RouteLevel.createFrom;
 const $$createType41 = $Create.Nullable($$createType40);
-const $$createType42 = $Create.Map($Create.Any, $$createType41);
-const $$createType43 = data$0.Route.createFrom;
-const $$createType44 = $Create.Nullable($$createType43);
-const $$createType45 = $Create.Array($$createType44);
-const $$createType46 = adapter$0.ServerCityDetails.createFrom;
-const $$createType47 = $Create.Nullable($$createType46);
-const $$createType48 = adapter$0.ServerDirectory.createFrom;
+const $$createType42 = data$0.RelayRoute.createFrom;
+const $$createType43 = $Create.Nullable($$createType42);
+const $$createType44 = $Create.Map($Create.Any, $$createType43);
+const $$createType45 = data$0.Route.createFrom;
+const $$createType46 = $Create.Nullable($$createType45);
+const $$createType47 = $Create.Array($$createType46);
+const $$createType48 = adapter$0.ServerCityDetails.createFrom;
 const $$createType49 = $Create.Nullable($$createType48);
-const $$createType50 = data$0.TitleState.createFrom;
+const $$createType50 = adapter$0.ServerDirectory.createFrom;
 const $$createType51 = $Create.Nullable($$createType50);
-const $$createType52 = $Create.Map($Create.Any, $$createType51);
-const $$createType53 = data$0.Title.createFrom;
-const $$createType54 = $Create.Nullable($$createType53);
-const $$createType55 = $Create.Map($Create.Any, $$createType54);
-const $$createType56 = $models.MyTicketsResult.createFrom;
-const $$createType57 = $Create.Nullable($$createType56);
-const $$createType58 = adapter$0.PathPingRow.createFrom;
-const $$createType59 = $Create.Array($$createType58);
-const $$createType60 = adapter$0.PlanLimits.createFrom;
-const $$createType61 = adapter$0.PricingPlansResult.createFrom;
-const $$createType62 = data$0.NodeRoute.createFrom;
-const $$createType63 = $Create.Nullable($$createType62);
-const $$createType64 = $Create.Array($$createType63);
-const $$createType65 = adapter$0.QuoteResult.createFrom;
-const $$createType66 = adapter$0.NameResult.createFrom;
-const $$createType67 = adapter$0.InterfaceMonitorDetail.createFrom;
-const $$createType68 = $Create.Nullable($$createType67);
-const $$createType69 = adapter$0.LocationMonitor.createFrom;
+const $$createType52 = data$0.TitleState.createFrom;
+const $$createType53 = $Create.Nullable($$createType52);
+const $$createType54 = $Create.Map($Create.Any, $$createType53);
+const $$createType55 = data$0.Title.createFrom;
+const $$createType56 = $Create.Nullable($$createType55);
+const $$createType57 = $Create.Map($Create.Any, $$createType56);
+const $$createType58 = $models.MyTicketsResult.createFrom;
+const $$createType59 = $Create.Nullable($$createType58);
+const $$createType60 = adapter$0.PathPingRow.createFrom;
+const $$createType61 = $Create.Array($$createType60);
+const $$createType62 = adapter$0.PlanLimits.createFrom;
+const $$createType63 = adapter$0.PricingPlansResult.createFrom;
+const $$createType64 = data$0.NodeRoute.createFrom;
+const $$createType65 = $Create.Nullable($$createType64);
+const $$createType66 = $Create.Array($$createType65);
+const $$createType67 = adapter$0.QuoteResult.createFrom;
+const $$createType68 = adapter$0.NameResult.createFrom;
+const $$createType69 = adapter$0.InterfaceMonitorDetail.createFrom;
 const $$createType70 = $Create.Nullable($$createType69);
-const $$createType71 = adapter$0.NetworkMonitor.createFrom;
+const $$createType71 = adapter$0.LocationMonitor.createFrom;
 const $$createType72 = $Create.Nullable($$createType71);
-const $$createType73 = adapter$0.OverviewChart.createFrom;
+const $$createType73 = adapter$0.NetworkMonitor.createFrom;
 const $$createType74 = $Create.Nullable($$createType73);
-const $$createType75 = adapter$0.ProfileChart.createFrom;
+const $$createType75 = adapter$0.OverviewChart.createFrom;
 const $$createType76 = $Create.Nullable($$createType75);
+const $$createType77 = adapter$0.ProfileChart.createFrom;
+const $$createType78 = $Create.Nullable($$createType77);

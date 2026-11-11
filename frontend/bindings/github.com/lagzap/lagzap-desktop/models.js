@@ -199,6 +199,48 @@ export class JumpListTitle {
     }
 }
 
+export class Log {
+    /**
+     * Creates a new Log instance.
+     * @param {Partial<Log>} [$$source = {}] - The source object to create the Log.
+     */
+    constructor($$source = {}) {
+        if (!("time" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["time"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("type" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["type"] = "";
+        }
+        if (!("payload" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["payload"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Log instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Log}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Log(/** @type {Partial<Log>} */($$parsedSource));
+    }
+}
+
 /**
  * MyTicketsResult is the Wails-friendly shape for ListMyTickets.
  */

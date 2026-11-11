@@ -1,4 +1,5 @@
 import { Events } from "@wailsio/runtime";
+import { GetRecentLogs } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type {
   Log,
   Connection,
@@ -86,6 +87,21 @@ function createMonitoringStore() {
       }
     }
   });
+
+  // A window opened later (Admin Tools) starts with the lines logged before
+  // it opened; the ones that arrived live meanwhile stay after them.
+  void GetRecentLogs()
+    .then((recent) => {
+      if (!recent?.length) return;
+      const firstLive = logs.value[0]?.time;
+      const earlier = firstLive
+        ? recent.filter((line) => new Date(line.time as any) < new Date(firstLive as any))
+        : recent;
+      logs.value = [...(earlier as unknown as Log[]), ...logs.value].slice(-MAX_LOGS);
+    })
+    .catch(() => {
+      // service not running yet: nothing logged
+    });
   
   Events.On("connections", ({ data }: any) => {
     applyConnections(data);

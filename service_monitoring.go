@@ -29,11 +29,13 @@ func (s *Service) startLogging() {
 			return
 		case logEntry = <-subscription:
 		}
-		s.app.Event.Emit("log", Log{
+		entry := Log{
 			Time:    time.Now(),
 			Type:    log.FormatLevel(logEntry.Level),
 			Payload: logEntry.Message,
-		})
+		}
+		rememberLog(entry)
+		s.app.Event.Emit("log", entry)
 	}
 }
 

@@ -11,5 +11,6 @@ export {
     JumpListContent,
     JumpListLabels,
     JumpListTitle,
+    Log,
     MyTicketsResult
 } from "./models.js";

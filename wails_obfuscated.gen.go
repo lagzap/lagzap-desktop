@@ -51,6 +51,7 @@ func init() {
 	application.RegisterBindingMethodID((*Service).GetProfileStates, 3829360106)
 	application.RegisterBindingMethodID((*Service).GetProfiles, 1281462161)
 	application.RegisterBindingMethodID((*Service).GetProxyDNSRequests, 2165260886)
+	application.RegisterBindingMethodID((*Service).GetRecentLogs, 1410091743)
 	application.RegisterBindingMethodID((*Service).GetRegions, 3658744404)
 	application.RegisterBindingMethodID((*Service).GetRouteLevels, 723784787)
 	application.RegisterBindingMethodID((*Service).GetRoutes, 3754855629)
