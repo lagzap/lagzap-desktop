@@ -315,9 +315,10 @@ jobs:
       # (or by the publish step for internal channels) instead of creating one,
       # and prints GitHub's real error when it can't.
       # Update mirrors tried before GitHub (constant.UpdateMirrors): Arvan
-      # object storage and Cloudflare R2, both S3-compatible. The zip goes up
-      # before the manifest, so a manifest never points at a missing file. A
-      # mirror without its secrets is skipped.
+      # object storage and Cloudflare R2, both S3-compatible. They also carry
+      # the setup and checksums for downloads. Everything goes up before the
+      # manifest, so a manifest never points at a missing file. A mirror
+      # without its secrets is skipped.
       - name: Upload update to mirrors
         shell: bash
         env:
@@ -338,7 +339,7 @@ jobs:
               return 0
             fi
             local dest="s3://${bucket}/${CHANNEL}/windows"
-            for f in "bin/${APP_NAME}-windows-amd64.zip" bin/update.manifest.json; do
+            for f in "bin/${APP_NAME}-windows-amd64-setup.exe" bin/SHA256SUMS                 "bin/${APP_NAME}-windows-amd64.zip" bin/update.manifest.json; do
               AWS_ACCESS_KEY_ID="$key" AWS_SECRET_ACCESS_KEY="$secret" AWS_DEFAULT_REGION="$region" \
                 aws s3 cp "$f" "${dest}/$(basename "$f")" --endpoint-url "$endpoint" ${acl:+--acl "$acl"} --only-show-errors
             done
