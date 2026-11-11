@@ -81,6 +81,7 @@ export default {
         nextHint: '{0}: {1}',
     },
     accessOffer: {
+        dismiss: 'پنهان تا اجرای دوباره LagZap',
         betaTitle: 'پیوستن به بتا',
         trialTitle: 'شروع دوره آزمایشی رایگان',
         duration: '{0} روز دسترسی کامل، رایگان.',

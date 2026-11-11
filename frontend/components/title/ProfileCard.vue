@@ -12,7 +12,7 @@ import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.
 import ProfilePingUsage from "~/components/title/ProfilePingUsage.vue";
 import LinkQualityIndicator from "~/components/title/LinkQualityIndicator.vue";
 import { ProfileFlag } from "~/constants/profile";
-import { useProfileChart, useProfileEstimate } from "~/composables/useProfileChart";
+import { useProfileChart } from "~/composables/useProfileChart";
 import { FixProfileLag } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import { useProfileConnectionStats } from "~/composables/useProfileConnectionStats";
 import {
@@ -22,7 +22,6 @@ import {
 import { useLocale } from "vuetify";
 import { isConnectionNotRelayed } from "~/composables/useRelayIssue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
-import { useRouteLevel } from "~/composables/useRouteLevel";
 import RouteLevelText from "~/components/plan/RouteLevelText.vue";
 
 const props = defineProps<{
@@ -83,122 +82,27 @@ const { chart: profileChart, view: chartView } = useProfileChart(props.profile.i
 // Usage → the profile's traffic: the chart below when the card has one,
 // else a popup with the same live chart.
 const trafficDialog = ref(false);
-/** The ping opens the chart below on Latency, as the traffic chip opens it
- * on Traffic. */
+/** The ping switches the chart below to Latency where it is, without
+ * scrolling (the ping itself measures the routes again). */
 function showLatency() {
-  const el = document.getElementById(`profile-chart-${props.profile.id}`);
-  if (!el) return;
   chartView.value = "latency";
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 function showTraffic() {
+  chartView.value = "traffic";
   const el = document.getElementById(`profile-chart-${props.profile.id}`);
   if (el) {
-    chartView.value = "traffic";
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
   trafficDialog.value = true;
 }
 const diagram = computed(() => profileChart.value?.diagram ?? null);
-const { levelName } = useRouteLevel();
 /** Route levels for this profile: the plan's level (shown, as in Route
  * Settings) and what a higher one measured. The level of the route in use
  * is not shown: the fastest route can be a short one on any plan. */
 const routeLevel = computed(() => diagram.value?.level ?? null);
 const interfaceRouteGroups = computed(() => diagram.value?.interfaces ?? []);
 const canFixLag = computed(() => !!diagram.value?.show && !diagram.value?.idle);
-// Go sets this while every route is losing packets.
-const unstable = computed(() => profileChart.value?.latency?.unstable ?? null);
-// LagZap just moved this game off a route that stopped working.
-const { recent: protectedRecent } = useRouteProtection();
-const routeProtected = computed(() => !unstable.value && !!protectedRecent.value[props.profile.id]);
-// Go sets this while Smart mode keeps routes off a lagging transport.
-const transportNote = computed(() => {
-  const warning = profileChart.value?.latency?.transport;
-  if (!warning || unstable.value || routeProtected.value) return null;
-  const lagging = warning.lagging.toUpperCase();
-  const using = warning.lagging === "udp" ? "TCP" : "UDP";
-  const single = (profileChart.value?.interfaces?.length ?? 0) <= 1;
-  return {
-    text: single
-      ? t("$vuetify.title.profile.transportLaggingSingle", lagging, using)
-      : t("$vuetify.title.profile.transportLagging", lagging, warning.iface, using),
-    tip: t("$vuetify.title.profile.transportLaggingTip", lagging, using),
-  };
-});
-// The diagram's "route preview" caption, while it draws a prediction.
-const estimateNote = ref<{ title: string; hint: string } | null>(null);
-const estimate = useProfileEstimate(props.profile.id);
-
-type CardNotice = {
-  icon: string;
-  color?: string;
-  text: string;
-  /** Clicking the notice opens the plans page. */
-  upgrade?: boolean;
-  /** Uppercase lead before text (the route preview). */
-  title?: string;
-  tip?: string;
-};
-// One line under the diagram, most important first: a route rescue, warnings,
-// lag or loss (no longer beside Estimated Ping), the route preview, spare
-// routes, else that all is well while the game is relayed.
-const notice = computed<CardNotice | null>(() => {
-  if (routeProtected.value) {
-    return { icon: "mdi-check-circle", color: "success", text: t("$vuetify.status.routeProtectedGeneric") };
-  }
-  if (unstable.value) {
-    return { icon: "mdi-shield-alert", color: "warning", text: t("$vuetify.networkLatency.unstableNote") };
-  }
-  if (transportNote.value) {
-    return { icon: "mdi-swap-horizontal", color: "warning", text: transportNote.value.text, tip: transportNote.value.tip };
-  }
-  const est = estimate.value;
-  if (est?.note === "loss") {
-    return {
-      icon: "mdi-signal-off",
-      color: "error",
-      text: t("$vuetify.title.profile.routeLossNote", localDigits(Math.round(est.loss ?? 0))),
-      tip: t("$vuetify.title.profile.estimateLossTip"),
-    };
-  }
-  if (est?.note === "lag") {
-    return {
-      icon: "mdi-speedometer-slow",
-      color: "warning",
-      text: t("$vuetify.title.profile.routeLagNote"),
-      tip: t("$vuetify.title.profile.estimateLagTip"),
-    };
-  }
-  if (estimateNote.value) {
-    return { icon: "mdi-map-marker-path", title: estimateNote.value.title, text: estimateNote.value.hint };
-  }
-  // A higher plan's routes measured faster here: say so instead of the
-  // spare routes.
-  const level = routeLevel.value;
-  if (level?.upgrade_level && level.upgrade_ms > 0) {
-    return {
-      icon: "mdi-rocket-launch-outline",
-      color: "amber",
-      upgrade: true,
-      text: t("$vuetify.routeLevel.upgradeNote", levelName(level.upgrade_level), localDigits(level.upgrade_ms)),
-      tip: t("$vuetify.routeLevel.upgradeTip", levelName(level.plan), levelName(level.upgrade_level)),
-    };
-  }
-  const backups = diagram.value?.backups;
-  if (backups?.count) {
-    return {
-      icon: "mdi-information-outline",
-      color: "info",
-      text: t("$vuetify.networkLatency.backupRoutesReady", backups.count, backups.ping),
-    };
-  }
-  if (canFixLag.value && (est?.ping ?? 0) > 0) {
-    return { icon: "mdi-check-circle-outline", color: "success", text: t("$vuetify.title.profile.routeGoodNote") };
-  }
-  return null;
-});
 const fixingLag = ref(false);
 async function fixLag() {
   if (fixingLag.value) return;
@@ -233,11 +137,6 @@ const interfaceSelectItems = computed(() => [
   })),
 ]);
 
-const keepBypassSanctions = computed(
-  () =>
-    props.profile.route_action === "route" &&
-    (props.profile.flags & ProfileFlag.BYPASS_SANCTIONS) !== 0
-);
 
 const profileDescription = computed(() => {
   const desc = props.profile.description;
@@ -388,19 +287,15 @@ const routeSettingsText = computed(() => {
           @fix-lag="fixLag"
           @show-latency="showLatency"
         />
-        <!-- The ping already ends with a separator. -->
-        <template v-if="routeLevel?.plan">
-          <RouteLevelText :level="routeLevel.plan" />
-          <span class="profile-card-subtitle__sep">•</span>
-        </template>
-        <template v-if="showUsageInSubtitle">
-          <template v-if="keepBypassSanctions">
-            <span>{{ t("$vuetify.title.profile.bypassSanctions") }}</span>
+        <!-- The ping already ends with a separator. While a session runs,
+             its speed and traffic take the place of the route level and
+             the profile's options. -->
+        <ProfileActivityChip v-if="showUsageInSubtitle" :profile="props.profile" clickable @click="showTraffic" />
+        <template v-else>
+          <template v-if="routeLevel?.plan">
+            <RouteLevelText :level="routeLevel.plan" />
             <span class="profile-card-subtitle__sep">•</span>
           </template>
-          <ProfileActivityChip :profile="props.profile" clickable @click="showTraffic" />
-        </template>
-        <template v-else>
           {{ routeSettingsText }}
         </template>
       </span>
@@ -509,30 +404,7 @@ const routeSettingsText = computed(() => {
         <!-- The notice sits on the chart's bottom-left corner (loss and
              bursts take the bottom-right), so the chart has the whole area. -->
         <div class="profile-diagram">
-          <RouteDiagram :profile="props.profile" @estimate="estimateNote = $event" />
-          <v-tooltip v-if="notice" :disabled="!notice.tip" location="bottom" max-width="320" open-delay="200">
-            <template #activator="{ props: tipProps }">
-              <div
-                v-bind="tipProps"
-                class="profile-protection profile-notice profile-diagram__notice d-flex align-start ga-2"
-                :class="{ 'profile-notice--upgrade': notice.upgrade }"
-                @click="notice.upgrade && openUpgrade()"
-              >
-                <v-icon
-                  :icon="notice.icon"
-                  size="16"
-                  :color="notice.color"
-                  :class="{ 'text-medium-emphasis': !notice.color }"
-                />
-                <span v-if="notice.title">
-                  <span class="profile-preview-note__title">{{ notice.title }}</span>
-                  <span v-if="notice.text" class="text-medium-emphasis"> · {{ notice.text }}</span>
-                </span>
-                <span v-else>{{ notice.text }}</span>
-              </div>
-            </template>
-            {{ notice.tip }}
-          </v-tooltip>
+          <RouteDiagram :profile="props.profile" />
         </div>
       </template>
       <ProfilePingUsage :profile-id="props.profile.id" :divided="showProfileSections" class="mb-4" />
@@ -547,13 +419,12 @@ const routeSettingsText = computed(() => {
       <v-card rounded="xl">
         <v-card-item>
           <v-card-title>{{ store.localized(props.profile.name) }}</v-card-title>
-          <v-card-subtitle>{{ t("$vuetify.networkLatency.traffic") }}</v-card-subtitle>
           <template #append>
             <v-btn icon="mdi-close" variant="text" size="small" @click="trafficDialog = false" />
           </template>
         </v-card-item>
         <v-card-text>
-          <ProfilePingUsage v-if="trafficDialog" :profile-id="props.profile.id" traffic-only />
+          <ProfilePingUsage v-if="trafficDialog" :profile-id="props.profile.id" popup />
         </v-card-text>
       </v-card>
     </v-dialog>

@@ -7,8 +7,9 @@ import type { OverviewRange } from "~/composables/useOverviewChart";
 
 const props = defineProps<{
   profileId: string;
-  /** Traffic only (usage popup for profiles without a card chart). */
-  trafficOnly?: boolean;
+  /** The usage popup, for profiles without a card chart: no rating, and a
+   * message while nothing has been measured yet. */
+  popup?: boolean;
   /** A divider above the chart, shown and animated with it. */
   divided?: boolean;
 }>();
@@ -16,9 +17,7 @@ const props = defineProps<{
 const { chart, view, latency, traffic, range, setRange, latencyColor, trafficColor } = useProfileChart(props.profileId);
 
 const { t } = useLocale();
-const hasData = computed(() =>
-  props.trafficOnly ? !!traffic.value?.series?.length : !!latency.value?.series?.length || !!traffic.value?.series?.length
-);
+const hasData = computed(() => !!latency.value?.series?.length || !!traffic.value?.series?.length);
 </script>
 
 <template>
@@ -28,9 +27,8 @@ const hasData = computed(() =>
     <div v-if="hasData" class="ping-usage">
       <v-divider v-if="divided" class="my-4" />
       <LiveChart
-        :id="trafficOnly ? undefined : `profile-chart-${profileId}`"
+        :id="popup ? undefined : `profile-chart-${profileId}`"
         v-model:view="view"
-        :fixed-view="trafficOnly ? 'traffic' : undefined"
         :latency="latency"
         :traffic="traffic"
         :range="range"
@@ -40,9 +38,9 @@ const hasData = computed(() =>
         :session-start="chart?.session_start ?? 0"
         @update:range="(r) => setRange(r as OverviewRange)"
       />
-      <QuickRating v-if="!trafficOnly" :profile-id="profileId" />
+      <QuickRating v-if="!popup" :profile-id="profileId" />
     </div>
-    <div v-else-if="trafficOnly" class="text-center text-medium-emphasis py-8 text-body-2">
+    <div v-else-if="popup" class="text-center text-medium-emphasis py-8 text-body-2">
       {{ t("$vuetify.title.profile.noTrafficYet") }}
     </div>
   </Transition>

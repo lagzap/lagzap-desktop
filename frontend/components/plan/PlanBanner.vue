@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useLocale } from "vuetify";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import { useAccessOffer } from "~/composables/useAccessOffer";
@@ -17,13 +17,19 @@ const rejoin = computed(
   () => suspended.value || (status.value === "expired" && !!offer.value && !offer.value.discord.member),
 );
 
-// An offer waiting shows here too, for free accounts as well.
+// An offer waiting shows here too, for free accounts as well. Closing it
+// hides the banner until the app restarts (offerBannerClosed lives for the
+// app's lifetime).
+const offerShown = computed(() => offerOpen.value && !offerBannerClosed.value);
 const show = computed(
-  () => rejoin.value || offerOpen.value || (!!access.value && !active.value && status.value !== "loading"),
+  () =>
+    rejoin.value ||
+    offerShown.value ||
+    (!offerBannerClosed.value && !!access.value && !active.value && status.value !== "loading"),
 );
 const text = computed(() => {
   if (rejoin.value) return t("$vuetify.accessOffer.rejoin");
-  if (offerOpen.value) return offer.value?.kind === "trial" ? t("$vuetify.accessOffer.bannerTrial") : t("$vuetify.accessOffer.bannerBeta");
+  if (offerShown.value) return offer.value?.kind === "trial" ? t("$vuetify.accessOffer.bannerTrial") : t("$vuetify.accessOffer.bannerBeta");
   switch (status.value) {
     case "unavailable":
       return t("$vuetify.plan.unavailable");
@@ -53,10 +59,18 @@ const text = computed(() => {
           {{ t("$vuetify.accessOffer.connectDiscord") }}
         </v-btn>
       </template>
-      <template v-else-if="offerOpen" #actions>
+      <template v-else-if="offerShown" #actions>
         <v-btn variant="tonal" prepend-icon="mdi-gift-outline" @click="screenOpen = true">
           {{ offer?.kind === "trial" ? t("$vuetify.accessOffer.claimTrial") : t("$vuetify.accessOffer.claimBeta") }}
         </v-btn>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          class="ms-1"
+          :aria-label="t('$vuetify.accessOffer.dismiss')"
+          @click="offerBannerClosed = true"
+        />
       </template>
       <template v-else-if="canUpgrade && status !== 'unavailable'" #actions>
         <v-btn variant="tonal" prepend-icon="mdi-cart-outline" @click="openUpgrade">
@@ -66,6 +80,11 @@ const text = computed(() => {
     </v-banner>
   </v-expand-transition>
 </template>
+
+<script lang="ts">
+/** Closed offer banner, shared by every page until the app restarts. */
+const offerBannerClosed = ref(false);
+</script>
 
 <style scoped>
 .plan-banner :deep(.v-banner-text) {

@@ -318,14 +318,15 @@ function latencySeries() {
       return v === 0 && allLost[i] === null ? last || c.y_max * 0.04 : null;
     });
     const values = s.points.map(gap);
-    dots.push(loneDots(s.id, values, color));
+    // Stretches with no sample (a session that paused reporting) are drawn
+    // straight across, not left as holes; timeouts keep their own dots.
     lines.push({
       id: `line:${s.id}`,
       name: s.id,
       type: "line",
       data: values,
       showSymbol: false,
-      connectNulls: false,
+      connectNulls: true,
       lineStyle: { width: s.actual ? 1.75 : 1.25, color },
       itemStyle: { color },
       emphasis: { disabled: true },
@@ -410,11 +411,24 @@ function displayLabel(label: string) {
   return m ? `${t("$vuetify.networkLatency.routeN", localDigits(m[1]))} (${m[2]})` : label;
 }
 
-function speedAxisLabel(v: number, max: number) {
+/** A traffic axis on round steps: four or fewer intervals of 1, 2, 2.5 or 5
+ * times a power of ten, in the unit (B, KB, MB) that suits the peak. */
+function trafficAxis(peak: number) {
+  const power = peak >= 1024 * 1024 ? 2 : peak >= 1024 ? 1 : 0;
+  const unit = 1024 ** power;
+  const raw = Math.max(peak, 1) / 4 / unit;
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  // Whole bytes at least: no fraction-of-a-byte steps.
+  const step = Math.max(power === 0 ? 1 : 0, ([1, 2, 2.5, 5, 10].find((m) => m * magnitude >= raw) ?? 10) * magnitude);
+  const steps = Math.max(1, Math.ceil(Math.max(peak, 1) / unit / step - 1e-9));
+  return { max: steps * step * unit, interval: step * unit, unit, power };
+}
+
+function speedAxisLabel(v: number, axis: { unit: number; power: number }) {
   if (v <= 0) return localDigits(0);
-  if (max >= 1024 * 1024) return `${localDigits(+(v / 1024 / 1024).toFixed(1))} ${speedUnit(2)}`;
-  if (max >= 1024) return `${localDigits(Math.round(v / 1024))} ${speedUnit(1)}`;
-  return `${localDigits(v)} ${speedUnit(0)}`;
+  const n = v / axis.unit;
+  const digits = Number.isInteger(n) ? 0 : Number.isInteger(+(n * 10).toFixed(6)) ? 1 : 2;
+  return `${localDigits(+n.toFixed(digits))} ${speedUnit(axis.power)}`;
 }
 
 function networkTag(network?: string) {
@@ -478,7 +492,8 @@ function option() {
   const c = isLatency ? latency.value! : traffic.value!;
   const series = isLatency ? latencySeries() : trafficSeries();
   const length = pointCount();
-  const yMax = c.y_max;
+  const axis = isLatency ? null : trafficAxis(c.y_max);
+  const yMax = axis ? axis.max : c.y_max;
   return {
     animation: false,
     textStyle: { fontFamily: chartFontFamily() },
@@ -496,11 +511,11 @@ function option() {
         type: "value",
         min: 0,
         max: yMax,
-        interval: yMax / (isLatency ? 5 : 4),
+        interval: axis ? axis.interval : yMax / 5,
         axisLabel: {
           fontSize: 9,
           color: ch.muted,
-          formatter: (v: number) => (isLatency ? localDigits(v) : speedAxisLabel(v, yMax)),
+          formatter: (v: number) => (axis ? speedAxisLabel(v, axis) : localDigits(v)),
         },
         splitLine: { lineStyle: { type: "dashed", opacity: 0.22 } },
       },
@@ -662,6 +677,10 @@ onBeforeUnmount(() => {
             </span>
           </button>
         </div>
+        <span v-if="view === 'traffic'" class="chart-header-legend__key">
+          <span class="chart-header-legend__line" />{{ t("$vuetify.network.download") }}
+          <span class="chart-header-legend__line chart-header-legend__line--dashed" />{{ t("$vuetify.network.upload") }}
+        </span>
       </div>
     </div>
 
@@ -852,5 +871,25 @@ onBeforeUnmount(() => {
   font-size: 0.6rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* Solid: download; dashed: upload (the traffic lines). */
+.chart-header-legend__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.chart-header-legend__line {
+  display: inline-block;
+  width: 14px;
+  border-top: 2px solid currentColor;
+  margin-inline-start: 6px;
+}
+
+.chart-header-legend__line--dashed {
+  border-top-style: dashed;
 }
 </style>

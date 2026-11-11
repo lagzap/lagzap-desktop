@@ -127,12 +127,9 @@ const visible = computed(() => {
   margin: 0 0.15rem;
 }
 
-.profile-activity__down {
-  color: #2196f3;
-}
-
+.profile-activity__down,
 .profile-activity__up {
-  color: rgb(var(--v-theme-error));
+  color: rgba(var(--v-theme-on-surface), 0.87);
 }
 
 .profile-activity__usage {

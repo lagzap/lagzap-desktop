@@ -6,7 +6,6 @@ import Ping from "~/components/network/Ping.vue";
 import CountryFlag from "vue-country-flag-next";
 import { ProfileFlag } from "~/constants/profile";
 import { useRegionSelection } from "~/composables/useRegionSelection";
-import { useProfileEstimate } from "~/composables/useProfileChart";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 
 const props = defineProps<{
@@ -104,21 +103,7 @@ const {
   
   // Ping data
   bestPingMsForCurrentSelection,
-  bestPingScoreForCurrentSelection,
 } = useRegionSelection(props.profile);
-
-// While the game is relayed the button is colored by Go's Estimated Ping, the
-// same number as the card subtitle; the probe-based score is the fallback.
-const estimate = useProfileEstimate(props.profile.id);
-const chipPingScore = computed(() =>
-  (estimate.value?.ping ?? 0) > 0 ? estimate.value!.score : bestPingScoreForCurrentSelection.value
-);
-
-// The button takes the ping's color only while the profile has connections.
-const { connections } = useMonitoringStore();
-const hasConnections = computed(() =>
-  (connections.value ?? []).some((connection) => connection.profile_id === props.profile.id)
-);
 
 const modes = computed(() => [
   { value: "global", icon: "mdi-auto-fix", text: t("$vuetify.title.profile.server.automatic") },
@@ -137,21 +122,6 @@ watch(
   { immediate: true },
 );
 
-function getPingColor(score: number | null): string {
-  if (score === null || score < 0) {
-    return "tertiary";
-  }
-
-  if (score >= 80) {
-    return "green";
-  } else if (score >= 70) {
-    return "lime";
-  } else if (score >= 60) {
-    return "amber";
-  } else {
-    return "red";
-  }
-}
 </script>
 
 <template>
@@ -178,7 +148,6 @@ function getPingColor(score: number | null): string {
           :text="currentSelectionText"
           class="text-none"
           variant="tonal"
-          :color="hasConnections ? getPingColor(chipPingScore) : undefined"
           v-bind="props"
         >
           <template #prepend>

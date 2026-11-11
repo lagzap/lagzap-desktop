@@ -81,6 +81,7 @@
         nextHint: '{0}: {1}',
     },
     accessOffer: {
+        dismiss: 'Hide until LagZap restarts',
         betaTitle: 'Join the beta',
         trialTitle: 'Start free trial',
         duration: '{0} days of full access, free.',

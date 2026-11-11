@@ -59,7 +59,7 @@ const views = computed(() => props.views ?? []);
           type="button"
           class="est-ping__value"
           :style="{ color }"
-          @click.stop="emit('showLatency')"
+          @click.stop="emit('showLatency'); probe()"
         >
           {{ probing ? t("$vuetify.title.profile.probingPing") : formatMs(ping) }}
         </button>

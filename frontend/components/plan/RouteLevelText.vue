@@ -4,9 +4,10 @@ import { useLocale } from "vuetify";
 import { useRouteLevel } from "~/composables/useRouteLevel";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 
-/** The route level as small colored text (Basic orange, Advanced blue,
- * Ultimate lime). Its tooltip says what the level does and what the next
- * one adds; below Ultimate, clicking opens the plans page. */
+/** The route level as small plain text that takes its color (Basic orange,
+ * Advanced blue, Ultimate lime) and a dotted underline on hover. Its tooltip
+ * says what the level does and what the next one adds; below Ultimate,
+ * clicking opens the plans page. */
 const props = defineProps<{ level: number }>();
 
 const LEVEL_COLOR: Record<number, string> = { 0: "#9e9e9e", 1: "#ff9800", 2: "#2196f3", 3: "#cddc39" };
@@ -30,7 +31,7 @@ function onClick() {
         v-bind="tip"
         class="route-level-text"
         :class="{ 'route-level-text--upgradable': upgradable }"
-        :style="{ color: LEVEL_COLOR[level] }"
+        :style="{ '--level-color': LEVEL_COLOR[level] }"
         @click.stop="onClick"
       >
         {{ routesText(level) }}
@@ -55,8 +56,15 @@ function onClick() {
   font-size: 0.75rem;
   font-weight: 500;
   white-space: nowrap;
-  border-bottom: 1px dotted currentColor;
+  border-bottom: 1px dotted transparent;
   cursor: help;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.route-level-text:hover,
+.route-level-text:focus-visible {
+  color: var(--level-color);
+  border-bottom-color: currentColor;
 }
 
 .route-level-text--upgradable {
