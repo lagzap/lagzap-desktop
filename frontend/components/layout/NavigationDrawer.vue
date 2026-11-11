@@ -3,7 +3,6 @@ import { useDisplay } from "vuetify";
 import QuickAccess from "./QuickAccess.vue";
 import { Application, Events, Window } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
-import { ConnectionStatus } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import { StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import DiscordIcon from "~/components/icons/DiscordIcon.vue";
 import XIcon from "~/components/icons/XIcon.vue";
@@ -37,33 +36,6 @@ async function onRoutingToggle(wantOn: boolean | null) {
     console.warn("Routing toggle failed:", error);
   }
 }
-
-const showConnectedCheck = ref(false);
-let connectedTimer: NodeJS.Timeout | null = null;
-
-watch(() => store.connected, (newConnected, oldConnected) => {
-  if (newConnected && !oldConnected) {
-    showConnectedCheck.value = true;
-    if (connectedTimer) {
-      clearTimeout(connectedTimer);
-    }
-    connectedTimer = setTimeout(() => {
-      showConnectedCheck.value = false;
-    }, 1000);
-  } else if (!newConnected) {
-    showConnectedCheck.value = false;
-    if (connectedTimer) {
-      clearTimeout(connectedTimer);
-      connectedTimer = null;
-    }
-  }
-});
-
-onUnmounted(() => {
-  if (connectedTimer) {
-    clearTimeout(connectedTimer);
-  }
-});
 
 onActivated(async () => {
   Events.On("service-started", async () => {
@@ -121,42 +93,7 @@ async function exit() {
             </template>
 
             <template #append>
-              <v-scale-transition leave-absolute>
-                <v-icon
-                  v-if="!store.connected && store.status == ConnectionStatus.StatusReconnecting"
-                  icon="mdi-loading"
-                  color="primary"
-                  size="20"
-                  class="spin-composited me-2"
-                />
-                <v-icon
-                  v-else-if="showConnectedCheck"
-                  icon="mdi-check"
-                  color="green"
-                  size="20"
-                  class="me-2"
-                />
-                <v-chip
-                  v-else-if="!store.connected && store.appReady"
-                  size="x-small"
-                  color="orange"
-                  variant="tonal"
-                  class="me-2"
-                >
-                  {{ t("$vuetify.status.offline") }}
-                </v-chip>
-                <v-icon
-                  v-else-if="!store.connected"
-                  icon="mdi-lan-disconnect"
-                  color="red"
-                  size="20"
-                  class="me-2"
-                />
-                <LatencyChip
-                  v-else
-                  :latency="store.latency"
-                />
-              </v-scale-transition>
+              <LatencyChip :latency="store.latency" />
             </template>
           </v-list-item>
         </template>

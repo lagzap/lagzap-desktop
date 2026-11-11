@@ -8,6 +8,7 @@ import GamerTagGate from "~/components/account/GamerTagGate.vue";
 import TeamInvitePopup from "~/components/team/TeamInvitePopup.vue";
 import ActiveTitleLimit from "~/components/title/ActiveTitleLimit.vue";
 import AccessOfferDialog from "~/components/plan/AccessOfferDialog.vue";
+import CloudStatusCard from "~/components/layout/CloudStatusCard.vue";
 
 const { mobile } = useDisplay();
 const { t } = useLocale();
@@ -179,6 +180,7 @@ function expandOptimize() {
     <TeamInvitePopup />
     <ActiveTitleLimit />
     <AccessOfferDialog />
+    <CloudStatusCard />
 
     <Teleport to="body">
       <v-btn
