@@ -89,10 +89,10 @@ function transports(r: { udp: boolean; tcp: boolean }): string {
               <div class="min-w-0 flex-grow-1">
                 <div class="d-flex align-center flex-wrap ga-2">
                   <span class="text-h6 font-weight-medium text-truncate">{{ details.city }}</span>
-                  <v-chip :color="STATUS_COLOR[details.status] ?? 'grey'" size="x-small" variant="tonal" label>
+                  <v-chip :color="STATUS_COLOR[details.status] ?? 'grey'" size="x-small" variant="tonal">
                     {{ t(`$vuetify.networkLatency.servers.status.${details.status || "not_measured"}`) }}
                   </v-chip>
-                  <v-chip v-if="inUse" color="primary" size="x-small" variant="tonal" label prepend-icon="mdi-transit-connection-variant">
+                  <v-chip v-if="inUse" color="primary" size="x-small" variant="tonal" prepend-icon="mdi-transit-connection-variant">
                     {{ t("$vuetify.networkLatency.monitor.inUse") }}
                   </v-chip>
                 </div>
@@ -222,7 +222,7 @@ function transports(r: { udp: boolean; tcp: boolean }): string {
                       <template v-else>{{ t("$vuetify.networkLatency.servers.routeBlocked") }}</template>
                     </span>
                   </div>
-                  <v-chip v-if="r.in_use" size="x-small" color="primary" variant="tonal" label class="flex-shrink-0">
+                  <v-chip v-if="r.in_use" size="x-small" color="primary" variant="tonal" class="flex-shrink-0">
                     {{ t("$vuetify.networkLatency.monitor.inUse") }}
                   </v-chip>
                   <span
@@ -246,7 +246,7 @@ function transports(r: { udp: boolean; tcp: boolean }): string {
                   <div v-for="conn in details.connections" :key="conn.name" class="loc-row">
                     <v-icon icon="mdi-lan-connect" size="18" class="text-medium-emphasis flex-shrink-0" />
                     <span class="text-body-2 text-truncate flex-grow-1">{{ conn.name }}</span>
-                    <v-chip v-if="conn.fastest" size="x-small" color="success" variant="tonal" label class="flex-shrink-0">
+                    <v-chip v-if="conn.fastest" size="x-small" color="success" variant="tonal" class="flex-shrink-0">
                       {{ t("$vuetify.networkLatency.servers.fastest") }}
                     </v-chip>
                     <v-chip
@@ -254,7 +254,6 @@ function transports(r: { udp: boolean; tcp: boolean }): string {
                       size="x-small"
                       color="error"
                       variant="tonal"
-                      label
                       class="flex-shrink-0"
                     >
                       {{ t("$vuetify.networkLatency.monitor.statusNoInternet") }}
@@ -280,7 +279,6 @@ function transports(r: { udp: boolean; tcp: boolean }): string {
                       size="x-small"
                       :color="STATUS_COLOR[srv.status] ?? 'grey'"
                       variant="tonal"
-                      label
                       class="flex-shrink-0"
                     >
                       {{ t(`$vuetify.networkLatency.servers.status.${srv.status || "not_measured"}`) }}

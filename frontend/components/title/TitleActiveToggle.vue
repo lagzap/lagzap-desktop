@@ -87,7 +87,6 @@ async function onToggle() {
         size="x-small"
         variant="elevated"
         rounded="xl"
-        label
         :disabled="!store.appReady || store.planBlocked"
         @click.stop.prevent="onToggle"
       >

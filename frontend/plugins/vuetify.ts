@@ -107,7 +107,11 @@ export default defineNuxtPlugin({
     defaults: {
       global: {
         ripple: true,
-      }
+      },
+      // Chips are pills everywhere (md3 makes them nearly square).
+      VChip: {
+        rounded: "pill",
+      },
     },
     theme: {
       // Default dark for SSR/prerender; client settings plugin syncs from System/prefs.

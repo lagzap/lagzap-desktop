@@ -104,7 +104,7 @@ const roles = computed(() => [
         <v-icon :icon="icon" :color="color" size="20" />
         <span class="text-subtitle-1 font-weight-medium text-truncate flex-shrink-0 adapter-card__name">{{ name }}</span>
         <span v-if="monitor?.isp" class="text-caption text-medium-emphasis text-truncate" :title="ispTip">{{ monitor.isp }}</span>
-        <v-chip v-if="offline" color="error" size="x-small" variant="tonal" label>
+        <v-chip v-if="offline" color="error" size="x-small" variant="tonal">
           {{ t("$vuetify.networkLatency.monitor.statusNoInternet") }}
         </v-chip>
         <v-spacer />

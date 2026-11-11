@@ -47,10 +47,10 @@ const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E5
         <v-icon :icon="icon" :color="color" size="20" />
         <span class="text-subtitle-1 font-weight-medium text-truncate flex-shrink-0 iface-card__name">{{ iface.name }}</span>
         <span v-if="iface.isp" class="text-caption text-medium-emphasis text-truncate" :title="ispTip">{{ iface.isp }}</span>
-        <v-chip v-if="iface.default && !single" size="x-small" variant="tonal" label>
+        <v-chip v-if="iface.default && !single" size="x-small" variant="tonal">
           {{ t("$vuetify.networkLatency.monitor.default") }}
         </v-chip>
-        <v-chip :color="statusColor" size="x-small" variant="tonal" label>
+        <v-chip :color="statusColor" size="x-small" variant="tonal">
           {{ statusLabel }}
         </v-chip>
         <v-spacer />
@@ -130,7 +130,7 @@ const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E5
         <div v-for="srv in iface.servers" :key="srv.node_id" class="iface-card__server">
           <CountryFlag v-if="srv.country" :country="srv.country" size="small" class="flex-shrink-0" />
           <span class="text-body-2 text-truncate">{{ srv.city || srv.name }}</span>
-          <v-chip v-if="srv.live" size="x-small" color="primary" variant="tonal" label class="flex-shrink-0">
+          <v-chip v-if="srv.live" size="x-small" color="primary" variant="tonal" class="flex-shrink-0">
             {{ t("$vuetify.networkLatency.monitor.inUse") }}
           </v-chip>
           <v-spacer />

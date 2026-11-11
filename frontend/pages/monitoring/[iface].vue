@@ -95,7 +95,7 @@ function routeLabel(via?: string[] | null): string {
               <div class="min-w-0">
                 <div class="d-flex align-center ga-2">
                   <span class="text-h6 font-weight-medium text-truncate">{{ iface.name }}</span>
-                  <v-chip :color="STATUS_COLOR[iface.status] ?? 'grey'" size="x-small" variant="tonal" label>
+                  <v-chip :color="STATUS_COLOR[iface.status] ?? 'grey'" size="x-small" variant="tonal">
                     {{ t(`$vuetify.networkLatency.monitor.${STATUS_KEY[iface.status] ?? "statusOnline"}`) }}
                   </v-chip>
                 </div>
@@ -254,7 +254,7 @@ function routeLabel(via?: string[] | null): string {
                 <div v-for="srv in shownServers" :key="srv.node_id" class="iface-row iface-row--server">
                   <CountryFlag v-if="srv.country" :country="srv.country" size="small" class="iface-flag" />
                   <span class="text-body-2 text-truncate iface-row__city">{{ srv.city || srv.name }}</span>
-                  <v-chip v-if="srv.live" size="x-small" color="primary" variant="tonal" label class="flex-shrink-0">
+                  <v-chip v-if="srv.live" size="x-small" color="primary" variant="tonal" class="flex-shrink-0">
                     {{ t("$vuetify.networkLatency.monitor.inUse") }}
                   </v-chip>
                   <div class="iface-bar">
