@@ -1,8 +1,8 @@
 @font-face {
   font-style: normal;
   font-weight: 100 900;
-  src: local('Vazirmatn'), 
-       url('Vazirmatn.woff2') format('woff2 supports variations'),
+  /* The bundled file, never a copy installed on the PC: those differ. */
+  src: url('Vazirmatn.woff2') format('woff2 supports variations'),
        url('Vazirmatn.woff2') format('woff2-variations');
   font-family: 'Vazirmatn';
   font-display: swap;

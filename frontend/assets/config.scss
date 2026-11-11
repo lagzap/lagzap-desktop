@@ -1,5 +1,8 @@
-$font: "Vazirmatn", "Roboto";
-$header-font: "Vazirmatn", "Roboto";
+// Persian from the bundled Vazirmatn (its @font-face covers only that
+// script), everything else from the bundled Roboto. sans-serif last, so a
+// missing font never falls back to the browser's serif.
+$font: "Vazirmatn", "Roboto Variable", "Roboto", sans-serif;
+$header-font: "Vazirmatn", "Roboto Variable", "Roboto", sans-serif;
 
 @use "vuetify" with (
   $body-font-family: $font,

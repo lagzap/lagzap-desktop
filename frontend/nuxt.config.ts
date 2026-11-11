@@ -65,6 +65,7 @@ export default defineNuxtConfig({
   },
 
   css: [
+    "@fontsource-variable/roboto/wght.css",
     "~/assets/fonts/style.css",
     "~/assets/config.scss",
     "~/assets/scss/vuetify.scss",

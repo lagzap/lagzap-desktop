@@ -209,7 +209,7 @@ function updateChart() {
         `${Math.max(0, p.value?.[2] ?? 0)}`,
       position: "inside",
       fontSize: 10,
-      fontFamily: "Roboto",
+      fontFamily: chartFontFamily(),
       color: "#fff",
       textBorderColor: "rgba(0,0,0,0.6)",
       textBorderWidth: 2,

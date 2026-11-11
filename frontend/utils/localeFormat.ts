@@ -79,7 +79,7 @@ export function chartFontFamily(): string {
     const family = getComputedStyle(document.body).fontFamily;
     if (family) return family;
   }
-  return '"Vazirmatn", "Roboto", sans-serif';
+  return '"Vazirmatn", "Roboto Variable", "Roboto", sans-serif';
 }
 
 const regionNames = new Map<string, Intl.DisplayNames>();
