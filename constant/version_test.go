@@ -137,7 +137,7 @@ func TestUpdateMirrorsAndChannel(t *testing.T) {
 
 	UpdateMirrors = ""
 	if got := UpdateMirrorURLs(); len(got) != 2 ||
-		got[0] != "https://updates.lagzap.ir/{{channel}}/windows/update.manifest.json" ||
+		got[0] != "https://updates.lagzap.ir/lagzap-updates/{{channel}}/windows/update.manifest.json" ||
 		got[1] != "https://updates.lagzap.com/{{channel}}/windows/update.manifest.json" {
 		t.Fatalf("defaults: %v", got)
 	}

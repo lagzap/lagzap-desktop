@@ -23,10 +23,10 @@ var ReleasesRepo = "lagzap/lagzap-releases"
 // empty, DefaultUpdateMirrors are used.
 var UpdateMirrors = ""
 
-// DefaultUpdateMirrors: Arvan (updates.lagzap.ir), then Cloudflare R2
-// (updates.lagzap.com). Each domain serves its bucket's root, where release
-// CI uploads <channel>/windows/.
-const DefaultUpdateMirrors = "https://updates.lagzap.ir/{{channel}}/windows/update.manifest.json," +
+// DefaultUpdateMirrors: Arvan (updates.lagzap.ir, path-style: the bucket
+// name comes first), then Cloudflare R2 (updates.lagzap.com serves its
+// bucket's root). Release CI uploads <channel>/windows/ into each bucket.
+const DefaultUpdateMirrors = "https://updates.lagzap.ir/lagzap-updates/{{channel}}/windows/update.manifest.json," +
 	"https://updates.lagzap.com/{{channel}}/windows/update.manifest.json"
 
 // UpdateMirrorURLs is UpdateMirrors (or DefaultUpdateMirrors) as a list.
