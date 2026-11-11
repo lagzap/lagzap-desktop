@@ -17,6 +17,42 @@ var FileVersion = "0.0.0.0"
 // for the auto-updater. Override via ldflags if needed.
 var ReleasesRepo = "lagzap/lagzap-releases"
 
+// UpdateMirrors are update manifest URLs tried before GitHub Releases, in
+// order and comma separated (Arvan, then Cloudflare). {{channel}} in a URL
+// becomes UpdateChannel(). Set via ldflags from the UPDATE_MIRRORS repository
+// variable; empty means GitHub only.
+var UpdateMirrors = ""
+
+// UpdateMirrorURLs is UpdateMirrors as a list.
+func UpdateMirrorURLs() []string {
+	var out []string
+	for _, u := range strings.Split(UpdateMirrors, ",") {
+		if u = strings.TrimSpace(u); u != "" {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
+// UpdateChannel is the release channel exactly as release CI names it in
+// the update manifest (dev | alpha | beta | rc | stable). A mirror answers
+// "no update" to any other name, so it must match.
+func UpdateChannel() string {
+	v := strings.ToLower(SemVer())
+	switch {
+	case strings.Contains(v, "-dev"):
+		return "dev"
+	case strings.Contains(v, "-alpha"):
+		return "alpha"
+	case strings.Contains(v, "-beta"):
+		return "beta"
+	case strings.Contains(v, "-rc"):
+		return "rc"
+	default:
+		return "stable"
+	}
+}
+
 // DevBuild is set to "true" via ldflags for wails dev backend builds.
 var DevBuild = ""
 
@@ -33,7 +69,6 @@ func IsDevBuild() bool {
 // accept CheckForUpdates calls. Off for normal dev builds unless
 // ForceUpdaterInDev is set.
 func UpdaterEnabled() bool {
-	return false
 	return !IsDevBuild() || ForceUpdaterInDev
 }
 

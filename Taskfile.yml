@@ -18,6 +18,7 @@ vars:
   VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
   BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
   RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
+  UPDATE_MIRRORS: '{{.UPDATE_MIRRORS | default ""}}'
   CORE_VERSION:
     sh: |
       if [ -f ./../../cmd/internal/read_tag/main.go ]; then
@@ -44,6 +45,7 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
+          UPDATE_MIRRORS: '{{.UPDATE_MIRRORS}}'
 
   build:backend:
     summary: Builds the Go backend only (used by wails dev)
@@ -53,6 +55,7 @@ tasks:
           VERSION: '{{.VERSION}}'
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
+          UPDATE_MIRRORS: '{{.UPDATE_MIRRORS}}'
 
   package:
     summary: Packages a build of the application
@@ -66,6 +69,7 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
+          UPDATE_MIRRORS: '{{.UPDATE_MIRRORS}}'
 
   release:windows:
     summary: Build Windows release artifacts (setup, zip, checksums)
@@ -79,6 +83,7 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
+          UPDATE_MIRRORS: '{{.UPDATE_MIRRORS}}'
 
   # Release CI runs these three in order and code-signs between them:
   # LagZap.exe after build, setup.exe after package (release-windows.yml).
@@ -94,6 +99,7 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
+          UPDATE_MIRRORS: '{{.UPDATE_MIRRORS}}'
 
   release:windows:package:
     summary: Wrap the signed LagZap.exe in setup.exe (step 2 of 3)
@@ -117,5 +123,6 @@ tasks:
     env:
       VERSION: '{{.VERSION}}'
       RELEASES_REPO: '{{.RELEASES_REPO}}'
+      UPDATE_MIRRORS: '{{.UPDATE_MIRRORS}}'
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}

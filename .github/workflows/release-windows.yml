@@ -194,6 +194,7 @@ jobs:
           RELEASES_REPO: ${{ steps.ver.outputs.releases_repo }}
           CORE_VERSION: unknown
           BUILD_TYPE: production
+          UPDATE_MIRRORS: ${{ vars.UPDATE_MIRRORS }}
           GOPRIVATE: github.com/lagzap/*
           GONOSUMDB: github.com/lagzap/*
           GIT_TERMINAL_PROMPT: "0"
@@ -203,6 +204,7 @@ jobs:
             VERSION="$VERSION" \
             BUILD_NUMBER="$BUILD_NUMBER" \
             RELEASES_REPO="$RELEASES_REPO" \
+            UPDATE_MIRRORS="$UPDATE_MIRRORS" \
             CORE_VERSION="$CORE_VERSION" \
             BUILD_TYPE=production
 
@@ -312,6 +314,41 @@ jobs:
       # never fails the release. Edits a release made by hand for the tag
       # (or by the publish step for internal channels) instead of creating one,
       # and prints GitHub's real error when it can't.
+      # Update mirrors tried before GitHub (constant.UpdateMirrors): Arvan
+      # object storage and Cloudflare R2, both S3-compatible. The zip goes up
+      # before the manifest, so a manifest never points at a missing file. A
+      # mirror without its secrets is skipped.
+      - name: Upload update to mirrors
+        shell: bash
+        env:
+          CHANNEL: ${{ steps.ver.outputs.channel }}
+          ARVAN_S3_ENDPOINT: ${{ secrets.ARVAN_S3_ENDPOINT }}
+          ARVAN_S3_BUCKET: ${{ secrets.ARVAN_S3_BUCKET }}
+          ARVAN_S3_ACCESS_KEY: ${{ secrets.ARVAN_S3_ACCESS_KEY }}
+          ARVAN_S3_SECRET_KEY: ${{ secrets.ARVAN_S3_SECRET_KEY }}
+          CF_R2_ENDPOINT: ${{ secrets.CF_R2_ENDPOINT }}
+          CF_R2_BUCKET: ${{ secrets.CF_R2_BUCKET }}
+          CF_R2_ACCESS_KEY: ${{ secrets.CF_R2_ACCESS_KEY }}
+          CF_R2_SECRET_KEY: ${{ secrets.CF_R2_SECRET_KEY }}
+        run: |
+          upload() {
+            local name=$1 endpoint=$2 bucket=$3 key=$4 secret=$5 region=$6 acl=$7
+            if [ -z "$endpoint" ] || [ -z "$bucket" ] || [ -z "$key" ] || [ -z "$secret" ]; then
+              echo "$name: secrets not set, skipped"
+              return 0
+            fi
+            local dest="s3://${bucket}/${CHANNEL}/windows"
+            for f in "bin/${APP_NAME}-windows-amd64.zip" bin/update.manifest.json; do
+              AWS_ACCESS_KEY_ID="$key" AWS_SECRET_ACCESS_KEY="$secret" AWS_DEFAULT_REGION="$region" \
+                aws s3 cp "$f" "${dest}/$(basename "$f")" --endpoint-url "$endpoint" ${acl:+--acl "$acl"} --only-show-errors
+            done
+            echo "$name: uploaded to ${dest}"
+          }
+          # Arvan objects are made public per object; R2 has no object ACLs
+          # (its bucket's public domain serves them).
+          upload arvan "$ARVAN_S3_ENDPOINT" "$ARVAN_S3_BUCKET" "$ARVAN_S3_ACCESS_KEY" "$ARVAN_S3_SECRET_KEY" default public-read
+          upload cloudflare "$CF_R2_ENDPOINT" "$CF_R2_BUCKET" "$CF_R2_ACCESS_KEY" "$CF_R2_SECRET_KEY" auto ""
+
       - name: Mirror release notes on lagzap-desktop (private)
         continue-on-error: true
         shell: bash

@@ -13,6 +13,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/updater"
+	"github.com/wailsapp/wails/v3/pkg/updater/providers/endpoint"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
 
@@ -154,7 +155,7 @@ func initUpdater(app *application.App) bool {
 
 	if err := app.Updater.Init(updater.Config{
 		CurrentVersion: constant.SemVer(),
-		Providers:      []updater.Provider{gh},
+		Providers:      append(mirrorProviders(), gh),
 		PublicKey:      updaterPublicKey,
 		Channel:        constant.Channel(),
 		// fixedSizeUpdaterHandle omits WindowSizer so Wails cannot shrink this
@@ -363,4 +364,21 @@ func runUpdateCheck(app *application.App, autoInstall bool) error {
 		}
 	}()
 	return nil
+}
+
+// mirrorProviders are the update mirrors (constant.UpdateMirrors), tried in
+// order before GitHub. Each serves the signed update.manifest.json with the
+// update zip next to it; the pinned updaterPublicKey verifies whatever they
+// serve, so a mirror cannot ship a tampered update.
+func mirrorProviders() []updater.Provider {
+	var out []updater.Provider
+	for _, u := range constant.UpdateMirrorURLs() {
+		p, err := endpoint.New(endpoint.Config{URL: u, Channel: constant.UpdateChannel()})
+		if err != nil {
+			slog.Warn("updater: mirror skipped", "url", u, "error", err)
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }

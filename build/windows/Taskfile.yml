@@ -28,6 +28,7 @@ tasks:
           VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
           CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
           RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
+          UPDATE_MIRRORS: '{{.UPDATE_MIRRORS | default ""}}'
       - cmd: powershell Remove-Item -ErrorAction SilentlyContinue *.syso
         platforms: [windows]
       - cmd: rm -f *.syso
@@ -37,6 +38,7 @@ tasks:
       CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
       BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
       RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
+      UPDATE_MIRRORS: '{{.UPDATE_MIRRORS | default ""}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
     env:
       GOOS: windows
@@ -47,6 +49,7 @@ tasks:
       CORE_VERSION: '{{.CORE_VERSION | default "unknown"}}'
       BUILD_NUMBER: '{{.BUILD_NUMBER | default "0"}}'
       RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
+      UPDATE_MIRRORS: '{{.UPDATE_MIRRORS | default ""}}'
 
   compile:
     summary: Compile LagZap.exe
@@ -56,10 +59,11 @@ tasks:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
       RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
+      UPDATE_MIRRORS: '{{.UPDATE_MIRRORS | default ""}}'
       BUILD_TYPE: '{{.BUILD_TYPE | default "production"}}'
       BUILD_FLAGS: >-
         {{if eq .BUILD_TYPE "production"}}
-        -tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -w -s -H windowsgui -checklinkname=0"
+        -tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -trimpath -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.UpdateMirrors={{.UPDATE_MIRRORS}}' -w -s -H windowsgui -checklinkname=0"
         {{else}}
         -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0 -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -H windowsgui -checklinkname=0" -gcflags=all="-l"
         {{end}}
@@ -85,6 +89,7 @@ tasks:
       VERSION: '{{.VERSION | default "v0.0.0-dev"}}'
       CORE_VERSION: '{{.CORE_VERSION | default "v0.0.0-dev"}}'
       RELEASES_REPO: '{{.RELEASES_REPO | default "lagzap/lagzap-releases"}}'
+      UPDATE_MIRRORS: '{{.UPDATE_MIRRORS | default ""}}'
       BUILD_FLAGS: >-
         -tags debug,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0
         -ldflags="-X 'github.com/lagzap/lagzap-desktop/constant.Version={{.VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.ReleasesRepo={{.RELEASES_REPO}}' -X 'github.com/lagzap/lagzap/constant.Version={{.CORE_VERSION}}' -X 'github.com/lagzap/lagzap-desktop/constant.DevBuild=true' -H windowsgui -checklinkname=0"
@@ -109,6 +114,7 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
+          UPDATE_MIRRORS: '{{.UPDATE_MIRRORS}}'
       - task: rename:artifacts
       - task: create:update:zip
       - task: create:checksums
@@ -165,6 +171,7 @@ tasks:
           CORE_VERSION: '{{.CORE_VERSION}}'
           BUILD_NUMBER: '{{.BUILD_NUMBER}}'
           RELEASES_REPO: '{{.RELEASES_REPO}}'
+          UPDATE_MIRRORS: '{{.UPDATE_MIRRORS}}'
     cmds:
       - task: nsis:compile
 

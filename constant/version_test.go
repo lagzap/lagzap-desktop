@@ -116,3 +116,41 @@ func TestNumericFileVersion(t *testing.T) {
 		t.Fatalf("prefer FileVersion: got %q", got)
 	}
 }
+
+// Release builds (beta included) check for updates; wails dev builds do not.
+func TestUpdaterEnabledOutsideDevBuilds(t *testing.T) {
+	orig := DevBuild
+	t.Cleanup(func() { DevBuild = orig })
+	DevBuild = ""
+	if !UpdaterEnabled() {
+		t.Fatal("updater off in a release build")
+	}
+	DevBuild = "true"
+	if UpdaterEnabled() != ForceUpdaterInDev {
+		t.Fatal("updater on in a dev build")
+	}
+}
+
+func TestUpdateMirrorsAndChannel(t *testing.T) {
+	origMirrors, origVersion := UpdateMirrors, Version
+	t.Cleanup(func() { UpdateMirrors, Version = origMirrors, origVersion })
+
+	UpdateMirrors = ""
+	if got := UpdateMirrorURLs(); len(got) != 0 {
+		t.Fatalf("empty: %v", got)
+	}
+	UpdateMirrors = " https://a.example/{{channel}}/m.json , ,https://b.example/m.json"
+	if got := UpdateMirrorURLs(); len(got) != 2 || got[0] != "https://a.example/{{channel}}/m.json" {
+		t.Fatalf("got %v", got)
+	}
+
+	for version, want := range map[string]string{
+		"v0.1.1-beta.2": "beta", "0.2.0-rc.1": "rc", "0.2.0": "stable",
+		"0.2.0-alpha.3": "alpha", "v0.0.0-dev": "dev",
+	} {
+		Version = version
+		if got := UpdateChannel(); got != want {
+			t.Errorf("%s: got %q, want %q", version, got, want)
+		}
+	}
+}
