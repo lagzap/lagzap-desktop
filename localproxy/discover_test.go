@@ -173,3 +173,18 @@ func TestIsLocalHost(t *testing.T) {
 		}
 	}
 }
+
+// The local coordinator only for dev builds on the dev channel.
+func TestDevEndpointsOnlyOnDevChannel(t *testing.T) {
+	if got := devEndpoints(true, "dev"); !reflect.DeepEqual(got, []string{DevCoordinatorEndpoint}) {
+		t.Fatalf("dev build, dev channel: %v", got)
+	}
+	for _, c := range []struct {
+		dev     bool
+		channel string
+	}{{true, "beta"}, {true, "prod"}, {false, "dev"}} {
+		if got := devEndpoints(c.dev, c.channel); got != nil {
+			t.Errorf("dev=%v channel=%s: %v", c.dev, c.channel, got)
+		}
+	}
+}

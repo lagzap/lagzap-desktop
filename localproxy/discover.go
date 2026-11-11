@@ -22,9 +22,16 @@ var lagZapRoots = []string{"lagzap-network.ir", "lagzap.network", "lagzap.one"}
 // discovered ones.
 const DevCoordinatorEndpoint = "http://localhost:4000"
 
-// buildEndpoints are the endpoints this build tries before discovery.
+// buildEndpoints are the endpoints this build tries before discovery: the
+// local coordinator, for dev builds on the dev channel only. A dev build of
+// another channel (wails3 task dev VERSION=v0.1.3-beta) uses that channel's
+// discovered servers alone.
 func buildEndpoints() []string {
-	if constant.IsDevBuild() {
+	return devEndpoints(constant.IsDevBuild(), constant.Channel())
+}
+
+func devEndpoints(devBuild bool, channel string) []string {
+	if devBuild && channel == "dev" {
 		return []string{DevCoordinatorEndpoint}
 	}
 	return nil
