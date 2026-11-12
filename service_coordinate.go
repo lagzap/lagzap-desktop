@@ -168,8 +168,8 @@ func (s *Service) GetAccessOffer() *adapter.AccessOffer {
 	return nil
 }
 
-// CheckAccessOffer refetches the account and returns the offer; the offer
-// screen polls it while open.
+// CheckAccessOffer refetches the account and returns the offer; polled while
+// the Discord login is open in the browser.
 func (s *Service) CheckAccessOffer() *adapter.AccessOffer {
 	if provider, ok := s.coordinator.(adapter.AccessOfferProvider); ok && s.IsReady() {
 		return provider.CheckAccessOffer()
@@ -177,12 +177,13 @@ func (s *Service) CheckAccessOffer() *adapter.AccessOffer {
 	return nil
 }
 
-// ClaimAccess claims the offer's campaign.
-func (s *Service) ClaimAccess(campaign string) adapter.AccessClaimResult {
+// StartDiscordTrial returns the Discord login that grants the offer, to open
+// in the system browser as it is, or the reason it was refused.
+func (s *Service) StartDiscordTrial() adapter.DiscordTrialStart {
 	if provider, ok := s.coordinator.(adapter.AccessOfferProvider); ok && s.IsReady() {
-		return provider.ClaimAccess(campaign)
+		return provider.StartDiscordTrial()
 	}
-	return adapter.AccessClaimResult{Code: adapter.AccessClaimUnreachable}
+	return adapter.DiscordTrialStart{Code: adapter.AccessStartUnreachable}
 }
 
 // GetRouteLevels is the plan's route level and the biggest gain a higher

@@ -7,45 +7,6 @@
 import { Create as $Create } from "@wailsio/runtime";
 
 /**
- * AccessClaimResult is POST /access/claim's outcome: Ok, or the Code the
- * server refused it with (a blocked reason, or AccessClaimUnreachable).
- */
-export class AccessClaimResult {
-    /**
-     * Creates a new AccessClaimResult instance.
-     * @param {Partial<AccessClaimResult>} [$$source = {}] - The source object to create the AccessClaimResult.
-     */
-    constructor($$source = {}) {
-        if (!("ok" in $$source)) {
-            /**
-             * @member
-             * @type {boolean}
-             */
-            this["ok"] = false;
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
-            this["code"] = undefined;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new AccessClaimResult instance from a string or object.
-     * @param {any} [$$source = {}]
-     * @returns {AccessClaimResult}
-     */
-    static createFrom($$source = {}) {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new AccessClaimResult(/** @type {Partial<AccessClaimResult>} */($$parsedSource));
-    }
-}
-
-/**
  * AccessOffer is /data's "access_offer": absent when nothing is on offer.
  */
 export class AccessOffer {
@@ -82,6 +43,16 @@ export class AccessOffer {
              * @type {AccessOfferDiscord}
              */
             this["discord"] = (new AccessOfferDiscord());
+        }
+        if (!("can_start" in $$source)) {
+            /**
+             * CanStart: the Discord button is shown (StartDiscordTrial). It stays
+             * true when only the linked Discord account is the problem: logging in
+             * with another one fixes that.
+             * @member
+             * @type {boolean}
+             */
+            this["can_start"] = false;
         }
         if (!("claimable" in $$source)) {
             /**
@@ -1121,6 +1092,61 @@ export class DiagramView {
             $$parsedSource["estimate"] = $$createField1_0($$parsedSource["estimate"]);
         }
         return new DiagramView(/** @type {Partial<DiagramView>} */($$parsedSource));
+    }
+}
+
+/**
+ * DiscordTrialStart is POST /discord/trial/start's outcome: the Discord login
+ * URL to open in the system browser as it is (valid once, until ExpiresAt),
+ * or the Code the server refused it with (a blocked reason, or
+ * AccessStartUnreachable).
+ */
+export class DiscordTrialStart {
+    /**
+     * Creates a new DiscordTrialStart instance.
+     * @param {Partial<DiscordTrialStart>} [$$source = {}] - The source object to create the DiscordTrialStart.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["url"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["campaign"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["expires_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["code"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DiscordTrialStart instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DiscordTrialStart}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DiscordTrialStart(/** @type {Partial<DiscordTrialStart>} */($$parsedSource));
     }
 }
 

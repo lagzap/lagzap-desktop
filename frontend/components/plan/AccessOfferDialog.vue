@@ -1,75 +1,47 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useLocale } from "vuetify";
-import { FIXABLE_REFUSALS, useAccessOffer } from "~/composables/useAccessOffer";
+import { useAccessOffer } from "~/composables/useAccessOffer";
+import { reasonKey } from "~/utils/accessOffer";
 import { localDigits } from "~/utils/localeFormat";
-import SensitiveText from "~/components/common/SensitiveText.vue";
 
-/** "Join the beta" / "Start free trial": connect Discord (and join the
- * server), then claim. The /data poll runs every 5 seconds while it is open. */
+/** "Get a free trial with Discord": one click opens Discord's login in the
+ * browser; the server links the account, adds it to our server and starts
+ * the plan. Meanwhile this shows "Finish in your browser" and polls /data. */
 const { t } = useLocale();
-const { offer, screenOpen, discordDone, startPolling, stopPolling, connectDiscord, claim } = useAccessOffer();
+const { offer, screenOpen, waiting, loginExpired, startDiscord, reopenLogin } = useAccessOffer();
 
-const claiming = ref(false);
+const starting = ref(false);
+/** Why the last start was refused (empty: it was not). */
 const refusal = ref("");
 
 const isTrial = computed(() => offer.value?.kind === "trial");
-const KNOWN = [
-  "account_used",
-  "discord_used",
-  "device_used",
-  "discord_not_linked",
-  "discord_not_member",
-  "discord_too_new",
-  "has_plan",
-  "no_campaign",
-  "unknown_device",
-  "revoked",
-  "unreachable",
-];
-const blocked = computed(() => refusal.value || offer.value?.blocked_reason || "");
-const final = computed(() => !!blocked.value && !FIXABLE_REFUSALS.includes(blocked.value));
-const blockedText = computed(() =>
-  t(`$vuetify.accessOffer.blocked.${KNOWN.includes(blocked.value) ? blocked.value : "other"}`),
-);
-const discordStep = computed(() => {
-  const d = offer.value?.discord;
-  if (!d?.linked) return t("$vuetify.accessOffer.discordConnect");
-  if (!d.member) return t("$vuetify.accessOffer.discordJoin");
-  return t("$vuetify.accessOffer.discordDone");
-});
-
-watch(
-  screenOpen,
-  (open) => {
-    if (open) {
-      refusal.value = "";
-      startPolling();
-    } else {
-      stopPolling();
-    }
-  },
-  { immediate: true },
-);
-// Discord step finished after a "not linked / not a member" refusal.
-watch(discordDone, (done) => {
-  if (done && FIXABLE_REFUSALS.includes(refusal.value)) refusal.value = "";
-});
-// Claimed: the plan has started, nothing left to show.
-watch(
-  () => offer.value?.claimed,
-  (claimed) => {
-    if (claimed) screenOpen.value = false;
-  },
+const offerName = computed(() => t(isTrial.value ? "$vuetify.accessOffer.nameTrial" : "$vuetify.accessOffer.nameBeta"));
+const title = computed(() =>
+  t(
+    isTrial.value ? "$vuetify.accessOffer.trialTitle" : "$vuetify.accessOffer.betaTitle",
+    localDigits(offer.value?.duration_days ?? 0),
+  ),
 );
 
-async function onClaim() {
-  if (claiming.value) return;
-  claiming.value = true;
+const reason = computed(() => reasonKey(refusal.value || offer.value?.blocked_reason));
+const reasonText = computed(() => (reason.value ? t(`$vuetify.accessOffer.blocked.${reason.value}`, offerName.value) : ""));
+/** Nothing to try: the offer is gone or already used here. */
+const final = computed(() => !!offer.value && (!offer.value.can_start || offer.value.claimed));
+
+watch(screenOpen, (open) => {
+  if (open) refusal.value = "";
+});
+
+async function onStart() {
+  if (starting.value) return;
+  starting.value = true;
   try {
-    refusal.value = await claim();
+    refusal.value = await startDiscord();
+    // Already has a plan: nothing to offer.
+    if (refusal.value === "has_plan") screenOpen.value = false;
   } finally {
-    claiming.value = false;
+    starting.value = false;
   }
 }
 </script>
@@ -81,56 +53,59 @@ async function onClaim() {
         <template #prepend>
           <v-avatar color="primary" variant="tonal" :icon="isTrial ? 'mdi-timer-sand' : 'mdi-flask-outline'" />
         </template>
-        <v-card-title>{{ isTrial ? t("$vuetify.accessOffer.trialTitle") : t("$vuetify.accessOffer.betaTitle") }}</v-card-title>
-        <v-card-subtitle>
-          {{ t("$vuetify.accessOffer.duration", localDigits(offer.duration_days)) }}
-        </v-card-subtitle>
+        <v-card-title>{{ title }}</v-card-title>
       </v-card-item>
 
       <v-card-text class="d-flex flex-column ga-4">
-        <div class="access-offer__step">
-          <v-icon
-            :icon="discordDone ? 'mdi-check-circle' : 'mdi-numeric-1-circle-outline'"
-            :color="discordDone ? 'success' : undefined"
-          />
+        <div v-if="waiting" class="access-offer__wait">
+          <v-progress-circular indeterminate color="primary" size="28" width="3" />
           <div class="flex-grow-1 min-w-0">
-            <div class="text-body-1 font-weight-medium">{{ t("$vuetify.accessOffer.discordStep") }}</div>
-            <div class="text-caption text-medium-emphasis">{{ discordStep }}</div>
-            <div v-if="offer.discord.linked && offer.discord.username" class="text-caption text-medium-emphasis">
-              {{ t("$vuetify.accessOffer.discordAs") }} <SensitiveText :text="offer.discord.username" />
-            </div>
+            <div class="text-body-1 font-weight-medium">{{ t("$vuetify.accessOffer.waitingTitle") }}</div>
+            <div class="text-caption text-medium-emphasis">{{ t("$vuetify.accessOffer.waitingText") }}</div>
           </div>
-          <v-btn
-            v-if="!discordDone"
-            variant="tonal"
-            color="primary"
-            rounded="lg"
-            class="text-none"
-            prepend-icon="mdi-open-in-new"
-            :disabled="!offer.discord.link_url"
-            @click="connectDiscord"
-          >
-            {{ t("$vuetify.accessOffer.connectDiscord") }}
-          </v-btn>
         </div>
+        <div v-else class="text-body-2">{{ t("$vuetify.accessOffer.intro") }}</div>
 
-        <v-alert v-if="blocked" type="warning" variant="tonal" density="compact" :text="blockedText" />
+        <v-alert v-if="reasonText" type="warning" variant="tonal" density="compact" :text="reasonText" />
+        <v-alert
+          v-else-if="loginExpired"
+          type="info"
+          variant="tonal"
+          density="compact"
+          :text="t('$vuetify.accessOffer.loginExpired')"
+        />
       </v-card-text>
 
       <v-card-actions>
-        <v-btn variant="text" @click="screenOpen = false">{{ t("$vuetify.accessOffer.later") }}</v-btn>
+        <v-btn variant="text" @click="screenOpen = false">
+          {{ waiting ? t("$vuetify.accessOffer.cancel") : t("$vuetify.accessOffer.later") }}
+        </v-btn>
         <v-spacer />
+        <template v-if="waiting">
+          <v-btn variant="tonal" rounded="lg" class="text-none" prepend-icon="mdi-open-in-new" @click="reopenLogin">
+            {{ t("$vuetify.accessOffer.openAgain") }}
+          </v-btn>
+          <v-btn v-if="reasonText" variant="flat" color="primary" rounded="lg" class="text-none" :loading="starting" @click="onStart">
+            {{ t("$vuetify.accessOffer.tryAgain") }}
+          </v-btn>
+        </template>
         <v-btn
-          v-if="!final"
+          v-else-if="!final"
           variant="flat"
           color="primary"
           rounded="lg"
           class="text-none"
-          :loading="claiming"
-          :disabled="!offer.claimable"
-          @click="onClaim"
+          prepend-icon="mdi-open-in-new"
+          :loading="starting"
+          @click="onStart"
         >
-          {{ isTrial ? t("$vuetify.accessOffer.claimTrial") : t("$vuetify.accessOffer.claimBeta") }}
+          {{
+            reasonText || loginExpired
+              ? t("$vuetify.accessOffer.tryAgain")
+              : isTrial
+                ? t("$vuetify.accessOffer.startTrial")
+                : t("$vuetify.accessOffer.startBeta")
+          }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -138,7 +113,7 @@ async function onClaim() {
 </template>
 
 <style scoped>
-.access-offer__step {
+.access-offer__wait {
   display: flex;
   align-items: center;
   gap: 12px;

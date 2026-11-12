@@ -503,7 +503,6 @@ export const useStore = defineStore("index", () => {
       } catch {
         // identity refresh failed: the next account update or start retries
       }
-      displayAlert(locale.t("$vuetify.plan.updated"), "info", 4000);
     }),
   );
   // The token was refused (account deleted or token revoked): sign out.

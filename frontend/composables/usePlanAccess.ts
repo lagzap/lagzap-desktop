@@ -2,6 +2,7 @@ import { computed, ref } from "vue";
 import { Events } from "@wailsio/runtime";
 import { GetPlanAccess } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { PlanAccess } from "~/bindings/github.com/lagzap/lagzap/adapter/models";
+import { planStartedRule } from "~/utils/planStart";
 
 // What the user's plan makes locked or hidden, and its limits. Go decides it
 // (coordinator/plan_access.go) and already leaves hidden titles, profiles and
@@ -21,11 +22,24 @@ async function refresh() {
   }
 }
 
+/** The app signs in to the servers only at startup, and only with a plan:
+ * a plan that starts later goes through the splash again, which reloads the
+ * service and signs in everywhere. */
+async function restartFromSplash() {
+  const router = useRouter();
+  if (router.currentRoute.value.path.startsWith("/start-service")) return;
+  await router.replace({ name: "start-service" });
+}
+
 export function usePlanAccess() {
   if (!listening) {
     listening = true;
+    const nuxtApp = useNuxtApp();
     Events.On("plan-access", ({ data }) => {
-      access.value = (Array.isArray(data) ? data[0] : data) as PlanAccess;
+      const next = (Array.isArray(data) ? data[0] : data) as PlanAccess;
+      const started = planStartedRule(access.value?.status, next?.active);
+      access.value = next;
+      if (started) void nuxtApp.runWithContext(() => restartFromSplash());
     });
     Events.On("service-started", () => void refresh());
     void refresh();

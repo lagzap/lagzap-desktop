@@ -2,17 +2,24 @@ import { computed, ref, watch } from "vue";
 import { Browser, Events } from "@wailsio/runtime";
 import {
   CheckAccessOffer,
-  ClaimAccess,
   GetAccessOffer,
+  StartDiscordTrial,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { AccessOffer } from "~/bindings/github.com/lagzap/lagzap/adapter/models";
+import {
+  DISCORD_INVITE_URL,
+  DISCORD_WAIT_POLL_MS,
+  canStartOffer,
+  discordWait,
+  loginExpiry,
+} from "~/utils/accessOffer";
 
-// The beta or free trial claimed after joining LagZap's Discord. The server
-// decides everything (coordinator/access_offer.go); this shows the offer,
-// opens the Discord flow and sends the claim. Nothing is gated here beyond
-// what the plan already does.
+// The beta or free trial through LagZap's Discord. The server decides
+// everything (coordinator/access_offer.go): the app asks for the Discord login,
+// opens it in the browser, and polls /data until the plan has started. There
+// is no push for it and no way back into the app from the browser.
 
-const POLL_MS = 5_000;
+const SUSPENDED_POLL_MS = 5_000;
 
 /** The offer as the service last read it from /data. */
 const serviceOffer = ref<AccessOffer | null>(null);
@@ -21,23 +28,15 @@ const accountOffer = ref<AccessOffer | null>(null);
 const offer = computed(() => serviceOffer.value ?? accountOffer.value);
 /** The offer screen is open (also opened on its own once per run). */
 const screenOpen = ref(false);
+/** The Discord login open in the browser: its URL and when it runs out
+ * (null: not waiting on one). */
+const login = ref<{ url: string; expiresAtMs: number } | null>(null);
+/** The last login ran out without the plan starting. */
+const loginExpired = ref(false);
 let autoOpened = false;
 let listening = false;
 let poll: ReturnType<typeof setInterval> | undefined;
 let suspendedPoll: ReturnType<typeof setInterval> | undefined;
-
-/** Refusals the user can fix (finish the Discord step, or try again once
- * online). Any other blocked reason is final. */
-export const FIXABLE_REFUSALS = ["discord_not_linked", "discord_not_member", "unreachable"];
-
-/** The offer can still be claimed: not claimed yet and not refused for good
- * (already used on this account, Discord or computer, has a plan, ...). An
- * offer that cannot be claimed is not shown at all. */
-function claimable(o: AccessOffer | null): boolean {
-  if (!o || o.claimed) return false;
-  const reason = o.blocked_reason ?? "";
-  return !reason || FIXABLE_REFUSALS.includes(reason);
-}
 
 /** Claimed access paused because the user left the Discord server. */
 const suspended = computed(() => !!offer.value?.suspended);
@@ -48,10 +47,30 @@ async function check() {
   } catch {
     // service not running yet
   }
+  settleLogin();
+}
+
+/** Stops waiting once the plan has started or the login ran out. */
+function settleLogin() {
+  if (!login.value) return;
+  const state = discordWait(offer.value, login.value.expiresAtMs, Date.now());
+  if (state === "waiting") return;
+  stopWaiting();
+  if (state === "done") {
+    screenOpen.value = false;
+  } else {
+    loginExpired.value = true;
+  }
+}
+
+function stopWaiting() {
+  login.value = null;
+  if (poll) clearInterval(poll);
+  poll = undefined;
 }
 
 function maybeAutoOpen() {
-  if (!autoOpened && claimable(offer.value)) {
+  if (!autoOpened && canStartOffer(offer.value)) {
     autoOpened = true;
     screenOpen.value = true;
   }
@@ -62,6 +81,7 @@ export function useAccessOffer() {
     listening = true;
     Events.On("access-offer", ({ data }) => {
       serviceOffer.value = ((Array.isArray(data) ? data[0] : data) as AccessOffer | null) ?? null;
+      settleLogin();
       maybeAutoOpen();
     });
     Events.On("service-started", async () => {
@@ -72,15 +92,16 @@ export function useAccessOffer() {
         // not ready
       }
     });
-    // Back from the browser's Discord flow: look at once.
+    // Back from the browser: look at once.
     window.addEventListener("focus", () => {
-      if (offer.value && (!offer.value.claimed || offer.value.suspended)) void check();
+      if (login.value || offer.value?.suspended) void check();
     });
     const user = useSanctumUser<DataResponse>();
     watch(
       () => user.value?.access_offer ?? null,
       (o) => {
         accountOffer.value = o;
+        settleLogin();
         maybeAutoOpen();
       },
       { immediate: true },
@@ -89,10 +110,17 @@ export function useAccessOffer() {
     // looking so it shows without a restart.
     watch(suspended, (on) => {
       if (on && !suspendedPoll) {
-        suspendedPoll = setInterval(() => void check(), POLL_MS);
+        suspendedPoll = setInterval(() => void check(), SUSPENDED_POLL_MS);
       } else if (!on && suspendedPoll) {
         clearInterval(suspendedPoll);
         suspendedPoll = undefined;
+      }
+    });
+    // Closing the screen stops waiting on the browser.
+    watch(screenOpen, (open) => {
+      if (!open) {
+        stopWaiting();
+        loginExpired.value = false;
       }
     });
     void GetAccessOffer()
@@ -103,33 +131,49 @@ export function useAccessOffer() {
       .catch(() => {});
   }
 
-  /** There is an offer the user can still claim. */
-  const open = computed(() => claimable(offer.value));
-  const discordDone = computed(() => !!offer.value?.discord.linked && !!offer.value?.discord.member);
+  /** "Get a free trial with Discord" can be shown. */
+  const open = computed(() => canStartOffer(offer.value));
+  const waiting = computed(() => !!login.value);
 
-  const startPolling = () => {
-    if (poll) return;
-    void check();
-    poll = setInterval(() => void check(), POLL_MS);
-  };
-  const stopPolling = () => {
-    if (poll) clearInterval(poll);
-    poll = undefined;
-  };
-
-  const connectDiscord = () => {
-    const url = offer.value?.discord.link_url;
-    if (url) void Browser.OpenURL(url);
-  };
-
-  /** Claims the offer; returns "" on success, else the refusal code. */
-  const claim = async (): Promise<string> => {
-    const campaign = offer.value?.campaign;
-    if (!campaign) return "unreachable";
-    const result = await ClaimAccess(campaign);
-    await check();
-    return result.ok ? "" : result.code || "unreachable";
+  /** Asks for a new Discord login (each try gets its own, valid once) and
+   * opens it in the browser; returns "" when it opened, else the refusal. */
+  const startDiscord = async (): Promise<string> => {
+    stopWaiting();
+    loginExpired.value = false;
+    let result;
+    try {
+      result = await StartDiscordTrial();
+    } catch {
+      return "unreachable";
+    }
+    if (result.code || !result.url) {
+      // The offer may have changed (a plan, a used computer): show it.
+      void check();
+      return result.code || "unreachable";
+    }
+    login.value = { url: result.url, expiresAtMs: loginExpiry(result.expires_at, Date.now()) };
+    void Browser.OpenURL(result.url);
+    poll = setInterval(() => void check(), DISCORD_WAIT_POLL_MS);
+    return "";
   };
 
-  return { offer, open, suspended, screenOpen, discordDone, startPolling, stopPolling, connectDiscord, claim, check };
+  /** Opens the same Discord login again (the browser tab was closed). */
+  const reopenLogin = () => {
+    if (login.value) void Browser.OpenURL(login.value.url);
+  };
+
+  const openDiscordServer = () => void Browser.OpenURL(DISCORD_INVITE_URL);
+
+  return {
+    offer,
+    open,
+    suspended,
+    screenOpen,
+    waiting,
+    loginExpired,
+    startDiscord,
+    reopenLogin,
+    openDiscordServer,
+    check,
+  };
 }

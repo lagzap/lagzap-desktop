@@ -9,13 +9,12 @@ import { useAccessOffer } from "~/composables/useAccessOffer";
  * banner like the title page's "not active" one. */
 const { t } = useLocale();
 const { access, active, status, canUpgrade, openUpgrade } = usePlanAccess();
-const { offer, open: offerOpen, suspended, screenOpen, connectDiscord } = useAccessOffer();
+const { offer, open: offerOpen, suspended, screenOpen, openDiscordServer } = useAccessOffer();
 
-// Beta or trial access paused (or run out) because the user left the
-// Discord server: ask them back instead of selling a plan.
-const rejoin = computed(
-  () => suspended.value || (status.value === "expired" && !!offer.value && !offer.value.discord.member),
-);
+// Beta or trial access paused because the user left the Discord server:
+// ask them back instead of selling a plan. A trial that ran out is an
+// ordinary expired plan.
+const rejoin = computed(() => suspended.value);
 
 // An offer waiting shows here too, for free accounts as well. Closing it
 // hides the banner until the app restarts (offerBannerClosed lives for the
@@ -28,7 +27,7 @@ const show = computed(
     (!offerBannerClosed.value && !!access.value && !active.value && status.value !== "loading"),
 );
 const text = computed(() => {
-  if (rejoin.value) return t("$vuetify.accessOffer.rejoin");
+  if (rejoin.value) return offer.value?.kind === "trial" ? t("$vuetify.accessOffer.rejoinTrial") : t("$vuetify.accessOffer.rejoinBeta");
   if (offerShown.value) return offer.value?.kind === "trial" ? t("$vuetify.accessOffer.bannerTrial") : t("$vuetify.accessOffer.bannerBeta");
   switch (status.value) {
     case "unavailable":
@@ -55,8 +54,8 @@ const text = computed(() => {
       <v-banner-text>{{ text }}</v-banner-text>
 
       <template v-if="rejoin" #actions>
-        <v-btn variant="tonal" prepend-icon="mdi-open-in-new" :disabled="!offer?.discord.link_url" @click="connectDiscord">
-          {{ t("$vuetify.accessOffer.connectDiscord") }}
+        <v-btn variant="tonal" prepend-icon="mdi-open-in-new" @click="openDiscordServer">
+          {{ t("$vuetify.accessOffer.rejoinButton") }}
         </v-btn>
       </template>
       <template v-else-if="offerShown" #actions>

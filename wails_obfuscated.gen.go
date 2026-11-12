@@ -17,7 +17,6 @@ func init() {
 	application.RegisterBindingMethodID((*Service).CheckAccessOffer, 2757333245)
 	application.RegisterBindingMethodID((*Service).CheckForUpdates, 1119934520)
 	application.RegisterBindingMethodID((*Service).CheckoutURL, 3808424986)
-	application.RegisterBindingMethodID((*Service).ClaimAccess, 3750662765)
 	application.RegisterBindingMethodID((*Service).ClearDNSCache, 3678018421)
 	application.RegisterBindingMethodID((*Service).Close, 3215732723)
 	application.RegisterBindingMethodID((*Service).CloseAdminTools, 3114052621)
