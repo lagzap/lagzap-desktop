@@ -108,6 +108,7 @@ func init() {
 	application.RegisterBindingMethodID((*Service).SetAccessToken, 2196676062)
 	application.RegisterBindingMethodID((*Service).SetAdapterOrder, 2015503906)
 	application.RegisterBindingMethodID((*Service).SetClientSettings, 2779893929)
+	application.RegisterBindingMethodID((*Service).SetDiscordPresence, 1597978160)
 	application.RegisterBindingMethodID((*Service).SetGamerTag, 442699695)
 	application.RegisterBindingMethodID((*Service).SetGamingPriority, 585179238)
 	application.RegisterBindingMethodID((*Service).SetHTTPPolling, 184276766)

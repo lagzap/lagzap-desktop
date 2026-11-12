@@ -15,6 +15,7 @@ const {
   setLaunchOnStartupMinimize,
   setActiveOnStart,
   setEnglishTitleNames,
+  setDiscordPresence,
   getLanguages,
   getThemes,
 } = useSettings(locale, theme)
@@ -67,6 +68,16 @@ const {
         variant="outlined"
         class="mb-6"
         @update:model-value="(value) => void setTheme(value)"
+      />
+
+      <v-checkbox
+        :label="t('$vuetify.settings.discordPresence')"
+        :hint="t('$vuetify.settings.discordPresenceHint')"
+        :model-value="settings.discordPresence ?? true"
+        persistent-hint
+        density="compact"
+        class="mb-6"
+        @update:model-value="(value) => void setDiscordPresence(!!value)"
       />
 
       <v-card-subtitle class="px-0 mb-1">

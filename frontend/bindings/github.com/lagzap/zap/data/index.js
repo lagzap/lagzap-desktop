@@ -31,6 +31,7 @@ export {
     Ticket,
     TicketMessage,
     Title,
+    TitleCategory,
     TitleState,
     UpdatePayload
 } from "./models.js";

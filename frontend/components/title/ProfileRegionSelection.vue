@@ -10,6 +10,7 @@ import { usePlanAccess } from "~/composables/usePlanAccess";
 import { localDigits } from "~/utils/localeFormat";
 import { DEFAULT_TCP_ROUTES, DEFAULT_UDP_ROUTES, resolveProfileRouteCounts } from "~/composables/routeCountUtils";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
+import SplitTunnelOptions from "~/components/title/SplitTunnelOptions.vue";
 
 const props = defineProps<{
   profile: Profile;
@@ -170,6 +171,89 @@ watch(
   { immediate: true },
 );
 
+// Split Tunnel: send this profile out through one adapter, with any server
+// choice (a country, a city, Automatic). The core binds the profile's relay
+// and direct traffic to default_interface (the profile's Network adapter
+// setting); empty = the system's adapter.
+const splitAdapter = computed(() => selectedDefaultInterface.value);
+/** Adapters to offer, plus saved ones that are gone now (shown in warning). */
+const splitAdapters = computed(() => {
+  const names = (interfaces.value ?? []).map((iface) => iface.Name);
+  const saved = [splitAdapter.value, ...(store.profileStates[props.profile.id]?.network_interfaces ?? [])];
+  for (const name of saved) if (name && !names.includes(name)) names.push(name);
+  return names;
+});
+function setSplitAdapter(name: string) {
+  store.profileStates[props.profile.id].default_interface = name;
+}
+/** Turning it on picks the adapter the system uses now, so nothing changes
+ * until another one is chosen; off goes back to the system's choice. */
+function toggleSplitTunnel() {
+  if (splitAdapter.value) {
+    setSplitAdapter("");
+    return;
+  }
+  const names = splitAdapters.value;
+  const current = store.defaultInterface && names.includes(store.defaultInterface) ? store.defaultInterface : names[0];
+  if (current) setSplitAdapter(current);
+}
+
+// Multi Internet profiles: the same switch edits the profile's Multi Internet
+// adapters (network_interfaces) instead. Empty follows the Multi Internet
+// settings; one adapter is Multi Internet off for this profile.
+const isMultiInternetProfile = computed(() => (props.profile.flags & ProfileFlag.MULTIPATH) !== 0);
+const ownInternets = computed(() =>
+  (store.profileStates[props.profile.id]?.network_interfaces ?? []).filter(Boolean),
+);
+const settingsInternets = computed(() => multiInternet.selection.value);
+const multiOn = computed(() => ownInternets.value.length > 1);
+/** Not set on the profile, and the settings already join several internets. */
+const multiInherited = computed(() => ownInternets.value.length === 0 && settingsInternets.value.length > 1);
+const multiSelected = computed(() =>
+  ownInternets.value.length > 0 ? ownInternets.value : settingsInternets.value,
+);
+function setOwnInternets(names: string[]) {
+  store.profileStates[props.profile.id].network_interfaces = names;
+}
+function toggleMultiInternet() {
+  if (multiOn.value) {
+    // Off: one internet. Clearing would fall back to the settings, which may
+    // have Multi Internet on.
+    const keep = multiSelected.value[0];
+    setOwnInternets(settingsInternets.value.length > 1 && keep ? [keep] : []);
+    return;
+  }
+  const pool = settingsInternets.value.length > 1 ? settingsInternets.value : splitAdapters.value;
+  setOwnInternets([...pool]);
+}
+function pickInternet(name: string) {
+  const current = multiOn.value || multiInherited.value ? multiSelected.value : [];
+  const next = current.includes(name) ? current.filter((n) => n !== name) : [...current, name];
+  // Multi Internet joins at least two: unticking one of the last two would
+  // turn it off (that is the switch above).
+  if (next.length >= 2) setOwnInternets(next);
+}
+
+function adapterIcon(name: string) {
+  const n = name.toLowerCase();
+  if (/wi-?fi|wlan|wireless/.test(n)) return "mdi-wifi";
+  if (/cellular|mobile|wwan|lte|5g/.test(n)) return "mdi-signal-cellular-3";
+  return "mdi-ethernet";
+}
+// The button says which adapter Split Tunnel goes out through, or that
+// Multi Internet is on.
+const buttonText = computed(() => {
+  if (isMultiInternetProfile.value) {
+    return multiOn.value || multiInherited.value
+      ? `${currentSelectionText.value} · ${t("$vuetify.title.profile.multiInternet")}`
+      : currentSelectionText.value;
+  }
+  return splitAdapter.value ? `${currentSelectionText.value} · ${splitAdapter.value}` : currentSelectionText.value;
+});
+watch(dialogOpen, (open) => {
+  if (open && !(interfaces.value?.length > 0)) void updateInterfaces();
+});
+
 </script>
 
 <template>
@@ -193,7 +277,7 @@ watch(
       >
         <v-btn
           v-if="$vuetify.display.smAndUp"
-          :text="currentSelectionText"
+          :text="buttonText"
           class="text-none"
           variant="tonal"
           v-bind="props"
@@ -272,6 +356,40 @@ watch(
           class="mt-3"
         />
       </v-card-text>
+
+      <v-list v-if="mode !== 'direct'" density="compact" class="py-0" :disabled="!store.appReady">
+        <SplitTunnelOptions
+          v-if="isMultiInternetProfile"
+          multi
+          :on="multiOn"
+          :inherited="multiInherited"
+          :selected="multiSelected"
+          :adapters="splitAdapters"
+          :missing="orphanedInterfaces"
+          :loading="loadingInterfaces"
+          :disabled="!store.appReady"
+          :live="dialogOpen"
+          :icon="adapterIcon"
+          @toggle="toggleMultiInternet"
+          @pick="pickInternet"
+          @refresh="updateInterfaces"
+        />
+        <SplitTunnelOptions
+          v-else
+          :on="!!splitAdapter"
+          :selected="splitAdapter ? [splitAdapter] : []"
+          :adapters="splitAdapters"
+          :missing="orphanedInterfaces"
+          :loading="loadingInterfaces"
+          :disabled="!store.appReady"
+          :live="dialogOpen"
+          :icon="adapterIcon"
+          @toggle="toggleSplitTunnel"
+          @pick="setSplitAdapter"
+          @refresh="updateInterfaces"
+        />
+      </v-list>
+      <v-divider v-if="mode !== 'direct'" />
 
       <!-- Automatic: the servers it picks from, so people see what will be
            used. Only what this profile's groups and the plan allow. -->
@@ -740,68 +858,59 @@ watch(
           </template>
         </v-list-item>
 
-        <!-- Direct Option with Adapter Group -->
-        <v-list-group :value="getNodeSelected('direct')">
-          <template #activator="{ props }">
-            <v-list-item @click="selectNode('direct')" v-bind="props">
-              <template #prepend>
-                <v-radio
-                  hide-details
-                  class="me-2"
-                  density="compact"
-                  color="primary"
-                  :model-value="getNodeSelected('direct')"
-                  @click="selectNode('direct')"
-                />
-              </template>
-              <template #title>
-                <v-avatar size="24" rounded="0">
-                  <v-icon>mdi-call-split</v-icon>
-                </v-avatar>
-                <span class="text-caption ms-2">{{ t('$vuetify.title.profile.server.direct') }}</span>
-              </template>
-              <template #append>
-                <v-btn
-                  v-if="getNodeSelected('direct')"
-                  icon
-                  size="small"
-                  variant="text"
-                  :loading="loadingInterfaces"
-                  :disabled="!store.appReady"
-                  @click.stop="updateInterfaces"
-                >
-                  <v-icon size="16">mdi-refresh</v-icon>
-                </v-btn>
-                <span v-else class="text-caption text-medium-emphasis">
-                  {{ t('$vuetify.title.profile.server.directWithoutServer') }}
-                </span>
-              </template>
-            </v-list-item>
+        <!-- Direct: no LagZap server at all. -->
+        <v-list-item @click="selectNode('direct')">
+          <template #prepend>
+            <v-radio
+              hide-details
+              class="me-2"
+              density="compact"
+              color="primary"
+              :model-value="getNodeSelected('direct')"
+              @click.stop="selectNode('direct')"
+            />
           </template>
+          <template #title>
+            <v-avatar size="24" rounded="0">
+              <v-icon>mdi-arrow-right-thin</v-icon>
+            </v-avatar>
+            <span class="text-caption ms-2">{{ t('$vuetify.title.profile.server.directWithoutServer') }}</span>
+          </template>
+        </v-list-item>
 
-          <!-- Available Adapters -->
-          <v-list-item
-            v-for="iface in interfaces"
-            :key="iface.Name"
-            density="compact"
-            @click="store.profileStates[profile.id].default_interface = iface.Name"
-          >
-            <template #prepend>
-              <v-radio
-                hide-details
-                class="me-2"
-                density="compact"
-                color="primary"
-                :model-value="store.profileStates[profile.id].default_interface === iface.Name"
-                @click.stop="store.profileStates[profile.id].default_interface = iface.Name"
-              />
-            </template>
-            <template #title>
-              <v-icon size="16" class="me-2">mdi-network</v-icon>
-              <span class="text-caption">{{ iface.Name }}</span>
-            </template>
-          </v-list-item>
-        </v-list-group>
+        <!-- Split Tunnel: works with any server choice above or below. -->
+        <v-divider class="my-1" />
+        <SplitTunnelOptions
+          v-if="isMultiInternetProfile"
+          multi
+          :on="multiOn"
+          :inherited="multiInherited"
+          :selected="multiSelected"
+          :adapters="splitAdapters"
+          :missing="orphanedInterfaces"
+          :loading="loadingInterfaces"
+          :disabled="!store.appReady"
+          :live="dialogOpen"
+          :icon="adapterIcon"
+          @toggle="toggleMultiInternet"
+          @pick="pickInternet"
+          @refresh="updateInterfaces"
+        />
+        <SplitTunnelOptions
+          v-else
+          :on="!!splitAdapter"
+          :selected="splitAdapter ? [splitAdapter] : []"
+          :adapters="splitAdapters"
+          :missing="orphanedInterfaces"
+          :loading="loadingInterfaces"
+          :disabled="!store.appReady"
+          :live="dialogOpen"
+          :icon="adapterIcon"
+          @toggle="toggleSplitTunnel"
+          @pick="setSplitAdapter"
+          @refresh="updateInterfaces"
+        />
+        <v-divider class="my-1" />
 
         <!-- Hierarchical Node Items: Region > Country > Cities -->
         <template v-for="regionTag in getFilteredRegionTags()" :key="regionTag">

@@ -170,6 +170,9 @@ function normalizeTitle(raw: any): Title | null {
     created_at: raw.created_at ?? raw.createdAt,
     updated_at: raw.updated_at ?? raw.updatedAt,
     updates: Array.isArray(updates) ? updates : [],
+    // Always set: an update that drops a title's last category omits the
+    // field, and the upsert merge would otherwise keep the old ones.
+    categories: Array.isArray(raw.categories ?? raw.Categories) ? (raw.categories ?? raw.Categories) : [],
   } as Title;
 }
 

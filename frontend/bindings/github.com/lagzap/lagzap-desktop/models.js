@@ -11,6 +11,85 @@ import { Create as $Create } from "@wailsio/runtime";
 import * as data$0 from "../zap/data/models.js";
 
 /**
+ * DiscordPresence is what the status shows; Details empty clears it.
+ */
+export class DiscordPresence {
+    /**
+     * Creates a new DiscordPresence instance.
+     * @param {Partial<DiscordPresence>} [$$source = {}] - The source object to create the DiscordPresence.
+     */
+    constructor($$source = {}) {
+        if (!("details" in $$source)) {
+            /**
+             * Details is the first line (the game), State the second.
+             * @member
+             * @type {string}
+             */
+            this["details"] = "";
+        }
+        if (!("state" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["state"] = "";
+        }
+        if (!("gameIconUrl" in $$source)) {
+            /**
+             * GameIconURL is the large image (the game); the LagZap logo is the
+             * small one. Empty: the LagZap logo alone.
+             * @member
+             * @type {string}
+             */
+            this["gameIconUrl"] = "";
+        }
+        if (!("gameName" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["gameName"] = "";
+        }
+        if (!("startMs" in $$source)) {
+            /**
+             * StartMs is when the game session started (Unix ms; 0: no timer).
+             * @member
+             * @type {number}
+             */
+            this["startMs"] = 0;
+        }
+        if (!("buttonLabel" in $$source)) {
+            /**
+             * ButtonLabel is the "Get LagZap" button and ServerButtonLabel the "Join
+             * our Discord" one, in the UI language (empty: no button).
+             * @member
+             * @type {string}
+             */
+            this["buttonLabel"] = "";
+        }
+        if (!("serverButtonLabel" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["serverButtonLabel"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DiscordPresence instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DiscordPresence}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DiscordPresence(/** @type {Partial<DiscordPresence>} */($$parsedSource));
+    }
+}
+
+/**
  * JumpListContent is what the frontend sends. The icons are PNG data URLs.
  */
 export class JumpListContent {

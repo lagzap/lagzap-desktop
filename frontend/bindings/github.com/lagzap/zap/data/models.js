@@ -1973,6 +1973,15 @@ export class Title {
              */
             this["updates"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * The categories the app groups this title by, sorted by order then slug.
+             * Empty when the title has none.
+             * @member
+             * @type {(TitleCategory | null)[] | undefined}
+             */
+            this["categories"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -1985,6 +1994,7 @@ export class Title {
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType9;
         const $$createField8_0 = $$createType18;
+        const $$createField9_0 = $$createType27;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
             $$parsedSource["name"] = $$createField3_0($$parsedSource["name"]);
@@ -1992,7 +2002,70 @@ export class Title {
         if ("updates" in $$parsedSource) {
             $$parsedSource["updates"] = $$createField8_0($$parsedSource["updates"]);
         }
+        if ("categories" in $$parsedSource) {
+            $$parsedSource["categories"] = $$createField9_0($$parsedSource["categories"]);
+        }
         return new Title(/** @type {Partial<Title>} */($$parsedSource));
+    }
+}
+
+/**
+ * A title category (title_categories). Every title in it carries a full
+ * copy, so a category change arrives as a title update.
+ */
+export class TitleCategory {
+    /**
+     * Creates a new TitleCategory instance.
+     * @param {Partial<TitleCategory>} [$$source = {}] - The source object to create the TitleCategory.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Stable machine name, e.g. "battle-royale": key icons and filters on it.
+             * @member
+             * @type {string | undefined}
+             */
+            this["slug"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Localized display name, like Title.name.
+             * @member
+             * @type {{ [_ in string]?: string } | undefined}
+             */
+            this["name"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Lower comes first.
+             * @member
+             * @type {number | undefined}
+             */
+            this["order"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TitleCategory instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TitleCategory}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("name" in $$parsedSource) {
+            $$parsedSource["name"] = $$createField2_0($$parsedSource["name"]);
+        }
+        return new TitleCategory(/** @type {Partial<TitleCategory>} */($$parsedSource));
     }
 }
 
@@ -2068,7 +2141,7 @@ export class UpdatePayload {
      * @returns {UpdatePayload}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType26;
+        const $$createField0_0 = $$createType29;
         const $$createField1_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("last_update_at" in $$parsedSource) {
@@ -2107,5 +2180,8 @@ const $$createType21 = $Create.Array($$createType20);
 const $$createType22 = TicketMessage.createFrom;
 const $$createType23 = $Create.Nullable($$createType22);
 const $$createType24 = $Create.Array($$createType23);
-const $$createType25 = timestamppb$0.Timestamp.createFrom;
+const $$createType25 = TitleCategory.createFrom;
 const $$createType26 = $Create.Nullable($$createType25);
+const $$createType27 = $Create.Array($$createType26);
+const $$createType28 = timestamppb$0.Timestamp.createFrom;
+const $$createType29 = $Create.Nullable($$createType28);

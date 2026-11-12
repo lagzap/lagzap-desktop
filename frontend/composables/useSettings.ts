@@ -53,6 +53,8 @@ interface AppSettings {
   relayTransportFallback?: boolean
   /** Show game and app names in English while the UI is in another language. */
   englishTitleNames?: boolean
+  /** Show LagZap and the game it is optimizing as the user's Discord status. */
+  discordPresence?: boolean
   /** Windows: capture games through LagZap's virtual adapter instead of the
    * NDIS driver, so adapters can be unplugged or disabled mid-game. */
   virtualAdapter?: boolean
@@ -64,6 +66,8 @@ interface AppSettings {
   favoriteTicketIds?: string[]
   /** Recently opened tickets (max MAX_RECENT_TICKETS). */
   recentTickets?: RecentTicketEntry[]
+  /** Titles screen: the selected category's slug ('' or unset is All). */
+  titleCategorySlug?: string
   /** Settings the user turned on or off themselves; the others follow
    * their defaults (ON_BY_DEFAULT stays on until the user turns it off). */
   userChosen?: string[]
@@ -77,6 +81,7 @@ const ON_BY_DEFAULT = [
   'realtimeOptimization',
   'proxyDnsRequests',
   'gamingPriority',
+  'discordPresence',
 ] as const satisfies readonly (keyof AppSettings)[]
 
 function withDefaultsOn(value: AppSettings): AppSettings {
@@ -123,6 +128,7 @@ const settings = shallowRef<AppSettings>({
   launchOnStartupMinimize: false,
   activeOnStart: true,
   gpuAcceleration: true,
+  discordPresence: true,
   favoriteTitleIds: [],
   favoriteTicketIds: [],
   recentTickets: [],
@@ -450,6 +456,10 @@ export const useSettings = (locale?: any, theme?: any) => {
     await saveSettings({ englishTitleNames })
   }
 
+  const setDiscordPresence = async (discordPresence: boolean) => {
+    await saveSettings({ discordPresence })
+  }
+
   /** Saving also syncs it to the backend (syncRoutingSettingsToBackend). */
   const setAdapterOrder = async (adapterOrder: string[]) => {
     await saveSettings({ adapterOrder })
@@ -490,6 +500,19 @@ export const useSettings = (locale?: any, theme?: any) => {
       }
     }
     return out
+  }
+
+  /** Local UI state only: saved without syncing routing settings to the backend. */
+  const setTitleCategorySlug = async (titleCategorySlug: string) => {
+    if ((settings.value.titleCategorySlug ?? '') === titleCategorySlug) {
+      return
+    }
+    settings.value = { ...settings.value, titleCategorySlug }
+    try {
+      await persistAppSettings()
+    } catch (error) {
+      console.error('Error saving settings:', error)
+    }
   }
 
   const setFavoriteTitleIds = async (favoriteTitleIds: string[]) => {
@@ -612,10 +635,12 @@ export const useSettings = (locale?: any, theme?: any) => {
     setGamingPriority,
     setRelayTransportFallback,
     setEnglishTitleNames,
+    setDiscordPresence,
     setVirtualAdapter,
     setAdapterOrder,
     setInternetPingTarget,
     setFavoriteTitleIds,
+    setTitleCategorySlug,
     setFavoriteTicketIds,
     setRecentTickets,
     touchRecentTicket,

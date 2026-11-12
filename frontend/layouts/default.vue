@@ -22,10 +22,12 @@ import { useStore } from "@/stores";
 import { GetNodes, GetProfiles, GetProfileStates, GetRegions, GetRoutes, GetTitles, GetTitleStates } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import { useMonitoringStore } from "~/stores/monitoring";
 import { useJumpList } from "~/composables/useJumpList";
+import { useDiscordPresence } from "~/composables/useDiscordPresence";
 
 // Ensure monitoring event listeners are active.
 useMonitoringStore();
 useJumpList();
+useDiscordPresence();
 
 function isEmpty(obj: any) {
   return !obj || (typeof obj === "object" && Object.keys(obj).length === 0);

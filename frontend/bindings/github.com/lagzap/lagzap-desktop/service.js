@@ -918,6 +918,15 @@ export function SetClientSettings(settings) {
 }
 
 /**
+ * SetDiscordPresence shows p as the user's Discord status; nil clears it.
+ * @param {$models.DiscordPresence | null} p
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetDiscordPresence(p) {
+    return $Call.ByID(1597978160, p);
+}
+
+/**
  * SetGamerTag sets the account's gamer tag.
  * @param {string} name
  * @returns {$CancellablePromise<adapter$0.NameResult>}

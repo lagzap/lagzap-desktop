@@ -6,6 +6,13 @@ import TitleAvatar from "~/components/plan/TitleAvatar.vue";
 import PlanLock from "~/components/plan/PlanLock.vue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import { localDigits } from "~/utils/localeFormat";
+import { useSettings } from "~/composables/useSettings";
+import {
+  CATEGORY_ALL,
+  CATEGORY_UNCATEGORIZED,
+  titleCategoryIcon,
+  useTitleCategories,
+} from "~/composables/useTitleCategories";
 
 const locale = useLocale();
 const { t } = locale;
@@ -13,6 +20,28 @@ const store = useStore();
 const { titleBlocked, titleUnavailable } = usePlanAccess();
 const titles = computed(() => store.getTitles);
 const requestOpen = ref(false);
+
+// Categories are display only: locks, the active-titles limit and plan
+// checks below stay per title. The header search is global and ignores
+// the category filter.
+const { settings, setTitleCategorySlug } = useSettings();
+const { categories, categoryName, filterKeys, titleInFilter } = useTitleCategories(
+  titles,
+  locale.current,
+  computed(() => settings.value.englishTitleNames === true),
+);
+const showCategoryFilter = computed(() => categories.value.length > 0);
+// The saved slug, while that category still has titles; else All.
+const selectedCategory = computed(() => {
+  const saved = settings.value.titleCategorySlug ?? CATEGORY_ALL;
+  return filterKeys.value.includes(saved) ? saved : CATEGORY_ALL;
+});
+const selectCategory = (key: string | null | undefined) => {
+  void setTitleCategorySlug(key ?? CATEGORY_ALL);
+};
+const filteredTitles = computed(() =>
+  titles.value.filter((title) => titleInFilter(title, selectedCategory.value)),
+);
 </script>
 
 <template>
@@ -34,12 +63,43 @@ const requestOpen = ref(false);
       </template>
 
       <v-card-text class="mb-16">
-        <v-data-iterator :items="titles" :items-per-page="titles.length">
+        <v-chip-group
+          v-if="showCategoryFilter"
+          :model-value="selectedCategory"
+          mandatory
+          selected-class="text-primary"
+          class="mb-2"
+          :aria-label="t('$vuetify.titleCategories.filter')"
+          @update:model-value="selectCategory"
+        >
+          <v-chip :value="CATEGORY_ALL" variant="tonal" size="small">
+            {{ t("$vuetify.titleCategories.all") }}
+          </v-chip>
+          <v-chip
+            v-for="category in categories"
+            :key="category.id"
+            :value="category.slug"
+            :prepend-icon="titleCategoryIcon(category.slug)"
+            variant="tonal"
+            size="small"
+          >
+            {{ categoryName(category) }}
+          </v-chip>
+          <v-chip
+            v-if="filterKeys.includes(CATEGORY_UNCATEGORIZED)"
+            :value="CATEGORY_UNCATEGORIZED"
+            variant="tonal"
+            size="small"
+          >
+            {{ t("$vuetify.titleCategories.uncategorized") }}
+          </v-chip>
+        </v-chip-group>
+        <v-data-iterator :items="filteredTitles" :items-per-page="-1">
           <template #default="{ items }">
             <v-row dense>
               <v-col
-                v-for="(item, i) in items"
-                :key="i"
+                v-for="item in items"
+                :key="item.raw.id"
                 cols="12"
                 sm="6"
                 md="6"
