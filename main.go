@@ -33,7 +33,6 @@ func main() {
 	var window *application.WebviewWindow
 	var systray *application.SystemTray
 	var app *application.App
-	quiting := false
 	app = application.New(application.Options{
 		LogLevel:    slog.Level(log.LevelDebug),
 		Name:        "LagZap",
@@ -52,7 +51,15 @@ func main() {
 
 		ShouldQuit: func() bool {
 			// OS / Alt+F4 style quit requests: stay in tray unless tray Quit was used.
-			if quiting {
+			if quitting.Load() {
+				return true
+			}
+			// A downloaded update applies once LagZap exits (Restart &
+			// apply): let it exit, the service shut down cleanly first.
+			if updateStaged(app) {
+				quitting.Store(true)
+				_ = service.StopLocalProxy()
+				service.StopService()
 				return true
 			}
 			if window != nil {
@@ -177,7 +184,7 @@ func main() {
 	// cannot reliably Cancel before Wails' default destroy handler runs. Taskbar
 	// Close / Alt+F4 must hide to tray, not destroy the window.
 	window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		if quiting {
+		if quitting.Load() {
 			return
 		}
 		window.Hide()
@@ -217,7 +224,7 @@ func main() {
 		})
 	}
 	menu.Add("Quit").OnClick(func(ctx *application.Context) {
-		quiting = true
+		quitting.Store(true)
 		_ = service.StopLocalProxy()
 		service.StopService()
 		window.Close()

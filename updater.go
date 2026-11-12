@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lagzap/lagzap-desktop/constant"
@@ -146,11 +147,7 @@ func initUpdater(app *application.App) bool {
 		}()
 	})
 	app.Event.On(updater.EventUserRestart, func(*application.CustomEvent) {
-		go func() {
-			if err := app.Updater.Restart(context.Background()); err != nil {
-				slog.Error("updater: restart", "error", err)
-			}
-		}()
+		go restartForUpdate(app)
 	})
 
 	if err := app.Updater.Init(updater.Config{
@@ -381,4 +378,36 @@ func mirrorProviders() []updater.Provider {
 		out = append(out, p)
 	}
 	return out
+}
+
+// quitting: LagZap is really exiting (tray Quit, or Restart & apply); the
+// tray guard otherwise turns every quit into hiding the window.
+var quitting atomic.Bool
+
+// updateStaged: an update is downloaded and applies when LagZap exits. The
+// tray guard (ShouldQuit in main) lets LagZap quit then: Restart & apply
+// starts a helper that waits for this process to exit, swaps the new version
+// in and relaunches it.
+func updateStaged(app *application.App) bool {
+	return app != nil && app.Updater != nil && app.Updater.DownloadedPath() != ""
+}
+
+// restartHandoff: Wails' own window session (the startup check) answers
+// Restart & apply itself; ours waits this long so only one helper starts.
+const restartHandoff = 1500 * time.Millisecond
+
+// restartForUpdate applies a downloaded update when nothing else did: after
+// a manual check there is no Wails session to answer the button.
+func restartForUpdate(app *application.App) {
+	time.Sleep(restartHandoff)
+	if quitting.Load() {
+		return // already exiting: the update applies then
+	}
+	if !updateStaged(app) {
+		slog.Error("updater: restart with no update downloaded")
+		return
+	}
+	if err := app.Updater.Restart(context.Background()); err != nil {
+		slog.Error("updater: restart", "error", err)
+	}
 }
