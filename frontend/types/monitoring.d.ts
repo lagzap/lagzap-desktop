@@ -76,6 +76,8 @@ export interface Connection {
   max_latency: number;
   jitter: number;
   ping_series: RoutePingSeries[];
+  /** Protocol sniffed on the connection (tls, http, quic, stun, ...), when known. */
+  protocol?: string;
   /** Why LagZap did not relay this connection as configured (absent when it did). */
   relay_issue?: RelayIssue;
 }

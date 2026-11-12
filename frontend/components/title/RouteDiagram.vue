@@ -483,6 +483,28 @@ function isDarkTheme() {
   return theme.current.value.dark;
 }
 
+/** Tonal, like the app's chips and avatars: the color mixed into the surface.
+ * Solid, not see-through, so route lines never show through a label. */
+function tonal(color: string, amount = 0.16) {
+  const rgb = (c: string) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(c.trim());
+    if (m) {
+      const n = parseInt(m[1], 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    const parts = c.match(/\d+(\.\d+)?/g)?.map(Number) ?? [];
+    return parts.length >= 3 ? parts.slice(0, 3) : null;
+  };
+  const surface = rgb(theme.current.value.colors.surface ?? (isDarkTheme() ? "#1E1E1E" : "#FFFFFF"));
+  const tint = rgb(color);
+  if (!surface || !tint) return color;
+  const mix = surface.map((v, i) => Math.round(v + (tint[i] - v) * amount));
+  return `rgb(${mix.join(",")})`;
+}
+function userAccent() {
+  return theme.current.value.colors.primary ?? (isDarkTheme() ? "#E6D785" : "#8B6914");
+}
+
 function resolveDiagramChrome() {
   if (isDarkTheme()) {
     return {
@@ -940,23 +962,27 @@ function updateChart() {
   // Add user node (keep as circle)
   nodes.push({
     id: "user",
-    name: "User",
+    name: t("$vuetify.networkLatency.you"),
     x: px(startX),
     y: px(centerY),
     symbolSize: 40,
     tooltip: { show: false },
     silent: true,
+    // Tonal circle in the app's gold, like the account avatar.
     itemStyle: {
-      color: chrome.userFill,
+      color: tonal(userAccent(), 0.2),
       opacity: 1,
-      borderColor: chrome.userBorder,
-      borderWidth: chrome.userBorderWidth,
+      borderWidth: 0,
     },
     label: {
       show: true,
       position: "inside",
-      color: chrome.userLabel,
-      fontSize: 11,
+      color: userAccent(),
+      fontSize: 9,
+      fontWeight: "bold",
+      align: "center",
+      verticalAlign: "middle",
+      lineHeight: 9,
     },
   });
 

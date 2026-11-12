@@ -6,6 +6,7 @@ import { connectionRelayLatency } from "~/composables/useProfileDisplayRoutes";
 import { useProfileViewInterface } from "~/composables/useProfileViewInterface";
 import { useHumanSpeed } from "~/composables/helper";
 import { useLocale } from "vuetify";
+import { localDigits } from "~/utils/localeFormat";
 
 const props = defineProps<{
   profileId: string;
@@ -36,16 +37,32 @@ function connectionTraffic(connection: {
   );
 }
 
-const profileConnections = computed(() => {
-  const max = props.limit ?? 5;
-
-  return (connections.value ?? [])
+/** Every connection of the profile, busiest first. */
+const allConnections = computed(() =>
+  (connections.value ?? [])
     .filter((connection) => connection.profile_id === props.profileId)
-    .sort((a, b) =>
-      connectionTraffic(a) > connectionTraffic(b) ? -1 : 1
-    )
-    .slice(0, max);
+    .sort((a, b) => (connectionTraffic(a) > connectionTraffic(b) ? -1 : 1))
+);
+
+// The top few show; "Show more" lists them all. The connection picked for
+// the chart always stays in view.
+const expanded = ref(false);
+const collapsedCount = computed(() => props.limit ?? 3);
+const profileConnections = computed(() => {
+  if (expanded.value) return allConnections.value;
+  const top = allConnections.value.slice(0, collapsedCount.value);
+  const picked = allConnections.value.find((c) => c.id === selectedConnectionId.value);
+  return picked && !top.includes(picked) ? [...top, picked] : top;
 });
+const hiddenCount = computed(() => allConnections.value.length - profileConnections.value.length);
+const canCollapse = computed(() => expanded.value && allConnections.value.length > collapsedCount.value);
+// Nothing more to show: back to the short list.
+watch(
+  () => allConnections.value.length,
+  (n) => {
+    if (n <= collapsedCount.value) expanded.value = false;
+  }
+);
 
 function onRowClick(connectionId: string) {
   toggleConnectionForChart(connectionId);
@@ -120,6 +137,18 @@ function onRowClick(connectionId: string) {
           </span>
         </td>
       </tr>
+      <tr v-if="hiddenCount > 0 || canCollapse" class="profile-connections-table__more">
+        <td colspan="6">
+          <button type="button" class="profile-connections-table__more-btn" @click="expanded = !expanded">
+            {{
+              expanded
+                ? t("$vuetify.connections.showLess")
+                : t("$vuetify.connections.showMore", localDigits(hiddenCount))
+            }}
+            <v-icon :icon="expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="16" />
+          </button>
+        </td>
+      </tr>
     </tbody>
   </v-table>
 </template>
@@ -173,6 +202,35 @@ function onRowClick(connectionId: string) {
 
 .v-locale--is-rtl .profile-connections-table__row--selected td:first-child {
   box-shadow: inset -3px 0 0 rgb(var(--v-theme-primary));
+}
+
+/* "Show more" spans the table: a quiet text button, centred. */
+.profile-connections-table__more td {
+  text-align: center;
+  padding: 0 !important;
+  height: 32px !important;
+}
+
+.profile-connections-table__more-btn {
+  width: 100%;
+  height: 100%;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.profile-connections-table__more-btn:hover,
+.profile-connections-table__more-btn:focus-visible {
+  color: rgba(var(--v-theme-on-surface), 0.87);
+  background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
 /* Clicking a row must not leave a focus ring; keyboard focus still shows. */

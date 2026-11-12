@@ -56,6 +56,22 @@ func (s *Service) Disconnect() {
 	s.coordinator.Disconnect()
 }
 
+// DisconnectTitle ends every open connection of a title (Connections page).
+func (s *Service) DisconnectTitle(id string) {
+	if s.coordinator == nil || id == "" {
+		return
+	}
+	s.coordinator.CloseByTitle(id)
+}
+
+// DisconnectProfile ends every open connection of one profile.
+func (s *Service) DisconnectProfile(id string) {
+	if s.coordinator == nil || id == "" {
+		return
+	}
+	s.coordinator.CloseByProfile(id)
+}
+
 func (s *Service) Status() adapter.ConnectionStatus {
 	if s.coordinator == nil {
 		return adapter.StatusDisconnected

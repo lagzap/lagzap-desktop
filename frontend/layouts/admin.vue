@@ -44,6 +44,11 @@ const navItems = computed(() => [
   },
 ]);
 
+/** The open page's name in the top bar ("Admin Tools" when none matches). */
+const pageTitle = computed(
+  () => navItems.value.find((item) => item.name === route.name)?.title ?? "Admin Tools",
+);
+
 onMounted(async () => {
   const { Window, Events } = await import("@wailsio/runtime");
   isMaximized.value = await Window.IsMaximised();
@@ -72,6 +77,7 @@ async function closeWindow() {
   <v-app class="admin-layout">
     <v-app-bar
       flat
+      class="admin-app-bar"
       density="comfortable"
       color="surface"
       style="--wails-draggable: drag"
@@ -81,20 +87,40 @@ async function closeWindow() {
         @click="drawer = !drawer"
       />
       <v-app-bar-title class="text-subtitle-1">
-        Admin Tools
+        {{ pageTitle }}
       </v-app-bar-title>
       <v-spacer />
+      <!-- Pages put their actions (search, filters) here with a Teleport. -->
       <div
-        class="d-flex"
+        id="admin-bar-actions"
+        class="d-flex align-center ga-2 me-2"
+        style="--wails-draggable: none"
+      />
+      <!-- Same window buttons as the main window (app.vue): square, accent,
+           flush with the top corner. -->
+      <div
+        class="d-flex align-self-start"
+        :class="{ 'flex-row-reverse': $vuetify.locale.isRtl }"
         style="--wails-draggable: none"
       >
-        <v-btn icon variant="plain" density="comfortable" @click="minimize">
+        <v-btn
+          icon
+          rounded="0"
+          variant="plain"
+          color="accent"
+          :density="mobile ? 'comfortable' : 'default'"
+          :height="48"
+          @click="minimize"
+        >
           <v-icon size="sm" icon="mdi-window-minimize" />
         </v-btn>
         <v-btn
           icon
+          rounded="0"
           variant="plain"
-          density="comfortable"
+          color="accent"
+          :density="mobile ? 'comfortable' : 'default'"
+          :height="48"
           @click="toggleMaximise"
         >
           <v-icon
@@ -102,7 +128,16 @@ async function closeWindow() {
             :icon="isMaximized ? 'mdi-window-restore' : 'mdi-window-maximize'"
           />
         </v-btn>
-        <v-btn icon variant="plain" density="comfortable" @click="closeWindow">
+        <v-btn
+          icon
+          rounded="0"
+          variant="plain"
+          color="accent"
+          :density="mobile ? 'comfortable' : 'default'"
+          :height="48"
+          style="margin-inline-end: 0"
+          @click="closeWindow"
+        >
           <v-icon size="sm" icon="mdi-close" />
         </v-btn>
       </div>
@@ -134,5 +169,10 @@ async function closeWindow() {
 <style scoped>
 .admin-layout {
   height: 100%;
+}
+
+/* The window buttons sit in the corner, like the main window's. */
+.admin-app-bar :deep(.v-toolbar__content) {
+  padding-inline-end: 0;
 }
 </style>

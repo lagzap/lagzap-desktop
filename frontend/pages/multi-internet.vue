@@ -83,23 +83,33 @@ function setDefault(name: string, on: boolean) {
   if (on) commitOrder([name, ...orderedNames.value.filter((n) => n !== name)]);
 }
 
-// Drag from the grip only, so chips and route inputs keep working.
-const armed = ref<string | null>(null);
+// Drag from the grip only, so chips and route inputs keep working. Pointer
+// events, not HTML drag and drop: the app's WebView does not deliver the
+// latter reliably, which left the cards impossible to move.
 const dragging = ref<string | null>(null);
 const dropTarget = ref<string | null>(null);
-function onDragStart(name: string, event: DragEvent) {
-  dragging.value = name;
-  event.dataTransfer?.setData("text/plain", name);
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+
+function slotUnder(x: number, y: number): string | null {
+  const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-adapter]");
+  return el?.dataset.adapter ?? null;
 }
-function onDragOver(name: string, event: DragEvent) {
-  if (!dragging.value) return;
+
+function onGripDown(name: string, event: PointerEvent) {
+  if (event.button !== 0) return;
   event.preventDefault();
-  dropTarget.value = name;
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  dragging.value = name;
+  dropTarget.value = null;
+  document.body.classList.add("adapter-dragging");
 }
-function onDrop(name: string) {
+function onGripMove(event: PointerEvent) {
+  if (!dragging.value) return;
+  const over = slotUnder(event.clientX, event.clientY);
+  dropTarget.value = over && over !== dragging.value ? over : null;
+}
+function onGripUp() {
   const from = orderedNames.value.indexOf(dragging.value ?? "");
-  const to = orderedNames.value.indexOf(name);
+  const to = orderedNames.value.indexOf(dropTarget.value ?? "");
   if (from >= 0 && to >= 0 && from !== to) {
     const next = [...orderedNames.value];
     next.splice(to, 0, ...next.splice(from, 1));
@@ -108,8 +118,10 @@ function onDrop(name: string) {
   onDragEnd();
 }
 function onDragEnd() {
-  armed.value = dragging.value = dropTarget.value = null;
+  dragging.value = dropTarget.value = null;
+  document.body.classList.remove("adapter-dragging");
 }
+onUnmounted(onDragEnd);
 
 // Capture mode is a Windows choice: NDIS by default, the virtual adapter
 // (TUN) on request. Elsewhere the TUN is the only mode.
@@ -216,23 +228,22 @@ const pools = computed(() => [
               'adapter-slot--dragging': dragging === name,
               'adapter-slot--drop': dropTarget === name && dragging !== name,
             }"
-            :draggable="armed === name"
-            @dragstart="onDragStart(name, $event)"
-            @dragover="onDragOver(name, $event)"
-            @dragleave="dropTarget === name && (dropTarget = null)"
-            @drop.prevent="onDrop(name)"
-            @dragend="onDragEnd"
+            :data-adapter="name"
           >
             <v-tooltip location="top" :text="mi('orderTip')" open-delay="400">
               <template #activator="{ props: tip }">
                 <div
                   v-bind="tip"
                   class="adapter-slot__grip"
-                  @mousedown="armed = name"
-                  @mouseup="armed = null"
+                  role="button"
+                  :aria-label="mi('orderTip')"
+                  @pointerdown="onGripDown(name, $event)"
+                  @pointermove="onGripMove"
+                  @pointerup="onGripUp"
+                  @pointercancel="onDragEnd"
                 >
+                  <v-icon icon="mdi-drag" size="16" />
                   <span class="adapter-slot__rank">{{ localDigits(index + 1) }}</span>
-                  <v-icon icon="mdi-drag-horizontal" size="16" />
                 </div>
               </template>
             </v-tooltip>
@@ -463,27 +474,35 @@ const pools = computed(() => [
   box-shadow: 0 0 0 2px rgb(var(--v-theme-primary));
 }
 
-/* Grip at the top centre: the order number and a drag handle. */
+/* Grip at the top centre: a drag handle and the order number. Always
+   visible, big enough to grab. */
 .adapter-slot__grip {
   position: absolute;
-  top: 2px;
+  top: -10px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 6px;
-  border-radius: 6px;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 10px 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  background: rgb(var(--v-theme-surface));
+  color: rgba(var(--v-theme-on-surface), 0.7);
   cursor: grab;
-  opacity: 0.45;
-  font-size: 0.6875rem;
-  transition: opacity 0.15s, background-color 0.15s;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  touch-action: none;
+  user-select: none;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
 }
 
-.adapter-slot:hover .adapter-slot__grip {
-  opacity: 0.9;
-  background: rgb(var(--v-theme-on-surface) / 0.06);
+.adapter-slot:hover .adapter-slot__grip,
+.adapter-slot--dragging .adapter-slot__grip {
+  color: rgb(var(--v-theme-primary));
+  border-color: rgba(var(--v-theme-primary), 0.5);
 }
 
 .adapter-slot__grip:active {
@@ -493,6 +512,17 @@ const pools = computed(() => [
 .multi-internet__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
-  gap: 12px;
+  /* Rows leave room above each card for its grip. */
+  gap: 22px 12px;
+  padding-top: 10px;
+}
+</style>
+
+<style>
+/* While a card is dragged: the grab cursor everywhere, no text selection. */
+body.adapter-dragging,
+body.adapter-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
 }
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { onMounted } from "vue";
 import { useLocale } from "vuetify";
-import { Connect, InstallDriver, IsDriverInstalled, IsLocalProxyRunning, ReloadService, UninstallDriver, CheckForUpdates } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { Connect, GetVersion, InstallDriver, IsDriverInstalled, IsLocalProxyRunning, ReloadService, UninstallDriver, CheckForUpdates } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import { getHttpStatus, isAuthError, isForceUpdateError, getNetworkFailureKind } from "~/utils/httpError";
 import { getToken } from "~/utils/indexedDB";
 import { handleAuthFailure } from "~/composables/useAuthSession";
@@ -64,6 +64,16 @@ definePageMeta({
   sanctum: {
     excluded: true,
   },
+});
+
+/** This build's version, small at the bottom of the splash. */
+const appVersion = ref("");
+onMounted(async () => {
+  try {
+    appVersion.value = (await GetVersion()) || "";
+  } catch {
+    // unknown: nothing shown
+  }
 });
 
 const errorName = ref<string | null>(null);
@@ -408,6 +418,7 @@ async function initApp() {
         </template>
       </template>
     </div>
+    <div v-if="appVersion" class="splash-version">v{{ appVersion }}</div>
     <v-dialog v-model="driverDialog" width="500" persistent>
       <v-card :title="t('$vuetify.startService.installLagZapDriver')">
         <v-card-text>
@@ -467,6 +478,20 @@ async function initApp() {
   left: 50%;
   transform: translateX(-50%);
   z-index: 1002;
+}
+
+.splash-version {
+  position: fixed;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 1002;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(var(--v-theme-on-surface), 0.38);
+  pointer-events: none;
+  user-select: none;
 }
 
 .status-container :deep(.v-card-title) {

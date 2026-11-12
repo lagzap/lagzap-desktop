@@ -18,10 +18,26 @@ const stickToBottom = ref(true);
 const programmaticScroll = ref(false);
 const BOTTOM_THRESHOLD = 24;
 
+// Scrolled up (paused): the list holds still on what you are reading. The
+// live list keeps only the newest lines, so following it would push the old
+// ones out from under you; new lines wait until you follow again.
+const frozen = ref<typeof logs.value | null>(null);
+watch(stickToBottom, (following) => {
+  frozen.value = following ? null : logs.value.slice();
+});
+const shown = computed(() => frozen.value ?? logs.value);
+/** Lines logged since pausing. */
+const newSincePause = computed(() => {
+  const last = frozen.value?.[frozen.value.length - 1]?.time;
+  if (!frozen.value || !last) return 0;
+  const since = new Date(last as any).getTime();
+  return logs.value.filter((log: any) => new Date(log.time).getTime() > since).length;
+});
+
 const filteredItems = computed(() => {
-  if (!search.value) return logs.value;
+  if (!search.value) return shown.value;
   const q = search.value.toLowerCase();
-  return logs.value.filter((log: any) =>
+  return shown.value.filter((log: any) =>
     JSON.stringify(log).toLowerCase().includes(q)
   );
 });
@@ -137,7 +153,7 @@ const getLogLevelColor = (level: string) => {
           prepend-icon="mdi-arrow-down"
           @click="scrollToBottom"
         >
-          Jump to bottom
+          Jump to bottom<template v-if="newSincePause"> ({{ newSincePause }} new)</template>
         </v-btn>
       </v-toolbar>
 

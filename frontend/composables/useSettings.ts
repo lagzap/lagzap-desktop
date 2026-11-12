@@ -64,6 +64,28 @@ interface AppSettings {
   favoriteTicketIds?: string[]
   /** Recently opened tickets (max MAX_RECENT_TICKETS). */
   recentTickets?: RecentTicketEntry[]
+  /** Settings the user turned on or off themselves; the others follow
+   * their defaults (ON_BY_DEFAULT stays on until the user turns it off). */
+  userChosen?: string[]
+}
+
+/** On unless the user turned them off: values saved before they became
+ * defaults (and never touched) are switched on. */
+const ON_BY_DEFAULT = [
+  'allowSendDebugInfo',
+  'allowSendAnonymousData',
+  'realtimeOptimization',
+  'proxyDnsRequests',
+  'gamingPriority',
+] as const satisfies readonly (keyof AppSettings)[]
+
+function withDefaultsOn(value: AppSettings): AppSettings {
+  const chosen = new Set(value.userChosen ?? [])
+  const next = { ...value }
+  for (const key of ON_BY_DEFAULT) {
+    if (!chosen.has(key)) next[key] = true
+  }
+  return next
 }
 
 const APP_SETTINGS_KEY = 'app-settings'
@@ -85,8 +107,8 @@ const defaultRoutingSettings: Required<
   routeProtocol: 'tcpUdp',
   routeIp: 'dualstack',
   realtimeOptimization: true,
-  proxyDnsRequests: false,
-  gamingPriority: false,
+  proxyDnsRequests: true,
+  gamingPriority: true,
   internetPingTarget: DEFAULT_INTERNET_PING_TARGET,
   relayTransportFallback: false,
 }
@@ -95,8 +117,8 @@ const settings = shallowRef<AppSettings>({
   language: undefined,
   theme: 'system',
   isFirstTime: true,
-  allowSendDebugInfo: false,
-  allowSendAnonymousData: false,
+  allowSendDebugInfo: true,
+  allowSendAnonymousData: true,
   launchOnStartup: false,
   launchOnStartupMinimize: false,
   activeOnStart: true,
@@ -239,15 +261,15 @@ export const useSettings = (locale?: any, theme?: any) => {
     if (settings.value.theme) {
       next.theme = settings.value.theme
     }
-    next.allow_send_debug_info = settings.value.allowSendDebugInfo ?? false
-    next.allow_send_annonymos_data = settings.value.allowSendAnonymousData ?? false
+    next.allow_send_debug_info = settings.value.allowSendDebugInfo ?? true
+    next.allow_send_annonymos_data = settings.value.allowSendAnonymousData ?? true
     next.launch_on_startup = settings.value.launchOnStartup ?? false
     next.launch_on_startup_minimize = settings.value.launchOnStartupMinimize ?? false
     next.active_on_start = settings.value.activeOnStart ?? true
     next.gpu_acceleration = settings.value.gpuAcceleration ?? true
     next.relay_transport_fallback = settings.value.relayTransportFallback ?? false
     next.internet_ping_target = settings.value.internetPingTarget ?? DEFAULT_INTERNET_PING_TARGET
-    next.proxy_dns_requests = settings.value.proxyDnsRequests ?? false
+    next.proxy_dns_requests = settings.value.proxyDnsRequests ?? true
     next.tcp_routes = existing?.tcp_routes
     next.udp_routes = existing?.udp_routes
     next.default_interface = existing?.default_interface ?? ''
@@ -267,12 +289,12 @@ export const useSettings = (locale?: any, theme?: any) => {
         protocolToEnum[settings.value.routeProtocol ?? 'tcpUdp'],
         ipToEnum[settings.value.routeIp ?? 'dualstack'],
         settings.value.realtimeOptimization ?? true,
-        settings.value.proxyDnsRequests ?? false,
+        settings.value.proxyDnsRequests ?? true,
       )
       await SetClientSettings(await buildClientSettingsPayload())
       await SetInternetPingTarget(settings.value.internetPingTarget ?? DEFAULT_INTERNET_PING_TARGET)
       await SetAdapterOrder(settings.value.adapterOrder ?? [])
-      await SetGamingPriority(settings.value.gamingPriority ?? false)
+      await SetGamingPriority(settings.value.gamingPriority ?? true)
     } catch (error) {
       console.warn('Could not sync routing settings to backend:', error)
     }
@@ -322,7 +344,10 @@ export const useSettings = (locale?: any, theme?: any) => {
         console.warn('Could not load client settings from backend:', error)
       }
 
-      if (!hadLocalPrefs) {
+      // Defaults that are on stay on unless the user turned them off.
+      const before = JSON.stringify(settings.value)
+      settings.value = withDefaultsOn(settings.value)
+      if (!hadLocalPrefs || JSON.stringify(settings.value) !== before) {
         await persistAppSettings()
       }
 
@@ -337,7 +362,11 @@ export const useSettings = (locale?: any, theme?: any) => {
   }
 
   const saveSettings = async (newSettings: Partial<AppSettings>): Promise<void> => {
-    settings.value = { ...settings.value, ...newSettings }
+    const touched = ON_BY_DEFAULT.filter((key) => key in newSettings)
+    const userChosen = touched.length
+      ? [...new Set([...(settings.value.userChosen ?? []), ...touched])]
+      : settings.value.userChosen
+    settings.value = { ...settings.value, ...newSettings, userChosen }
     try {
       await persistAppSettings()
       void syncRoutingSettingsToBackend()

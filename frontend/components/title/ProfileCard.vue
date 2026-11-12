@@ -278,7 +278,6 @@ const routeSettingsText = computed(() => {
 
     <template #subtitle>
       <span class="text-caption ms-3 profile-card-subtitle">
-        <LinkQualityIndicator v-if="profileChart?.link" :link="profileChart.link" />
         <ProfileEstimatedPing
           :profile-id="props.profile.id"
           :views="showInterfaceSelector && !smartRoutes ? interfaceSelectItems : []"
@@ -286,7 +285,11 @@ const routeSettingsText = computed(() => {
           :fixing-lag="fixingLag"
           @fix-lag="fixLag"
           @show-latency="showLatency"
-        />
+        >
+          <template #after-value>
+            <LinkQualityIndicator v-if="profileChart?.link" :link="profileChart.link" />
+          </template>
+        </ProfileEstimatedPing>
         <!-- The ping already ends with a separator. While a session runs,
              its speed and traffic take the place of the route level and
              the profile's options. -->
@@ -411,7 +414,7 @@ const routeSettingsText = computed(() => {
       <ProfileConnectionsTable
         v-if="showProfileSections && hasProfileConnections"
         :profile-id="props.profile.id"
-        :limit="5"
+        :limit="3"
       />
     </v-card-text>
 

@@ -16,6 +16,10 @@ const store = useStore();
 const isHighTraffic = computed(
   () => (props.profile.flags & ProfileFlag.HIGH_TRAFFIC) !== 0
 );
+/** Games show live speeds; other profiles only how much they used. */
+const isGame = computed(
+  () => (props.profile.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !== 0
+);
 
 const profileActive = computed(() => store.isProfileActive(props.profile.id));
 
@@ -48,28 +52,27 @@ const visible = computed(() => {
   <span
     v-if="visible"
     class="profile-activity"
-    :class="{ 'profile-activity--live': connected, 'profile-activity--clickable': clickable }"
-    :role="clickable ? 'button' : undefined"
-    :tabindex="clickable ? 0 : undefined"
-    @click="clickable && emit('click')"
-    @keydown.enter="clickable && emit('click')"
+    :class="{ 'profile-activity--live': connected }"
   >
-    <span class="profile-activity__dot" aria-hidden="true" />
-
-    <template v-if="isHighTraffic">
+    <template v-if="isHighTraffic && isGame">
       <span class="profile-activity__meta text-caption text-no-wrap">
         <span class="profile-activity__down"
-          >↓ {{ useHumanSpeed(downloadSpeed) }}</span
+          ><v-icon icon="mdi-arrow-down" size="12" class="profile-activity__arrow" />{{ useHumanSpeed(downloadSpeed) }}</span
         >
         <span class="profile-activity__sep">·</span>
         <span class="profile-activity__up"
-          >↑ {{ useHumanSpeed(uploadSpeed) }}</span
+          ><v-icon icon="mdi-arrow-up" size="12" class="profile-activity__arrow" />{{ useHumanSpeed(uploadSpeed) }}</span
         >
         <template v-if="totalBytes > 0">
           <span class="profile-activity__sep">·</span>
-          <span class="profile-activity__usage">{{
-            useHumanSize(totalBytes)
-          }}</span>
+          <span
+            class="profile-activity__usage"
+            :class="{ 'profile-activity__usage--link': clickable }"
+            :role="clickable ? 'button' : undefined"
+            :tabindex="clickable ? 0 : undefined"
+            @click.stop="clickable && emit('click')"
+            @keydown.enter="clickable && emit('click')"
+          >{{ useHumanSize(totalBytes) }}</span>
         </template>
       </span>
     </template>
@@ -78,19 +81,29 @@ const visible = computed(() => {
       v-else
       class="profile-activity__meta text-caption text-no-wrap"
     >
-      {{ useHumanSize(totalBytes) }}
+      <span
+        class="profile-activity__usage"
+        :class="{ 'profile-activity__usage--link': clickable }"
+        :role="clickable ? 'button' : undefined"
+        :tabindex="clickable ? 0 : undefined"
+        @click.stop="clickable && emit('click')"
+        @keydown.enter="clickable && emit('click')"
+      >{{ useHumanSize(totalBytes) }}</span>
     </span>
   </span>
 </template>
 
 <style scoped>
-.profile-activity--clickable {
+/* Only the used traffic opens the traffic chart. */
+.profile-activity__usage--link {
   cursor: pointer;
+  text-underline-offset: 3px;
 }
 
-.profile-activity--clickable:hover .profile-activity__meta {
+.profile-activity__usage--link:hover,
+.profile-activity__usage--link:focus-visible {
   text-decoration: underline;
-  text-underline-offset: 3px;
+  opacity: 1;
 }
 
 .profile-activity {
@@ -102,16 +115,10 @@ const visible = computed(() => {
   vertical-align: middle;
 }
 
-.profile-activity__dot {
-  flex-shrink: 0;
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  background: rgba(var(--v-theme-on-surface), 0.35);
-}
-
-.profile-activity--live .profile-activity__dot {
-  background: rgb(var(--v-theme-success));
+.profile-activity__arrow {
+  margin-inline-end: 1px;
+  vertical-align: -1px;
+  opacity: 0.7;
 }
 
 .profile-activity__meta {

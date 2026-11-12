@@ -38,6 +38,8 @@ type Service struct {
 	// gamingPriority: Settings > Routing "Prioritize gaming traffic", kept
 	// here so a service restart applies it again.
 	gamingPriority bool
+	// quitApp quits LagZap like the tray's Quit (set by main).
+	quitApp func()
 	// virtualAdapter: on Windows, capture through LagZap's TUN instead of
 	// the NDIS driver (service_proxy_windows.go).
 	virtualAdapter bool

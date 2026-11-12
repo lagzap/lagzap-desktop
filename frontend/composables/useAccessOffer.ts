@@ -26,6 +26,19 @@ let listening = false;
 let poll: ReturnType<typeof setInterval> | undefined;
 let suspendedPoll: ReturnType<typeof setInterval> | undefined;
 
+/** Refusals the user can fix (finish the Discord step, or try again once
+ * online). Any other blocked reason is final. */
+export const FIXABLE_REFUSALS = ["discord_not_linked", "discord_not_member", "unreachable"];
+
+/** The offer can still be claimed: not claimed yet and not refused for good
+ * (already used on this account, Discord or computer, has a plan, ...). An
+ * offer that cannot be claimed is not shown at all. */
+function claimable(o: AccessOffer | null): boolean {
+  if (!o || o.claimed) return false;
+  const reason = o.blocked_reason ?? "";
+  return !reason || FIXABLE_REFUSALS.includes(reason);
+}
+
 /** Claimed access paused because the user left the Discord server. */
 const suspended = computed(() => !!offer.value?.suspended);
 
@@ -38,7 +51,7 @@ async function check() {
 }
 
 function maybeAutoOpen() {
-  if (!autoOpened && offer.value && !offer.value.claimed) {
+  if (!autoOpened && claimable(offer.value)) {
     autoOpened = true;
     screenOpen.value = true;
   }
@@ -90,8 +103,8 @@ export function useAccessOffer() {
       .catch(() => {});
   }
 
-  /** There is an offer the user has not claimed. */
-  const open = computed(() => !!offer.value && !offer.value.claimed);
+  /** There is an offer the user can still claim. */
+  const open = computed(() => claimable(offer.value));
   const discordDone = computed(() => !!offer.value?.discord.linked && !!offer.value?.discord.member);
 
   const startPolling = () => {

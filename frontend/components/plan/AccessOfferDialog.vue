@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useLocale } from "vuetify";
-import { useAccessOffer } from "~/composables/useAccessOffer";
+import { FIXABLE_REFUSALS, useAccessOffer } from "~/composables/useAccessOffer";
 import { localDigits } from "~/utils/localeFormat";
 import SensitiveText from "~/components/common/SensitiveText.vue";
 
@@ -27,11 +27,8 @@ const KNOWN = [
   "revoked",
   "unreachable",
 ];
-// Refusals the user can fix here (finish the Discord step, or try again
-// once online): the claim button stays. Every other one is final.
-const FIXABLE = ["discord_not_linked", "discord_not_member", "unreachable"];
 const blocked = computed(() => refusal.value || offer.value?.blocked_reason || "");
-const final = computed(() => !!blocked.value && !FIXABLE.includes(blocked.value));
+const final = computed(() => !!blocked.value && !FIXABLE_REFUSALS.includes(blocked.value));
 const blockedText = computed(() =>
   t(`$vuetify.accessOffer.blocked.${KNOWN.includes(blocked.value) ? blocked.value : "other"}`),
 );
@@ -56,7 +53,7 @@ watch(
 );
 // Discord step finished after a "not linked / not a member" refusal.
 watch(discordDone, (done) => {
-  if (done && FIXABLE.includes(refusal.value)) refusal.value = "";
+  if (done && FIXABLE_REFUSALS.includes(refusal.value)) refusal.value = "";
 });
 // Claimed: the plan has started, nothing left to show.
 watch(

@@ -7,6 +7,9 @@ import CountryFlag from "vue-country-flag-next";
 import { ProfileFlag } from "~/constants/profile";
 import { useRegionSelection } from "~/composables/useRegionSelection";
 import { usePlanAccess } from "~/composables/usePlanAccess";
+import { localDigits } from "~/utils/localeFormat";
+import { DEFAULT_TCP_ROUTES, DEFAULT_UDP_ROUTES, resolveProfileRouteCounts } from "~/composables/routeCountUtils";
+import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 
 const props = defineProps<{
   profile: Profile;
@@ -112,6 +115,51 @@ const modes = computed(() => [
   { value: "city", icon: "mdi-city-variant-outline", text: t("$vuetify.title.profile.server.byCity") },
   { value: "direct", icon: "mdi-call-split", text: t("$vuetify.title.profile.server.directWithoutServer") },
 ]);
+
+// Route counts: how many route paths LagZap can use to reach these servers
+// (each server's routes, summed), shown under each location and in total.
+const routesOf = (nodes?: { id: string }[]) =>
+  (nodes ?? []).reduce((sum, node) => sum + (store.routes[node.id]?.routes?.length ?? 0), 0);
+const cityRoutes = (city: string) => routesOf(cityMap.value[city]);
+const countryRoutes = (country: string) => routesOf(areas.value[country]);
+const regionRoutes = (regionTag: string) =>
+  (regionCountryMap.value[regionTag] ?? []).reduce((sum, country) => sum + countryRoutes(country), 0);
+const cityRegionRoutes = (regionTag: string) =>
+  Object.keys(cityHierarchy.value[regionTag] ?? {}).reduce(
+    (sum, country) =>
+      sum + getSortedCitiesForCountry(regionTag, country).reduce((n: number, city: string) => n + cityRoutes(city), 0),
+    0,
+  );
+const automaticRoutes = computed(() =>
+  Object.keys(cityHierarchy.value).reduce((sum, regionTag) => sum + cityRegionRoutes(regionTag), 0),
+);
+const routesLabel = (n: number) => t("$vuetify.title.profile.server.routeCount", localDigits(n));
+
+// How many of those routes LagZap keeps active for this profile: its route
+// setting on each internet that joins Multi Internet.
+const { resolvedGlobalTcp, resolvedGlobalUdp, multiInternet } = useNetworkAdapterSettings();
+const internetCount = computed(() => Math.max(1, multiInternet.selection.value.length));
+const activeRoutes = computed(() => {
+  const counts = resolveProfileRouteCounts(store.profileStates[props.profile.id], {
+    tcp: resolvedGlobalTcp.value ?? DEFAULT_TCP_ROUTES,
+    udp: resolvedGlobalUdp.value ?? DEFAULT_UDP_ROUTES,
+  });
+  return counts.total * internetCount.value;
+});
+/** "LagZap keeps 4 routes active, picked from 86 possible route paths (over your 3 internets)." */
+const routesTip = (possible: number) =>
+  internetCount.value > 1
+    ? t(
+        "$vuetify.title.profile.server.routesActiveHintMulti",
+        localDigits(Math.min(activeRoutes.value, possible)),
+        localDigits(possible),
+        localDigits(internetCount.value),
+      )
+    : t(
+        "$vuetify.title.profile.server.routesActiveHint",
+        localDigits(Math.min(activeRoutes.value, possible)),
+        localDigits(possible),
+      );
 
 // Direct lists the adapters to send through: load them when it is picked.
 watch(
@@ -233,7 +281,19 @@ watch(
         density="compact"
         class="automatic-servers"
       >
-        <v-list-subheader>{{ t("$vuetify.title.profile.server.automaticServers") }}</v-list-subheader>
+        <v-list-subheader>
+          <div class="d-flex align-center ga-2">
+            <span>{{ t("$vuetify.title.profile.server.automaticServers") }}</span>
+            <v-spacer />
+            <v-tooltip v-if="automaticRoutes" :text="routesTip(automaticRoutes)" location="top" max-width="300" open-delay="200">
+              <template #activator="{ props: tip }">
+                <v-chip v-bind="tip" size="x-small" variant="tonal" color="primary" prepend-icon="mdi-transit-connection-variant" class="route-count-tip">
+                  {{ t("$vuetify.title.profile.server.totalRoutes", localDigits(automaticRoutes)) }}
+                </v-chip>
+              </template>
+            </v-tooltip>
+          </div>
+        </v-list-subheader>
         <template v-for="regionTag in Object.keys(cityHierarchy)" :key="`auto-${regionTag}`">
           <template
             v-for="countryIso2 in Object.keys(cityHierarchy[regionTag])"
@@ -245,12 +305,17 @@ watch(
               density="compact"
             >
               <template #title>
-                <v-avatar size="24" rounded="0">
-                  <span style="height: 40px">
-                    <CountryFlag :country="cityMap[city]?.[0]?.country" />
-                  </span>
-                </v-avatar>
-                <span class="text-caption ms-2">{{ getCityLabel(city) }}</span>
+                <div class="d-flex align-center">
+                  <v-avatar size="24" rounded="0">
+                    <span style="height: 40px">
+                      <CountryFlag :country="cityMap[city]?.[0]?.country" />
+                    </span>
+                  </v-avatar>
+                  <div class="ms-2">
+                    <div class="text-caption">{{ getCityLabel(city) }}</div>
+                    <v-tooltip v-if="cityRoutes(city)" :text="routesTip(cityRoutes(city))" location="top" max-width="300" open-delay="200"><template #activator="{ props: tip }"><div v-bind="tip" class="route-count route-count-tip">{{ routesLabel(cityRoutes(city)) }}</div></template></v-tooltip>
+                  </div>
+                </div>
               </template>
               <template #append>
                 <Ping
@@ -316,11 +381,14 @@ watch(
             />
           </template>
           <template #title>
-            <div @click.stop="toggleRegion(region.tag)">
+            <div class="d-flex align-center" @click.stop="toggleRegion(region.tag)">
               <v-avatar size="32" class="me-3">
                 <ContinentIcon :tag="region.tag" />
               </v-avatar>
-              <span>{{ store.localized(region.name) }}</span>
+              <div>
+                <div>{{ store.localized(region.name) }}</div>
+                <v-tooltip v-if="regionRoutes(region.tag)" :text="routesTip(regionRoutes(region.tag))" location="top" max-width="300" open-delay="200"><template #activator="{ props: tip }"><div v-bind="tip" class="route-count route-count-tip">{{ routesLabel(regionRoutes(region.tag)) }}</div></template></v-tooltip>
+              </div>
             </div>
           </template>
           <template #append>
@@ -391,6 +459,7 @@ watch(
               <span class="text-subtitle-2 font-weight-bold">
                 {{ store.localized(region.name) }}
               </span>
+              <v-tooltip v-if="regionRoutes(region.tag)" :text="routesTip(regionRoutes(region.tag))" location="top" max-width="300" open-delay="200"><template #activator="{ props: tip }"><span v-bind="tip" class="route-count route-count-tip ms-2">{{ routesLabel(regionRoutes(region.tag)) }}</span></template></v-tooltip>
             </template>
           </v-list-item>
 
@@ -417,14 +486,17 @@ watch(
               />
             </template>
             <template #title>
-              <v-avatar size="24" rounded="0">
-                <span style="height: 40px">
-                  <CountryFlag :country="countryCode" />
-                </span>
-              </v-avatar>
-              <span class="text-caption ms-2">
-                {{ countryName(countryCode) }}
-              </span>
+              <div class="d-flex align-center">
+                <v-avatar size="24" rounded="0">
+                  <span style="height: 40px">
+                    <CountryFlag :country="countryCode" />
+                  </span>
+                </v-avatar>
+                <div class="ms-2">
+                  <div class="text-caption">{{ countryName(countryCode) }}</div>
+                  <v-tooltip v-if="countryRoutes(countryCode)" :text="routesTip(countryRoutes(countryCode))" location="top" max-width="300" open-delay="200"><template #activator="{ props: tip }"><div v-bind="tip" class="route-count route-count-tip">{{ routesLabel(countryRoutes(countryCode)) }}</div></template></v-tooltip>
+                </div>
+              </div>
             </template>
             <template #append>
               <Ping
@@ -505,6 +577,7 @@ watch(
               <span class="text-body-2 ms-2 text-grey">
                 {{ getRegionLocalizedName(regionTag) }}
               </span>
+              <v-tooltip v-if="cityRegionRoutes(regionTag)" :text="routesTip(cityRegionRoutes(regionTag))" location="top" max-width="300" open-delay="200"><template #activator="{ props: tip }"><span v-bind="tip" class="route-count route-count-tip ms-2">{{ routesLabel(cityRegionRoutes(regionTag)) }}</span></template></v-tooltip>
             </template>
           </v-list-item>
 
@@ -532,12 +605,17 @@ watch(
                 />
               </template>
               <template #title>
-                <v-avatar size="24" rounded="0">
-                  <span style="height: 40px">
-                    <CountryFlag :country="cityMap[city]?.[0]?.country" />
-                  </span>
-                </v-avatar>
-                <span class="text-caption ms-2">{{ getCityLabel(city) }}</span>
+                <div class="d-flex align-center">
+                  <v-avatar size="24" rounded="0">
+                    <span style="height: 40px">
+                      <CountryFlag :country="cityMap[city]?.[0]?.country" />
+                    </span>
+                  </v-avatar>
+                  <div class="ms-2">
+                    <div class="text-caption">{{ getCityLabel(city) }}</div>
+                    <v-tooltip v-if="cityRoutes(city)" :text="routesTip(cityRoutes(city))" location="top" max-width="300" open-delay="200"><template #activator="{ props: tip }"><div v-bind="tip" class="route-count route-count-tip">{{ routesLabel(cityRoutes(city)) }}</div></template></v-tooltip>
+                  </div>
+                </div>
               </template>
               <template #append>
                 <Ping
@@ -768,12 +846,17 @@ watch(
                 />
               </template>
               <template #title>
-                <v-avatar size="24" rounded="0">
-                  <span style="height: 40px">
-                    <CountryFlag :country="cityMap[cityKey]?.[0]?.country" />
-                  </span>
-                </v-avatar>
-                <span class="text-caption ms-2">{{ getCityLabel(cityKey) }}</span>
+                <div class="d-flex align-center">
+                  <v-avatar size="24" rounded="0">
+                    <span style="height: 40px">
+                      <CountryFlag :country="cityMap[cityKey]?.[0]?.country" />
+                    </span>
+                  </v-avatar>
+                  <div class="ms-2">
+                    <div class="text-caption">{{ getCityLabel(cityKey) }}</div>
+                    <v-tooltip v-if="cityRoutes(cityKey)" :text="routesTip(cityRoutes(cityKey))" location="top" max-width="300" open-delay="200"><template #activator="{ props: tip }"><div v-bind="tip" class="route-count route-count-tip">{{ routesLabel(cityRoutes(cityKey)) }}</div></template></v-tooltip>
+                  </div>
+                </div>
               </template>
               <template #append>
                 <Ping
@@ -798,3 +881,24 @@ watch(
     </v-card>
   </v-menu>
 </template>
+
+<style scoped>
+/* Route count under a location's name. */
+.route-count {
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+}
+
+/* A route count explains itself on hover: dotted underline and a tooltip. */
+.route-count-tip {
+  cursor: help;
+  text-decoration: underline dotted transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+
+.route-count-tip:hover {
+  text-decoration-color: currentColor;
+}
+</style>

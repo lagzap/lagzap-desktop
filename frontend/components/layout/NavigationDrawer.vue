@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useDisplay } from "vuetify";
 import QuickAccess from "./QuickAccess.vue";
-import { Application, Events, Window } from "@wailsio/runtime";
+import { Events } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
-import { StopService } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { QuitApp, RestartApp } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import DiscordIcon from "~/components/icons/DiscordIcon.vue";
 import XIcon from "~/components/icons/XIcon.vue";
 import TelegramIcon from "~/components/icons/TelegramIcon.vue";
 import LatencyChip from "~/components/network/LatencyChip.vue";
+import { localDigits } from "~/utils/localeFormat";
+import { useMonitoringStore } from "~/stores/monitoring";
 
 const { t } = useLocale();
 const data = useSanctumUser<DataResponse>();
@@ -21,6 +23,16 @@ const { mobile } = useDisplay();
 const store = useStore();
 
 const running = computed(() => store.ndisRunning);
+
+// Counts beside the menu items: the game connections (the same ones the
+// Connections page lists) and the internets when there is more than one.
+const { connections } = useMonitoringStore();
+const connectionCount = computed(
+  () => connections.value?.filter((c) => !!c.profile_id).length ?? 0
+);
+const internetCount = computed(
+  () => store.interfaces.filter((iface) => !!iface.Name).length
+);
 const model = defineModel<boolean>({
   required: false,
   default: false,
@@ -52,11 +64,22 @@ const { checking: updateChecking, checkForUpdate } = useUpdateCheck(t)
 const tickets = useTicketsStore()
 const bugFeedbackOpen = ref(false)
 
-async function exit() {
+// Exit asks first (Cancel is the default), and can restart instead. Both
+// quit like the tray's Quit; before, Exit only hid the window to the tray.
+const exitDialog = ref(false);
+const exitCancelBtn = ref<{ $el?: HTMLElement } | null>(null);
+function exit() {
+  exitDialog.value = true;
+}
+async function confirmExit(restart: boolean) {
   quiting.value = true;
-  await StopService();
-  await Window.Close();
-  await Application.Quit();
+  try {
+    if (restart) await RestartApp();
+    else await QuitApp();
+  } catch (error) {
+    console.warn("Exit failed:", error);
+    quiting.value = false;
+  }
 }
 </script>
 
@@ -239,24 +262,70 @@ async function exit() {
         prepend-icon="mdi-call-split"
         rounded="xl"
         density="compact"
-      />
+      >
+        <template v-if="internetCount > 1" #append>
+          <span class="nav-count">{{ localDigits(internetCount) }}</span>
+        </template>
+      </v-list-item>
       <v-list-item
         :to="{ name: 'connections' }"
         :title="t('$vuetify.navigation.connections')"
         prepend-icon="mdi-network-outline"
         rounded="xl"
         density="compact"
-      />
+      >
+        <template v-if="connectionCount > 0" #append>
+          <span class="nav-count">{{ localDigits(connectionCount) }}</span>
+        </template>
+      </v-list-item>
     </v-list>
 
     <QuickAccess />
 
     <DialogBugFeedback v-model="bugFeedbackOpen" />
+
+    <v-dialog v-model="exitDialog" max-width="400" @after-enter="exitCancelBtn?.$el?.focus()">
+      <v-card rounded="xl">
+        <v-card-item>
+          <template #prepend>
+            <v-avatar color="error" variant="tonal" icon="mdi-power" />
+          </template>
+          <v-card-title class="text-wrap">{{ t("$vuetify.navigation.exitConfirm.title") }}</v-card-title>
+        </v-card-item>
+        <v-card-text class="text-body-2 text-medium-emphasis">
+          {{ t("$vuetify.navigation.exitConfirm.text") }}
+        </v-card-text>
+        <v-card-actions>
+          <v-btn
+            variant="text"
+            prepend-icon="mdi-restart"
+            :disabled="quiting"
+            @click="confirmExit(true)"
+          >
+            {{ t("$vuetify.navigation.exitConfirm.restart") }}
+          </v-btn>
+          <v-spacer />
+          <v-btn ref="exitCancelBtn" variant="tonal" :disabled="quiting" @click="exitDialog = false">
+            {{ t("$vuetify.navigation.exitConfirm.cancel") }}
+          </v-btn>
+          <v-btn color="error" variant="text" :loading="quiting" @click="confirmExit(false)">
+            {{ t("$vuetify.navigation.exit") }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-navigation-drawer>
 </template>
 
 <style scoped>
 /* The LagZap name is the way to Overview. */
+/* A count as plain text after the item, not a filled badge. */
+.nav-count {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
 .nav-home {
   color: inherit;
   text-decoration: none;

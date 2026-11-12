@@ -18,6 +18,9 @@ const router = useRouter();
 const route = useRoute();
 const { mobile, height } = useDisplay();
 const sidebar = inject<Ref<boolean>>("sidebar");
+// Admin Tools is a debug window: no plan or offer banner there.
+const adminWindow = computed(() => route.meta.layout === "admin");
+const showPlanBanner = computed(() => !adminWindow.value);
 
 const titles = computed(() => Object.values(store.titles))
 const searchMode = ref(false);
@@ -41,7 +44,10 @@ onMounted(() => {
 
 <template>
   <v-main>
+    <!-- Admin Tools has its own top bar (layouts/admin.vue): the page name
+         and actions go there. -->
     <v-app-bar
+      v-if="!adminWindow"
       absolute
       location="top"
       density="compact"
@@ -139,7 +145,7 @@ onMounted(() => {
         class="h-100"
         :class="props.flush ? 'overflow-hidden' : 'overflow-y-auto'"
       >
-        <PlanBanner />
+        <PlanBanner v-if="showPlanBanner" />
         <slot />
       </div>
     </v-card>

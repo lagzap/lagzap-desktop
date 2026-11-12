@@ -25,10 +25,13 @@ type PanicDetails struct {
 }
 
 func main() {
+	// Restarted from the app: let the old LagZap finish exiting first.
+	waitForOldInstance(os.Args[1:])
 	setRealTimePriority()
 	startDebugPprof()
 	ctx := context.Background()
-	service := &Service{}
+	// On by default (Settings): the UI sends the user's own choice once it loads.
+	service := &Service{gamingPriority: true, proxyDNSRequests: true}
 
 	var window *application.WebviewWindow
 	var systray *application.SystemTray
@@ -223,7 +226,8 @@ func main() {
 			service.OpenAdminTools()
 		})
 	}
-	menu.Add("Quit").OnClick(func(ctx *application.Context) {
+	// Tray Quit and the app's Exit (QuitApp) quit the same way.
+	quitApp := func() {
 		quitting.Store(true)
 		_ = service.StopLocalProxy()
 		service.StopService()
@@ -231,6 +235,10 @@ func main() {
 		systray.Destroy()
 		app.Quit()
 		os.Exit(0)
+	}
+	service.quitApp = quitApp
+	menu.Add("Quit").OnClick(func(ctx *application.Context) {
+		quitApp()
 	})
 	systray.OnClick(func() {
 		window.Show()

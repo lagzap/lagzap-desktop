@@ -25,18 +25,28 @@ const props = withDefaults(
     /** Pin one view (no tabs); used by pages that show both charts. */
     fixedView?: "latency" | "traffic";
     hideStats?: boolean;
+    /** A divider line above the chart with the session timer at its start
+     * (instead of the timer among the controls). */
+    sessionDivider?: boolean;
+    /** Show the 1m … 60m pills even with a fixed view (they hide with one,
+     * where the page has its own range control). */
+    rangeTabs?: boolean;
     /** Controlled tab (v-model:view); internal when omitted. */
-    view?: "latency" | "traffic";
+    view?: "latency" | "traffic" | "both";
   }>(),
-  { chartHeight: 200, sessionStart: 0, compact: false, fixedView: undefined, hideStats: false, view: undefined }
+  { chartHeight: 200, sessionStart: 0, compact: false, fixedView: undefined, hideStats: false, view: undefined, sessionDivider: false }
 );
-const emit = defineEmits<{ "update:range": [string]; "update:view": ["latency" | "traffic"] }>();
+const emit = defineEmits<{ "update:range": [string]; "update:view": ["latency" | "traffic" | "both"] }>();
 
 const { t } = useLocale();
 const theme = useTheme();
 
-type View = "latency" | "traffic";
+/** both: the latency chart with the traffic drawn faintly behind it, on its
+ * own speed axis on the right. */
+type View = "latency" | "traffic" | "both";
 const view = ref<View>(props.fixedView ?? props.view ?? "latency");
+/** Latency leads the chart (legend, tooltip, stats): latency and both. */
+const latencyLed = computed(() => view.value !== "traffic");
 watch(
   () => props.view,
   (v) => v && !props.fixedView && (view.value = v)
@@ -51,7 +61,7 @@ const hidden = ref(new Set<string>());
 const shown = ref(new Set<string>());
 const hasActual = computed(() => !!latency.value?.series?.some((s) => s.actual));
 function isHidden(id: string) {
-  if (view.value === "latency" && hasActual.value) {
+  if (latencyLed.value && hasActual.value) {
     const s = latency.value?.series.find((x) => x.id === id);
     if (s && !s.actual) return !shown.value.has(id);
   }
@@ -109,12 +119,12 @@ function routeName(s: LiveLatencySeries): string {
   return p ? pathName(p.pathKey) : displayLabel(s.label);
 }
 
-type LegendItem = { id: string; label: string; color: string; visible: boolean; network?: string };
+type LegendItem = { id: string; label: string; color: string; visible: boolean; network?: string; actual?: boolean };
 type LegendGroup = { iface: string; items: LegendItem[] };
 
 /** Legend and tooltip rows, grouped by adapter for profile routes. */
 const legendGroups = computed<LegendGroup[]>(() => {
-  if (view.value !== "latency") {
+  if (!latencyLed.value) {
     return [{
       iface: "",
       items: (traffic.value?.series ?? []).map((s) => ({ id: s.name, label: s.name, color: props.trafficColor(s.name), visible: !hidden.value.has(s.name) })),
@@ -136,6 +146,7 @@ const legendGroups = computed<LegendGroup[]>(() => {
       color: seriesColor(s),
       visible: !isHidden(s.id),
       network: latestPath(s)?.network ?? s.network,
+      actual: !!s.actual,
     });
   }
   // Two routes with the same entry and transport on one adapter: number them.
@@ -152,14 +163,67 @@ const legendGroups = computed<LegendGroup[]>(() => {
 });
 const legend = computed(() => legendGroups.value.flatMap((g) => g.items));
 
+// The route legend folds away behind a text button so the chart header stays
+// calm; the actual ping stays in view. Remembered for this viewer.
+const LEGEND_OPEN_KEY = "lz.chartLegendOpen";
+const legendOpen = ref(false);
+try {
+  legendOpen.value = localStorage.getItem(LEGEND_OPEN_KEY) === "1";
+} catch {
+  // storage unavailable: folded
+}
+function toggleLegend() {
+  legendOpen.value = !legendOpen.value;
+  try {
+    localStorage.setItem(LEGEND_OPEN_KEY, legendOpen.value ? "1" : "0");
+  } catch {
+    // not remembered
+  }
+}
+// The stats row folds into a one-line summary in the header; clicking it
+// opens the full row. Remembered for this viewer, like the legend.
+const STATS_OPEN_KEY = "lz.chartStatsOpen";
+const statsOpen = ref(false);
+try {
+  statsOpen.value = localStorage.getItem(STATS_OPEN_KEY) === "1";
+} catch {
+  // storage unavailable: folded
+}
+function toggleStats() {
+  statsOpen.value = !statsOpen.value;
+  try {
+    localStorage.setItem(STATS_OPEN_KEY, statsOpen.value ? "1" : "0");
+  } catch {
+    // not remembered
+  }
+}
+/** "Avg 99.8ms · 0.0% loss" or "↓ 9.67 KB/s · ↑ 244 B/s" (averages). */
+const statsSummary = computed(() => {
+  if (latencyLed.value && latency.value) {
+    const { avg, loss } = latency.value.stats;
+    return `${t("$vuetify.networkLatency.avg")} ${formatMs(avg, "—", 1)} · ${localDigits(`${loss.toFixed(1)}%`)} ${t("$vuetify.networkLatency.loss").toLowerCase()}`;
+  }
+  if (view.value === "traffic" && traffic.value) {
+    return null;
+  }
+  return "";
+});
+
+/** Route lines (everything but the actual ping) in the latency view. */
+const routeLegendCount = computed(() =>
+  latencyLed.value ? legend.value.filter((item) => !item.actual).length : 0,
+);
+const legendFoldable = computed(() => routeLegendCount.value > 0);
+const actualLegend = computed(() => legend.value.filter((item) => item.actual));
+
 const networkColor = useNetworkColor();
 
 const hasData = computed(() =>
-  view.value === "latency" ? !!latency.value?.series?.length : !!traffic.value?.series?.length
+  latencyLed.value ? !!latency.value?.series?.length : !!traffic.value?.series?.length
 );
 
 function toggle(name: string) {
-  const probe = view.value === "latency" && hasActual.value && !latency.value?.series.find((x) => x.id === name)?.actual;
+  const probe = latencyLed.value && hasActual.value && !latency.value?.series.find((x) => x.id === name)?.actual;
   const set = probe ? shown : hidden;
   const next = new Set(set.value);
   next.has(name) ? next.delete(name) : next.add(name);
@@ -227,7 +291,32 @@ function qualityGradient(points: number[], a: number) {
   const stops = points
     .map((v, i) => (v >= 0 ? { offset: n > 1 ? i / (n - 1) : 0, color: qualityColor(v, a) } : null))
     .filter((s): s is { offset: number; color: string } => s !== null);
-  return new echarts.graphic.LinearGradient(GRID_LEFT_LATENCY, 0, width - GRID_RIGHT, 0, stops, true);
+  return new echarts.graphic.LinearGradient(GRID_LEFT_LATENCY, 0, width - gridRight(), 0, stops, true);
+}
+
+/** A ping's color by its value: green under 100ms, then lime, yellow,
+ * amber, red, and purple from 500ms. */
+const PING_COLORS: [number, string][] = [
+  [100, "#4CAF50"],
+  [120, "#9CCC65"],
+  [150, "#FFEB3B"],
+  [200, "#FFC107"],
+  [500, "#F44336"],
+];
+const PING_COLOR_WORST = "#AB47BC";
+function pingColor(ms: number) {
+  return PING_COLORS.find(([below]) => ms < below)?.[1] ?? PING_COLOR_WORST;
+}
+/** The actual ping line colored along its length by each moment's value;
+ * moments with no ping take the last one's color. */
+function pingGradient(points: number[], a = 1) {
+  const n = points.length;
+  const width = instance?.getWidth() ?? chartEl.value?.clientWidth ?? 0;
+  const stops = points
+    .map((v, i) => (v > 0 ? { offset: n > 1 ? i / (n - 1) : 0, color: alpha(pingColor(v), a) } : null))
+    .filter((s): s is { offset: number; color: string } => s !== null);
+  if (stops.length === 0) return null;
+  return new echarts.graphic.LinearGradient(GRID_LEFT_LATENCY, 0, width - gridRight(), 0, stops, true);
 }
 
 // A line in each moment's score color (no area), drawn first (series 0,
@@ -242,7 +331,8 @@ function qualitySeries() {
     data: points.map((v) => (v >= 0 ? v : null)),
     showSymbol: false,
     connectNulls: false,
-    lineStyle: { width: 1, color: qualityGradient(points, 0.85) },
+    // Dashed, like upload on the traffic chart: a guide, not a ping line.
+    lineStyle: { width: 1, color: qualityGradient(points, 0.85), type: "dashed" },
     tooltip: { show: false },
     silent: true,
     emphasis: { disabled: true },
@@ -253,19 +343,29 @@ function qualitySeries() {
 const GRID_LEFT_LATENCY = 28;
 const GRID_LEFT_TRAFFIC = 56;
 const GRID_RIGHT = 12;
+/** Room on the right: the speed axis labels in the both view. */
+function gridRight() {
+  return view.value === "both" ? GRID_LEFT_TRAFFIC : GRID_RIGHT;
+}
 const GRID_Y = 8;
 
 // The newest points still wait on replies (up to the 3s timeout) and can
 // change; Go says how many. A plain overlay brightens that stretch: it never
 // touches the chart's own updates.
+// Only the route lines wait on probe replies; the actual ping does not. So
+// the band shows only while a route line is turned on.
+const routeLineShown = computed(
+  () => latency.value?.series?.some((s) => !s.actual && !isHidden(s.id)) ?? false,
+);
 const pendingBand = computed(() => {
-  if (view.value !== "latency") return null;
+  // Both view: the newest traffic is not in yet either, so the band shows.
+  if (!latencyLed.value || (!routeLineShown.value && view.value !== "both")) return null;
   const n = latency.value?.series?.[0]?.points.length ?? 0;
   const pending = Math.min(latency.value?.pending ?? 0, n - 1);
   if (n < 2 || pending <= 0) return null;
-  const plot = `(100% - ${GRID_LEFT_LATENCY + GRID_RIGHT}px)`;
+  const plot = `(100% - ${GRID_LEFT_LATENCY + gridRight()}px)`;
   return {
-    right: `${GRID_RIGHT}px`,
+    right: `${gridRight()}px`,
     top: `${GRID_Y}px`,
     bottom: `${GRID_Y}px`,
     width: `calc(${plot} * ${pending / (n - 1)})`,
@@ -296,7 +396,7 @@ function loneDots(name: string, values: (number | null)[], color: string) {
   };
 }
 const pointCount = () =>
-  (view.value === "latency" ? latency.value?.series?.[0]?.points.length : traffic.value?.series?.[0]?.download.length) ?? 0;
+  (latencyLed.value ? latency.value?.series?.[0]?.points.length : traffic.value?.series?.[0]?.download.length) ?? 0;
 
 // One red dot per route timeout (on that route's line); a full-height bar only
 // when every route that was sampled timed out at the same moment.
@@ -327,7 +427,10 @@ function latencySeries() {
       data: values,
       showSymbol: false,
       connectNulls: true,
-      lineStyle: { width: s.actual ? 1.75 : 1.25, color },
+      // The actual ping is colored by its value (green … red, purple).
+      lineStyle: { width: s.actual ? 1.75 : 1.25, color: (s.actual && pingGradient(s.points)) || color },
+      // Line with a soft fill under it, like the traffic lines.
+      areaStyle: { color: (s.actual && pingGradient(s.points, 0.14)) || area(color, s.actual ? 0.2 : 0.08) },
       itemStyle: { color },
       emphasis: { disabled: true },
       z: s.actual ? 4 : 3,
@@ -368,13 +471,39 @@ function latencySeries() {
   ];
 }
 
+/** Traffic lines are stacked (downloads on downloads, uploads on uploads),
+ * so the top line is the total traffic. With one line there is nothing to
+ * stack, and gaps stay gaps. */
+const trafficStacked = computed(
+  () => (traffic.value?.series ?? []).filter((s) => !hidden.value.has(s.name)).length > 1,
+);
+/** The highest stacked total: the axis must fit the sum, not one line. */
+function stackedTrafficPeak() {
+  const shown = (traffic.value?.series ?? []).filter((s) => !hidden.value.has(s.name));
+  let peak = 0;
+  const length = Math.max(0, ...shown.map((s) => s.download.length));
+  for (let i = 0; i < length; i++) {
+    let down = 0;
+    let up = 0;
+    for (const s of shown) {
+      down += Math.max(0, s.download[i] ?? 0);
+      up += Math.max(0, s.upload[i] ?? 0);
+    }
+    peak = Math.max(peak, down, up);
+  }
+  return peak;
+}
+
 function trafficSeries() {
+  const stacked = trafficStacked.value;
+  // Stacked, a missing sample counts as nothing so the lines above stay put.
+  const value = (v: number) => (v < 0 ? (stacked ? 0 : null) : v);
   return traffic.value!.series
     .filter((s) => !hidden.value.has(s.name))
     .flatMap((s) => {
       const color = props.trafficColor(s.name);
-      const down = s.download.map((v) => (v < 0 ? null : v));
-      const lone = loneDots(`${s.name}↓`, down, color);
+      const down = s.download.map(value);
+      const lone = stacked ? null : loneDots(`${s.name}↓`, down, color);
       return [
         ...(lone ? [lone] : []),
         {
@@ -382,6 +511,7 @@ function trafficSeries() {
           name: `${s.name} ↓`,
           type: "line",
           data: down,
+          stack: stacked ? "download" : undefined,
           showSymbol: false,
           lineStyle: { width: 1.25, color },
           itemStyle: { color },
@@ -393,7 +523,8 @@ function trafficSeries() {
           id: `up:${s.name}`,
           name: `${s.name} ↑`,
           type: "line",
-          data: s.upload.map((v) => (v < 0 ? null : v)),
+          data: s.upload.map(value),
+          stack: stacked ? "upload" : undefined,
           showSymbol: false,
           lineStyle: { width: 1, color, opacity: 0.65, type: "dashed" },
           itemStyle: { color },
@@ -403,6 +534,66 @@ function trafficSeries() {
         },
       ];
     });
+}
+
+/** Both view: the traffic, stacked and faint, behind the latency lines on
+ * the right-hand speed axis. Aligned to the latency points by their ends. */
+/** For each latency point, the traffic sample taken at the same moment:
+ * the two charts sample at different steps, so they are matched by time,
+ * not by position (by position the traffic ran at its own pace and covered
+ * only part of the chart). -1: no traffic sample for that moment. */
+function trafficIndexForLatency(): number[] {
+  const lat = latency.value;
+  const tr = traffic.value;
+  const n = pointCount();
+  const m = tr?.series?.[0]?.download.length ?? 0;
+  if (!lat || !tr || !m || !tr.step || !lat.step) return new Array(n).fill(-1);
+  const trStart = tr.end - (m - 1) * tr.step;
+  return Array.from({ length: n }, (_, i) => {
+    const at = lat.end - (n - 1 - i) * lat.step;
+    const j = Math.round((at - trStart) / tr.step);
+    return j >= 0 && j < m ? j : -1;
+  });
+}
+
+function trafficOverlay() {
+  if (!traffic.value?.series?.length) return [];
+  const map = trafficIndexForLatency();
+  const resample = (data: unknown[]) => map.map((j) => (j < 0 ? null : (data[j] ?? null)));
+  // Lone-dot helpers mark single samples on the traffic's own grid; on the
+  // latency grid they would land on the wrong points.
+  return trafficSeries()
+    .filter((series: Record<string, any>) => !String(series.id ?? "").startsWith("__"))
+    .map((series: Record<string, any>) => ({
+      ...series,
+      id: `both:${series.id}`,
+      yAxisIndex: 2,
+      data: resample(series.data as unknown[]),
+      lineStyle: { ...(series.lineStyle ?? {}), opacity: 0.35 },
+      areaStyle: series.areaStyle ? { ...series.areaStyle, opacity: 0.5 } : undefined,
+      tooltip: { show: false },
+      silent: true,
+      z: 0,
+    }));
+}
+function overlayTrafficAxis() {
+  const tr = traffic.value;
+  if (!tr) return null;
+  return trafficAxis(trafficStacked.value ? Math.max(tr.y_max, stackedTrafficPeak()) : tr.y_max);
+}
+/** Total download and upload at a latency point (both view's tooltip). */
+function trafficAt(idx: number) {
+  const tr = traffic.value;
+  if (!tr) return null;
+  const i = trafficIndexForLatency()[idx] ?? -1;
+  if (i < 0) return null;
+  let down = 0;
+  let up = 0;
+  for (const s of tr.series.filter((x) => !hidden.value.has(x.name))) {
+    down += Math.max(0, s.download[i] ?? 0);
+    up += Math.max(0, s.upload[i] ?? 0);
+  }
+  return { down, up };
 }
 
 // Go names profile routes "Route 2 (PTP)"; say it in the UI language.
@@ -436,12 +627,25 @@ function networkTag(network?: string) {
   return `<span style="font-size:9px;font-weight:600;margin-left:6px;color:${networkColor(network)}">${network.toUpperCase()}</span>`;
 }
 
+/** Where a line is drawn at a point with no sample: lines connect across
+ * missing samples, so this is the straight line between the nearest real
+ * pings on either side (none before or after: nothing is drawn there). */
+function drawnLatency(points: number[], idx: number): number | null {
+  let before = idx - 1;
+  while (before >= 0 && !(points[before] > 0)) before--;
+  let after = idx + 1;
+  while (after < points.length && !(points[after] > 0)) after++;
+  if (before < 0 || after >= points.length) return null;
+  const share = (idx - before) / (after - before);
+  return points[before] + (points[after] - points[before]) * share;
+}
+
 function tooltip(params: any[]) {
-  const c = view.value === "latency" ? latency.value : traffic.value;
+  const c = latencyLed.value ? latency.value : traffic.value;
   const idx = params[0]?.dataIndex;
   if (!c || idx === undefined) return "";
   const at = formatTimeOfDay(new Date(c.end - (pointCount() - 1 - idx) * c.step));
-  const score = view.value === "latency" ? (latency.value?.quality?.[idx] ?? -1) : -1;
+  const score = latencyLed.value ? (latency.value?.quality?.[idx] ?? -1) : -1;
   const quality =
     score >= 0
       ? `<div style="display:flex;gap:12px;justify-content:space-between;margin-bottom:2px"><span>${t("$vuetify.networkLatency.routeQuality")}</span><span style="color:${qualityColor(score, 1)};font-weight:600">${localDigits(score)}/${localDigits(100)}</span></div>`
@@ -449,7 +653,7 @@ function tooltip(params: any[]) {
   const shown = params.filter((p) => !String(p.seriesName).startsWith("__"));
   const row = (marker: string, name: string, value: string) =>
     `<div style="display:flex;gap:12px;justify-content:space-between"><span>${marker}${name}</span><span>${value}</span></div>`;
-  if (view.value !== "latency") {
+  if (!latencyLed.value) {
     const rows = shown.map((p) => row(p.marker, p.seriesName, p.value === null || p.value === undefined ? "—" : useHumanSpeed(p.value)));
     return `<div style="opacity:.6;margin-bottom:4px">${at}</div>${rows.join("")}`;
   }
@@ -470,11 +674,17 @@ function tooltip(params: any[]) {
         const timedOut = s?.points[idx] === 0;
         const notThere = !then || atMs < (s?.paths?.[0]?.at ?? 0);
         if (s?.paths?.length && !hasValue && !timedOut && notThere) return "";
+        // No sample here but the line runs through: show where it is drawn.
+        const drawn = !hasValue && !timedOut && s ? drawnLatency(s.points, idx) : null;
         const value = timedOut
           ? `<span style="color:${PING_TIMEOUT_COLOR}">${t("$vuetify.networkLatency.timeout")}</span>`
           : hasValue
-            ? formatMs(p.value)
-            : "—";
+            ? s?.actual
+              ? `<span style="color:${pingColor(p.value)};font-weight:600">${formatMs(p.value)}</span>`
+              : formatMs(p.value)
+            : drawn !== null
+              ? formatMs(Math.round(drawn))
+              : "—";
         const name = then ? pathName(then.pathKey) : item.label;
         return row(p.marker, `${name}${networkTag(then?.network ?? item.network)}`, value);
       })
@@ -483,21 +693,32 @@ function tooltip(params: any[]) {
     const head = group.iface ? `<div style="color:${ch.muted};font-size:11px;margin-top:4px">${group.iface}</div>` : "";
     return head + rows.join("");
   });
-  return `<div style="opacity:.6;margin-bottom:2px">${at}</div>${quality}${blocks.join("")}`;
+  let usage = "";
+  if (view.value === "both") {
+    const sum = trafficAt(idx);
+    if (sum) {
+      usage = `<div style="color:${ch.muted};font-size:11px;margin-top:4px">${t("$vuetify.networkLatency.traffic")}</div>`
+        + row("", t("$vuetify.network.download"), useHumanSpeed(sum.down))
+        + row("", t("$vuetify.network.upload"), useHumanSpeed(sum.up));
+    }
+  }
+  return `<div style="opacity:.6;margin-bottom:2px">${at}</div>${quality}${blocks.join("")}${usage}`;
 }
 
 function option() {
   const ch = chrome();
-  const isLatency = view.value === "latency";
+  const isLatency = latencyLed.value;
   const c = isLatency ? latency.value! : traffic.value!;
-  const series = isLatency ? latencySeries() : trafficSeries();
+  const both = view.value === "both";
+  const series = isLatency ? [...(both ? trafficOverlay() : []), ...latencySeries()] : trafficSeries();
+  const speedAxis = both ? overlayTrafficAxis() : null;
   const length = pointCount();
-  const axis = isLatency ? null : trafficAxis(c.y_max);
+  const axis = isLatency ? null : trafficAxis(trafficStacked.value ? Math.max(c.y_max, stackedTrafficPeak()) : c.y_max);
   const yMax = axis ? axis.max : c.y_max;
   return {
     animation: false,
     textStyle: { fontFamily: chartFontFamily() },
-    grid: { left: isLatency ? GRID_LEFT_LATENCY : GRID_LEFT_TRAFFIC, right: GRID_RIGHT, top: GRID_Y, bottom: GRID_Y },
+    grid: { left: isLatency ? GRID_LEFT_LATENCY : GRID_LEFT_TRAFFIC, right: gridRight(), top: GRID_Y, bottom: GRID_Y },
     xAxis: {
       type: "category",
       data: Array.from({ length }, (_, i) => i),
@@ -521,6 +742,18 @@ function option() {
       },
       // Route quality's own scale, never drawn.
       { type: "value", min: 0, max: 100, show: false },
+      // Both view: the traffic's speed scale on the right.
+      speedAxis
+        ? {
+            type: "value",
+            position: "right",
+            min: 0,
+            max: speedAxis.max,
+            interval: speedAxis.interval,
+            axisLabel: { fontSize: 9, color: ch.muted, formatter: (v: number) => speedAxisLabel(v, speedAxis) },
+            splitLine: { show: false },
+          }
+        : { type: "value", show: false },
     ],
     tooltip: {
       trigger: "axis",
@@ -545,9 +778,16 @@ function option() {
 // Axes/tooltip are rebuilt only when the layout changes; ticks push series data.
 let layoutKey = "";
 function currentLayoutKey() {
-  const c = view.value === "latency" ? latency.value : traffic.value;
+  const c = latencyLed.value ? latency.value : traffic.value;
   const series = legend.value.filter((s) => s.visible).map((s) => s.id);
-  return [view.value, theme.current.value.dark, formatLocale.value, c?.y_max, c?.step, pointCount(), ...series].join("|");
+  // Stacked traffic: the axis follows the summed peak (its rounded top).
+  const stackedTop =
+    view.value === "traffic" && trafficStacked.value && c
+      ? trafficAxis(Math.max(c.y_max, stackedTrafficPeak())).max
+      : view.value === "both"
+        ? (overlayTrafficAxis()?.max ?? "")
+        : "";
+  return [view.value, theme.current.value.dark, formatLocale.value, c?.y_max, stackedTop, c?.step, pointCount(), ...series].join("|");
 }
 
 // A hidden window paints nothing; catch up once it is visible again.
@@ -580,7 +820,7 @@ function render() {
   }
   // replaceMerge by id: overlays that emptied out are removed, not left stale.
   instance.setOption(
-    { series: view.value === "latency" ? latencySeries() : trafficSeries() },
+    { series: latencyLed.value ? [...(view.value === "both" ? trafficOverlay() : []), ...latencySeries()] : trafficSeries() },
     { replaceMerge: ["series"], lazyUpdate: false }
   );
 }
@@ -627,11 +867,17 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
+    <div v-if="sessionDivider" class="live-chart__divider">
+      <span v-if="sessionElapsed" class="live-chart__session text-caption">
+        {{ t("$vuetify.networkLatency.session") }} {{ localDigits(sessionElapsed) }}
+      </span>
+      <span class="live-chart__divider-line" />
+    </div>
     <div v-if="!compact" class="live-chart__header mb-3">
       <div class="live-chart__controls">
         <div v-if="!fixedView" class="chart-view-tabs" role="tablist">
           <button
-            v-for="v in (['latency', 'traffic'] as const)"
+            v-for="v in (['latency', 'traffic', 'both'] as const)"
             :key="v"
             type="button"
             role="tab"
@@ -640,51 +886,47 @@ onBeforeUnmount(() => {
             :aria-selected="view === v"
             @click="selectView(v)"
           >
-            {{ t(`$vuetify.networkLatency.${v}`) }}
+            {{ v === "both" ? t("$vuetify.networkLatency.both") : t(`$vuetify.networkLatency.${v}`) }}
           </button>
         </div>
-        <v-select
-          v-if="!fixedView"
-          :model-value="range"
-          :items="rangeItems"
-          density="compact"
-          variant="plain"
-          hide-details
-          single-line
-          class="chart-range-select"
-          @update:model-value="(r: string) => emit('update:range', r)"
-        />
-        <span v-if="sessionElapsed" class="live-chart__session text-caption">
+        <span v-if="sessionElapsed && !sessionDivider" class="live-chart__session text-caption">
           {{ t("$vuetify.networkLatency.session") }} {{ localDigits(sessionElapsed) }}
         </span>
+        <button
+          v-if="!hideStats && statsSummary !== ''"
+          type="button"
+          class="chart-header-legend__toggle live-chart__stats-toggle"
+          :aria-expanded="statsOpen"
+          @click="toggleStats"
+        >
+          <template v-if="statsSummary">{{ statsSummary }}</template>
+          <template v-else-if="traffic">
+            <v-icon icon="mdi-arrow-down" size="12" />{{ useHumanSpeed(traffic.stats.avg_download) }}
+            <span class="mx-1">·</span>
+            <v-icon icon="mdi-arrow-up" size="12" />{{ useHumanSpeed(traffic.stats.avg_upload) }}
+          </template>
+          <v-icon :icon="statsOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="16" />
+        </button>
       </div>
 
-      <div class="chart-header-legend">
-        <div v-for="group in legendGroups" :key="group.iface" class="chart-header-legend__group">
-          <span v-if="group.iface" class="chart-header-legend__iface">{{ group.iface }}</span>
-          <button
-            v-for="item in group.items"
-            :key="item.id"
-            type="button"
-            class="chart-header-legend__item"
-            :class="{ 'chart-header-legend__item--hidden': !item.visible }"
-            @click="toggle(item.id)"
-          >
-            <span class="chart-header-legend__dot" :style="{ backgroundColor: item.color }" />
-            <span class="chart-header-legend__label">{{ item.label }}</span>
-            <span v-if="item.network" class="chart-header-legend__net" :style="{ color: networkColor(item.network) }">
-              {{ item.network.toUpperCase() }}
-            </span>
-          </button>
-        </div>
-        <span v-if="view === 'traffic'" class="chart-header-legend__key">
-          <span class="chart-header-legend__line" />{{ t("$vuetify.network.download") }}
-          <span class="chart-header-legend__line chart-header-legend__line--dashed" />{{ t("$vuetify.network.upload") }}
-        </span>
+      <div v-if="!fixedView || rangeTabs" class="chart-view-tabs chart-range-tabs" role="radiogroup">
+        <button
+          v-for="item in rangeItems"
+          :key="item.value"
+          type="button"
+          role="radio"
+          class="chart-view-tab chart-range-tab"
+          :class="{ 'chart-view-tab--active': range === item.value }"
+          :aria-checked="range === item.value"
+          @click="emit('update:range', item.value)"
+        >
+          {{ localDigits(item.title) }}
+        </button>
       </div>
     </div>
 
-    <div v-if="!hideStats && view === 'latency' && latency" class="live-chart__stats mb-3">
+    <v-expand-transition>
+    <div v-if="!hideStats && statsOpen && view !== 'traffic' && latency" class="live-chart__stats mb-3">
       <div>
         <div class="text-caption text-grey">{{ t("$vuetify.networkLatency.min") }}</div>
         <div class="text-body-2 font-weight-medium">{{ formatMs(latency.stats.min) }}</div>
@@ -703,7 +945,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-else-if="!hideStats && view === 'traffic' && traffic" class="live-chart__stats mb-3">
+    <div v-else-if="!hideStats && statsOpen && view === 'traffic' && traffic" class="live-chart__stats mb-3">
       <div>
         <div class="text-caption text-grey">{{ t("$vuetify.network.download") }} · {{ t("$vuetify.networkLatency.avg") }}</div>
         <div class="text-body-2 font-weight-medium">{{ useHumanSpeed(traffic.stats.avg_download) }}</div>
@@ -721,6 +963,7 @@ onBeforeUnmount(() => {
         <div class="text-body-2 font-weight-medium">{{ useHumanSpeed(traffic.stats.peak_upload) }}</div>
       </div>
     </div>
+    </v-expand-transition>
 
     <div v-if="hasData" class="live-chart__plot">
       <div ref="chartEl" :style="{ width: '100%', height: `${props.chartHeight}px` }" />
@@ -729,6 +972,51 @@ onBeforeUnmount(() => {
     <div v-else class="text-center text-grey py-4">
       <v-icon icon="mdi-chart-line-variant" size="large" class="mb-2" />
       <div class="text-caption">{{ t("$vuetify.networkLatency.noData") }}</div>
+    </div>
+    <!-- The legend sits under the chart, on the right. -->
+    <div v-if="!compact && hasData" class="live-chart__legend">
+        <div v-if="legendFoldable" class="chart-header-legend chart-header-legend--bar">
+          <button
+            v-for="item in actualLegend"
+            :key="item.id"
+            type="button"
+            class="chart-header-legend__item"
+            :class="{ 'chart-header-legend__item--hidden': !item.visible }"
+            @click="toggle(item.id)"
+          >
+            <span class="chart-header-legend__dot" :style="{ backgroundColor: item.color }" />
+            <span class="chart-header-legend__label">{{ item.label }}</span>
+          </button>
+          <button type="button" class="chart-header-legend__toggle" :aria-expanded="legendOpen" @click="toggleLegend">
+            {{ t("$vuetify.networkLatency.routesLegend", localDigits(routeLegendCount)) }}
+            <v-icon :icon="legendOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="16" />
+          </button>
+        </div>
+        <v-expand-transition>
+        <div v-show="!legendFoldable || legendOpen" class="chart-header-legend">
+          <div v-for="group in legendGroups.filter((g) => !legendFoldable || g.items.some((i) => !i.actual))" :key="group.iface" class="chart-header-legend__group">
+            <span v-if="group.iface" class="chart-header-legend__iface">{{ group.iface }}</span>
+            <button
+              v-for="item in group.items.filter((i) => !legendFoldable || !i.actual)"
+              :key="item.id"
+              type="button"
+              class="chart-header-legend__item"
+              :class="{ 'chart-header-legend__item--hidden': !item.visible }"
+              @click="toggle(item.id)"
+            >
+              <span class="chart-header-legend__dot" :style="{ backgroundColor: item.color }" />
+              <span class="chart-header-legend__label">{{ item.label }}</span>
+              <span v-if="item.network" class="chart-header-legend__net" :style="{ color: networkColor(item.network) }">
+                {{ item.network.toUpperCase() }}
+              </span>
+            </button>
+          </div>
+          <span v-if="view !== 'latency'" class="chart-header-legend__key">
+            <span class="chart-header-legend__line" />{{ t("$vuetify.network.download") }}
+            <span class="chart-header-legend__line chart-header-legend__line--dashed" />{{ t("$vuetify.network.upload") }}
+          </span>
+        </div>
+        </v-expand-transition>
     </div>
   </div>
 </template>
@@ -742,6 +1030,14 @@ onBeforeUnmount(() => {
   position: absolute;
   pointer-events: none;
   background: rgba(var(--v-theme-on-surface), 0.045);
+}
+
+.live-chart__legend {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .live-chart__header {
@@ -764,6 +1060,11 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.live-chart__stats-toggle {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .live-chart__session {
@@ -813,6 +1114,46 @@ onBeforeUnmount(() => {
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
+/* The time range: the same pills, joined and smaller. */
+.chart-range-tabs {
+  gap: 0;
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.22);
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.chart-range-tab {
+  border: none;
+  padding: 2px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-range-tab.chart-view-tab--active {
+  border: none;
+}
+
+.live-chart__divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+/* One line box the height of the text, so its middle is the line's. */
+.live-chart__divider .live-chart__session {
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  top: 1px;
+}
+
+.live-chart__divider-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(var(--v-theme-on-surface), 0.12);
+}
+
 .chart-view-tab--active {
   border-color: rgba(var(--v-theme-on-surface), 0.38);
   background: rgba(var(--v-theme-on-surface), 0.12);
@@ -825,6 +1166,29 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px 14px;
+}
+
+.chart-header-legend--bar {
+  align-items: center;
+}
+
+/* Text button that folds the route legend. */
+.chart-header-legend__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  transition: color 0.15s;
+}
+
+.chart-header-legend__toggle:hover,
+.chart-header-legend__toggle:focus-visible {
+  color: rgba(var(--v-theme-on-surface), 0.87);
 }
 
 .chart-header-legend__item {

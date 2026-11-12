@@ -10,7 +10,7 @@ import type { LiveLatencyChart, LiveLatencySeries } from "~/types/liveChart";
 
 // Go owns every number of a profile chart; this module tracks which profiles
 // are on screen and tells Go which range and NIC to stream for each.
-type ChartView = "latency" | "traffic";
+type ChartView = "latency" | "traffic" | "both";
 type Entry = { chart: ShallowRef<ProfileChart | null>; range: Ref<OverviewRange>; view: Ref<ChartView>; watchers: number };
 const entries = new Map<string, Entry>();
 let offEvents: (() => void)[] = [];

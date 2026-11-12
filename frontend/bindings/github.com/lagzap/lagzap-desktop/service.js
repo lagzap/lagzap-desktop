@@ -187,6 +187,24 @@ export function Disconnect() {
 }
 
 /**
+ * DisconnectProfile ends every open connection of one profile.
+ * @param {string} id
+ * @returns {$CancellablePromise<void>}
+ */
+export function DisconnectProfile(id) {
+    return $Call.ByID(4271344868, id);
+}
+
+/**
+ * DisconnectTitle ends every open connection of a title (Connections page).
+ * @param {string} id
+ * @returns {$CancellablePromise<void>}
+ */
+export function DisconnectTitle(id) {
+    return $Call.ByID(89733627, id);
+}
+
+/**
  * @returns {$CancellablePromise<void>}
  */
 export function FindAvailableInterfaces() {
@@ -768,6 +786,14 @@ export function ProbeProfileRoutes(profileID, iface) {
 }
 
 /**
+ * QuitApp quits LagZap (the tray's Quit).
+ * @returns {$CancellablePromise<void>}
+ */
+export function QuitApp() {
+    return $Call.ByID(1330516717);
+}
+
+/**
  * Quote prices one choice.
  * @param {adapter$0.QuoteRequest} req
  * @returns {$CancellablePromise<adapter$0.QuoteResult>}
@@ -829,6 +855,14 @@ export function ReplyTicket(ticketID, body) {
     return $Call.ByID(3432348823, ticketID, body).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType5($result);
     }));
+}
+
+/**
+ * RestartApp starts a new LagZap that waits for this one to exit, then quits.
+ * @returns {$CancellablePromise<void>}
+ */
+export function RestartApp() {
+    return $Call.ByID(1441006079);
 }
 
 /**

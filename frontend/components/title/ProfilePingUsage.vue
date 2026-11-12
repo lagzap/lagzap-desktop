@@ -4,6 +4,7 @@ import LiveChart from "~/components/network/LiveChart.vue";
 import QuickRating from "~/components/title/QuickRating.vue";
 import { useProfileChart } from "~/composables/useProfileChart";
 import type { OverviewRange } from "~/composables/useOverviewChart";
+import { ProfileFlag } from "~/constants/profile";
 
 const props = defineProps<{
   profileId: string;
@@ -17,6 +18,13 @@ const props = defineProps<{
 const { chart, view, latency, traffic, range, setRange, latencyColor, trafficColor } = useProfileChart(props.profileId);
 
 const { t } = useLocale();
+const store = useStore();
+// Only game profiles (multi-path or game packets) chart latency; downloads,
+// chat and the like show their traffic alone.
+const isGame = computed(() => {
+  const flags = store.profiles.find((p) => p.id === props.profileId)?.flags ?? 0;
+  return (flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !== 0;
+});
 const hasData = computed(() => !!latency.value?.series?.length || !!traffic.value?.series?.length);
 </script>
 
@@ -25,10 +33,11 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
        shows while only the route preview is there. -->
   <Transition name="chart-grow">
     <div v-if="hasData" class="ping-usage">
-      <v-divider v-if="divided" class="my-4" />
       <LiveChart
         :id="popup ? undefined : `profile-chart-${profileId}`"
         v-model:view="view"
+        :fixed-view="isGame ? undefined : 'traffic'"
+        range-tabs
         :latency="latency"
         :traffic="traffic"
         :range="range"
@@ -36,6 +45,7 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
         :traffic-color="trafficColor"
         :chart-height="240"
         :session-start="chart?.session_start ?? 0"
+        :session-divider="divided"
         @update:range="(r) => setRange(r as OverviewRange)"
       />
       <QuickRating v-if="!popup" :profile-id="profileId" />

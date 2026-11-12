@@ -67,6 +67,8 @@ const views = computed(() => props.views ?? []);
       <div>{{ t("$vuetify.title.profile.estimatedPingTip") }}</div>
       <div class="est-ping__hint">{{ t("$vuetify.title.profile.estimatedPingActions") }}</div>
     </v-tooltip>
+    <!-- Right after the value: e.g. the route quality chevron. -->
+    <slot name="after-value" />
     <span class="est-ping__sep">•</span>
 
     <v-menu v-model="menuOpen" :target="menuAt" location="bottom start" :close-on-content-click="true">

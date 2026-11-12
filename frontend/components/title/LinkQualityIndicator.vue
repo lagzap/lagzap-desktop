@@ -53,6 +53,7 @@ const level = computed<Level>(() => {
   }
   return "good";
 });
+const open = ref(false);
 const color = computed(() => ({ good: "success", warn: "warning", bad: "error" })[level.value]);
 
 // The icon names the problem, in the headline's order: loss (or packets
@@ -123,7 +124,7 @@ const columns = ["Leg", "Ping", "Loss", "First", "Lag", "Queue", "Bursts", "Stal
 
 <template>
   <!-- Opens and closes on click, so it stays put while reading it. -->
-  <v-menu :close-on-content-click="false" location="bottom start" max-width="640">
+  <v-menu v-model="open" :close-on-content-click="false" location="bottom start" max-width="640">
     <template #activator="{ props: menuProps }">
       <v-btn
         v-bind="menuProps"
@@ -134,7 +135,8 @@ const columns = ["Leg", "Ping", "Loss", "First", "Lag", "Queue", "Bursts", "Stal
         height="22"
         :aria-label="t('$vuetify.title.profile.link.title')"
       >
-        <v-icon :icon="icon" :color="color" size="14" />
+        <!-- A plain chevron after the ping: more about the route's quality. -->
+        <v-icon :icon="open ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="16" class="text-medium-emphasis" />
       </v-btn>
     </template>
     <v-card rounded="lg" class="pa-3 link-card">
