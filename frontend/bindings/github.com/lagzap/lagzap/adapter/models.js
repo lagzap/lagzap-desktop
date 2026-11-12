@@ -1855,6 +1855,67 @@ export class LinkQuality {
 }
 
 /**
+ * LoadBalanceShare is one internet in a High traffic profile's load
+ * balancing: its weight (1..10), whether the user set it, its share of new
+ * connections in percent, and the speed (bytes/s) an automatic weight uses.
+ */
+export class LoadBalanceShare {
+    /**
+     * Creates a new LoadBalanceShare instance.
+     * @param {Partial<LoadBalanceShare>} [$$source = {}] - The source object to create the LoadBalanceShare.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("weight" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["weight"] = 0;
+        }
+        if (!("manual" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["manual"] = false;
+        }
+        if (!("percent" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["percent"] = 0;
+        }
+        if (!("speed_bytes" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["speed_bytes"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LoadBalanceShare instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LoadBalanceShare}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LoadBalanceShare(/** @type {Partial<LoadBalanceShare>} */($$parsedSource));
+    }
+}
+
+/**
  * LocationMonitor is one LagZap location's page: what the city is, the live
  * latency of every path into it and the traffic of every game routed
  * through it. Go builds every number; the page only renders.

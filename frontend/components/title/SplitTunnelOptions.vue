@@ -55,6 +55,9 @@ const summary = computed(() =>
     ? t("$vuetify.title.profile.server.multiInternetCount", localDigits(props.selected.length))
     : t("$vuetify.title.profile.server.directVia", props.selected[0] ?? ""),
 );
+const label = computed(() =>
+  props.multi ? t("$vuetify.title.profile.multiInternet") : t("$vuetify.title.profile.server.direct"),
+);
 </script>
 
 <template>
@@ -77,7 +80,7 @@ const summary = computed(() =>
         <v-icon :color="on ? 'primary' : undefined">mdi-call-split</v-icon>
       </v-avatar>
       <span class="text-caption ms-2">
-        {{ multi ? t("$vuetify.title.profile.multiInternet") : t("$vuetify.title.profile.server.direct") }}
+        {{ label }}
       </span>
     </template>
     <template #append>

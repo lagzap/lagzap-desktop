@@ -38,6 +38,13 @@ type Service struct {
 	// gamingPriority: Settings > Routing "Prioritize gaming traffic", kept
 	// here so a service restart applies it again.
 	gamingPriority bool
+	// loadBalanceWeights: the user's load balancing weights per adapter
+	// (1..10; left out = automatic), applied again on a service restart.
+	loadBalanceWeights map[string]uint32
+	// loadBalancePool: adapters flagged Load balance (empty = every adapter).
+	loadBalancePool []string
+	// meteredInterfaces: adapters marked metered; load balancing skips them.
+	meteredInterfaces []string
 	// quitApp quits LagZap like the tray's Quit (set by main).
 	quitApp func()
 	// virtualAdapter: on Windows, capture through LagZap's TUN instead of
@@ -92,6 +99,9 @@ func (s *Service) ReloadService() error {
 	})
 	s.applyUIBackground()
 	s.coordinator.SetGamingPriority(s.gamingPriority)
+	s.coordinator.SetLoadBalanceWeights(s.loadBalanceWeights)
+	s.coordinator.SetLoadBalancePool(s.loadBalancePool)
+	s.coordinator.SetMeteredInterfaces(s.meteredInterfaces)
 	if settings := s.coordinator.GetClientSettings(); settings != nil && settings.ProxyDnsRequests != nil {
 		s.proxyDNSRequests = settings.GetProxyDnsRequests()
 	}

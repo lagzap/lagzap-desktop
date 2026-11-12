@@ -386,6 +386,45 @@ func (s *Service) SetGamingPriority(enabled bool) {
 	s.coordinator.SetGamingPriority(enabled)
 }
 
+// SetLoadBalanceWeights sets the user's load balancing weights (adapter ->
+// 1..10; left out or 0 = automatic) for High traffic profiles.
+func (s *Service) SetLoadBalanceWeights(weights map[string]uint32) {
+	s.loadBalanceWeights = weights
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetLoadBalanceWeights(weights)
+}
+
+// SetLoadBalancePool sets the adapters flagged Load balance on the Multi
+// Internet page (empty = every adapter); High traffic profiles use them.
+func (s *Service) SetLoadBalancePool(names []string) {
+	s.loadBalancePool = names
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetLoadBalancePool(names)
+}
+
+// SetMeteredInterfaces marks adapters as metered (mobile data, capped
+// plans): updates and downloads are never load balanced over them.
+func (s *Service) SetMeteredInterfaces(names []string) {
+	s.meteredInterfaces = names
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetMeteredInterfaces(names)
+}
+
+// GetLoadBalanceShares reports each internet's load balancing weight and its
+// share of new connections.
+func (s *Service) GetLoadBalanceShares(names []string) []adapter.LoadBalanceShare {
+	if s.coordinator == nil || len(names) == 0 {
+		return nil
+	}
+	return s.coordinator.LoadBalanceShares(names)
+}
+
 func (s *Service) GetProxyDNSRequests() bool {
 	return s.proxyDNSRequests
 }

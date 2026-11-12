@@ -1,6 +1,6 @@
 import { computed, onMounted, ref, watch, type Ref } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { GetClientSettings, SetClientSettings } from '~/bindings/github.com/lagzap/lagzap-desktop/service'
+import { GetClientSettings, SetClientSettings, SetLoadBalancePool, SetMeteredInterfaces } from '~/bindings/github.com/lagzap/lagzap-desktop/service'
 import { ClientSettings, InterfaceRouteSettings } from '~/bindings/github.com/lagzap/zap/data/models'
 import {
   DEFAULT_TCP_ROUTES,
@@ -21,6 +21,13 @@ interface StoredNetworkAdapterSettings {
   multiInternetExplicit?: boolean
   backupInterfaces: string[]
   backupInterfacesExplicit?: boolean
+  /** Adapters flagged Load balance (High traffic profiles: updates and
+   * downloads); not explicit = every adapter. Kept by the app, not Go's
+   * client settings. */
+  loadBalanceInterfaces?: string[]
+  loadBalanceExplicit?: boolean
+  /** Adapters marked metered: load balancing never uses them. */
+  meteredInterfaces?: string[]
   globalTcpRoutes: number | null
   globalUdpRoutes: number | null
   interfaceRouteOverrides: Record<string, RouteCountPair>
@@ -31,6 +38,9 @@ const multiInternetNames = ref<string[]>([])
 const multiInternetExplicit = ref(false)
 const backupInterfaceNames = ref<string[]>([])
 const backupInterfacesExplicit = ref(false)
+const loadBalanceNames = ref<string[]>([])
+const loadBalanceExplicit = ref(false)
+const meteredNames = ref<string[]>([])
 const globalTcpRoutes = ref<number | null>(null)
 const globalUdpRoutes = ref<number | null>(null)
 const interfaceRouteOverrides = ref<Record<string, RouteCountPair>>({})
@@ -104,12 +114,19 @@ async function syncToBackend() {
     next.udp_routes = globalUdpRoutes.value ?? DEFAULT_UDP_ROUTES
     next.interface_route_settings = buildInterfaceRouteSettingsPayload()
     await SetClientSettings(next)
+    await SetMeteredInterfaces([...meteredNames.value])
+    await SetLoadBalancePool(
+      loadBalanceExplicit.value && loadBalanceNames.value.length > 0 ? [...loadBalanceNames.value] : [],
+    )
     await saveStoredSettings({
       defaultInterface: defaultInterfaceOverride.value,
       multiInternetInterfaces: [...multiInternetNames.value],
       multiInternetExplicit: multiInternetExplicit.value,
       backupInterfaces: [...backupInterfaceNames.value],
       backupInterfacesExplicit: backupInterfacesExplicit.value,
+      loadBalanceInterfaces: [...loadBalanceNames.value],
+      loadBalanceExplicit: loadBalanceExplicit.value,
+      meteredInterfaces: [...meteredNames.value],
       globalTcpRoutes: globalTcpRoutes.value,
       globalUdpRoutes: globalUdpRoutes.value,
       interfaceRouteOverrides: { ...interfaceRouteOverrides.value },
@@ -130,12 +147,16 @@ async function loadNetworkAdapterSettings() {
       multiInternetExplicit.value = stored.multiInternetExplicit ?? false
       backupInterfaceNames.value = stored.backupInterfaces ?? []
       backupInterfacesExplicit.value = stored.backupInterfacesExplicit ?? false
+      loadBalanceNames.value = stored.loadBalanceInterfaces ?? []
+      loadBalanceExplicit.value = stored.loadBalanceExplicit ?? false
+      meteredNames.value = stored.meteredInterfaces ?? []
       globalTcpRoutes.value = stored.globalTcpRoutes ?? null
       globalUdpRoutes.value = stored.globalUdpRoutes ?? null
       interfaceRouteOverrides.value = stored.interfaceRouteOverrides ?? {}
       // A cleared hand-picked list always meant every adapter in Go.
       if (multiInternetNames.value.length === 0) multiInternetExplicit.value = false
       if (backupInterfaceNames.value.length === 0) backupInterfacesExplicit.value = false
+      if (loadBalanceNames.value.length === 0) loadBalanceExplicit.value = false
     } else {
       const settings = await GetClientSettings()
       if (settings) {
@@ -208,6 +229,15 @@ export function useNetworkAdapterSettings() {
 
   const multiInternet = adapterPool(multiInternetNames, multiInternetExplicit)
   const backupInterfaces = adapterPool(backupInterfaceNames, backupInterfacesExplicit)
+  const loadBalance = adapterPool(loadBalanceNames, loadBalanceExplicit)
+
+  /** Metered adapters (mobile data, capped plans): never load balanced. */
+  const isMetered = (name: string) => meteredNames.value.includes(name)
+  function setMetered(name: string, on: boolean) {
+    if (on === isMetered(name)) return
+    meteredNames.value = on ? [...meteredNames.value, name] : meteredNames.value.filter((n) => n !== name)
+    void syncToBackend()
+  }
 
   const routeTableInterfaces = computed(() => {
     if (!multiInternetExplicit.value) {
@@ -342,6 +372,10 @@ export function useNetworkAdapterSettings() {
     defaultInterfaceOverride,
     multiInternet,
     backupInterfaces,
+    loadBalance,
+    meteredNames,
+    isMetered,
+    setMetered,
     multiInternetAuto: multiInternet.auto,
     multiInternetSelection: multiInternet.selection,
     backupInterfacesAuto: backupInterfaces.auto,

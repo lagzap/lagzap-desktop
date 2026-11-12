@@ -10,6 +10,7 @@ import {
   SetInternetPingTarget,
   SetAdapterOrder,
   SetGamingPriority,
+  SetLoadBalanceWeights,
   SetRoutingSettings,
   SetVirtualAdapter,
 } from '~/bindings/github.com/lagzap/lagzap-desktop/service'
@@ -49,6 +50,9 @@ interface AppSettings {
   /** Mark Gaming Traffic profiles as real-time traffic, for routers and
    * networks that prioritize it. */
   gamingPriority?: boolean
+  /** Load balancing weight per adapter (1..10) set by the user; adapters
+   * left out follow their speed. */
+  loadBalanceWeights?: Record<string, number>
   internetPingTarget?: InternetPingTargetId
   relayTransportFallback?: boolean
   /** Show game and app names in English while the UI is in another language. */
@@ -287,6 +291,8 @@ export const useSettings = (locale?: any, theme?: any) => {
 
   const syncRoutingSettingsToBackend = async () => {
     try {
+      // Kept by the service and applied when the routing service starts.
+      await SetLoadBalanceWeights(settings.value.loadBalanceWeights ?? {})
       if (!(await IsReady())) {
         return
       }
@@ -388,6 +394,14 @@ export const useSettings = (locale?: any, theme?: any) => {
       language,
       isFirstTime: false,
     })
+  }
+
+  /** One adapter's load balancing weight; 0 = automatic (by its speed). */
+  const setLoadBalanceWeight = async (name: string, weight: number) => {
+    const next = { ...(settings.value.loadBalanceWeights ?? {}) }
+    if (weight > 0) next[name] = Math.min(10, Math.round(weight))
+    else delete next[name]
+    await saveSettings({ loadBalanceWeights: next })
   }
 
   const setTheme = async (themeSetting: 'system' | 'light' | 'dark') => {
@@ -616,6 +630,7 @@ export const useSettings = (locale?: any, theme?: any) => {
   ]
 
   return {
+    setLoadBalanceWeight,
     settings: readonly(settings),
     isLoaded: readonly(isLoaded),
     loadSettings,

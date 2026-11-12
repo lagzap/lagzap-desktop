@@ -435,6 +435,12 @@ const routeSettingsText = computed(() => {
 </template>
 
 <style scoped>
+/* Nothing in it yet (a High traffic profile before its first traffic: the
+ * chart only grows in with data): no empty padding under the header. */
+.profile-sections:not(:has(> *)) {
+  display: none;
+}
+
 
 .profile-card-subtitle {
   display: inline-flex;

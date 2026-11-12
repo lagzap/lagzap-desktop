@@ -96,7 +96,8 @@ func (s *Service) GetConnections() any {
 	return s.withRelayIssues(cloned)
 }
 
-// withRelayIssues adds "protocol" (the sniffed one, when known) and
+// withRelayIssues adds "protocol" (the sniffed one, when known), "iface"
+// (the adapter it went out on, when known) and
 // "relay_issue" ({code, detail}) to cloned connection
 // rows that LagZap could not relay as configured, so the UI can warn why.
 func (s *Service) withRelayIssues(cloned any) any {
@@ -106,7 +107,8 @@ func (s *Service) withRelayIssues(cloned any) any {
 	}
 	issues := s.coordinator.ConnectionRelayIssues()
 	protocols := s.coordinator.ConnectionProtocols()
-	if len(issues) == 0 && len(protocols) == 0 {
+	ifaces := s.coordinator.ConnectionInterfaces()
+	if len(issues) == 0 && len(protocols) == 0 && len(ifaces) == 0 {
 		return cloned
 	}
 	for _, item := range list {
@@ -120,6 +122,9 @@ func (s *Service) withRelayIssues(cloned any) any {
 		}
 		if protocol, found := protocols[id]; found {
 			row["protocol"] = protocol
+		}
+		if iface, found := ifaces[id]; found {
+			row["iface"] = iface
 		}
 	}
 	return cloned

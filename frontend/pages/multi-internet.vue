@@ -20,6 +20,9 @@ const {
   interfaces,
   multiInternet,
   backupInterfaces,
+  loadBalance,
+  isMetered,
+  setMetered,
   globalTcpRoutes,
   globalUdpRoutes,
   resolvedGlobalTcp,
@@ -173,6 +176,11 @@ const pools = computed(() => [
     pool: backupInterfaces,
     label: t("$vuetify.settings.multiInternetPage.autoBackup"),
   },
+  {
+    key: "loadBalance",
+    pool: loadBalance,
+    label: t("$vuetify.settings.multiInternetPage.autoLoadBalance"),
+  },
 ]);
 </script>
 
@@ -257,6 +265,9 @@ const pools = computed(() => [
               :can-leave-multi="multiInternet.canRemove(name)"
               :in-backup="backupInterfaces.has(name)"
               :can-leave-backup="backupInterfaces.canRemove(name)"
+              :in-load-balance="loadBalance.has(name)"
+              :can-leave-load-balance="loadBalance.canRemove(name)"
+              :metered="isMetered(name)"
               :routes="routesOf(name)"
               :plan-locked="planLocked(index)"
               :unlock-internets="index + 1"
@@ -264,6 +275,8 @@ const pools = computed(() => [
               @set-default="setDefault(name, $event)"
               @set-multi="multiInternet.toggle(name, $event)"
               @set-backup="backupInterfaces.toggle(name, $event)"
+              @set-load-balance="loadBalance.toggle(name, $event)"
+              @set-metered="setMetered(name, $event)"
               @set-tcp="setInterfaceTcp(name, $event)"
               @set-udp="setInterfaceUdp(name, $event)"
             />
@@ -273,10 +286,13 @@ const pools = computed(() => [
           {{ t("$vuetify.networkLatency.monitor.noInterfaces") }}
         </div>
 
-        <section class="mt-6">
-          <div class="text-subtitle-2 mb-3">
-            {{ mi("routesTitle") }}
-            <HelpTip class="ms-1" :text="mi('routesDescription')" />
+        <!-- Routes per adapter: a card like the adapters above. -->
+        <v-card class="mt-6 routes-card" rounded="lg" variant="flat">
+          <v-card-text class="pa-4">
+          <div class="d-flex align-center ga-2 mb-3">
+            <v-icon icon="mdi-transit-connection-variant" size="20" color="primary" />
+            <span class="text-subtitle-1 font-weight-medium">{{ mi("routesTitle") }}</span>
+            <HelpTip :text="mi('routesDescription')" />
           </div>
           <div class="multi-internet__route-inputs">
             <v-number-input
@@ -324,7 +340,8 @@ const pools = computed(() => [
               <HelpTip class="ms-1" :text="t('$vuetify.settings.route.transportFallbackHint')" />
             </template>
           </v-checkbox>
-        </section>
+          </v-card-text>
+        </v-card>
 
         <section v-if="isWindows" class="mt-6">
           <div class="text-subtitle-2 mb-3">
@@ -512,9 +529,10 @@ const pools = computed(() => [
 .multi-internet__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
-  /* Rows leave room above each card for its grip. */
-  gap: 22px 12px;
+  /* Rows leave room for each card's grip (top) and chevron (bottom). */
+  gap: 32px 12px;
   padding-top: 10px;
+  padding-bottom: 10px;
 }
 </style>
 

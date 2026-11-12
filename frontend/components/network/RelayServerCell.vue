@@ -24,6 +24,8 @@ const message = computed(() => issueMessage(props.connection));
 const nodeCountry = computed(
   () => store.nodes?.[props.connection.node_id ?? ""]?.country
 );
+/** Sent straight out (split tunnel / Direct, no LagZap server). */
+const direct = computed(() => !props.connection.node_id);
 </script>
 
 <template>
@@ -44,6 +46,13 @@ const nodeCountry = computed(
       </div>
     </template>
   </v-tooltip>
+  <!-- No LagZap server: Direct, and the adapter it went out on. -->
+  <div v-else-if="direct" class="d-flex align-center flex-nowrap text-medium-emphasis">
+    <v-icon icon="mdi-call-split" size="16" />
+    <span :class="[textClass, 'ms-1']">
+      {{ t("$vuetify.connections.direct") }}<template v-if="connection.iface"> · {{ connection.iface }}</template>
+    </span>
+  </div>
   <div v-else class="d-flex align-center flex-nowrap">
     <CountryFlag v-if="nodeCountry" :country="nodeCountry" size="small" />
     <span :class="[textClass, 'ms-1']">{{ getNodeLabel(connection.node_id) }}</span>

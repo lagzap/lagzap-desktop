@@ -11,6 +11,9 @@ import { localDigits } from "~/utils/localeFormat";
 import { DEFAULT_TCP_ROUTES, DEFAULT_UDP_ROUTES, resolveProfileRouteCounts } from "~/composables/routeCountUtils";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 import SplitTunnelOptions from "~/components/title/SplitTunnelOptions.vue";
+import LoadBalanceOptions, { type LoadBalanceMode } from "~/components/title/LoadBalanceOptions.vue";
+import { GetLoadBalanceShares } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import type { LoadBalanceShare } from "~/bindings/github.com/lagzap/lagzap/adapter";
 
 const props = defineProps<{
   profile: Profile;
@@ -180,7 +183,7 @@ const splitAdapter = computed(() => selectedDefaultInterface.value);
 const splitAdapters = computed(() => {
   const names = (interfaces.value ?? []).map((iface) => iface.Name);
   const saved = [splitAdapter.value, ...(store.profileStates[props.profile.id]?.network_interfaces ?? [])];
-  for (const name of saved) if (name && !names.includes(name)) names.push(name);
+  for (const name of saved) if (name && name !== "*" && !names.includes(name)) names.push(name);
   return names;
 });
 function setSplitAdapter(name: string) {
@@ -234,6 +237,78 @@ function pickInternet(name: string) {
   if (next.length >= 2) setOwnInternets(next);
 }
 
+// Load balancing (High traffic profiles: downloads, CDNs): new connections
+// are spread over the profile's internets by weight, through a server or
+// direct. Same field as Multi Internet (network_interfaces); two or more
+// internets turn it on, none is off.
+const isLoadBalanceProfile = computed(() => {
+  const flags = props.profile.flags;
+  return (
+    (flags & ProfileFlag.HIGH_TRAFFIC) !== 0 &&
+    (flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET | ProfileFlag.PREVENT_DISCONNECT)) === 0
+  );
+});
+// network_interfaces: empty or "*" = the Load balance internets from the
+// Multi Internet page (the default), "-" = off, names = the profile's own.
+const LOAD_BALANCE_POOL = "*";
+const LOAD_BALANCE_OFF = "-";
+const balanceMarkers = [LOAD_BALANCE_POOL, LOAD_BALANCE_OFF];
+const { loadBalance: loadBalancePool, isMetered } = useNetworkAdapterSettings();
+const balancePicked = computed(() => ownInternets.value.filter((n) => !balanceMarkers.includes(n)));
+const balanceMode = computed<LoadBalanceMode>(() => {
+  if (ownInternets.value.includes(LOAD_BALANCE_OFF)) return "off";
+  return balancePicked.value.length > 0 ? "pick" : "pool";
+});
+const presentAdapters = computed(() => splitAdapters.value.filter((n) => !orphanedInterfaces.value.includes(n)));
+/** Every internet that can be load balanced (metered ones never are). */
+const balanceAdapters = computed(() => splitAdapters.value.filter((n) => !isMetered(n)));
+/** Ticked: the profile's own internets, or the ones flagged Load balance on
+ * the Multi Internet page while it has none of its own. */
+const balanceSelected = computed(() =>
+  balanceMode.value === "pick"
+    ? balancePicked.value
+    : loadBalancePool.selection.value.filter((n) => presentAdapters.value.includes(n) && !isMetered(n)),
+);
+const balanceOn = computed(() => balanceMode.value !== "off" && balanceSelected.value.length > 1);
+function setBalanceMode(next: LoadBalanceMode) {
+  if (next === balanceMode.value) return;
+  setOwnInternets(next === "off" ? [LOAD_BALANCE_OFF] : []);
+}
+/** Ticking an internet makes the ticked ones the profile's own (at least two). */
+function pickBalanceInternet(name: string) {
+  const current = balanceSelected.value;
+  const next = current.includes(name) ? current.filter((n) => n !== name) : [...current, name];
+  if (next.length >= 2) setOwnInternets(next);
+}
+const { settings, setLoadBalanceWeight } = useSettings();
+// Each internet's weight and share, while the menu is open.
+const balanceShares = ref<Record<string, LoadBalanceShare>>({});
+async function refreshBalanceShares() {
+  if (!balanceOn.value) return;
+  try {
+    const names = balanceSelected.value;
+    const list = (await GetLoadBalanceShares(names)) ?? [];
+    balanceShares.value = Object.fromEntries(list.map((share) => [share.name, share]));
+  } catch {
+    // service not running yet
+  }
+}
+let sharesTimer: ReturnType<typeof setInterval> | undefined;
+watch(
+  () => dialogOpen.value && isLoadBalanceProfile.value && balanceOn.value,
+  (live) => {
+    clearInterval(sharesTimer);
+    if (!live) return;
+    void refreshBalanceShares();
+    sharesTimer = setInterval(refreshBalanceShares, 2000);
+  },
+  { immediate: true },
+);
+watch(() => [...ownInternets.value, JSON.stringify(settings.value.loadBalanceWeights ?? {})].join("|"), () => {
+  void refreshBalanceShares();
+});
+onBeforeUnmount(() => clearInterval(sharesTimer));
+
 function adapterIcon(name: string) {
   const n = name.toLowerCase();
   if (/wi-?fi|wlan|wireless/.test(n)) return "mdi-wifi";
@@ -243,6 +318,13 @@ function adapterIcon(name: string) {
 // The button says which adapter Split Tunnel goes out through, or that
 // Multi Internet is on.
 const buttonText = computed(() => {
+  if (isLoadBalanceProfile.value) {
+    return balanceOn.value
+      ? `${currentSelectionText.value} · ${t("$vuetify.title.profile.server.loadBalance")}`
+      : splitAdapter.value
+        ? `${currentSelectionText.value} · ${splitAdapter.value}`
+        : currentSelectionText.value;
+  }
   if (isMultiInternetProfile.value) {
     return multiOn.value || multiInherited.value
       ? `${currentSelectionText.value} · ${t("$vuetify.title.profile.multiInternet")}`
@@ -293,8 +375,15 @@ watch(dialogOpen, (open) => {
             <v-icon :icon="dialogOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
           </template>
         </v-btn>
-        <v-btn v-else icon="mdi-map-marker" variant="tonal"
-        color="tertiary" v-bind="props" />
+        <!-- Narrow: the same icon or flag as the wide button, with its text
+             as the tooltip. -->
+        <v-btn v-else icon variant="tonal" color="tertiary" :title="buttonText" v-bind="props">
+          <CountryFlag v-if="'flag' in currentSelectionIcon" :country="currentSelectionIcon.flag" size="small" />
+          <v-avatar v-else-if="'continent' in currentSelectionIcon" size="20" rounded="0">
+            <ContinentIcon :tag="currentSelectionIcon.continent" />
+          </v-avatar>
+          <v-icon v-else :icon="currentSelectionIcon.icon" />
+        </v-btn>
       </template>
     </template>
 
@@ -372,6 +461,22 @@ watch(dialogOpen, (open) => {
           :icon="adapterIcon"
           @toggle="toggleMultiInternet"
           @pick="pickInternet"
+          @refresh="updateInterfaces"
+        />
+        <LoadBalanceOptions
+          v-else-if="isLoadBalanceProfile"
+          :mode="balanceMode"
+          :adapters="balanceAdapters"
+          :selected="balanceSelected"
+          :missing="orphanedInterfaces"
+          :shares="balanceShares"
+          :loading="loadingInterfaces"
+          :disabled="!store.appReady"
+          :live="dialogOpen"
+          :icon="adapterIcon"
+          @mode="setBalanceMode"
+          @pick="pickBalanceInternet"
+          @weight="(name: string, weight: number) => setLoadBalanceWeight(name, weight)"
           @refresh="updateInterfaces"
         />
         <SplitTunnelOptions
@@ -894,6 +999,22 @@ watch(dialogOpen, (open) => {
           :icon="adapterIcon"
           @toggle="toggleMultiInternet"
           @pick="pickInternet"
+          @refresh="updateInterfaces"
+        />
+        <LoadBalanceOptions
+          v-else-if="isLoadBalanceProfile"
+          :mode="balanceMode"
+          :adapters="balanceAdapters"
+          :selected="balanceSelected"
+          :missing="orphanedInterfaces"
+          :shares="balanceShares"
+          :loading="loadingInterfaces"
+          :disabled="!store.appReady"
+          :live="dialogOpen"
+          :icon="adapterIcon"
+          @mode="setBalanceMode"
+          @pick="pickBalanceInternet"
+          @weight="(name: string, weight: number) => setLoadBalanceWeight(name, weight)"
           @refresh="updateInterfaces"
         />
         <SplitTunnelOptions

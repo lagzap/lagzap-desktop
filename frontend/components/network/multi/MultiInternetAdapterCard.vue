@@ -4,6 +4,7 @@ import Sparkline from "~/components/network/monitor/Sparkline.vue";
 import { qualityColor } from "~/composables/useNetworkMonitor";
 import { MAX_ROUTES } from "~/composables/routeCountUtils";
 import PlanLock from "~/components/plan/PlanLock.vue";
+import HelpTip from "~/components/settings/HelpTip.vue";
 import type { NetworkInterfaceMonitor } from "~/bindings/github.com/lagzap/lagzap/adapter";
 
 /** One adapter on the Multi Internet page: its internet ping, a small chart
@@ -19,6 +20,12 @@ const props = defineProps<{
   canLeaveMulti: boolean;
   inBackup: boolean;
   canLeaveBackup: boolean;
+  /** Load balance: High traffic profiles (updates, downloads) spread their
+   * connections over these. */
+  inLoadBalance: boolean;
+  canLeaveLoadBalance: boolean;
+  /** Metered (mobile data, capped plan): load balancing never uses it. */
+  metered?: boolean;
   /** Route counts over this adapter; null when it is not in Multi Internet.
    * tcp/udp are this adapter's own values, null = the page default. */
   routes?: { tcp: number | null; udp: number | null; tcpDefault: number; udpDefault: number } | null;
@@ -33,10 +40,16 @@ const emit = defineEmits<{
   setDefault: [on: boolean];
   setMulti: [on: boolean];
   setBackup: [on: boolean];
+  setLoadBalance: [on: boolean];
+  setMetered: [on: boolean];
   setTcp: [value: number | null];
   setUdp: [value: number | null];
 }>();
 const { t } = useLocale();
+
+// More settings (route counts, traffic limit) fold behind the round chevron
+// at the card's bottom.
+const expanded = ref(false);
 
 const KIND_ICON: Record<string, string> = {
   ethernet: "mdi-ethernet",
@@ -93,10 +106,26 @@ const roles = computed(() => [
         : t("$vuetify.settings.multiInternetPage.backupTip"),
     set: (on: boolean) => emit("setBackup", on),
   },
+  {
+    key: "loadBalance",
+    icon: "mdi-scale-balance",
+    label: t("$vuetify.settings.multiInternetPage.loadBalance"),
+    on: props.inLoadBalance && !props.metered,
+    locked: !!props.metered || (props.inLoadBalance && !props.canLeaveLoadBalance) || (props.planLocked && !props.inLoadBalance),
+    tip: props.metered
+      ? t("$vuetify.settings.multiInternetPage.meteredLoadBalanceTip")
+      : props.planLocked && !props.inLoadBalance
+      ? t("$vuetify.plan.lockedTip")
+      : props.inLoadBalance && !props.canLeaveLoadBalance
+        ? t("$vuetify.settings.multiInternetPage.lastTip")
+        : t("$vuetify.settings.multiInternetPage.loadBalanceTip"),
+    set: (on: boolean) => emit("setLoadBalance", on),
+  },
 ]);
 </script>
 
 <template>
+  <div class="adapter-card-wrap">
   <v-card class="adapter-card" rounded="lg" variant="flat">
     <div class="adapter-card__accent" :style="{ background: color }" />
     <v-card-text class="adapter-card__body pa-4">
@@ -104,6 +133,9 @@ const roles = computed(() => [
         <v-icon :icon="icon" :color="color" size="20" />
         <span class="text-subtitle-1 font-weight-medium text-truncate flex-shrink-0 adapter-card__name">{{ name }}</span>
         <span v-if="monitor?.isp" class="text-caption text-medium-emphasis text-truncate" :title="ispTip">{{ monitor.isp }}</span>
+        <v-chip v-if="metered" color="warning" size="x-small" variant="tonal" prepend-icon="mdi-cash-clock">
+          {{ t("$vuetify.settings.multiInternetPage.metered") }}
+        </v-chip>
         <v-chip v-if="offline" color="error" size="x-small" variant="tonal">
           {{ t("$vuetify.networkLatency.monitor.statusNoInternet") }}
         </v-chip>
@@ -156,6 +188,7 @@ const roles = computed(() => [
       </div>
 
       <v-expand-transition>
+        <div v-if="expanded" class="adapter-card__more">
         <div v-if="routes" class="adapter-card__routes">
           <v-number-input
             :model-value="routes.tcp"
@@ -188,9 +221,45 @@ const roles = computed(() => [
             @update:model-value="emit('setUdp', $event)"
           />
         </div>
+        <v-checkbox
+          :model-value="!!metered"
+          density="compact"
+          hide-details
+          class="mt-3"
+          @update:model-value="emit('setMetered', !!$event)"
+        >
+          <template #label>
+            <span class="text-body-2">{{ t("$vuetify.settings.multiInternetPage.markMetered") }}</span>
+            <HelpTip class="ms-1" :text="t('$vuetify.settings.multiInternetPage.meteredHint')" />
+          </template>
+        </v-checkbox>
+        <!-- Traffic limit: its own page comes later; shown, not usable yet. -->
+        <v-text-field
+          :label="t('$vuetify.settings.multiInternetPage.trafficLimit')"
+          :placeholder="t('$vuetify.settings.multiInternetPage.trafficLimitSoon')"
+          persistent-placeholder
+          prepend-inner-icon="mdi-gauge"
+          variant="outlined"
+          density="compact"
+          hide-details
+          disabled
+          class="mt-3"
+        />
+        </div>
       </v-expand-transition>
     </v-card-text>
   </v-card>
+  <!-- On the bottom border, styled like the drag grip on the top one. -->
+  <button
+    type="button"
+    class="adapter-card__toggle"
+    :aria-expanded="expanded"
+    :title="expanded ? t('$vuetify.settings.multiInternetPage.lessSettings') : t('$vuetify.settings.multiInternetPage.moreSettings')"
+    @click="expanded = !expanded"
+  >
+    <v-icon size="16" class="adapter-card__chevron" :class="{ 'adapter-card__chevron--up': expanded }">mdi-chevron-down</v-icon>
+  </button>
+  </div>
 </template>
 
 <style scoped>
@@ -254,8 +323,52 @@ const roles = computed(() => [
   align-items: center;
   /* Stacked, UDP gets 0.5rem more room under TCP; side by side is unchanged. */
   gap: calc(8px + 0.5rem) 8px;
-  margin-top: auto;
   padding-top: 20px;
+}
+
+/* Folded settings sit at the bottom, level across cards. */
+.adapter-card__more {
+  margin-top: auto;
+}
+
+.adapter-card-wrap {
+  position: relative;
+  height: 100%;
+}
+
+/* Same look as the drag grip (multi-internet.vue .adapter-slot__grip), on
+ * the bottom border. */
+.adapter-card__toggle {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  background: rgb(var(--v-theme-surface));
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.adapter-card-wrap:hover .adapter-card__toggle,
+.adapter-card__toggle:focus-visible {
+  color: rgb(var(--v-theme-primary));
+  border-color: rgba(var(--v-theme-primary), 0.5);
+}
+
+.adapter-card__chevron {
+  transition: transform 200ms ease;
+}
+
+.adapter-card__chevron--up {
+  transform: rotate(180deg);
 }
 
 /* The check slides in on the right and pops once when a role turns on. */

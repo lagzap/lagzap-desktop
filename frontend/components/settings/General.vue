@@ -70,16 +70,6 @@ const {
         @update:model-value="(value) => void setTheme(value)"
       />
 
-      <v-checkbox
-        :label="t('$vuetify.settings.discordPresence')"
-        :hint="t('$vuetify.settings.discordPresenceHint')"
-        :model-value="settings.discordPresence ?? true"
-        persistent-hint
-        density="compact"
-        class="mb-6"
-        @update:model-value="(value) => void setDiscordPresence(!!value)"
-      />
-
       <v-card-subtitle class="px-0 mb-1">
         {{ t('$vuetify.settings.privacy.title') }}
       </v-card-subtitle>
@@ -92,11 +82,20 @@ const {
       />
       <v-checkbox
         persistent-hint
-        class="mb-5"
+        class="mb-1"
         :hint="t('$vuetify.settings.privacy.allowSendAnonymousDataHint')"
         :label="t('$vuetify.settings.privacy.allowSendAnonymousData')"
         :model-value="settings.allowSendAnonymousData"
         @update:model-value="setAllowSendAnonymousData"
+      />
+      <!-- Privacy: whether Discord friends see the game LagZap optimizes. -->
+      <v-checkbox
+        persistent-hint
+        class="mb-5"
+        :label="t('$vuetify.settings.discordPresence')"
+        :hint="t('$vuetify.settings.discordPresenceHint')"
+        :model-value="settings.discordPresence ?? true"
+        @update:model-value="(value) => void setDiscordPresence(!!value)"
       />
 
       <v-card-subtitle class="px-0 mb-1">

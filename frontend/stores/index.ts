@@ -1264,8 +1264,9 @@ export const useStore = defineStore("index", () => {
 
     // Check network_interfaces
     const selectedInterfaces = profileState.network_interfaces || [];
+    // "*" / "-" = load balancing's pool / off, not adapter names.
     const unavailableNetworkInterfaces = selectedInterfaces.filter(
-      (name) => !available.has(name)
+      (name) => name !== "*" && name !== "-" && !available.has(name)
     );
     unavailableInterfaces.push(...unavailableNetworkInterfaces);
 

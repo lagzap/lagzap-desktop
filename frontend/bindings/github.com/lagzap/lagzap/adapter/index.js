@@ -30,6 +30,7 @@ export {
     InterfaceTraffic,
     LegQuality,
     LinkQuality,
+    LoadBalanceShare,
     LocationMonitor,
     LossWarning,
     NameResult,
