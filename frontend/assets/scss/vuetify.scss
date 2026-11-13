@@ -122,3 +122,9 @@ button,
 .v-card--variant-outlined {
   border: thin solid rgb(var(--v-theme-surface-bright), 0.3) !important;
 }
+
+// Dark: a quiet white outline.
+.v-theme--dark .v-card--variant-outlined,
+.v-card--variant-outlined.v-theme--dark {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
