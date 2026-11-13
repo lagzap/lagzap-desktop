@@ -215,10 +215,10 @@ const routeSettingsText = computed(() => {
     parts.push(t("$vuetify.title.profile.proxy"));
   }
 
-  if (
-    props.profile.route_action == "route" &&
-    profileState.allow_local_routes
-  ) {
+  const domestic = profileState.follow_global_local_routes
+    ? settings.value.allowLocalRoutes ?? true
+    : profileState.allow_local_routes;
+  if (props.profile.route_action == "route" && domestic) {
     parts.push(t("$vuetify.title.profile.domesticRoutes"));
   }
 

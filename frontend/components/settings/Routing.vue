@@ -38,6 +38,7 @@ const {
   setRouteIp,
   setRealtimeOptimization,
   setProxyDnsRequests,
+  setAllowLocalRoutes,
   setInternetPingTarget,
   setGamingPriority,
   getRouteAccuracyOptions,
@@ -154,6 +155,15 @@ const internetPingTargetItems = computed(() => [
         persistent-hint
         :model-value="settings.proxyDnsRequests"
         @update:model-value="setProxyDnsRequests"
+      />
+
+      <v-checkbox
+        class="mb-4"
+        :label="t('$vuetify.settings.route.allowLocalRoutes')"
+        :hint="t('$vuetify.settings.route.allowLocalRoutesHint')"
+        persistent-hint
+        :model-value="settings.allowLocalRoutes"
+        @update:model-value="setAllowLocalRoutes(!!$event)"
       />
 
       <v-select

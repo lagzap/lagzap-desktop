@@ -56,23 +56,29 @@ function metricValueStyle(accent: string | null) {
             </div>
           </div>
 
-          <div class="network-summary__item">
+          <NuxtLink
+            :to="{ name: 'bandwidth-control' }"
+            class="network-summary__item network-summary__link"
+          >
             <div class="network-summary__label">
               {{ t("$vuetify.network.download") }}
             </div>
             <div class="network-summary__value font-weight-medium">
               {{ useHumanSpeed(quality?.download ?? 0) }}
             </div>
-          </div>
+          </NuxtLink>
 
-          <div class="network-summary__item">
+          <NuxtLink
+            :to="{ name: 'bandwidth-control' }"
+            class="network-summary__item network-summary__link"
+          >
             <div class="network-summary__label">
               {{ t("$vuetify.network.upload") }}
             </div>
             <div class="network-summary__value font-weight-medium text-medium-emphasis">
               {{ useHumanSpeed(quality?.upload ?? 0) }}
             </div>
-          </div>
+          </NuxtLink>
 
           <div class="network-summary__item">
             <div class="network-summary__label">
@@ -196,6 +202,20 @@ function metricValueStyle(accent: string | null) {
 
 .network-summary__item {
   min-width: 0;
+}
+
+/* Download and upload open Bandwidth Control. */
+.network-summary__link {
+  margin: -4px -8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+
+.network-summary__link:hover {
+  background: rgba(var(--v-theme-on-surface), 0.06);
 }
 
 .network-summary__label {

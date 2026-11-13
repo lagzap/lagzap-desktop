@@ -23,11 +23,13 @@ import { GetNodes, GetProfiles, GetProfileStates, GetRegions, GetRoutes, GetTitl
 import { useMonitoringStore } from "~/stores/monitoring";
 import { useJumpList } from "~/composables/useJumpList";
 import { useDiscordPresence } from "~/composables/useDiscordPresence";
+import { installBandwidthLimits } from "~/composables/useBandwidthControl";
 
 // Ensure monitoring event listeners are active.
 useMonitoringStore();
 useJumpList();
 useDiscordPresence();
+installBandwidthLimits();
 
 function isEmpty(obj: any) {
   return !obj || (typeof obj === "object" && Object.keys(obj).length === 0);

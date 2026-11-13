@@ -1,0 +1,438 @@
+<script setup lang="ts">
+import { useLocale } from "vuetify";
+import Container from "~/components/layout/Container.vue";
+import HelpTip from "~/components/settings/HelpTip.vue";
+import SensitiveText from "~/components/common/SensitiveText.vue";
+import AppSparkline from "~/components/network/bandwidth/AppSparkline.vue";
+import AppLimitDialog from "~/components/network/bandwidth/AppLimitDialog.vue";
+import { limitActiveNow, nowMs, useBandwidthControl } from "~/composables/useBandwidthControl";
+import { untilText } from "~/components/network/bandwidth/until";
+import { formatSize, formatSpeed } from "~/utils/localeFormat";
+import type { AppTraffic } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import type { AppLimit } from "~/utils/indexedDB";
+
+/** Every app's download right now, routed by LagZap or not, and the speed
+ * caps the user sets per app, per folder or for the whole PC. Go counts and
+ * caps on the NDIS layer; the caps are kept on this PC only. */
+const { t, isRtl } = useLocale();
+const bc = (key: string, ...params: unknown[]) => t(`$vuetify.bandwidthControl.${key}`, ...params);
+const { apps, gaming, running, limits, historyTick, historyOf, infoOf, saveLimit, deleteLimit } =
+  useBandwidthControl();
+
+const displayName = (path: string, fallback: string) =>
+  infoOf(path).name || fallback || bc("unknown");
+
+const limitById = computed(() => new Map(limits.value.map((limit) => [limit.id, limit])));
+const pcLimit = computed(() => limits.value.find((limit) => limit.kind === "pc") ?? null);
+// The whole-PC cap first, then the routed-profile caps, then apps.
+const kindOrder: Record<string, number> = { pc: 0, adapter: 1, high_traffic: 2, profile: 3 };
+const sortedLimits = computed(() =>
+  [...limits.value].sort((a, b) => (kindOrder[a.kind] ?? 3) - (kindOrder[b.kind] ?? 3)),
+);
+
+function capLabel(limit: AppLimit, active: boolean) {
+  if (!limit.enabled) return bc("capOff");
+  if (limit.kind === "profile" && limit.download <= 0) return bc("neverCapped");
+  const speed = formatSpeed(limit.download);
+  let label = active || !limit.only_while_gaming ? bc("capped", speed) : bc("capWaiting", speed);
+  if (limit.until_restart) label += ` · ${bc("untilRestartShort")}`;
+  else if (limit.expires_at) label += ` · ${bc("endsIn", untilText(limit.expires_at, t, nowMs.value))}`;
+  return label;
+}
+
+const limitActive = (limit: AppLimit) => limitActiveNow(limit);
+
+const store = useStore();
+/** A routed profile as "Title · Profile". */
+function profileName(id: string) {
+  const profile = store.profiles.find((item) => item.id === id);
+  if (!profile) return bc("unknown");
+  const title = store.titles.find((item) => item.id === profile.title_id);
+  const name = store.localized(profile.name);
+  return title ? `${store.titleName(title.name)} · ${name}` : name;
+}
+
+const limitIcon = (limit: AppLimit) =>
+  ({
+    pc: "mdi-monitor",
+    folder: "mdi-folder-outline",
+    high_traffic: "mdi-download-network-outline",
+    profile: "mdi-download-network-outline",
+    adapter: "mdi-lan",
+  })[limit.kind];
+
+const limitSubtitle = (limit: AppLimit) =>
+  ({ pc: bc("allApps"), high_traffic: bc("highTrafficHint"), adapter: bc("oneInternet") })[limit.kind] ??
+  bc("routedProfile");
+
+const limitName = (limit: AppLimit) => {
+  if (limit.kind === "pc") return bc("wholePc");
+  if (limit.kind === "high_traffic") return bc("highTraffic");
+  if (limit.kind === "profile") return profileName(limit.path);
+  if (limit.kind === "adapter") return limit.path;
+  const base = limit.path.split(/[\\/]/).filter(Boolean).pop() ?? limit.path;
+  return limit.kind === "folder" ? base : displayName(limit.path, base);
+};
+
+type SortKey = "total" | "speed" | "name";
+const sortKey = ref<SortKey>("total");
+const sortOptions = computed(() => [
+  { value: "total" as SortKey, title: bc("sortTotal"), icon: "mdi-sigma" },
+  { value: "speed" as SortKey, title: bc("sortSpeed"), icon: "mdi-speedometer" },
+  { value: "name" as SortKey, title: bc("sortName"), icon: "mdi-sort-alphabetical-ascending" },
+]);
+const sortTitle = computed(() => sortOptions.value.find((option) => option.value === sortKey.value)?.title);
+
+const sortedApps = computed(() => {
+  const list = [...apps.value];
+  const byName = (a: AppTraffic, b: AppTraffic) =>
+    displayName(a.path, a.name).localeCompare(displayName(b.path, b.name));
+  switch (sortKey.value) {
+    case "name":
+      return list.sort(byName);
+    case "speed":
+      return list.sort((a, b) => b.download_speed - a.download_speed || b.download - a.download || byName(a, b));
+    default:
+      return list.sort((a, b) => b.download - a.download || byName(a, b));
+  }
+});
+
+// One dialog for adding a cap (from a row or the header) or editing one.
+const dialog = ref(false);
+type FixedKind = "pc" | "adapter" | "high_traffic" | "profile";
+const dialogTarget = ref<{ path: string; name: string; limit: AppLimit | null; speed?: number; fixed?: FixedKind }>({
+  path: "",
+  name: "",
+  limit: null,
+});
+
+function openForApp(app: AppTraffic) {
+  dialogTarget.value = {
+    path: app.path,
+    name: displayName(app.path, app.name),
+    limit: app.rule_id ? limitById.value.get(app.rule_id) ?? null : null,
+    speed: app.download_speed,
+  };
+  dialog.value = true;
+}
+
+function openForLimit(limit: AppLimit) {
+  const fixed = ["pc", "adapter", "high_traffic", "profile"].includes(limit.kind) ? (limit.kind as FixedKind) : undefined;
+  dialogTarget.value = { path: limit.path, name: limitName(limit), limit, fixed };
+  dialog.value = true;
+}
+
+function openForCustom() {
+  dialogTarget.value = { path: "", name: "", limit: null };
+  dialog.value = true;
+}
+
+function openForPC() {
+  dialogTarget.value = { path: "", name: bc("wholePc"), limit: pcLimit.value, fixed: "pc" };
+  dialog.value = true;
+}
+
+function toggle(limit: AppLimit, enabled: boolean | null) {
+  saveLimit({ ...limit, enabled: Boolean(enabled) });
+}
+
+const sparks = computed(() => {
+  void historyTick.value;
+  return new Map(apps.value.map((app) => [app.path, historyOf(app.path)]));
+});
+</script>
+
+<template>
+  <div>
+    <Container>
+      <template #header>
+        <v-app-bar-title class="text-subtitle-1">
+          {{ t("$vuetify.navigation.bandwidthControl") }}
+          <HelpTip
+            class="ms-1"
+            :text="bc('description')" />
+        </v-app-bar-title>
+        <template v-if="running">
+          <v-tooltip
+            :text="bc('gamingHint')"
+            location="bottom"
+            open-delay="300">
+            <template #activator="{ props: tip }">
+              <v-chip
+                v-bind="tip"
+                :color="gaming ? 'success' : undefined"
+                :prepend-icon="gaming ? 'mdi-controller' : 'mdi-controller-off'"
+                size="small"
+                variant="tonal"
+                class="me-3"
+              >
+                {{ gaming ? bc("gaming") : bc("notGaming") }}
+              </v-chip>
+            </template>
+          </v-tooltip>
+        </template>
+      </template>
+
+      <div class="bandwidth">
+        <v-alert
+          v-if="!running"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="ma-4"
+          :text="bc('serviceOff')"
+        />
+
+        <template v-else>
+          <section v-if="limits.length">
+            <div class="text-subtitle-2 px-4 pt-3 pb-1">
+              {{ bc("caps") }}
+            </div>
+            <div
+              v-for="limit in sortedLimits"
+              :key="limit.id"
+              class="bandwidth__row">
+              <v-avatar
+                size="32"
+                rounded="0"
+                class="flex-none">
+                <v-icon
+                  v-if="limitIcon(limit)"
+                  :icon="limitIcon(limit)" />
+                <v-img
+                  v-else-if="infoOf(limit.path).icon"
+                  :src="infoOf(limit.path).icon" />
+                <v-icon
+                  v-else
+                  icon="mdi-application-outline" />
+              </v-avatar>
+              <div class="bandwidth__name">
+                <div class="text-body-2 font-weight-medium text-truncate">
+                  {{ limitName(limit) }}
+                </div>
+                <div class="text-caption text-medium-emphasis text-truncate">
+                  <template v-if="limit.kind !== 'exe' && limit.kind !== 'folder'">
+                    {{ limitSubtitle(limit) }}
+                  </template>
+                  <SensitiveText
+                    v-else
+                    :text="limit.path" />
+                </div>
+              </div>
+              <v-chip
+                :color="limitActive(limit) ? 'warning' : undefined"
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-speedometer-slow"
+              >
+                {{ capLabel(limit, limitActive(limit)) }}
+              </v-chip>
+              <v-switch
+                :model-value="limit.enabled"
+                color="primary"
+                density="compact"
+                hide-details
+                inset
+                class="flex-none"
+                @update:model-value="toggle(limit, $event)"
+              />
+              <v-btn
+                icon="mdi-pencil-outline"
+                size="small"
+                variant="text"
+                :aria-label="bc('editCap')"
+                @click="openForLimit(limit)"
+              />
+            </div>
+            <v-divider />
+          </section>
+
+          <div class="text-subtitle-2 px-4 pt-3 pb-1">
+            {{ bc("apps") }}
+          </div>
+          <div
+            v-if="!apps.length"
+            class="pa-4 text-medium-emphasis text-body-2">
+            {{ bc("empty") }}
+          </div>
+          <div
+            v-for="app in sortedApps"
+            :key="app.path"
+            class="bandwidth__row">
+            <v-avatar
+              size="32"
+              rounded="0"
+              class="flex-none">
+              <v-img
+                v-if="infoOf(app.path).icon"
+                :src="infoOf(app.path).icon" />
+              <v-icon
+                v-else
+                icon="mdi-application-outline" />
+            </v-avatar>
+            <div class="bandwidth__name">
+              <div class="d-flex align-center ga-2">
+                <span class="text-body-2 font-weight-medium text-truncate">
+                  {{ displayName(app.path, app.name) }}
+                </span>
+                <v-chip
+                  v-if="app.routed"
+                  color="primary"
+                  size="x-small"
+                  variant="tonal">
+                  {{ bc("routed") }}
+                </v-chip>
+                <v-chip
+                  v-if="app.rule_id && limitById.get(app.rule_id)"
+                  :color="app.limited ? 'warning' : undefined"
+                  size="x-small"
+                  variant="tonal"
+                  prepend-icon="mdi-speedometer-slow"
+                >
+                  {{ capLabel(limitById.get(app.rule_id)!, app.limited) }}
+                </v-chip>
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                {{ bc("sessionTotal", formatSize(app.download)) }}
+              </div>
+            </div>
+            <div class="bandwidth__speed text-body-2 font-weight-medium">
+              {{ formatSpeed(app.download_speed) }}
+            </div>
+            <AppSparkline
+              :points="sparks.get(app.path) ?? []"
+              :color="app.limited ? 'rgb(var(--v-theme-warning))' : undefined"
+            />
+            <v-btn
+              :icon="app.rule_id ? 'mdi-speedometer-slow' : 'mdi-speedometer'"
+              size="small"
+              variant="text"
+              :disabled="app.routed || app.path.startsWith(':')"
+              :aria-label="app.rule_id ? bc('editCap') : bc('addCap')"
+              :title="app.rule_id ? bc('editCap') : bc('addCap')"
+              @click="openForApp(app)"
+            />
+          </div>
+        </template>
+      </div>
+
+      <div
+        v-if="running"
+        class="bandwidth__fabs"
+        :class="{ 'bandwidth__fabs--rtl': isRtl }">
+        <v-menu
+          location="top end"
+          offset="8">
+          <template #activator="{ props: menu }">
+            <v-fab
+              v-bind="menu"
+              appear
+              icon="mdi-sort"
+              size="small"
+              color="surface-variant"
+              variant="elevated"
+              :title="`${bc('sortBy')}: ${sortTitle}`"
+              :aria-label="bc('sortBy')"
+            />
+          </template>
+          <v-list density="compact">
+            <v-list-subheader>
+              {{ bc("sortBy") }}
+            </v-list-subheader>
+            <v-list-item
+              v-for="option in sortOptions"
+              :key="option.value"
+              :title="option.title"
+              :prepend-icon="option.icon"
+              :active="sortKey === option.value"
+              color="primary"
+              @click="sortKey = option.value"
+            />
+          </v-list>
+        </v-menu>
+        <v-fab
+          appear
+          icon="mdi-plus"
+          size="small"
+          color="surface-variant"
+          variant="elevated"
+          :title="bc('addCustom')"
+          :aria-label="bc('addCustom')"
+          @click="openForCustom"
+        />
+        <v-fab
+          appear
+          prepend-icon="mdi-speedometer-slow"
+          size="large"
+          color="primary"
+          variant="elevated"
+          :text="pcLimit ? capLabel(pcLimit, limitActive(pcLimit)) : bc('pcCap')"
+          @click="openForPC"
+        />
+      </div>
+    </Container>
+
+    <AppLimitDialog
+      v-model="dialog"
+      :path="dialogTarget.path"
+      :name="dialogTarget.name"
+      :limit="dialogTarget.limit"
+      :speed="dialogTarget.speed"
+      :fixed="dialogTarget.fixed"
+      @save="saveLimit"
+      @remove="deleteLimit"
+    />
+  </div>
+</template>
+
+<style scoped>
+/* Room under the last row for the buttons. */
+.bandwidth {
+  padding-bottom: 190px;
+}
+
+.bandwidth__fabs {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.bandwidth__fabs--rtl {
+  right: auto;
+  left: 16px;
+  align-items: flex-start;
+}
+
+.bandwidth__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  min-height: 52px;
+}
+
+.bandwidth__row + .bandwidth__row {
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.bandwidth__name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bandwidth__speed {
+  flex: none;
+  min-width: 96px;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.flex-none {
+  flex: none;
+}
+</style>

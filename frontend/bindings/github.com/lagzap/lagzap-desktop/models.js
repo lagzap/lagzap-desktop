@@ -11,6 +11,46 @@ import { Create as $Create } from "@wailsio/runtime";
 import * as data$0 from "../zap/data/models.js";
 
 /**
+ * AppInfo is how the Bandwidth Control page shows an app.
+ */
+export class AppInfo {
+    /**
+     * Creates a new AppInfo instance.
+     * @param {Partial<AppInfo>} [$$source = {}] - The source object to create the AppInfo.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * Name is the exe's file description ("" when it has none).
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("icon" in $$source)) {
+            /**
+             * Icon is a PNG data URL ("" when the exe has none).
+             * @member
+             * @type {string}
+             */
+            this["icon"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AppInfo instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {AppInfo}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AppInfo(/** @type {Partial<AppInfo>} */($$parsedSource));
+    }
+}
+
+/**
  * DiscordPresence is what the status shows; Details empty clears it.
  */
 export class DiscordPresence {

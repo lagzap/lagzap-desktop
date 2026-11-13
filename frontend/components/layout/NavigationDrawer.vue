@@ -10,6 +10,7 @@ import TelegramIcon from "~/components/icons/TelegramIcon.vue";
 import LatencyChip from "~/components/network/LatencyChip.vue";
 import { localDigits } from "~/utils/localeFormat";
 import { useMonitoringStore } from "~/stores/monitoring";
+import { activeLimitCount } from "~/composables/useBandwidthControl";
 
 const { t } = useLocale();
 const data = useSanctumUser<DataResponse>();
@@ -256,6 +257,17 @@ async function confirmExit(restart: boolean) {
         rounded="xl"
         density="compact"
       />
+      <v-list-item
+        :to="{ name: 'bandwidth-control' }"
+        :title="t('$vuetify.navigation.bandwidthControl')"
+        prepend-icon="mdi-speedometer"
+        rounded="xl"
+        density="compact"
+      >
+        <template v-if="activeLimitCount > 0" #append>
+          <span class="nav-count">{{ localDigits(activeLimitCount) }}</span>
+        </template>
+      </v-list-item>
       <v-list-item
         :to="{ name: 'multi-internet' }"
         :title="t('$vuetify.navigation.multiInternet')"

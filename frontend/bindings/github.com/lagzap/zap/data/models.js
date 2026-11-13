@@ -1429,6 +1429,15 @@ export class ProfileState {
              */
             this["route_connections"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * The profile uses the global domestic-route setting
+             * (ClientSettings.allow_local_routes) instead of allow_local_routes.
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["follow_global_local_routes"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }

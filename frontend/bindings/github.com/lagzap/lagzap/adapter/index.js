@@ -5,6 +5,9 @@
 export {
     AccessOffer,
     AccessOfferDiscord,
+    AppLimitRule,
+    AppTraffic,
+    AppTrafficSnapshot,
     CityConnection,
     CityRoute,
     CityServer,

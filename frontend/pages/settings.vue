@@ -3,6 +3,7 @@ import { useLocale } from "vuetify";
 import Container from "~/components/layout/Container.vue";
 import General from "~/components/settings/General.vue";
 import Routing from "~/components/settings/Routing.vue";
+import BandwidthCaps from "~/components/settings/BandwidthCaps.vue";
 import ClearDNSCache from "~/components/settings/ClearDNSCache.vue";
 import Version from "~/components/settings/Version.vue";
 import UninstallDriver from "~/components/settings/UninstallDriver.vue";
@@ -26,6 +27,8 @@ const showMore = ref(false);
       <General  />
       <v-divider class="mx-4" />
       <Routing  />
+      <v-divider class="mx-4" />
+      <BandwidthCaps />
       <v-divider class="mx-4" />
       <Version  />
 

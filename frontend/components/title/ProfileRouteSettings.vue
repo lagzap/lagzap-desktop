@@ -17,6 +17,9 @@ import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettin
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import PlanLock from "~/components/plan/PlanLock.vue";
 import RouteLevelText from "~/components/plan/RouteLevelText.vue";
+import GlobalOverride from "~/components/common/GlobalOverride.vue";
+import ProfileDownloadCap from "~/components/title/ProfileDownloadCap.vue";
+import { profileLimit } from "~/composables/useBandwidthControl";
 
 const props = defineProps<{
   profile: Profile;
@@ -231,44 +234,49 @@ watch(
   { immediate: true }
 );
 
-const transportFallbackMode = computed({
-  get: () => {
-    const value = store.profileStates[props.profile.id]?.relay_transport_fallback;
-    if (value === undefined || value === null) {
-      return "default";
-    }
-    return value ? "on" : "off";
-  },
-  set: (value: "default" | "on" | "off") => {
+const { settings } = useSettings();
+
+// Settings with a global value: null follows it, true/false is this app's own.
+const transportFallback = computed<boolean | null>({
+  get: () => store.profileStates[props.profile.id]?.relay_transport_fallback ?? null,
+  set: (value) => {
     const state = store.profileStates[props.profile.id];
     if (!state) return;
-    if (value === "default") {
-      delete state.relay_transport_fallback;
-      return;
-    }
-    state.relay_transport_fallback = value === "on";
+    if (value === null) delete state.relay_transport_fallback;
+    else state.relay_transport_fallback = value;
   },
 });
 
-const transportFallbackStateLabel = computed(() => {
-  const key = {
-    default: "transportFallbackDefault",
-    on: "transportFallbackOn",
-    off: "transportFallbackOff",
-  }[transportFallbackMode.value];
-  return t(`$vuetify.title.profile.${key}`);
+const domesticRoutes = computed<boolean | null>({
+  get: () => {
+    const state = store.profileStates[props.profile.id];
+    if (!state || state.follow_global_local_routes) return null;
+    return !!state.allow_local_routes;
+  },
+  set: (value) => {
+    const state = store.profileStates[props.profile.id];
+    if (!state) return;
+    state.follow_global_local_routes = value === null;
+    if (value !== null) state.allow_local_routes = value;
+  },
 });
 
-const transportFallbackHintText = computed(
-  () =>
-    `${t("$vuetify.title.profile.transportFallbackHint")} · ${transportFallbackStateLabel.value}`,
-);
+/** Launchers and downloads (high traffic, not a game path) can be capped. */
+const highTraffic = computed(() => {
+  const flags = props.profile.flags ?? 0;
+  return (
+    (flags & ProfileFlag.HIGH_TRAFFIC) !== 0 &&
+    (flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET | ProfileFlag.PREVENT_DISCONNECT)) === 0
+  );
+});
 
-function cycleTransportFallback() {
-  const current = transportFallbackMode.value;
-  transportFallbackMode.value =
-    current === "default" ? "on" : current === "on" ? "off" : "default";
-}
+/** This app overrides a global setting: the settings button shows a dot. */
+const hasCustomSettings = computed(
+  () =>
+    transportFallback.value !== null ||
+    (props.profile.route_action == "route" && domesticRoutes.value !== null) ||
+    (highTraffic.value && profileLimit(props.profile.id) !== null),
+);
 
 watch(
   () => store.profileStates[props.profile.id],
@@ -379,9 +387,10 @@ onMounted(async () => {
         v-bind="props"
       >
       <v-badge
-        :model-value="orphanedInterfaces.length > 0"
+        :model-value="orphanedInterfaces.length > 0 || hasCustomSettings"
         location="bottom left"
-        color="warning"
+        :color="orphanedInterfaces.length > 0 ? 'warning' : 'primary'"
+        :title="orphanedInterfaces.length > 0 ? undefined : t('$vuetify.title.profile.customSettings')"
         dot
       >
         <v-icon>mdi-cog</v-icon>
@@ -503,15 +512,12 @@ onMounted(async () => {
                     />
                   </v-col>
                   <v-col cols="12">
-                    <v-checkbox
-                      :model-value="transportFallbackMode === 'on'"
-                      :indeterminate="transportFallbackMode === 'default'"
+                    <GlobalOverride
+                      v-model="transportFallback"
                       :label="t('$vuetify.title.profile.transportFallback')"
-                      :hint="transportFallbackHintText"
-                      persistent-hint
-                      hide-details="auto"
+                      :hint="t('$vuetify.title.profile.transportFallbackHint')"
+                      :global="!!settings.relayTransportFallback"
                       :disabled="!store.appReady"
-                      @click.prevent="cycleTransportFallback"
                     />
                   </v-col>
                 </v-row>
@@ -770,15 +776,21 @@ onMounted(async () => {
           </v-col>
         </v-row>
 
-        <v-switch
+        <ProfileDownloadCap
+          v-if="highTraffic"
+          class="mt-4"
+          :profile-id="profile.id"
+          :name="store.localized(profile.name)"
+          :disabled="!store.appReady"
+        />
+
+        <GlobalOverride
           v-if="profile.route_action == 'route'"
-          v-model:model-value="
-            store.profileStates[profile.id].allow_local_routes
-          "
+          v-model="domesticRoutes"
+          class="mt-4"
           :label="t('$vuetify.title.profile.allowLocalRoutes')"
           :hint="t('$vuetify.title.profile.allowLocalRoutesHint')"
-          density="comfortable"
-          persistent-hint
+          :global="settings.allowLocalRoutes ?? true"
           :disabled="!store.appReady"
         />
       </v-card-text>

@@ -55,6 +55,8 @@ interface AppSettings {
   loadBalanceWeights?: Record<string, number>
   internetPingTarget?: InternetPingTargetId
   relayTransportFallback?: boolean
+  /** Domestic route paths for every profile that does not set its own. */
+  allowLocalRoutes?: boolean
   /** Show game and app names in English while the UI is in another language. */
   englishTitleNames?: boolean
   /** Show LagZap and the game it is optimizing as the user's Discord status. */
@@ -110,6 +112,7 @@ const defaultRoutingSettings: Required<
     | 'gamingPriority'
     | 'internetPingTarget'
     | 'relayTransportFallback'
+    | 'allowLocalRoutes'
   >
 > = {
   routeAccuracy: 'low',
@@ -120,6 +123,7 @@ const defaultRoutingSettings: Required<
   gamingPriority: true,
   internetPingTarget: DEFAULT_INTERNET_PING_TARGET,
   relayTransportFallback: false,
+  allowLocalRoutes: true,
 }
 
 const settings = shallowRef<AppSettings>({
@@ -253,6 +257,9 @@ export const useSettings = (locale?: any, theme?: any) => {
     if (clientSettings.relay_transport_fallback !== undefined) {
       patch.relayTransportFallback = !!clientSettings.relay_transport_fallback
     }
+    if (clientSettings.allow_local_routes !== undefined && clientSettings.allow_local_routes !== null) {
+      patch.allowLocalRoutes = !!clientSettings.allow_local_routes
+    }
     if (clientSettings.internet_ping_target) {
       patch.internetPingTarget = clientSettings.internet_ping_target as InternetPingTargetId
     }
@@ -278,6 +285,7 @@ export const useSettings = (locale?: any, theme?: any) => {
     next.active_on_start = settings.value.activeOnStart ?? true
     next.gpu_acceleration = settings.value.gpuAcceleration ?? true
     next.relay_transport_fallback = settings.value.relayTransportFallback ?? false
+    next.allow_local_routes = settings.value.allowLocalRoutes ?? true
     next.internet_ping_target = settings.value.internetPingTarget ?? DEFAULT_INTERNET_PING_TARGET
     next.proxy_dns_requests = settings.value.proxyDnsRequests ?? true
     next.tcp_routes = existing?.tcp_routes
@@ -466,6 +474,10 @@ export const useSettings = (locale?: any, theme?: any) => {
     await saveSettings({ relayTransportFallback })
   }
 
+  const setAllowLocalRoutes = async (allowLocalRoutes: boolean) => {
+    await saveSettings({ allowLocalRoutes })
+  }
+
   const setEnglishTitleNames = async (englishTitleNames: boolean) => {
     await saveSettings({ englishTitleNames })
   }
@@ -649,6 +661,7 @@ export const useSettings = (locale?: any, theme?: any) => {
     setProxyDnsRequests,
     setGamingPriority,
     setRelayTransportFallback,
+    setAllowLocalRoutes,
     setEnglishTitleNames,
     setDiscordPresence,
     setVirtualAdapter,

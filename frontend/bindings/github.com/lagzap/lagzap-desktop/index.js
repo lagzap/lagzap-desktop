@@ -8,6 +8,7 @@ export {
 };
 
 export {
+    AppInfo,
     DiscordPresence,
     JumpListContent,
     JumpListLabels,

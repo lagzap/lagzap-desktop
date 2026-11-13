@@ -2,10 +2,13 @@
  * "stats-interval" events; kept SESSION_INTERVALS_KEEP_MS on this PC. */
 const SESSION_INTERVALS = "sessionIntervals";
 const SESSION_INTERVALS_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
+/** Bandwidth Control speed caps. Kept only on this PC: Go is sent them
+ * whenever its service starts. */
+const APP_LIMITS = "appLimits";
 
 export const openDatabase = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("lagzapDatabase", 5);
+    const request = indexedDB.open("lagzapDatabase", 6);
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -18,6 +21,9 @@ export const openDatabase = (): Promise<IDBDatabase> => {
         store.createIndex("profile_id", "profile_id");
         store.createIndex("session_id", "session_id");
         store.createIndex("ended_at", "ended_at");
+      }
+      if (!db.objectStoreNames.contains(APP_LIMITS)) {
+        db.createObjectStore(APP_LIMITS, { keyPath: "id" });
       }
     };
 
@@ -128,4 +134,47 @@ export async function listSessionIntervals(profileId: string, since = 0): Promis
     };
     request.onerror = () => reject(request.error);
   });
+}
+
+/** One Bandwidth Control speed cap (the shape Go's SetAppLimits takes). */
+export interface AppLimit {
+  id: string;
+  /** "exe", "folder", "pc" (every app on this PC; path is ""),
+   * "high_traffic" (each high-traffic profile LagZap routes; path is "") or
+   * "profile" (one routed profile; path is its id, download 0 = never). */
+  kind: string;
+  path: string;
+  /** Bytes per second. */
+  download: number;
+  only_while_gaming: boolean;
+  enabled: boolean;
+  /** The cap ends then (Unix ms); unset keeps it. */
+  expires_at?: number;
+  /** The cap ends when LagZap closes. */
+  until_restart?: boolean;
+}
+
+export async function listAppLimits(): Promise<AppLimit[]> {
+  const db = await openDatabase();
+  const transaction = db.transaction([APP_LIMITS], "readonly");
+  const store = transaction.objectStore(APP_LIMITS);
+  return new Promise((resolve, reject) => {
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result as AppLimit[]);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveAppLimit(limit: AppLimit): Promise<void> {
+  const db = await openDatabase();
+  const transaction = db.transaction([APP_LIMITS], "readwrite");
+  transaction.objectStore(APP_LIMITS).put({ ...limit });
+  await waitForTransaction(transaction);
+}
+
+export async function removeAppLimit(id: string): Promise<void> {
+  const db = await openDatabase();
+  const transaction = db.transaction([APP_LIMITS], "readwrite");
+  transaction.objectStore(APP_LIMITS).delete(id);
+  await waitForTransaction(transaction);
 }

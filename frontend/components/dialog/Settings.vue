@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { useLocale } from "vuetify";
-import General from "~/components/settings/General.vue";
-import NetworkAdapter from "~/components/settings/NetworkAdapter.vue";
-import Routing from "~/components/settings/Routing.vue";
-import ClearDNSCache from "~/components/settings/ClearDNSCache.vue";
 import Version from "~/components/settings/Version.vue";
 import UninstallDriver from "~/components/settings/UninstallDriver.vue";
 import Other from "~/components/settings/Other.vue";
 
+// Settings reachable before the app loads (sign-in and start screens): only
+// what works without the service. Adapters, routing and the DNS cache live
+// on their pages once LagZap is running.
 const { t } = useLocale();
 
 const dialog = defineModel<boolean>({
@@ -29,10 +28,6 @@ const dialog = defineModel<boolean>({
       :title="t('$vuetify.settings.title')"
     >
       <v-card-text>
-        <NetworkAdapter  />
-        <v-divider class="mx-4" />
-        <ClearDNSCache  />
-        <v-divider class="mx-4" />
         <Other  />
         <v-divider class="mx-4" />
         <UninstallDriver  />
