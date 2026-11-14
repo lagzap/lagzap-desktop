@@ -5,7 +5,6 @@ import { qualityColor } from "~/composables/useNetworkMonitor";
 import { MAX_ROUTES } from "~/composables/routeCountUtils";
 import PlanLock from "~/components/plan/PlanLock.vue";
 import HelpTip from "~/components/settings/HelpTip.vue";
-import AdapterSpeedCap from "~/components/network/multi/AdapterSpeedCap.vue";
 import type { NetworkInterfaceMonitor } from "~/bindings/github.com/lagzap/lagzap/adapter";
 
 /** One adapter on the Multi Internet page: its internet ping, a small chart
@@ -48,7 +47,7 @@ const emit = defineEmits<{
 }>();
 const { t } = useLocale();
 
-// More settings (route counts, speed cap) fold behind the round chevron
+// More settings (route counts, traffic limit) fold behind the round chevron
 // at the card's bottom.
 const expanded = ref(false);
 
@@ -234,9 +233,18 @@ const roles = computed(() => [
             <HelpTip class="ms-1" :text="t('$vuetify.settings.multiInternetPage.meteredHint')" />
           </template>
         </v-checkbox>
-        <AdapterSpeedCap
-          :name="name"
-          class="mt-3" />
+        <!-- Traffic limit: its own page comes later; shown, not usable yet. -->
+        <v-text-field
+          :label="t('$vuetify.settings.multiInternetPage.trafficLimit')"
+          :placeholder="t('$vuetify.settings.multiInternetPage.trafficLimitSoon')"
+          persistent-placeholder
+          prepend-inner-icon="mdi-gauge"
+          variant="outlined"
+          density="compact"
+          hide-details
+          disabled
+          class="mt-3"
+        />
         </div>
       </v-expand-transition>
     </v-card-text>
