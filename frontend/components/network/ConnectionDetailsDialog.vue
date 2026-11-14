@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TitleIcon from "~/components/title/TitleIcon.vue";
 import { computed, onUnmounted, ref, shallowRef, watch } from "vue";
 import { useLocale, useTheme } from "vuetify";
 import CountryFlag from "vue-country-flag-next";
@@ -201,7 +202,7 @@ function legPath(leg: Leg): string {
   <v-dialog v-model="open" max-width="720" scrollable>
     <v-card v-if="c" rounded="lg" class="connection-details">
       <v-card-title class="d-flex align-center ga-3 pt-4">
-        <v-avatar v-if="titleIcon" :image="titleIcon" size="28" />
+        <TitleIcon :image="titleIcon" :size="28" rounded="circle" />
         <div class="d-flex flex-column min-w-0">
           <span class="text-subtitle-1 font-weight-medium text-truncate">{{ profileName || titleName }}</span>
           <span v-if="titleName && profileName" class="text-caption text-medium-emphasis text-truncate">{{ titleName }}</span>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TitleIcon from "~/components/title/TitleIcon.vue";
 import Container from "~/components/layout/Container.vue";
 import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
@@ -88,16 +89,17 @@ onBeforeUnmount(() => {
   <div>
     <Container v-if="title">
       <template #header>
-        <v-avatar
-          v-if="title?.icon_url"
-          density="comfortable"
+        <TitleIcon
+          v-if="title"
+          :image="title.icon_url"
+          :size="40"
+          rounded="circle"
+          class="ms-3"
           :style="{
             cursor: route.name != 'title-id' ? 'pointer' : 'default',
           }"
           @click="router.push({ name: 'title-id', params: { id: title.id } })"
-        >
-          <v-img :src="title?.icon_url" />
-        </v-avatar>
+        />
         <v-app-bar-title
           class="text-subtitle-1"
           @click="router.push({ name: 'title-id', params: { id: title.id } })"

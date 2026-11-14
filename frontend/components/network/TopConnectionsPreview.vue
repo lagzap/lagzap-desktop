@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TitleIcon from "~/components/title/TitleIcon.vue";
 import CountryFlag from "vue-country-flag-next";
 import Ping from "~/components/network/Ping.vue";
 import RelayServerCell from "~/components/network/RelayServerCell.vue";
@@ -168,7 +169,7 @@ const navigateIcon = computed(() =>
         >
           <td class="text-no-wrap">
             <div class="d-flex align-center ga-2">
-              <v-avatar size="24" rounded="lg" :image="group.iconUrl" />
+              <TitleIcon :size="24" :image="group.iconUrl" />
               <span class="text-caption">{{ profileName(group.connection) }}</span>
             </div>
           </td>

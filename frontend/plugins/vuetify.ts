@@ -73,12 +73,24 @@ const statusColors = {
     error: "#F44336",
     info: "#00BCD4",
     success: "#81C784",
+    // Palette names used as colors (latency, plan chips): theme colors here
+    // so light gets readable shades; dark keeps Material's.
+    amber: "#FFC107",
+    lime: "#CDDC39",
+    "light-green": "#8BC34A",
+    "deep-orange": "#FF5722",
   },
+  // Light: deeper shades of the same hues, so status text stays readable on
+  // the light grey frame (the 400-level tints were near-invisible there).
   light: {
-    warning: "#F9A825",
-    error: "#E53935",
-    info: "#00ACC1",
-    success: "#66BB6A",
+    warning: "#B45309",
+    error: "#C62828",
+    info: "#00838F",
+    success: "#2E7D32",
+    amber: "#B7791F",
+    lime: "#6B7D0F",
+    "light-green": "#558B2F",
+    "deep-orange": "#D84315",
   },
 } as const;
 

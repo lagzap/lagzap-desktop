@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TitleIcon from "~/components/title/TitleIcon.vue";
 import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
 import type { Title } from "~/bindings/github.com/lagzap/zap/data";
@@ -326,11 +327,7 @@ onBeforeUnmount(() => {
         transform: `translate3d(${ghost.x}px, ${ghost.y}px, 0)`,
       }"
     >
-      <v-avatar
-        :size="32"
-        :image="ghost.title.icon_url || undefined"
-        class="rounded-lg flex-shrink-0"
-      />
+      <TitleIcon :size="32" :image="ghost.title.icon_url" class="flex-shrink-0" />
       <span class="text-body-2 text-truncate">
         {{ store.titleName(ghost.title.name) }}
       </span>

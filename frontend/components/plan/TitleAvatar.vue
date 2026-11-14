@@ -1,5 +1,6 @@
 <script setup lang="ts">
-/** A title's icon. */
+import TitleIcon from "~/components/title/TitleIcon.vue";
+/** A title's icon (a grey LagZap logo while it loads or when missing). */
 const props = withDefaults(defineProps<{ image?: string | null; size?: number }>(), {
   image: null,
   size: 32,
@@ -8,7 +9,7 @@ const props = withDefaults(defineProps<{ image?: string | null; size?: number }>
 
 <template>
   <span class="title-avatar" :style="{ width: `${props.size}px`, height: `${props.size}px` }">
-    <v-avatar :size="props.size" :image="props.image || undefined" class="rounded-lg" />
+    <TitleIcon :size="props.size" :image="props.image" />
   </span>
 </template>
 

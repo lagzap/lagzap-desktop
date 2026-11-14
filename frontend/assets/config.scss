@@ -9,6 +9,9 @@ $header-font: "Vazirmatn", "Roboto Variable", "Roboto", sans-serif;
   $heading-font-family: $header-font,
 );
 
+// Tooltips are always dark, so their text is always light: the light theme's
+// on-surface-variant (near black) was unreadable on it.
 .v-tooltip .v-overlay__content {
   background-color: rgb(0 0 0 / 0.8) !important;
+  color: rgb(255 255 255 / 0.92) !important;
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TitleIcon from "~/components/title/TitleIcon.vue";
 import type { VDataTable, VDataTableVirtual } from "vuetify/components";
 import Container from "~/components/layout/Container.vue";
 import RelayServerCell from "~/components/network/RelayServerCell.vue";
@@ -297,12 +298,10 @@ const sortBy = ref<VDataTable["sortBy"]>([
             @contextmenu="openTitleMenu($event, item.items[0].raw.title_id, item.items)"
           >
             <td>
-              <v-avatar
-                :image="
-                  store.findTitleByRuleTag?.(item.items[0].raw.profile_id)
-                    ?.icon_url
-                "
-                size="x-small"
+              <TitleIcon
+                :image="store.findTitleByRuleTag?.(item.items[0].raw.profile_id)?.icon_url"
+                :size="24"
+                rounded="circle"
               />
             </td>
             <td class="text-no-wrap">

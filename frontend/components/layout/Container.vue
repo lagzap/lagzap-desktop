@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import TitleIcon from "~/components/title/TitleIcon.vue";
 import { useDisplay, useLocale } from "vuetify";
 import { useFuzzySearch } from "~/composables/useFuzzySearch";
 import PlanBanner from "~/components/plan/PlanBanner.vue";
@@ -100,9 +101,11 @@ onMounted(() => {
             <template v-slot:item="{ props, item }">
               <v-list-item
                 v-bind="props"
-                :prepend-avatar="item.raw.icon_url"
                 :title="item.raw.localizedName"
               >
+                <template #prepend>
+                  <TitleIcon :image="item.raw.icon_url" :size="40" rounded="circle" class="me-4" />
+                </template>
                 <template #append>
                   <v-tooltip :text="store.isTitleActive(item.raw.id) ? (store.ndisRunning ? 'Active' : 'Service is not running') : 'Inactive'">
                     <template v-slot:activator="{ props }">
