@@ -400,13 +400,32 @@ const pointCount = () =>
 
 // One red dot per route timeout (on that route's line); a full-height bar only
 // when every route that was sampled timed out at the same moment.
+/** Rounded tops for the latency axis (as Go's niceLatencyCeiling). */
+const LATENCY_CEILINGS = [50, 100, 150, 200, 300, 500, 750, 1000, 1500, 2000];
+
+/** The latency axis top: what the lines shown now reach in this window,
+ * not every route's or an old peak (a hidden route at 1.3s left a 100ms
+ * ping flat at the bottom). Go's top only when nothing shown has a value. */
+function latencyYMax(): number {
+  const c = latency.value!;
+  let peak = 0;
+  for (const s of c.series) {
+    if (isHidden(s.id)) continue;
+    for (const v of s.points) if (v > peak) peak = v;
+  }
+  if (peak <= 0) return c.y_max;
+  const padded = Math.floor(peak * 1.12) + 1;
+  return LATENCY_CEILINGS.find((top) => padded <= top) ?? Math.ceil(padded / 1000) * 1000;
+}
+
 function latencySeries() {
   const c = latency.value!;
+  const yMax = latencyYMax();
   const visible = c.series.filter((s) => !isHidden(s.id));
   const allLost: (number | null)[] = new Array(pointCount()).fill(null);
   for (let i = 0; i < allLost.length; i++) {
     const sampled = visible.filter((s) => (s.points[i] ?? -1) >= 0);
-    if (sampled.length > 0 && sampled.every((s) => s.points[i] === 0)) allLost[i] = c.y_max;
+    if (sampled.length > 0 && sampled.every((s) => s.points[i] === 0)) allLost[i] = yMax;
   }
   const lines: Record<string, unknown>[] = [];
   const dots: (Record<string, unknown> | null)[] = [];
@@ -415,7 +434,7 @@ function latencySeries() {
     let last = 0;
     const timeouts = s.points.map((v, i) => {
       if (v > 0) last = v;
-      return v === 0 && allLost[i] === null ? last || c.y_max * 0.04 : null;
+      return v === 0 && allLost[i] === null ? last || yMax * 0.04 : null;
     });
     const values = s.points.map(gap);
     // Stretches with no sample (a session that paused reporting) are drawn
@@ -714,7 +733,7 @@ function option() {
   const speedAxis = both ? overlayTrafficAxis() : null;
   const length = pointCount();
   const axis = isLatency ? null : trafficAxis(trafficStacked.value ? Math.max(c.y_max, stackedTrafficPeak()) : c.y_max);
-  const yMax = axis ? axis.max : c.y_max;
+  const yMax = axis ? axis.max : latencyYMax();
   return {
     animation: false,
     textStyle: { fontFamily: chartFontFamily() },
@@ -787,7 +806,8 @@ function currentLayoutKey() {
       : view.value === "both"
         ? (overlayTrafficAxis()?.max ?? "")
         : "";
-  return [view.value, theme.current.value.dark, formatLocale.value, c?.y_max, stackedTop, c?.step, pointCount(), ...series].join("|");
+  const top = latencyLed.value && c ? latencyYMax() : c?.y_max;
+  return [view.value, theme.current.value.dark, formatLocale.value, top, stackedTop, c?.step, pointCount(), ...series].join("|");
 }
 
 // A hidden window paints nothing; catch up once it is visible again.
@@ -973,8 +993,11 @@ onBeforeUnmount(() => {
       <v-icon icon="mdi-chart-line-variant" size="large" class="mb-2" />
       <div class="text-caption">{{ t("$vuetify.networkLatency.noData") }}</div>
     </div>
-    <!-- The legend sits under the chart, on the right. -->
+    <!-- The legend sits under the chart, on the right; footer-start (the
+         profile's speed and usage) on the left of its first row. -->
     <div v-if="!compact && hasData" class="live-chart__legend">
+      <div class="live-chart__footer">
+        <div class="live-chart__footer-start"><slot name="footer-start" /></div>
         <div v-if="legendFoldable" class="chart-header-legend chart-header-legend--bar">
           <button
             v-for="item in actualLegend"
@@ -992,6 +1015,7 @@ onBeforeUnmount(() => {
             <v-icon :icon="legendOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="16" />
           </button>
         </div>
+      </div>
         <v-expand-transition>
         <div v-show="!legendFoldable || legendOpen" class="chart-header-legend">
           <div v-for="group in legendGroups.filter((g) => !legendFoldable || g.items.some((i) => !i.actual))" :key="group.iface" class="chart-header-legend__group">
@@ -1038,6 +1062,27 @@ onBeforeUnmount(() => {
   align-items: flex-end;
   gap: 8px;
   margin-top: 8px;
+}
+
+/* First legend row: footer-start on the left, the legend bar on the right. */
+.live-chart__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  align-self: stretch;
+}
+
+.live-chart__footer-start {
+  min-width: 0;
+}
+
+.live-chart__footer-start:empty {
+  display: none;
+}
+
+.live-chart__footer > .chart-header-legend--bar {
+  margin-inline-start: auto;
 }
 
 .live-chart__header {

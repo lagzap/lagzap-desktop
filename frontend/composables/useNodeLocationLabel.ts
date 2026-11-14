@@ -162,7 +162,8 @@ export function useNodeLocationLabel() {
       );
     }
 
-    return labelByNodeName.value.get(nodeOrId) ?? nodeOrId;
+    // Never a server ID: an unknown server is just "Server".
+    return labelByNodeName.value.get(nodeOrId) ?? "Server";
   }
 
   function getNodeLabelByIp(ip: string | null | undefined): string {

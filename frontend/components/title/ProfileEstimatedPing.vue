@@ -14,6 +14,8 @@ const props = defineProps<{
   views?: { title: string; value: string }[];
   canFixLag?: boolean;
   fixingLag?: boolean;
+  /** Nothing follows the ping: no trailing separator. */
+  last?: boolean;
 }>();
 const emit = defineEmits<{ fixLag: []; showLatency: [] }>();
 const { t } = useLocale();
@@ -69,7 +71,7 @@ const views = computed(() => props.views ?? []);
     </v-tooltip>
     <!-- Right after the value: e.g. the route quality chevron. -->
     <slot name="after-value" />
-    <span class="est-ping__sep">•</span>
+    <span v-if="!last" class="est-ping__sep">•</span>
 
     <v-menu v-model="menuOpen" :target="menuAt" location="bottom start" :close-on-content-click="true">
       <v-list density="compact" min-width="170" class="est-menu py-1">

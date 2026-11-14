@@ -2,6 +2,7 @@
 import { useLocale } from "vuetify";
 import LiveChart from "~/components/network/LiveChart.vue";
 import QuickRating from "~/components/title/QuickRating.vue";
+import ProfileActivityChip from "~/components/title/ProfileActivityChip.vue";
 import { useProfileChart } from "~/composables/useProfileChart";
 import type { OverviewRange } from "~/composables/useOverviewChart";
 import { ProfileFlag } from "~/constants/profile";
@@ -21,8 +22,9 @@ const { t } = useLocale();
 const store = useStore();
 // Only game profiles (multi-path or game packets) chart latency; downloads,
 // chat and the like show their traffic alone.
+const profile = computed(() => store.profiles.find((p) => p.id === props.profileId));
 const isGame = computed(() => {
-  const flags = store.profiles.find((p) => p.id === props.profileId)?.flags ?? 0;
+  const flags = profile.value?.flags ?? 0;
   return (flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !== 0;
 });
 const hasData = computed(() => !!latency.value?.series?.length || !!traffic.value?.series?.length);
@@ -47,7 +49,13 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
         :session-start="chart?.session_start ?? 0"
         :session-divider="divided"
         @update:range="(r) => setRange(r as OverviewRange)"
-      />
+      >
+        <!-- A game's live speeds, under the chart on the left (its data
+             used follows the ping above). -->
+        <template v-if="!popup && profile && isGame" #footer-start>
+          <ProfileActivityChip :profile="profile" part="speed" />
+        </template>
+      </LiveChart>
       <QuickRating v-if="!popup" :profile-id="profileId" />
     </div>
     <div v-else-if="popup" class="text-center text-medium-emphasis py-8 text-body-2">

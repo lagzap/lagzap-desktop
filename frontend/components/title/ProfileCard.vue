@@ -157,6 +157,16 @@ const notRelayedCount = computed(
     ).length
 );
 
+/** A game's subtitle is its ping, then the data used while there is some
+ * (ProfileActivityChip part="usage"). */
+const gameUsageShown = computed(
+  () =>
+    store.isProfileActive(props.profile.id) &&
+    store.appReady &&
+    connected.value &&
+    totalBytes.value > 0
+);
+
 /** Same rules as ProfileActivityChip — usage replaces subtitle when live. */
 const showUsageInSubtitle = computed(() => {
   if (
@@ -213,13 +223,6 @@ const routeSettingsText = computed(() => {
     }
   } else if (props.profile.route_action == "proxy") {
     parts.push(t("$vuetify.title.profile.proxy"));
-  }
-
-  const domestic = profileState.follow_global_local_routes
-    ? settings.value.allowLocalRoutes ?? true
-    : profileState.allow_local_routes;
-  if (props.profile.route_action == "route" && domestic) {
-    parts.push(t("$vuetify.title.profile.domesticRoutes"));
   }
 
   // Add network interfaces info if custom
@@ -283,6 +286,7 @@ const routeSettingsText = computed(() => {
           :views="showInterfaceSelector && !smartRoutes ? interfaceSelectItems : []"
           :can-fix-lag="canFixLag"
           :fixing-lag="fixingLag"
+          :last="showProfileSections && !gameUsageShown"
           @fix-lag="fixLag"
           @show-latency="showLatency"
         >
@@ -293,7 +297,16 @@ const routeSettingsText = computed(() => {
         <!-- The ping already ends with a separator. While a session runs,
              its speed and traffic take the place of the route level and
              the profile's options. -->
-        <ProfileActivityChip v-if="showUsageInSubtitle" :profile="props.profile" clickable @click="showTraffic" />
+        <!-- Games: the ping and the data used only; their speeds are under
+             the chart, their route level and options in the diagram. -->
+        <ProfileActivityChip
+          v-if="showProfileSections"
+          :profile="props.profile"
+          part="usage"
+          clickable
+          @click="showTraffic"
+        />
+        <ProfileActivityChip v-else-if="showUsageInSubtitle" :profile="props.profile" clickable @click="showTraffic" />
         <template v-else>
           <template v-if="routeLevel?.plan">
             <RouteLevelText :level="routeLevel.plan" />

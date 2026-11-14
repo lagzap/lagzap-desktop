@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/lagzap/lagzap"
 	"github.com/lagzap/lagzap-desktop/constant"
@@ -31,6 +32,7 @@ type Service struct {
 	dnsRouter        adapter.DNSRouter
 	logFactory       log.ObservableFactory
 	localProxy       *localproxy.Proxy
+	stopMu           sync.Mutex // one StopService at a time (see there)
 	proxyDNSRequests bool
 	// proxyDNSApplied: proxyDNSAppliedValue is what the running service uses.
 	proxyDNSApplied      bool
@@ -126,18 +128,25 @@ func (s *Service) ReloadService() error {
 }
 
 func (s *Service) StopService() error {
-	if s.lagzap == nil {
+	// One stop at a time: tray Quit, the UI and a failed start can stop at
+	// once, and the slower call used the coordinator the other had just
+	// cleared (a nil panic on quit). A second stop waits for the first,
+	// then finds nothing running.
+	s.stopMu.Lock()
+	defer s.stopMu.Unlock()
+	instance, coordinator, runtimeCtx := s.lagzap, s.coordinator, s.runtimeCtx
+	if instance == nil {
 		return nil
 	}
-	if s.coordinator != nil {
+	if coordinator != nil {
 		// First, while every leg and the network stack are still up: relay
 		// sessions tell their relay so the game servers see the player leave,
 		// and the games' own connections close cleanly.
-		s.coordinator.CloseAllConnections()
-		s.coordinator.Disconnect()
+		coordinator.CloseAllConnections()
+		coordinator.Disconnect()
 	}
-	if s.runtimeCtx != nil {
-		if winpkFilter := service.FromContext[adapter.WinpkFilter](s.runtimeCtx); winpkFilter != nil {
+	if runtimeCtx != nil {
+		if winpkFilter := service.FromContext[adapter.WinpkFilter](runtimeCtx); winpkFilter != nil {
 			winpkFilter.SetProxyDNSRequests(false)
 		}
 	}
@@ -146,7 +155,7 @@ func (s *Service) StopService() error {
 	if s.cancel != nil {
 		s.cancel()
 	}
-	err := s.lagzap.Close()
+	err := instance.Close()
 	s.lagzap = nil
 	s.coordinator = nil
 	s.dnsRouter = nil

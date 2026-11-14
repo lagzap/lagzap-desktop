@@ -8,6 +8,9 @@ const props = defineProps<{
   profile: Profile;
   /** Usage opens the profile's traffic (chart below or a popup). */
   clickable?: boolean;
+  /** One part only: the live speeds (under a game's chart) or the data
+   * used (after a game's ping). Both, by the profile's rules, when unset. */
+  part?: "speed" | "usage";
 }>();
 const emit = defineEmits<{ click: [] }>();
 
@@ -41,6 +44,12 @@ const visible = computed(() => {
   if (!profileActive.value || !store.appReady || !connected.value) {
     return false;
   }
+  if (props.part === "speed") {
+    return true;
+  }
+  if (props.part === "usage") {
+    return totalBytes.value > 0;
+  }
   if (isHighTraffic.value) {
     return hasUsage.value;
   }
@@ -54,7 +63,17 @@ const visible = computed(() => {
     class="profile-activity"
     :class="{ 'profile-activity--live': connected }"
   >
-    <template v-if="isHighTraffic && isGame">
+    <span v-if="part === 'speed'" class="profile-activity__meta text-caption text-no-wrap">
+      <span class="profile-activity__down"
+        ><v-icon icon="mdi-arrow-down" size="12" class="profile-activity__arrow" />{{ useHumanSpeed(downloadSpeed) }}</span
+      >
+      <span class="profile-activity__sep">·</span>
+      <span class="profile-activity__up"
+        ><v-icon icon="mdi-arrow-up" size="12" class="profile-activity__arrow" />{{ useHumanSpeed(uploadSpeed) }}</span
+      >
+    </span>
+
+    <template v-else-if="isHighTraffic && isGame && part !== 'usage'">
       <span class="profile-activity__meta text-caption text-no-wrap">
         <span class="profile-activity__down"
           ><v-icon icon="mdi-arrow-down" size="12" class="profile-activity__arrow" />{{ useHumanSpeed(downloadSpeed) }}</span
