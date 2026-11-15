@@ -941,6 +941,16 @@ export function SetAppLimits(rules) {
 }
 
 /**
+ * SetAppRoutes replaces which apps go through another internet. The client
+ * keeps them in IndexedDB and sends them again whenever the service starts.
+ * @param {adapter$0.AppRouteRule[]} rules
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetAppRoutes(rules) {
+    return $Call.ByID(1190228964, rules);
+}
+
+/**
  * SetAppTrafficWatch starts (watch) or stops the "app-traffic" stream for
  * the Bandwidth Control page. Starting returns the snapshot with each
  * app's last minute of speed.

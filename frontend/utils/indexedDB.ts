@@ -5,10 +5,12 @@ const SESSION_INTERVALS_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 /** Bandwidth Control speed caps. Kept only on this PC: Go is sent them
  * whenever its service starts. */
 const APP_LIMITS = "appLimits";
+/** Apps sent through another internet; kept like the speed caps. */
+const APP_ROUTES = "appRoutes";
 
 export const openDatabase = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("lagzapDatabase", 6);
+    const request = indexedDB.open("lagzapDatabase", 7);
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -24,6 +26,9 @@ export const openDatabase = (): Promise<IDBDatabase> => {
       }
       if (!db.objectStoreNames.contains(APP_LIMITS)) {
         db.createObjectStore(APP_LIMITS, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(APP_ROUTES)) {
+        db.createObjectStore(APP_ROUTES, { keyPath: "id" });
       }
     };
 
@@ -176,5 +181,42 @@ export async function removeAppLimit(id: string): Promise<void> {
   const db = await openDatabase();
   const transaction = db.transaction([APP_LIMITS], "readwrite");
   transaction.objectStore(APP_LIMITS).delete(id);
+  await waitForTransaction(transaction);
+}
+
+/** One app (exe) or folder sent through another internet (the shape Go's
+ * SetAppRoutes takes). */
+export interface AppRoute {
+  id: string;
+  /** "exe" or "folder". */
+  kind: string;
+  path: string;
+  /** The internet (adapter name) its traffic goes through. */
+  interface: string;
+  enabled: boolean;
+}
+
+export async function listAppRoutes(): Promise<AppRoute[]> {
+  const db = await openDatabase();
+  const transaction = db.transaction([APP_ROUTES], "readonly");
+  const store = transaction.objectStore(APP_ROUTES);
+  return new Promise((resolve, reject) => {
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result as AppRoute[]);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveAppRoute(route: AppRoute): Promise<void> {
+  const db = await openDatabase();
+  const transaction = db.transaction([APP_ROUTES], "readwrite");
+  transaction.objectStore(APP_ROUTES).put({ ...route });
+  await waitForTransaction(transaction);
+}
+
+export async function removeAppRoute(id: string): Promise<void> {
+  const db = await openDatabase();
+  const transaction = db.transaction([APP_ROUTES], "readwrite");
+  transaction.objectStore(APP_ROUTES).delete(id);
   await waitForTransaction(transaction);
 }

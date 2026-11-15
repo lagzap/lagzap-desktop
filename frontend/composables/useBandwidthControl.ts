@@ -3,10 +3,20 @@ import {
   Gaming,
   GetAppInfo,
   SetAppLimits,
+  SetAppRoutes,
   SetAppTrafficWatch,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import { AppLimitRule, type AppTraffic } from "~/bindings/github.com/lagzap/lagzap/adapter";
-import { listAppLimits, removeAppLimit, saveAppLimit, type AppLimit } from "~/utils/indexedDB";
+import { AppLimitRule, AppRouteRule, type AppTraffic } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import {
+  listAppLimits,
+  listAppRoutes,
+  removeAppLimit,
+  removeAppRoute,
+  saveAppLimit,
+  saveAppRoute,
+  type AppLimit,
+  type AppRoute,
+} from "~/utils/indexedDB";
 
 /** Seconds of download speed each app's sparkline shows. */
 export const HISTORY_SECONDS = 60;
@@ -15,8 +25,14 @@ export const HISTORY_SECONDS = 60;
 // (IndexedDB, this PC only), sends them to Go, and while the page is open
 // holds the latest per-app snapshot and each app's last minute of speed.
 const limits = ref<AppLimit[]>([]);
+/** Apps and folders sent through another internet (Go moves their new
+ * connections on the NDIS layer). */
+const routes = ref<AppRoute[]>([]);
 const apps = shallowRef<AppTraffic[]>([]);
 const history = new Map<string, number[]>();
+/** Each app's last minute of speed per internet it arrived on (app key ->
+ * internet name -> points). Starts when the page opens; Go keeps none. */
+const internetHistory = new Map<string, Map<string, number[]>>();
 const historyTick = ref(0);
 const gaming = ref(false);
 const running = ref(false);
@@ -34,6 +50,56 @@ function pushLimits() {
   SetAppLimits(limits.value.map((limit) => new AppLimitRule(limit))).catch(() => {
     // service not running; "service-started" sends them again
   });
+}
+
+function pushRoutes() {
+  SetAppRoutes(routes.value.map((route) => new AppRouteRule(route))).catch(() => {
+    // service not running; "service-started" sends them again
+  });
+}
+
+async function loadRoutes() {
+  try {
+    routes.value = await listAppRoutes();
+  } catch {
+    routes.value = [];
+  }
+  pushRoutes();
+}
+
+export async function saveRoute(route: AppRoute) {
+  await saveAppRoute(route);
+  const index = routes.value.findIndex((item) => item.id === route.id);
+  if (index >= 0) routes.value.splice(index, 1, { ...route });
+  else routes.value.push({ ...route });
+  pushRoutes();
+}
+
+export async function deleteRoute(id: string) {
+  await removeAppRoute(id);
+  routes.value = routes.value.filter((item) => item.id !== id);
+  pushRoutes();
+}
+
+/** The rule sending path's app through another internet: its own, else its
+ * deepest folder's (as Go matches). */
+/** Windows paths compared as Go does: case and slash direction do not
+ * matter, a folder's trailing backslash is dropped. */
+function pathKey(path: string) {
+  return path.toLowerCase().replace(/\//g, "\\").replace(/\\+$/, "");
+}
+
+export function routeFor(path: string): AppRoute | null {
+  const key = pathKey(path);
+  let best: AppRoute | null = null;
+  for (const route of routes.value) {
+    const rule = pathKey(route.path);
+    if (route.kind === "exe" && rule === key) return route;
+    if (route.kind === "folder" && key.startsWith(rule + "\\") && (!best || rule.length > pathKey(best.path).length)) {
+      best = route;
+    }
+  }
+  return best;
 }
 
 const expired = (limit: AppLimit, now = nowMs.value) => !!limit.expires_at && now >= limit.expires_at;
@@ -67,8 +133,12 @@ export function installBandwidthLimits() {
   if (installed) return;
   installed = true;
   loadLimits();
+  loadRoutes();
   setInterval(dropExpired, 30_000);
-  Events.On("service-started", pushLimits);
+  Events.On("service-started", () => {
+    pushLimits();
+    pushRoutes();
+  });
   Events.On("gaming-state", ({ data }: any) => {
     gaming.value = Boolean(Array.isArray(data) ? data[0] : data);
   });
@@ -94,9 +164,23 @@ function remember(list: AppTraffic[], withHistory: boolean) {
       if (points.length > HISTORY_SECONDS) points = points.slice(-HISTORY_SECONDS);
     }
     history.set(key, points);
+
+    const byInternet = internetHistory.get(key) ?? new Map<string, number[]>();
+    const now = new Map((app.internets ?? []).map((item) => [item.name, item.download_speed]));
+    for (const name of new Set([...byInternet.keys(), ...now.keys()])) {
+      let line = [...(byInternet.get(name) ?? new Array(HISTORY_SECONDS).fill(0)), now.get(name) ?? 0];
+      if (line.length > HISTORY_SECONDS) line = line.slice(-HISTORY_SECONDS);
+      // An internet that carried nothing for a minute leaves the chart.
+      if (line.every((value) => value <= 0)) byInternet.delete(name);
+      else byInternet.set(name, line);
+    }
+    internetHistory.set(key, byInternet);
   }
   for (const key of history.keys()) {
     if (!seen.has(key)) history.delete(key);
+  }
+  for (const key of internetHistory.keys()) {
+    if (!seen.has(key)) internetHistory.delete(key);
   }
   apps.value = list;
   historyTick.value++;
@@ -136,6 +220,7 @@ function start() {
       running.value = false;
       apps.value = [];
       history.clear();
+      internetHistory.clear();
     }),
   ];
   watch(true);
@@ -215,10 +300,16 @@ export function useBandwidthControl() {
     gaming,
     running,
     limits,
+    routes,
     historyTick,
     historyOf: (path: string) => history.get(keyOf(path)) ?? [],
+    /** The app's last minute per internet, by name (empty: none known). */
+    internetsOf: (path: string) =>
+      [...(internetHistory.get(keyOf(path)) ?? new Map<string, number[]>())].map(([name, points]) => ({ name, points })),
     infoOf,
     saveLimit,
     deleteLimit,
+    saveRoute,
+    deleteRoute,
   };
 }

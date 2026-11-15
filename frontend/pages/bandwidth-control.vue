@@ -1,23 +1,38 @@
 <script setup lang="ts">
-import { useLocale } from "vuetify";
+import { useLocale, useTheme } from "vuetify";
 import Container from "~/components/layout/Container.vue";
+import { interfaceBaseColor } from "~/composables/useLatencyMetrics";
 import HelpTip from "~/components/settings/HelpTip.vue";
 import SensitiveText from "~/components/common/SensitiveText.vue";
-import AppSparkline from "~/components/network/bandwidth/AppSparkline.vue";
+import AppSparkline, { type SparkSeries } from "~/components/network/bandwidth/AppSparkline.vue";
 import AppLimitDialog from "~/components/network/bandwidth/AppLimitDialog.vue";
-import { limitActiveNow, nowMs, useBandwidthControl } from "~/composables/useBandwidthControl";
+import AppRouteDialog from "~/components/network/bandwidth/AppRouteDialog.vue";
+import { limitActiveNow, nowMs, routeFor, useBandwidthControl } from "~/composables/useBandwidthControl";
 import { untilText } from "~/components/network/bandwidth/until";
 import { formatSize, formatSpeed } from "~/utils/localeFormat";
 import type { AppTraffic } from "~/bindings/github.com/lagzap/lagzap/adapter";
-import type { AppLimit } from "~/utils/indexedDB";
+import type { AppLimit, AppRoute } from "~/utils/indexedDB";
 
 /** Every app's download right now, routed by LagZap or not, and the speed
  * caps the user sets per app, per folder or for the whole PC. Go counts and
  * caps on the NDIS layer; the caps are kept on this PC only. */
 const { t, isRtl } = useLocale();
 const bc = (key: string, ...params: unknown[]) => t(`$vuetify.bandwidthControl.${key}`, ...params);
-const { apps, gaming, running, limits, historyTick, historyOf, infoOf, saveLimit, deleteLimit } =
-  useBandwidthControl();
+const {
+  apps,
+  gaming,
+  running,
+  limits,
+  routes,
+  historyTick,
+  historyOf,
+  internetsOf,
+  infoOf,
+  saveLimit,
+  deleteLimit,
+  saveRoute,
+  deleteRoute,
+} = useBandwidthControl();
 
 const displayName = (path: string, fallback: string) =>
   infoOf(path).name || fallback || bc("unknown");
@@ -136,9 +151,61 @@ function toggle(limit: AppLimit, enabled: boolean | null) {
   saveLimit({ ...limit, enabled: Boolean(enabled) });
 }
 
+// Apps sent through another internet (new connections; open ones stay).
+const routeDialog = ref(false);
+const routeTarget = ref<{ path: string; name: string; route: AppRoute | null }>({ path: "", name: "", route: null });
+
+/** An app's own rule or its folder's, while on. */
+const activeRoute = (path: string) => {
+  const route = routeFor(path);
+  return route?.enabled ? route : null;
+};
+
+const routeName = (route: AppRoute) => {
+  const base = route.path.split(/[\\/]/).filter(Boolean).pop() ?? route.path;
+  return route.kind === "folder" ? base : displayName(route.path, base);
+};
+
+function openRouteForApp(app: AppTraffic) {
+  // A folder's rule is edited from its own row; an app row makes its own.
+  const own = routeFor(app.path);
+  routeTarget.value = {
+    path: app.path,
+    name: displayName(app.path, app.name),
+    route: own?.kind === "exe" ? own : null,
+  };
+  routeDialog.value = true;
+}
+
+function openRoute(route: AppRoute | null) {
+  routeTarget.value = { path: route?.path ?? "", name: route ? routeName(route) : "", route };
+  routeDialog.value = true;
+}
+
+function toggleRoute(route: AppRoute, enabled: boolean | null) {
+  saveRoute({ ...route, enabled: Boolean(enabled) });
+}
+
+// Each internet keeps the color it has on every other chart in the app.
+const theme = useTheme();
+const internetOrder = computed(() => [...new Set(store.interfaces.map((iface) => iface.Name).filter(Boolean))]);
+const internetColor = (name: string) =>
+  interfaceBaseColor(name, Math.max(0, internetOrder.value.indexOf(name)), theme.current.value.dark);
+
+/** Per app: one line per internet its download arrived on (so an app moved
+ * to another internet shows it), else its total. */
 const sparks = computed(() => {
   void historyTick.value;
-  return new Map(apps.value.map((app) => [app.path, historyOf(app.path)]));
+  return new Map(
+    apps.value.map((app) => {
+      const internets = app.routed ? [] : internetsOf(app.path);
+      const series: SparkSeries[] = internets.length
+        ? internets.map((item) => ({ points: item.points, color: internetColor(item.name) }))
+        : [{ points: historyOf(app.path), color: app.limited ? "rgb(var(--v-theme-warning))" : undefined }];
+      const legend = internets.map((item) => ({ name: item.name, color: internetColor(item.name) }));
+      return [app.path, { series, legend }];
+    }),
+  );
 });
 </script>
 
@@ -247,6 +314,64 @@ const sparks = computed(() => {
             <v-divider />
           </section>
 
+          <section v-if="routes.length">
+            <div class="text-subtitle-2 px-4 pt-3 pb-1">
+              {{ bc("internets") }}
+            </div>
+            <div
+              v-for="route in routes"
+              :key="route.id"
+              class="bandwidth__row">
+              <v-avatar
+                size="32"
+                rounded="0"
+                class="flex-none">
+                <v-icon
+                  v-if="route.kind === 'folder'"
+                  icon="mdi-folder-outline" />
+                <v-img
+                  v-else-if="infoOf(route.path).icon"
+                  :src="infoOf(route.path).icon" />
+                <v-icon
+                  v-else
+                  icon="mdi-application-outline" />
+              </v-avatar>
+              <div class="bandwidth__name">
+                <div class="text-body-2 font-weight-medium text-truncate">
+                  {{ routeName(route) }}
+                </div>
+                <div class="text-caption text-medium-emphasis text-truncate">
+                  <SensitiveText :text="route.path" />
+                </div>
+              </div>
+              <v-chip
+                :color="route.enabled ? 'primary' : undefined"
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-swap-horizontal"
+              >
+                {{ route.enabled ? bc("viaInternet", route.interface) : bc("internetOff") }}
+              </v-chip>
+              <v-switch
+                :model-value="route.enabled"
+                color="primary"
+                density="compact"
+                hide-details
+                inset
+                class="flex-none"
+                @update:model-value="toggleRoute(route, $event)"
+              />
+              <v-btn
+                icon="mdi-pencil-outline"
+                size="small"
+                variant="text"
+                :aria-label="bc('editInternet')"
+                @click="openRoute(route)"
+              />
+            </div>
+            <v-divider />
+          </section>
+
           <div class="text-subtitle-2 px-4 pt-3 pb-1">
             {{ bc("apps") }}
           </div>
@@ -291,18 +416,33 @@ const sparks = computed(() => {
                 >
                   {{ capLabel(limitById.get(app.rule_id)!, app.limited) }}
                 </v-chip>
+                <v-chip
+                  v-if="!app.routed && activeRoute(app.path)"
+                  color="primary"
+                  size="x-small"
+                  variant="tonal"
+                  prepend-icon="mdi-swap-horizontal"
+                >
+                  {{ bc("viaInternet", activeRoute(app.path)!.interface) }}
+                </v-chip>
               </div>
-              <div class="text-caption text-medium-emphasis">
-                {{ bc("sessionTotal", formatSize(app.download)) }}
+              <div class="text-caption text-medium-emphasis d-flex align-center flex-wrap column-gap-2">
+                <span>{{ bc("sessionTotal", formatSize(app.download)) }}</span>
+                <span
+                  v-for="item in sparks.get(app.path)?.legend ?? []"
+                  :key="item.name"
+                  class="bandwidth__internet">
+                  <span
+                    class="bandwidth__dot"
+                    :style="{ background: item.color }" />
+                  {{ item.name }}
+                </span>
               </div>
             </div>
             <div class="bandwidth__speed text-body-2 font-weight-medium">
               {{ formatSpeed(app.download_speed) }}
             </div>
-            <AppSparkline
-              :points="sparks.get(app.path) ?? []"
-              :color="app.limited ? 'rgb(var(--v-theme-warning))' : undefined"
-            />
+            <AppSparkline :series="sparks.get(app.path)?.series ?? []" />
             <v-btn
               :icon="app.rule_id ? 'mdi-speedometer-slow' : 'mdi-speedometer'"
               size="small"
@@ -311,6 +451,17 @@ const sparks = computed(() => {
               :aria-label="app.rule_id ? bc('editCap') : bc('addCap')"
               :title="app.rule_id ? bc('editCap') : bc('addCap')"
               @click="openForApp(app)"
+            />
+            <!-- LagZap picks the internet for apps it routes. -->
+            <v-btn
+              icon="mdi-swap-horizontal"
+              size="small"
+              variant="text"
+              :color="activeRoute(app.path) ? 'primary' : undefined"
+              :disabled="app.routed || app.path.startsWith(':')"
+              :aria-label="bc('useInternet')"
+              :title="bc('useInternet')"
+              @click="openRouteForApp(app)"
             />
           </div>
         </template>
@@ -350,16 +501,34 @@ const sparks = computed(() => {
             />
           </v-list>
         </v-menu>
-        <v-fab
-          appear
-          icon="mdi-plus"
-          size="small"
-          color="surface-variant"
-          variant="elevated"
-          :title="bc('addCustom')"
-          :aria-label="bc('addCustom')"
-          @click="openForCustom"
-        />
+        <v-menu
+          location="top end"
+          offset="8">
+          <template #activator="{ props: menu }">
+            <v-fab
+              v-bind="menu"
+              appear
+              icon="mdi-plus"
+              size="small"
+              color="surface-variant"
+              variant="elevated"
+              :title="bc('addRule')"
+              :aria-label="bc('addRule')"
+            />
+          </template>
+          <v-list density="compact">
+            <v-list-item
+              :title="bc('addCustom')"
+              prepend-icon="mdi-speedometer-slow"
+              @click="openForCustom"
+            />
+            <v-list-item
+              :title="bc('useInternet')"
+              prepend-icon="mdi-swap-horizontal"
+              @click="openRoute(null)"
+            />
+          </v-list>
+        </v-menu>
         <v-fab
           appear
           prepend-icon="mdi-speedometer-slow"
@@ -381,6 +550,14 @@ const sparks = computed(() => {
       :fixed="dialogTarget.fixed"
       @save="saveLimit"
       @remove="deleteLimit"
+    />
+    <AppRouteDialog
+      v-model="routeDialog"
+      :path="routeTarget.path"
+      :name="routeTarget.name"
+      :route="routeTarget.route"
+      @save="saveRoute"
+      @remove="deleteRoute"
     />
   </div>
 </template>
@@ -433,6 +610,19 @@ const sparks = computed(() => {
 }
 
 .flex-none {
+  flex: none;
+}
+
+.bandwidth__internet {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bandwidth__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   flex: none;
 }
 </style>

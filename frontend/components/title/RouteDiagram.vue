@@ -1085,8 +1085,9 @@ function updateChart() {
         const prevHopNodeX = px(
           startX * 1.77777777 + hopIndex * hopSpacing + routeOffset - 24
         );
+        // A server-to-server leg is never DIRECT: 0 means not measured.
         const individualHopLatency =
-          hop.latency != null && !Number.isNaN(hop.latency) ? hop.latency : -1;
+          hop.latency != null && hop.latency > 0 ? hop.latency : -1;
         links.push({
           source: prevHopId,
           target: hopId,
@@ -1114,10 +1115,11 @@ function updateChart() {
 
       const finalHop = route.hops[route.hops.length - 1];
       // Single-hop = user dials the relay directly → label DIRECT (not 0ms).
+      // Otherwise it is the last server leg: 0 means not measured, not DIRECT.
       const finalHopLatency =
         route.hops.length === 1
           ? 0
-          : finalHop?.latency != null && !Number.isNaN(finalHop.latency)
+          : finalHop?.latency != null && finalHop.latency > 0
             ? finalHop.latency
             : -1;
       const routeTooltip = buildRouteTooltipPayload(routeIndex, route);
