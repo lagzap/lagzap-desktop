@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Events, Window } from "@wailsio/runtime";
+import { useElementSize } from "@vueuse/core";
 import { useLocale, useTheme } from "vuetify";
 import OverviewChart from "~/components/network/OverviewChart.vue";
 import {
@@ -25,12 +26,16 @@ definePageMeta({
 const { t } = useLocale();
 const locale = useLocale();
 const theme = useTheme();
-const store = useStore();
 const { settings, isLoaded } = useSettings(locale, theme);
 
 const opacity = ref(loadOverlayOpacity());
 const alwaysOnTop = ref(loadOverlayAlwaysOnTop());
-const settingsOpen = ref(false);
+const opacityOpen = ref(false);
+
+// The chart fills the window at any size the user drags it to.
+const body = ref<HTMLElement | null>(null);
+const { height: bodyHeight } = useElementSize(body);
+const chartHeight = computed(() => Math.max(60, Math.floor(bodyHeight.value)));
 
 const panelStyle = computed(() => {
   const isDark = theme.global.current.value.dark;
@@ -133,69 +138,92 @@ async function dockBack() {
 </script>
 
 <template>
-  <div class="latency-overlay" :style="panelStyle">
-    <div class="latency-overlay__chrome" style="--wails-draggable: drag">
+  <div
+    class="latency-overlay"
+    :style="panelStyle">
+    <div
+      class="latency-overlay__chrome"
+      style="--wails-draggable: drag">
       <div class="latency-overlay__title text-caption text-medium-emphasis">
         {{ t("$vuetify.networkLatency.latency") }}
       </div>
-      <div class="latency-overlay__actions" style="--wails-draggable: none">
-        <v-menu
-          v-model="settingsOpen"
-          location="bottom end"
-          :close-on-content-click="false"
-          content-class="overlay-settings-menu"
-        >
-          <template #activator="{ props: menuProps }">
-            <v-btn
-              v-bind="menuProps"
-              icon
-              size="x-small"
-              variant="text"
-              density="comfortable"
-              :title="t('$vuetify.networkLatency.overlaySettings')"
-            >
-              <v-icon size="small" icon="mdi-tune-variant" />
-            </v-btn>
-          </template>
-          <v-card width="240" class="pa-3 pb-4 overlay-settings-card">
-            <div class="text-caption mb-1">
-              {{ t("$vuetify.networkLatency.overlayOpacity") }}
-            </div>
-            <v-slider
-              v-model="opacity"
-              :min="0.35"
-              :max="1"
-              :step="0.05"
-              density="compact"
-              hide-details
-              color="accent"
-              class="overlay-settings-card__slider"
-            />
-            <v-switch
-              v-model="alwaysOnTop"
-              density="compact"
-              color="accent"
-              hide-details
-              class="mt-2 overlay-settings-card__switch"
-              :label="t('$vuetify.networkLatency.overlayAlwaysOnTop')"
-            />
-          </v-card>
-        </v-menu>
+      <div
+        class="latency-overlay__actions"
+        :class="{ 'latency-overlay__actions--shown': opacityOpen }"
+        style="--wails-draggable: none">
+        <v-btn
+          icon
+          size="x-small"
+          variant="text"
+          density="comfortable"
+          :color="alwaysOnTop ? 'accent' : undefined"
+          :title="t('$vuetify.networkLatency.overlayAlwaysOnTop')"
+          :aria-pressed="alwaysOnTop"
+          @click="alwaysOnTop = !alwaysOnTop">
+          <v-icon
+            size="small"
+            :icon="alwaysOnTop ? 'mdi-pin' : 'mdi-pin-outline'" />
+        </v-btn>
+        <v-btn
+          icon
+          size="x-small"
+          variant="text"
+          density="comfortable"
+          :color="opacityOpen ? 'accent' : undefined"
+          :title="t('$vuetify.networkLatency.overlayOpacity')"
+          :aria-pressed="opacityOpen"
+          @click="opacityOpen = !opacityOpen">
+          <v-icon
+            size="small"
+            icon="mdi-circle-half-full" />
+        </v-btn>
         <v-btn
           icon
           size="x-small"
           variant="text"
           density="comfortable"
           :title="t('$vuetify.networkLatency.dockIn')"
-          @click="dockBack"
-        >
-          <v-icon size="small" icon="mdi-dock-window" />
+          @click="dockBack">
+          <v-icon
+            size="small"
+            icon="mdi-dock-window" />
         </v-btn>
       </div>
     </div>
 
-    <div class="latency-overlay__body" style="--wails-draggable: none">
-      <OverviewChart compact :chart-height="160" />
+    <div
+      v-if="opacityOpen"
+      class="latency-overlay__opacity"
+      style="--wails-draggable: none">
+      <v-icon
+        size="x-small"
+        icon="mdi-circle-half-full"
+        class="text-medium-emphasis" />
+      <v-slider
+        v-model="opacity"
+        :min="0.35"
+        :max="1"
+        :step="0.05"
+        density="compact"
+        hide-details
+        color="accent"
+        track-color="rgba(var(--v-theme-on-surface), 0.3)"
+        class="latency-overlay__slider"
+        :thumb-size="12"
+        :track-size="3"
+        :aria-label="t('$vuetify.networkLatency.overlayOpacity')" />
+      <span class="latency-overlay__percent text-caption text-medium-emphasis">
+        {{ Math.round(opacity * 100) }}%
+      </span>
+    </div>
+
+    <div
+      ref="body"
+      class="latency-overlay__body"
+      style="--wails-draggable: none">
+      <OverviewChart
+        compact
+        :chart-height="chartHeight" />
     </div>
   </div>
 </template>
@@ -206,11 +234,10 @@ async function dockBack() {
   flex-direction: column;
   height: 100vh;
   box-sizing: border-box;
-  padding-bottom: 20px;
-  border-radius: 12px;
-  border-width: 2.5px;
+  border-radius: 10px;
+  border-width: 1px;
   border-style: solid;
-  border-top-width: 2.5px;
+  border-top-width: 2px;
   overflow: hidden;
   color: inherit;
 }
@@ -220,8 +247,8 @@ async function dockBack() {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 4px 6px 0 12px;
-  min-height: 32px;
+  padding: 2px 4px 0 10px;
+  min-height: 28px;
   flex-shrink: 0;
   cursor: grab;
 }
@@ -231,44 +258,48 @@ async function dockBack() {
   pointer-events: none;
 }
 
+/* The buttons show while the pointer is on the window (or a setting is
+   open), so the chart stays clean the rest of the time. */
 .latency-overlay__actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.latency-overlay:hover .latency-overlay__actions,
+.latency-overlay__actions--shown,
+.latency-overlay__actions:focus-within {
+  opacity: 1;
+}
+
+.latency-overlay__opacity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 2px;
+  flex-shrink: 0;
+}
+
+.latency-overlay__slider {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.latency-overlay__slider :deep(.v-slider__container) {
+  min-inline-size: 0;
+}
+
+.latency-overlay__percent {
+  min-width: 34px;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
 }
 
 .latency-overlay__body {
   flex: 1;
   min-height: 0;
-  padding: 4px 12px 8px;
-  overflow: hidden;
-}
-
-.overlay-settings-card {
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.overlay-settings-card__slider {
-  overflow: hidden;
-  padding-inline: 6px;
-  box-sizing: border-box;
-}
-
-.overlay-settings-card__slider :deep(.v-slider__container) {
-  min-inline-size: 0;
-}
-
-.overlay-settings-card__switch {
-  max-width: 100%;
-}
-
-.overlay-settings-card__switch :deep(.v-label) {
-  white-space: normal;
-  line-height: 1.2;
-}
-
-:global(.overlay-settings-menu) {
+  padding: 0 8px 6px;
   overflow: hidden;
 }
 </style>

@@ -1320,7 +1320,6 @@ export default {
         noPingData: 'داده پینگ موجود نیست',
         popOut: 'جدا کردن',
         dockIn: 'بازگرداندن',
-        overlaySettings: 'تنظیمات پنجره',
         overlayOpacity: 'شفافیت',
         overlayAlwaysOnTop: 'همیشه بالا',
         overlayOpenHint: 'نمودار پینگ در پنجره جداگانه باز است',

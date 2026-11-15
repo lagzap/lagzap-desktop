@@ -1306,7 +1306,6 @@
         noPingData: 'No ping data available',
         popOut: 'Pop out',
         dockIn: 'Dock back',
-        overlaySettings: 'Overlay settings',
         overlayOpacity: 'Opacity',
         overlayAlwaysOnTop: 'Always on top',
         overlayOpenHint: 'Latency chart is open in a separate window',
