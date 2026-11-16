@@ -1,7 +1,8 @@
 export const MAX_ROUTES = 4
 
-export const DEFAULT_TCP_ROUTES = 0
-export const DEFAULT_UDP_ROUTES = 2
+/** One TCP and one UDP route per adapter unless the user sets others. */
+export const DEFAULT_TCP_ROUTES = 1
+export const DEFAULT_UDP_ROUTES = 1
 
 export interface RouteCountPair {
   tcp: number | null

@@ -221,11 +221,9 @@ function exitAdvancedRouteOptions() {
 
 function syncAdvancedRouteVisibility() {
   const state = store.profileStates[props.profile.id];
-  // Explicit TCP/UDP split (no unified cap) → Manual, as Go reads it — UDP
-  // only (TCP 0) included.
-  showAdvancedRouteOptions.value =
-    state?.route_connections == null &&
-    (state?.tcp_connections != null || state?.udp_connections != null);
+  // Manual unless Smart was picked (a unified cap), as Go reads it: with no
+  // counts of its own a profile uses the adapters' (1 TCP, 1 UDP by default).
+  showAdvancedRouteOptions.value = state?.route_connections == null;
 }
 
 watch(
