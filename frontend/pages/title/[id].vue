@@ -8,6 +8,7 @@ import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 import ChangelogBadge from "~/components/title/ChangelogBadge.vue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import PlanLock from "~/components/plan/PlanLock.vue";
+import ComingSoonMark from "~/components/title/ComingSoonMark.vue";
 
 const { t } = useLocale();
 const store = useStore();
@@ -29,8 +30,12 @@ const profiles = computed(() =>
 const changelogSince = ref(0);
 
 const showInactiveBanner = ref(false);
-/** Locked, or no active plan: the title cannot be turned on. */
-const cannotActivate = computed(() => !!title.value && (store.planBlocked || titleBlocked(title.value.id)));
+/** No profiles yet: nothing to turn on (Coming soon). */
+const comingSoon = computed(() => !!title.value && store.titleComingSoon(title.value.id));
+/** Locked, no active plan or coming soon: the title cannot be turned on. */
+const cannotActivate = computed(
+  () => !!title.value && (store.planBlocked || titleBlocked(title.value.id) || comingSoon.value),
+);
 let bannerDelayTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearBannerDelay() {
@@ -115,7 +120,8 @@ onBeforeUnmount(() => {
           :since="changelogSince"
         />
         <TitleFavoriteButton v-if="title" :title-id="title.id" />
-        <PlanLock v-if="title && cannotActivate" :unavailable="titleUnavailable(title.id)" />
+        <ComingSoonMark v-if="comingSoon" :size="18" class="me-2" />
+        <PlanLock v-else-if="title && cannotActivate" :unavailable="titleUnavailable(title.id)" />
         <v-switch
           v-else
           :model-value="store.isTitleActive(title.id)"
@@ -151,7 +157,7 @@ onBeforeUnmount(() => {
 
       <v-expand-transition>
         <v-banner
-          v-if="title && titleLocked(title.id) && !store.planBlocked"
+          v-if="title && titleLocked(title.id) && !store.planBlocked && !comingSoon"
           color="warning"
           lines="one"
         >
@@ -167,7 +173,12 @@ onBeforeUnmount(() => {
           </template>
         </v-banner>
       </v-expand-transition>
-      <div v-if="title" class="d-flex flex-column" style="column-gap: 0.5rem">
+      <div v-if="comingSoon" class="title-soon">
+        <v-icon icon="mdi-clock-outline" size="48" class="title-soon__icon" />
+        <div class="text-h6">{{ t("$vuetify.title.comingSoon") }}</div>
+        <div class="text-body-2 text-medium-emphasis">{{ t("$vuetify.title.comingSoonHint") }}</div>
+      </div>
+      <div v-else-if="title" class="d-flex flex-column" style="column-gap: 0.5rem">
         <template v-for="profile in profiles" :key="profile.id">
           <ProfileCard
             :profile="profile"
@@ -182,3 +193,22 @@ onBeforeUnmount(() => {
     </Container>
   </div>
 </template>
+
+<style scoped>
+/* No profiles yet: the page says so in the middle of its card. */
+.title-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+}
+
+.title-soon__icon {
+  margin-bottom: 4px;
+  color: rgba(var(--v-theme-on-surface), 0.38);
+}
+</style>

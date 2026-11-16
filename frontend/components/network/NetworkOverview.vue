@@ -24,6 +24,20 @@ const lossAccent = computed(() => getLossAccent(quality.value?.loss ?? 0, isDark
 function metricValueStyle(accent: string | null) {
   return accent ? { color: accent } : undefined;
 }
+
+// Download and upload open Bandwidth Control; their buttons open its
+// whole-PC cap or another-internet dialog there.
+const bandwidthShortcuts = computed(() => [
+  { open: "cap", icon: "mdi-speedometer-slow", title: t("$vuetify.bandwidthControl.pcCap") },
+  { open: "internet", icon: "mdi-swap-horizontal", title: t("$vuetify.bandwidthControl.useInternet") },
+]);
+const traffic = computed(() => [
+  { key: "download", label: t("$vuetify.network.download"), value: quality.value?.download ?? 0, dim: false },
+  { key: "upload", label: t("$vuetify.network.upload"), value: quality.value?.upload ?? 0, dim: true },
+]);
+function openBandwidth(open?: string) {
+  navigateTo({ name: "bandwidth-control", query: open ? { open } : undefined });
+}
 </script>
 
 <template>
@@ -40,7 +54,11 @@ function metricValueStyle(accent: string | null) {
           {{ t("$vuetify.networkLatency.networkQuality") }}
         </div>
         <div class="network-summary">
-          <div v-if="quality?.best" class="network-summary__item">
+          <NuxtLink
+            v-if="quality?.best"
+            :to="{ name: 'multi-internet' }"
+            class="network-summary__item network-summary__link"
+          >
             <div class="network-summary__label">
               {{ t("$vuetify.networkLatency.bestInterface") }}
             </div>
@@ -54,33 +72,47 @@ function metricValueStyle(accent: string | null) {
                 {{ formatMs(quality.latency, "--") }}
               </span>
             </div>
+          </NuxtLink>
+
+          <div
+            v-for="item in traffic"
+            :key="item.key"
+            class="network-summary__item network-summary__link"
+            role="link"
+            tabindex="0"
+            @click="openBandwidth()"
+            @keydown.enter="openBandwidth()"
+          >
+            <div class="network-summary__label">
+              {{ item.label }}
+            </div>
+            <div
+              class="network-summary__value font-weight-medium"
+              :class="{ 'text-medium-emphasis': item.dim }"
+            >
+              {{ useHumanSpeed(item.value) }}
+            </div>
+            <div class="network-summary__actions">
+              <v-btn
+                v-for="shortcut in bandwidthShortcuts"
+                :key="shortcut.open"
+                v-tooltip:top="shortcut.title"
+                :aria-label="shortcut.title"
+                icon
+                size="small"
+                variant="tonal"
+                @click.stop="openBandwidth(shortcut.open)"
+                @keydown.enter.stop
+              >
+                <v-icon :icon="shortcut.icon" size="18" />
+              </v-btn>
+            </div>
           </div>
 
           <NuxtLink
-            :to="{ name: 'bandwidth-control' }"
+            :to="{ name: 'monitoring' }"
             class="network-summary__item network-summary__link"
           >
-            <div class="network-summary__label">
-              {{ t("$vuetify.network.download") }}
-            </div>
-            <div class="network-summary__value font-weight-medium">
-              {{ useHumanSpeed(quality?.download ?? 0) }}
-            </div>
-          </NuxtLink>
-
-          <NuxtLink
-            :to="{ name: 'bandwidth-control' }"
-            class="network-summary__item network-summary__link"
-          >
-            <div class="network-summary__label">
-              {{ t("$vuetify.network.upload") }}
-            </div>
-            <div class="network-summary__value font-weight-medium text-medium-emphasis">
-              {{ useHumanSpeed(quality?.upload ?? 0) }}
-            </div>
-          </NuxtLink>
-
-          <div class="network-summary__item">
             <div class="network-summary__label">
               {{ t("$vuetify.networkLatency.jitter") }}
             </div>
@@ -90,9 +122,12 @@ function metricValueStyle(accent: string | null) {
             >
               <span class="lz-num">{{ localDigits((quality?.jitter ?? 0).toFixed(1)) }} {{ msUnit() }}</span>
             </div>
-          </div>
+          </NuxtLink>
 
-          <div class="network-summary__item">
+          <NuxtLink
+            :to="{ name: 'monitoring' }"
+            class="network-summary__item network-summary__link"
+          >
             <div class="network-summary__label">
               {{ t("$vuetify.networkLatency.loss") }}
             </div>
@@ -102,9 +137,12 @@ function metricValueStyle(accent: string | null) {
             >
               {{ (quality?.loss ?? 0).toFixed(1) }}%
             </div>
-          </div>
+          </NuxtLink>
 
-          <div class="network-summary__item">
+          <NuxtLink
+            :to="{ name: 'monitoring' }"
+            class="network-summary__item network-summary__link"
+          >
             <div class="network-summary__label">
               {{ t("$vuetify.networkLatency.score") }}
             </div>
@@ -114,7 +152,7 @@ function metricValueStyle(accent: string | null) {
             >
               {{ t("$vuetify.networkLatency.scoreOutOf", [quality?.score ?? 0]) }}
             </div>
-          </div>
+          </NuxtLink>
         </div>
 
         <v-alert
@@ -204,8 +242,11 @@ function metricValueStyle(accent: string | null) {
   min-width: 0;
 }
 
-/* Download and upload open Bandwidth Control. */
+/* Each figure opens its page: the best internet Multi Internet, download
+ * and upload Bandwidth Control, the rest Network Status. */
 .network-summary__link {
+  display: block;
+  cursor: pointer;
   margin: -4px -8px;
   padding: 4px 8px;
   border-radius: 8px;
@@ -216,6 +257,35 @@ function metricValueStyle(accent: string | null) {
 
 .network-summary__link:hover {
   background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.network-summary__link:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* The cap and internet buttons float over the tile's end, centered, so
+ * the tile does not move when they show. */
+.network-summary__link {
+  position: relative;
+}
+
+.network-summary__actions {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 8px;
+  display: flex;
+  gap: 6px;
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.network-summary__link:hover .network-summary__actions,
+.network-summary__link:focus-within .network-summary__actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .network-summary__label {

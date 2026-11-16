@@ -4,8 +4,11 @@ import { useLocale } from "vuetify";
 import { useMonitoringStore } from "~/stores/monitoring";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import PlanLock from "~/components/plan/PlanLock.vue";
+import ComingSoonMark from "~/components/title/ComingSoonMark.vue";
 import TitleGamePing from "~/components/title/TitleGamePing.vue";
 import { ProfileFlag } from "~/constants/profile";
+import { uniqueFlowStats } from "~/composables/useProfileConnectionStats";
+import { formatSpeedShort } from "~/utils/localeFormat";
 
 const props = defineProps<{
   title: Title;
@@ -102,6 +105,71 @@ watchEffect(() => {
 });
 onUnmounted(() => clearTimeout(dropTimer));
 const gamePing = ref<number | null>(null);
+
+// While a High traffic profile (downloads, updates) is downloading, the chip
+// shows its download speed; the tooltip each one's speeds and, when it is
+// load balanced, how its download splits over the internets.
+const DOWNLOADING_MIN = 32 * 1024; // B/s
+const highTrafficIds = computed(
+  () =>
+    new Set(
+      store.profiles
+        .filter((profile) => profile.title_id === props.title.id && (profile.flags & ProfileFlag.HIGH_TRAFFIC) !== 0)
+        .map((profile) => profile.id),
+    ),
+);
+const downloads = computed(() => {
+  const byProfile = new Map<string, typeof titleConnections.value>();
+  for (const connection of titleConnections.value) {
+    const id = connection.profile_id ?? "";
+    if (!highTrafficIds.value.has(id)) continue;
+    byProfile.set(id, [...(byProfile.get(id) ?? []), connection]);
+  }
+  const rows = [];
+  for (const [id, list] of byProfile) {
+    const stats = uniqueFlowStats(list);
+    if (stats.downloadSpeed + stats.uploadSpeed <= 0) continue;
+    const perInternet = new Map<string, number>();
+    for (const connection of list) {
+      if (!connection.iface) continue;
+      perInternet.set(connection.iface, (perInternet.get(connection.iface) ?? 0) + (connection.download_speed || 0));
+    }
+    const total = [...perInternet.values()].reduce((a, b) => a + b, 0);
+    const shares =
+      perInternet.size > 1 && total > 0
+        ? [...perInternet]
+            .map(([name, speed]) => ({ name, share: Math.round((speed / total) * 100) }))
+            .sort((a, b) => b.share - a.share)
+        : [];
+    const profile = store.profiles.find((entry) => entry.id === id);
+    rows.push({
+      id,
+      name: profile ? store.localized(profile.name) : id,
+      down: stats.downloadSpeed,
+      up: stats.uploadSpeed,
+      shares,
+    });
+  }
+  return rows.sort((a, b) => b.down - a.down);
+});
+const downloadSpeed = computed(() => downloads.value.reduce((sum, row) => sum + row.down, 0));
+// Sticky for a few seconds, so a pause between two files does not flip the
+// chip back to the count.
+const downloading = ref(false);
+let downloadingTimer: ReturnType<typeof setTimeout> | undefined;
+watch(downloadSpeed, (speed) => {
+  if (speed >= DOWNLOADING_MIN) {
+    clearTimeout(downloadingTimer);
+    downloadingTimer = undefined;
+    downloading.value = true;
+  } else if (downloading.value && !downloadingTimer) {
+    downloadingTimer = setTimeout(() => {
+      downloadingTimer = undefined;
+      downloading.value = false;
+    }, 4000);
+  }
+});
+onUnmounted(() => clearTimeout(downloadingTimer));
 const chipColor = computed(() => {
   const ms = gamePing.value;
   if (!ms) return "success";
@@ -126,7 +194,10 @@ async function onToggle() {
 </script>
 
 <template>
-  <span v-if="titleBlocked(props.title.id)" class="tat">
+  <span v-if="store.titleComingSoon(props.title.id)" class="tat">
+    <ComingSoonMark />
+  </span>
+  <span v-else-if="titleBlocked(props.title.id)" class="tat">
     <PlanLock :unavailable="titleUnavailable(props.title.id)" />
   </span>
   <!-- The dot or chip turns into a switch while the row is hovered, in
@@ -163,6 +234,9 @@ async function onToggle() {
             :fallback="localDigits(connectionCount)"
             @ping="gamePing = $event"
           />
+          <span v-else-if="downloading" class="tat__speed">
+            <v-icon icon="mdi-arrow-down" size="11" />{{ formatSpeedShort(downloadSpeed) }}
+          </span>
           <template v-else>{{ localDigits(connectionCount) }}</template>
         </v-chip>
         <v-btn
@@ -210,6 +284,30 @@ async function onToggle() {
         >
           <span class="qa-toggle-tip__name">{{ row.name }}</span>
           <span class="qa-toggle-tip__n">{{ localDigits(row.count) }}</span>
+        </li>
+      </ul>
+      <ul
+        v-if="downloads.length"
+        class="qa-toggle-tip__profiles"
+      >
+        <li
+          v-for="row in downloads"
+          :key="row.id"
+          class="qa-toggle-tip__speeds"
+        >
+          <div class="qa-toggle-tip__row">
+            <span class="qa-toggle-tip__name">{{ row.name }}</span>
+            <span class="qa-toggle-tip__n">
+              <v-icon icon="mdi-arrow-down" size="11" />{{ formatSpeedShort(row.down) }}
+              <v-icon icon="mdi-arrow-up" size="11" class="ms-1" />{{ formatSpeedShort(row.up) }}
+            </span>
+          </div>
+          <div v-if="row.shares.length" class="qa-toggle-tip__balance">
+            {{ t("$vuetify.status.loadBalanced") }}:
+            <span v-for="(share, i) in row.shares" :key="share.name">
+              {{ share.name }} {{ localDigits(share.share) }}%<template v-if="i < row.shares.length - 1"> · </template>
+            </span>
+          </div>
         </li>
       </ul>
     </div>
@@ -338,5 +436,26 @@ async function onToggle() {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
+}
+
+/* A downloading profile: its speeds, then how load balancing splits it. */
+.qa-toggle-tip__speeds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.qa-toggle-tip__balance {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* The chip's download speed. */
+.tat__speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 </style>

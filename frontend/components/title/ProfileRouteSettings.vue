@@ -19,6 +19,7 @@ import PlanLock from "~/components/plan/PlanLock.vue";
 import RouteLevelText from "~/components/plan/RouteLevelText.vue";
 import GlobalOverride from "~/components/common/GlobalOverride.vue";
 import ProfileDownloadCap from "~/components/title/ProfileDownloadCap.vue";
+import MultipathOffHint from "~/components/title/MultipathOffHint.vue";
 import { profileLimit } from "~/composables/useBandwidthControl";
 
 const props = defineProps<{
@@ -44,9 +45,6 @@ const planLevel = computed(() => {
 const {
   resolvedGlobalTcp,
   resolvedGlobalUdp,
-  multiInternetSelection,
-  effectiveTcpForInterface,
-  effectiveUdpForInterface,
   ensureLoaded: ensureNetworkSettingsLoaded,
 } = useNetworkAdapterSettings();
 
@@ -175,29 +173,6 @@ const udpRoutesMin = computed(() =>
 
 const totalRoutes = computed(() => resolvedCounts.value.total);
 
-// Multi Internet opens the routes on every adapter it uses: the profile's own
-// adapter list, else the Multi Internet adapters. One route on two adapters
-// is two legs, still multipath; multipath is off only with one leg in all.
-const multipathAdapters = computed(() => {
-  if ((props.profile.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) === 0) return [];
-  const present = store.availableInterfaceNames;
-  const own = (store.profileStates[props.profile.id]?.network_interfaces ?? []).filter((name) =>
-    present.includes(name)
-  );
-  return own.length ? own : multiInternetSelection.value;
-});
-const totalLegs = computed(() => {
-  const adapters = multipathAdapters.value;
-  if (adapters.length === 0) return totalRoutes.value;
-  // The profile's counts apply on each adapter; without them each adapter
-  // uses its own Multi Internet counts.
-  if (profileUsesCustomRoutes.value) return totalRoutes.value * adapters.length;
-  return adapters.reduce(
-    (sum, name) => sum + effectiveTcpForInterface(name) + effectiveUdpForInterface(name),
-    0
-  );
-});
-const showMultiPathRouteWarnings = computed(() => totalLegs.value <= 1);
 
 // Manual is saved as an explicit TCP/UDP split (no unified cap): picking it
 // stores the split shown right away, so it is still Manual next time.
@@ -526,27 +501,7 @@ onMounted(async () => {
               </template>
             </v-col>
             <v-col cols="12">
-              <v-scale-transition>
-                <v-alert
-                  v-if="showMultiPathRouteWarnings"
-                  type="warning"
-                  variant="tonal"
-                  density="compact"
-                  class="mb-2"
-                >
-                  <div class="text-subtitle-1 mb-1">
-                    {{ t("$vuetify.title.profile.multiPathDisabled") }}
-                  </div>
-                  <div class="text-body-2 mb-2">
-                    {{ t("$vuetify.title.profile.multiPathWarning") }}
-                  </div>
-                  <div class="text-body-2">
-                    {{
-                      t("$vuetify.title.profile.multiPathWarningRecommendation")
-                    }}
-                  </div>
-                </v-alert>
-              </v-scale-transition>
+              <MultipathOffHint :profile="profile" class="mb-2" />
             </v-col>
           </template>
           <v-col

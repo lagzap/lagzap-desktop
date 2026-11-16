@@ -17,6 +17,8 @@ const {
   setEnglishTitleNames,
   setLatinNumbers,
   setDiscordPresence,
+  setSuggestions,
+  resetHints,
   getLanguages,
   getThemes,
 } = useSettings(locale, theme)
@@ -80,6 +82,28 @@ const {
         class="mb-6"
         @update:model-value="(value) => void setTheme(value)"
       />
+
+      <!-- Tips on profiles: another or a faster internet, multipath. -->
+      <v-checkbox
+        persistent-hint
+        density="compact"
+        class="mb-1"
+        :label="t('$vuetify.settings.suggestions')"
+        :hint="t('$vuetify.settings.suggestionsHint')"
+        :model-value="settings.suggestions ?? true"
+        @update:model-value="(value) => void setSuggestions(!!value)"
+      />
+      <v-btn
+        variant="text"
+        size="small"
+        color="primary"
+        prepend-icon="mdi-restore"
+        class="text-none mb-5"
+        :disabled="!(settings.dismissedHints ?? []).length"
+        @click="resetHints"
+      >
+        {{ t('$vuetify.settings.suggestionsReset') }}
+      </v-btn>
 
       <v-card-subtitle class="px-0 mb-1">
         {{ t('$vuetify.settings.privacy.title') }}

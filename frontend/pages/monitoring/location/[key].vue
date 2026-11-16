@@ -3,6 +3,7 @@ import CountryFlag from "vue-country-flag-next";
 import { useLocale, useTheme } from "vuetify";
 import Container from "~/components/layout/Container.vue";
 import LiveChart from "~/components/network/LiveChart.vue";
+import RangeTabs from "~/components/network/RangeTabs.vue";
 import { interfaceBaseColor } from "~/composables/useLatencyMetrics";
 import { qualityColor, useLocationMonitor } from "~/composables/useNetworkMonitor";
 import type { OverviewRange } from "~/composables/useOverviewChart";
@@ -98,17 +99,11 @@ function transports(r: { udp: boolean; tcp: boolean }): string {
                 </div>
                 <div class="text-caption text-medium-emphasis text-truncate">{{ details.region }}</div>
               </div>
-              <v-btn-toggle
+              <RangeTabs
                 :model-value="range"
-                density="compact"
-                variant="outlined"
-                divided
-                mandatory
-                rounded="lg"
-                @update:model-value="(r: any) => setRange(r as OverviewRange)"
-              >
-                <v-btn v-for="r in ranges" :key="r" :value="r" size="small">{{ r }}</v-btn>
-              </v-btn-toggle>
+                :ranges="ranges"
+                @update:model-value="(r: string) => setRange(r as OverviewRange)"
+              />
             </div>
 
             <div class="loc-metrics">

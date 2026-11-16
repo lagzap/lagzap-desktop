@@ -6,10 +6,11 @@ import LoadBalanceWeight from "~/components/title/LoadBalanceWeight.vue";
 import { localDigits } from "~/utils/localeFormat";
 
 // Load balancing for a High traffic profile: a checkbox, and its internets
-// as checkboxes under it. Untouched, the ticked ones are those flagged Load
-// balance on the Multi Internet page ("pool"); ticking or unticking one makes
-// the ticked ones the profile's own ("pick"). Each shows its share of new
-// connections and its ping.
+// under it. On: checkboxes; untouched, the ticked ones are those flagged
+// Load balance on the Multi Internet page ("pool"), ticking or unticking one
+// makes the ticked ones the profile's own ("pick"), and unticking down to one
+// turns it off on that one. Off: radios, the one internet the profile uses.
+// Each shows its share of new connections and its ping.
 export type LoadBalanceMode = "off" | "pool" | "pick";
 
 const props = defineProps<{
@@ -18,17 +19,23 @@ const props = defineProps<{
   adapters: string[];
   /** Picked internets (pick). */
   selected: string[];
+  /** Off: the internets to choose one from, and the one in use. */
+  singleAdapters: string[];
+  single: string;
   missing: string[];
   shares: Record<string, LoadBalanceShare>;
   loading: boolean;
   disabled?: boolean;
   /** The menu is open: only then the pings stream. */
   live?: boolean;
+  /** Opened from a tip's Set up: stands out for a moment. */
+  highlight?: boolean;
   icon: (name: string) => string;
 }>();
 const emit = defineEmits<{
   mode: [mode: LoadBalanceMode];
   pick: [name: string];
+  single: [name: string];
   weight: [name: string, weight: number];
   refresh: [];
 }>();
@@ -42,24 +49,16 @@ const count = computed(() => props.adapters.filter(inUse).length);
 /** Settings has fewer than two internets flagged: nothing is spread. */
 const poolTooSmall = computed(() => props.mode === "pool" && count.value < 2);
 
-// The last two picked cannot be unticked: a short note says why.
-const lockedHint = ref("");
-let hintTimer: ReturnType<typeof setTimeout> | undefined;
+const on = computed(() => props.mode !== "off");
 function onRow(name: string) {
-  if (inUse(name) && props.selected.length <= 2) {
-    lockedHint.value = name;
-    clearTimeout(hintTimer);
-    hintTimer = setTimeout(() => (lockedHint.value = ""), 3000);
-    return;
-  }
-  emit("pick", name);
+  if (on.value) emit("pick", name);
+  else emit("single", name);
 }
-onBeforeUnmount(() => clearTimeout(hintTimer));
 </script>
 
 <template>
   <v-list-item
-    :class="['load-balance', { 'load-balance--on': mode !== 'off' }]"
+    :class="['load-balance', { 'load-balance--on': mode !== 'off', 'internets-highlight': highlight }]"
     :disabled="disabled"
     @click="toggle"
   >
@@ -116,9 +115,8 @@ onBeforeUnmount(() => clearTimeout(hintTimer));
       <v-icon size="16">mdi-chevron-right</v-icon>
     </template>
   </v-list-item>
-  <template v-if="mode !== 'off'">
-    <v-list-item
-      v-for="name in adapters"
+  <v-list-item
+    v-for="name in on ? adapters : singleAdapters"
       :key="name"
       density="compact"
       class="ms-8"
@@ -127,26 +125,32 @@ onBeforeUnmount(() => clearTimeout(hintTimer));
     >
       <template #prepend>
         <v-checkbox-btn
+          v-if="on"
           class="me-2 state-only"
           density="compact"
           :color="missing.includes(name) ? 'warning' : 'primary'"
           :model-value="inUse(name)"
         />
+        <v-radio
+          v-else
+          hide-details
+          class="me-2 state-only"
+          density="compact"
+          :color="missing.includes(name) ? 'warning' : 'primary'"
+          :model-value="single === name"
+        />
       </template>
       <template #title>
-        <v-icon size="16" class="me-2" :class="{ 'text-medium-emphasis': !inUse(name) }">{{ icon(name) }}</v-icon>
-        <span class="text-caption" :class="{ 'text-medium-emphasis': !inUse(name) }">{{ name }}</span>
+        <v-icon size="16" class="me-2" :class="{ 'text-medium-emphasis': on ? !inUse(name) : single !== name }">{{ icon(name) }}</v-icon>
+        <span class="text-caption" :class="{ 'text-medium-emphasis': on ? !inUse(name) : single !== name }">{{ name }}</span>
       </template>
       <template #append>
-        <span v-if="lockedHint === name" class="text-caption text-warning locked-hint">
-          {{ t("$vuetify.title.profile.server.loadBalanceMinTwoShort") }}
-        </span>
-        <span v-else-if="missing.includes(name)" class="text-caption text-warning">
+        <span v-if="missing.includes(name)" class="text-caption text-warning">
           {{ t("$vuetify.title.profile.server.adapterGone") }}
         </span>
         <template v-else>
           <LoadBalanceWeight
-            v-if="inUse(name)"
+            v-if="on && inUse(name)"
             :share="shares[name]"
             @set="(weight: number) => emit('weight', name, weight)"
           />
@@ -154,7 +158,6 @@ onBeforeUnmount(() => clearTimeout(hintTimer));
         </template>
       </template>
     </v-list-item>
-  </template>
 </template>
 
 <style scoped>
@@ -165,9 +168,14 @@ onBeforeUnmount(() => clearTimeout(hintTimer));
 .state-only {
   pointer-events: none;
 }
-.locked-hint {
-  max-width: 220px;
-  text-align: end;
-  line-height: 1.2;
+
+/* Opened from a tip's Set up: a pulse of the theme color. */
+.internets-highlight {
+  animation: internets-pulse 0.8s ease-in-out 3;
+}
+@keyframes internets-pulse {
+  50% {
+    background: rgba(var(--v-theme-primary), 0.22);
+  }
 }
 </style>

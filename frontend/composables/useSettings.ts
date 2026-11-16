@@ -61,6 +61,10 @@ interface AppSettings {
   englishTitleNames?: boolean
   /** Latin digits and English units (36 ms, KB/s) while the UI is in another language. */
   latinNumbers?: boolean
+  /** Tips on profiles (another internet, a faster internet): on by default. */
+  suggestions?: boolean
+  /** Tips the user closed, by key; Settings brings them back. */
+  dismissedHints?: string[]
   /** Show LagZap and the game it is optimizing as the user's Discord status. */
   discordPresence?: boolean
   /** Windows: capture games through LagZap's virtual adapter instead of the
@@ -91,6 +95,7 @@ const ON_BY_DEFAULT = [
   'gamingPriority',
   'discordPresence',
   'latinNumbers',
+  'suggestions',
 ] as const satisfies readonly (keyof AppSettings)[]
 
 function withDefaultsOn(value: AppSettings): AppSettings {
@@ -489,6 +494,23 @@ export const useSettings = (locale?: any, theme?: any) => {
     await saveSettings({ latinNumbers })
   }
 
+  const setSuggestions = async (suggestions: boolean) => {
+    await saveSettings({ suggestions })
+  }
+
+  /** A tip shows unless tips are off or the user closed this one. */
+  const hintShown = (key: string) =>
+    settings.value.suggestions !== false && !(settings.value.dismissedHints ?? []).includes(key)
+
+  const dismissHint = async (key: string) => {
+    const hidden = settings.value.dismissedHints ?? []
+    if (!hidden.includes(key)) await saveSettings({ dismissedHints: [...hidden, key] })
+  }
+
+  const resetHints = async () => {
+    await saveSettings({ dismissedHints: [] })
+  }
+
   const setDiscordPresence = async (discordPresence: boolean) => {
     await saveSettings({ discordPresence })
   }
@@ -671,6 +693,10 @@ export const useSettings = (locale?: any, theme?: any) => {
     setAllowLocalRoutes,
     setEnglishTitleNames,
     setLatinNumbers,
+    setSuggestions,
+    hintShown,
+    dismissHint,
+    resetHints,
     setDiscordPresence,
     setVirtualAdapter,
     setAdapterOrder,

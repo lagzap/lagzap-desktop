@@ -4,6 +4,7 @@ import Container from "~/components/layout/Container.vue";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 import TitleAvatar from "~/components/plan/TitleAvatar.vue";
 import PlanLock from "~/components/plan/PlanLock.vue";
+import ComingSoonMark from "~/components/title/ComingSoonMark.vue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import { localDigits } from "~/utils/localeFormat";
 import { useSettings } from "~/composables/useSettings";
@@ -169,7 +170,7 @@ function railScale(letter: string) {
 }
 
 const toggleDisabled = (titleId: string) =>
-  !store.appReady || store.planBlocked || titleBlocked(titleId);
+  !store.appReady || store.planBlocked || titleBlocked(titleId) || store.titleComingSoon(titleId);
 const onToggle = (title: (typeof titles.value)[number]) => {
   if (!toggleDisabled(title.id)) {
     void store.toggleTitleState(title);
@@ -272,7 +273,8 @@ const onToggle = (title: (typeof titles.value)[number]) => {
                         <span class="titles-card__fav">
                           <TitleFavoriteButton :title-id="item.raw.id" />
                         </span>
-                        <PlanLock v-if="titleBlocked(item.raw.id)" :unavailable="titleUnavailable(item.raw.id)" />
+                        <ComingSoonMark v-if="store.titleComingSoon(item.raw.id)" />
+                        <PlanLock v-else-if="titleBlocked(item.raw.id)" :unavailable="titleUnavailable(item.raw.id)" />
                         <v-tooltip
                           v-else
                           :text="

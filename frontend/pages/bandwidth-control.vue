@@ -111,6 +111,21 @@ const sortedApps = computed(() => {
   }
 });
 
+// Search in the app list: its name, exe or path.
+const searchOpen = ref(false);
+const search = ref<string | null>("");
+const shownApps = computed(() => {
+  const query = (search.value ?? "").trim().toLowerCase();
+  if (!query) return sortedApps.value;
+  return sortedApps.value.filter((app) =>
+    [displayName(app.path, app.name), app.name, app.path].some((text) => text?.toLowerCase().includes(query)),
+  );
+});
+function closeSearch() {
+  search.value = "";
+  searchOpen.value = false;
+}
+
 // One dialog for adding a cap (from a row or the header) or editing one.
 const dialog = ref(false);
 type FixedKind = "pc" | "adapter" | "high_traffic" | "profile";
@@ -197,6 +212,34 @@ function openRoute(route: AppRoute | null) {
 function toggleRoute(route: AppRoute, enabled: boolean | null) {
   saveRoute({ ...route, enabled: Boolean(enabled) });
 }
+
+/** The internets Multi Internet knows, by the name Windows gives them. */
+const internetNames = computed(() => [...new Set(store.interfaces.map((iface) => iface.Name).filter(Boolean))]);
+
+/** From the chip: send the rule's apps through name now (turning it on). */
+function useInternetFor(route: AppRoute, name: string) {
+  if (route.enabled && route.interface === name) return;
+  saveRoute({ ...route, interface: name, enabled: true });
+}
+
+// Shortcuts from other pages: ?open=cap caps the whole PC, ?open=internet
+// sends an app through another internet.
+const pageRoute = useRoute();
+const router = useRouter();
+watch(
+  () => pageRoute.query.open,
+  (open) => {
+    if (open === "cap") {
+      openForPC();
+    } else if (open === "internet") {
+      openRoute(null);
+    } else {
+      return;
+    }
+    router.replace({ query: { ...pageRoute.query, open: undefined } });
+  },
+  { immediate: true },
+);
 
 // Each internet keeps the color it has on every other chart in the app.
 const theme = useTheme();
@@ -362,14 +405,38 @@ const sparkLegend = computed(() => {
                   <span dir="ltr">{{ route.path }}</span>
                 </div>
               </div>
-              <v-chip
-                :color="route.enabled ? 'primary' : undefined"
-                size="small"
-                variant="tonal"
-                prepend-icon="mdi-swap-horizontal"
-              >
-                {{ route.enabled ? bc("viaInternet", route.interface) : bc("internetOff") }}
-              </v-chip>
+              <!-- The chip picks the internet right here. -->
+              <v-menu location="bottom end">
+                <template #activator="{ props: menu }">
+                  <v-chip
+                    v-bind="menu"
+                    :color="route.enabled ? 'primary' : undefined"
+                    size="small"
+                    variant="tonal"
+                    prepend-icon="mdi-swap-horizontal"
+                    append-icon="mdi-menu-down"
+                  >
+                    {{ route.enabled ? bc("viaInternet", route.interface) : bc("internetOff") }}
+                  </v-chip>
+                </template>
+                <v-list density="compact">
+                  <v-list-item
+                    v-for="name in internetNames"
+                    :key="name"
+                    :title="name"
+                    :active="route.enabled && route.interface === name"
+                    color="primary"
+                    @click="useInternetFor(route, name)"
+                  >
+                    <template #append>
+                      <v-icon
+                        v-if="route.enabled && route.interface === name"
+                        icon="mdi-check"
+                        size="18" />
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
               <v-switch
                 :model-value="route.enabled"
                 color="primary"
@@ -386,12 +453,50 @@ const sparkLegend = computed(() => {
                 :aria-label="bc('editInternet')"
                 @click="openRoute(route)"
               />
+              <v-btn
+                v-tooltip:top="bc('remove')"
+                icon="mdi-delete-outline"
+                size="small"
+                variant="text"
+                :aria-label="bc('remove')"
+                @click="deleteRoute(route.id)"
+              />
             </div>
             <v-divider />
           </section>
 
-          <div class="d-flex align-center px-4 pt-3 pb-1">
+          <div class="bandwidth__apps-head d-flex align-center px-4 pt-3 pb-1">
             <span class="text-subtitle-2">{{ bc("apps") }}</span>
+            <v-scale-transition :origin="isRtl ? 'center right' : 'center left'" mode="out-in">
+              <v-btn
+                v-if="!searchOpen"
+                v-tooltip:top="bc('searchApps')"
+                icon="mdi-magnify"
+                size="small"
+                variant="text"
+                density="compact"
+                class="ms-1"
+                :aria-label="bc('searchApps')"
+                :disabled="!apps.length"
+                @click="searchOpen = true" />
+              <v-text-field
+                v-else
+                v-model="search"
+                :placeholder="bc('searchApps')"
+                prepend-inner-icon="mdi-magnify"
+                density="compact"
+                variant="solo-filled"
+                flat
+                rounded="pill"
+                hide-details
+                single-line
+                autofocus
+                clearable
+                class="bandwidth__search ms-2"
+                @click:clear="closeSearch"
+                @keydown.esc="closeSearch"
+                @blur="search?.trim() || closeSearch()" />
+            </v-scale-transition>
             <v-spacer />
             <div class="bandwidth__legend">
               <span
@@ -411,7 +516,12 @@ const sparkLegend = computed(() => {
             {{ bc("empty") }}
           </div>
           <div
-            v-for="app in sortedApps"
+            v-else-if="!shownApps.length"
+            class="pa-4 text-medium-emphasis text-body-2">
+            {{ bc("searchNone", search?.trim()) }}
+          </div>
+          <div
+            v-for="app in shownApps"
             :key="app.path"
             class="bandwidth__row"
             @contextmenu.prevent="openContext($event, app)">
@@ -653,6 +763,41 @@ const sparkLegend = computed(() => {
 
 .flex-none {
   flex: none;
+}
+
+.bandwidth__search {
+  flex: 0 1 220px;
+  min-width: 140px;
+}
+
+/* The Apps title row keeps one height whether the search icon or the box
+ * shows. */
+.bandwidth__apps-head {
+  box-sizing: content-box;
+  height: 32px;
+}
+
+/* Compact: as tall as the title row's buttons. */
+.bandwidth__search :deep(.v-field) {
+  --v-field-padding-start: 10px;
+  --v-field-padding-end: 6px;
+  font-size: 0.8125rem;
+}
+
+.bandwidth__search :deep(.v-input__control),
+.bandwidth__search :deep(.v-field) {
+  --v-input-control-height: 32px;
+  height: 32px;
+}
+
+.bandwidth__search :deep(.v-field__input) {
+  min-height: 32px;
+  padding-block: 0;
+}
+
+.bandwidth__search :deep(.v-field__prepend-inner .v-icon),
+.bandwidth__search :deep(.v-field__clearable .v-icon) {
+  font-size: 18px;
 }
 
 .bandwidth__legend {

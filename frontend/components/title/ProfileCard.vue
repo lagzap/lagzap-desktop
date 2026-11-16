@@ -23,6 +23,9 @@ import { useLocale } from "vuetify";
 import { isConnectionNotRelayed } from "~/composables/useRelayIssue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import RouteLevelText from "~/components/plan/RouteLevelText.vue";
+import MultiInternetHint from "~/components/title/MultiInternetHint.vue";
+import MultipathOffHint from "~/components/title/MultipathOffHint.vue";
+import BetterInternetHint from "~/components/title/BetterInternetHint.vue";
 
 const props = defineProps<{
   profile: Profile;
@@ -66,6 +69,22 @@ const showProfileSections = computed(
 const isHighTrafficProfile = computed(
   () => (props.profile.flags & ProfileFlag.HIGH_TRAFFIC) !== 0
 );
+
+/** Downloads and updates (load balanced, never a game or a backup one). */
+const isDownloadProfile = computed(
+  () =>
+    isHighTrafficProfile.value &&
+    (props.profile.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET | ProfileFlag.PREVENT_DISCONNECT)) === 0,
+);
+
+/** A game: its packets are optimized (Multi Internet or not). */
+const isGameProfile = computed(() => (props.profile.flags & ProfileFlag.GAME_PACKET) !== 0);
+
+/** A game over Multi Internet: its packets can go over several internets. */
+const isGameMultiProfile = computed(() => {
+  const both = ProfileFlag.GAME_PACKET | ProfileFlag.MULTIPATH;
+  return (props.profile.flags & both) === both;
+});
 
 const store = useStore();
 const { profileLocked, profileUnavailable, canUpgrade, openUpgrade } = usePlanAccess();
@@ -396,6 +415,28 @@ const routeSettingsText = computed(() => {
       <ProfileRouteSettings :profile="props.profile" />
     </template>
 
+    <!-- Another internet helps: downloads go faster, games ride out one
+         internet's lag. One line while the profile is in use. -->
+    <!-- A game on one route: multipath is off, above the hint. -->
+    <div v-if="isGameMultiProfile" class="profile-hint-wrap">
+      <MultipathOffHint :profile="props.profile" dismissable />
+    </div>
+    <!-- A game on one internet while another is clearly faster. -->
+    <div v-if="isGameProfile" class="profile-hint-wrap">
+      <BetterInternetHint :profile="props.profile" />
+    </div>
+    <MultiInternetHint
+      v-if="isGameMultiProfile"
+      kind="game"
+      :profile-id="props.profile.id"
+    />
+    <MultiInternetHint
+      v-else-if="isDownloadProfile"
+      kind="download"
+      :profile-id="props.profile.id"
+      :compact="connected && downloadSpeed > 0"
+    />
+
     <v-card-text
       v-if="
         showProfileSections ||
@@ -451,6 +492,15 @@ const routeSettingsText = computed(() => {
 /* Nothing in it yet (a High traffic profile before its first traffic: the
  * chart only grows in with data): no empty padding under the header. */
 .profile-sections:not(:has(> *)) {
+  display: none;
+}
+
+.profile-hint-wrap {
+  padding: 0 16px 12px;
+}
+
+/* Nothing to say: no empty gap. */
+.profile-hint-wrap:not(:has(> *)) {
   display: none;
 }
 

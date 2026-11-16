@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useLocale } from "vuetify";
 import InterfaceMonitorCard from "~/components/network/monitor/InterfaceMonitorCard.vue";
+import RangeTabs from "~/components/network/RangeTabs.vue";
 import { qualityColor, useNetworkMonitor } from "~/composables/useNetworkMonitor";
 import { useHumanSpeed } from "~/composables/helper";
+import type { OverviewRange } from "~/composables/useOverviewChart";
 
 /** Per-connection network monitor: one summary card + one card per internet
  * connection. Renders the Go snapshot only. */
@@ -26,17 +28,11 @@ function openInterface(name: string) {
         {{ multi ? t("$vuetify.networkLatency.monitor.title") : t("$vuetify.networkLatency.monitor.titleSingle") }}
       </span>
       <v-spacer />
-      <v-btn-toggle
+      <RangeTabs
         :model-value="range"
-        density="compact"
-        variant="outlined"
-        divided
-        mandatory
-        rounded="lg"
-        @update:model-value="(r: any) => setRange(r)"
-      >
-        <v-btn v-for="r in ranges" :key="r" :value="r" size="small">{{ r }}</v-btn>
-      </v-btn-toggle>
+        :ranges="ranges"
+        @update:model-value="(r: string) => setRange(r as OverviewRange)"
+      />
     </div>
 
     <div v-if="summary && interfaces.length" class="monitor-summary mb-4">

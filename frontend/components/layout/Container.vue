@@ -115,6 +115,7 @@ onMounted(() => {
                         :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
                         variant="text"
                         size="md"
+                        :disabled="store.titleComingSoon(item.raw.id)"
                         @click.stop.prevent="store.toggleTitleState(item.raw)"
                       />
                     </template>

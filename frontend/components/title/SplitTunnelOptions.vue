@@ -21,6 +21,8 @@ const props = defineProps<{
   disabled?: boolean;
   /** The menu is open: only then the adapter pings stream. */
   live?: boolean;
+  /** Opened from a tip's Set up: stands out for a moment. */
+  highlight?: boolean;
   icon: (name: string) => string;
 }>();
 const emit = defineEmits<{
@@ -31,24 +33,17 @@ const emit = defineEmits<{
 const { t } = useLocale();
 
 const isPicked = (name: string) => props.selected.includes(name);
-/** Multi Internet keeps at least two: the last two cannot be unticked. */
-const isLocked = (name: string) => !!props.multi && isPicked(name) && props.selected.length <= 2;
+/** Multi Internet on: checkboxes (unticking down to one turns it off). Off:
+ * radios, the one internet the profile uses. */
+const checkboxes = computed(() => !!props.multi && (props.on || !!props.inherited));
 // The whole row is the click target; the checkbox/radio only shows the state
 // (clicking it alone flipped it on screen even when nothing changed).
-const lockedHint = ref("");
-let hintTimer: ReturnType<typeof setTimeout> | undefined;
 function onPick(name: string) {
-  if (isLocked(name)) {
-    lockedHint.value = name;
-    clearTimeout(hintTimer);
-    hintTimer = setTimeout(() => (lockedHint.value = ""), 3000);
-    return;
-  }
   emit("pick", name);
 }
-onBeforeUnmount(() => clearTimeout(hintTimer));
-/** The adapters are listed while it is on, or on through the settings. */
-const open = computed(() => props.on || !!props.inherited);
+/** The adapters are listed while it is on, or on through the settings;
+ * Multi Internet's always, so one can be ticked down to a single internet. */
+const open = computed(() => props.on || !!props.inherited || !!props.multi);
 const anyMissing = computed(() => props.selected.some((name) => props.missing.includes(name)));
 const summary = computed(() =>
   props.multi
@@ -62,7 +57,7 @@ const label = computed(() =>
 
 <template>
   <v-list-item
-    :class="['split-tunnel', { 'split-tunnel--on': on }]"
+    :class="['split-tunnel', { 'split-tunnel--on': on, 'internets-highlight': highlight }]"
     :disabled="disabled"
     @click="emit('toggle')"
   >
@@ -121,7 +116,7 @@ const label = computed(() =>
     >
       <template #prepend>
         <v-checkbox-btn
-          v-if="multi"
+          v-if="checkboxes"
           class="me-2 state-only"
           density="compact"
           :color="missing.includes(name) ? 'warning' : 'primary'"
@@ -141,10 +136,7 @@ const label = computed(() =>
         <span class="text-caption" :class="{ 'text-medium-emphasis': !isPicked(name) }">{{ name }}</span>
       </template>
       <template #append>
-        <span v-if="lockedHint === name" class="text-caption text-warning locked-hint">
-          {{ t("$vuetify.title.profile.server.multiInternetMinTwoShort") }}
-        </span>
-        <span v-else-if="missing.includes(name)" class="text-caption text-warning">
+        <span v-if="missing.includes(name)" class="text-caption text-warning">
           {{ t("$vuetify.title.profile.server.adapterGone") }}
         </span>
         <AdapterPing v-else-if="live" :name="name" />
@@ -158,13 +150,18 @@ const label = computed(() =>
 .state-only {
   pointer-events: none;
 }
-.locked-hint {
-  max-width: 220px;
-  text-align: end;
-  line-height: 1.2;
-}
 /* Tinted while it is on. */
 .split-tunnel--on {
   background: rgba(var(--v-theme-primary), 0.06);
+}
+
+/* Opened from a tip's Set up: a pulse of the theme color. */
+.internets-highlight {
+  animation: internets-pulse 0.8s ease-in-out 3;
+}
+@keyframes internets-pulse {
+  50% {
+    background: rgba(var(--v-theme-primary), 0.22);
+  }
 }
 </style>

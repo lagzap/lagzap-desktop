@@ -3,6 +3,7 @@ import CountryFlag from "vue-country-flag-next";
 import { useLocale } from "vuetify";
 import Container from "~/components/layout/Container.vue";
 import LiveChart from "~/components/network/LiveChart.vue";
+import RangeTabs from "~/components/network/RangeTabs.vue";
 import { qualityColor, useInterfaceMonitor, useNetworkMonitor } from "~/composables/useNetworkMonitor";
 import { useHumanSpeed } from "~/composables/helper";
 import type { OverviewRange } from "~/composables/useOverviewChart";
@@ -106,17 +107,11 @@ function routeLabel(via?: string[] | null): string {
                 </div>
               </div>
               <v-spacer />
-              <v-btn-toggle
+              <RangeTabs
                 :model-value="range"
-                density="compact"
-                variant="outlined"
-                divided
-                mandatory
-                rounded="lg"
-                @update:model-value="(r: any) => setRange(r as OverviewRange)"
-              >
-                <v-btn v-for="r in ranges" :key="r" :value="r" size="small">{{ r }}</v-btn>
-              </v-btn-toggle>
+                :ranges="ranges"
+                @update:model-value="(r: string) => setRange(r as OverviewRange)"
+              />
             </div>
 
             <div class="iface-hero__body">

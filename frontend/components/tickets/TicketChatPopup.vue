@@ -598,6 +598,8 @@ async function openEmojiPicker() {
       />
     </v-btn>
 
+    <!-- Opens and closes scaling from its bottom edge. -->
+    <Transition name="ticket-popup-scale">
     <v-card
       v-if="tickets.popupOpen"
       class="ticket-popup"
@@ -620,7 +622,7 @@ async function openEmojiPicker() {
           :aria-label="t('$vuetify.tickets.backToList')"
           @click="goBackToList"
         />
-        <div class="ticket-popup__title text-truncate">{{ headerTitle }}</div>
+        <div class="ticket-popup__title text-truncate" dir="auto">{{ headerTitle }}</div>
         <div class="ticket-popup__actions">
           <TicketFavoriteButton
             v-if="showingChat && ticketId"
@@ -693,14 +695,14 @@ async function openEmojiPicker() {
                       <span class="ticket-row__sep text-medium-emphasis">
                         —
                       </span>
-                      <span>{{ ticket.subject }}</span>
+                      <span dir="auto">{{ ticket.subject }}</span>
                     </span>
                     <span class="ticket-row__time text-caption text-medium-emphasis">
                       {{ formatWhen(ticket.updated_at || ticket.created_at) }}
                     </span>
                   </div>
                   <div class="ticket-row__bottom">
-                    <span class="ticket-row__preview text-truncate text-medium-emphasis">
+                    <span class="ticket-row__preview text-truncate text-medium-emphasis" dir="auto">
                       {{ previewText(ticket) }}
                     </span>
                     <span
@@ -926,6 +928,7 @@ async function openEmojiPicker() {
         </div>
       </div>
     </v-card>
+    </Transition>
 
     <v-dialog
       v-model="createOpen"
@@ -990,7 +993,21 @@ async function openEmojiPicker() {
 </template>
 
 <style scoped>
+.ticket-popup-scale-enter-active,
+.ticket-popup-scale-leave-active {
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0, 0, 1),
+    opacity 0.18s ease;
+}
+
+.ticket-popup-scale-enter-from,
+.ticket-popup-scale-leave-to {
+  transform: scale(0.6);
+  opacity: 0;
+}
+
 .ticket-popup {
+  transform-origin: bottom center;
   position: fixed !important;
   right: 24px;
   bottom: 24px;
@@ -1340,6 +1357,9 @@ async function openEmojiPicker() {
 
 .ticket-msg__body {
   margin: 0;
+  /* Each paragraph in its own direction (Persian or English). */
+  unicode-bidi: plaintext;
+  text-align: start;
   font-size: 0.875rem;
   line-height: 1.4;
   white-space: pre-wrap;

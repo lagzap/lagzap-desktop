@@ -111,6 +111,14 @@ export function formatSpeed(bytesPerSecond: number): string {
   return scaled(bytesPerSecond, true);
 }
 
+/** A speed for a small badge: "1.4 MB/s", "512 KB/s" (one decimal under 10). */
+export function formatSpeedShort(bytesPerSecond: number): string {
+  if (!(bytesPerSecond > 0)) return ltrRun(`${localDigits(0)} ${speedUnit(0)}`);
+  const i = Math.min(Math.floor(Math.log(bytesPerSecond) / Math.log(1024)), units().bytes.length - 1);
+  const v = bytesPerSecond / Math.pow(1024, i);
+  return ltrRun(`${localDigits(v < 10 ? v.toFixed(1) : Math.round(v))} ${speedUnit(i)}`);
+}
+
 /** "4.75 MB" / "۴٫۷۵ م.ب". */
 export function formatSize(bytes: number): string {
   return scaled(bytes, false);

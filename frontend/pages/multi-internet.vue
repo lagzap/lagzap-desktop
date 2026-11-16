@@ -213,14 +213,15 @@ const captureModes = computed(() => [
 ]);
 const virtualOn = computed(() => settings.value.virtualAdapter === true);
 
+// Every adapter in each pool, set in Settings.
 const pools = computed(() => [
-  { key: "multi", pool: multiInternet, icon: "mdi-call-split", title: mi("multi"), hint: mi("autoMultiHint") },
-  { key: "backup", pool: backupInterfaces, icon: "mdi-shield-check-outline", title: mi("backup"), hint: mi("autoBackupHint") },
-  { key: "loadBalance", pool: loadBalance, icon: "mdi-scale-balance", title: mi("loadBalance"), hint: mi("autoLoadBalanceHint") },
+  { key: "multi", pool: multiInternet, title: mi("multi"), hint: mi("autoMultiHint") },
+  { key: "backup", pool: backupInterfaces, title: mi("backup"), hint: mi("autoBackupHint") },
+  { key: "loadBalance", pool: loadBalance, title: mi("loadBalance"), hint: mi("autoLoadBalanceHint") },
 ]);
 const poolsLocked = computed(() => store.planBlocked || planCapsInternets.value);
-function togglePool(pool: { auto: { value: boolean } }) {
-  if (!poolsLocked.value) pool.auto.value = !pool.auto.value;
+function setPool(pool: { auto: { value: boolean } }, on: boolean) {
+  if (!poolsLocked.value) pool.auto.value = on;
 }
 
 // Routes per adapter: a stepper per transport; empty means the default.
@@ -255,49 +256,6 @@ const routeSteppers = computed(() => [
       </template>
 
       <div class="multi-internet pa-4">
-        <section class="mi-section mb-6">
-          <div class="mi-section__head">
-            <span class="text-subtitle-2">{{ mi("autoTitle") }}</span>
-            <HelpTip :text="t('$vuetify.settings.useAllAdaptersHint')" />
-          </div>
-          <div class="mi-pools">
-            <div
-              v-for="item in pools"
-              :key="item.key"
-              class="mi-pool"
-              :class="{
-                'mi-pool--on': item.pool.auto.value,
-                'mi-pool--locked': poolsLocked,
-              }"
-              role="switch"
-              :aria-checked="item.pool.auto.value"
-              :aria-label="item.title"
-              :tabindex="poolsLocked ? -1 : 0"
-              @click="togglePool(item.pool)"
-              @keydown.space.prevent="togglePool(item.pool)"
-            >
-              <div class="mi-pool__icon">
-                <v-icon :icon="item.icon" size="20" />
-              </div>
-              <div class="mi-pool__text">
-                <div class="text-body-2 font-weight-medium">{{ item.title }}</div>
-                <div class="text-caption text-medium-emphasis">{{ item.hint }}</div>
-              </div>
-              <v-switch
-                :model-value="item.pool.auto.value"
-                :disabled="poolsLocked"
-                color="primary"
-                density="compact"
-                hide-details
-                inset
-                readonly
-                class="mi-pool__switch"
-                tabindex="-1"
-              />
-            </div>
-          </div>
-        </section>
-
         <v-alert
           v-if="names.length === 1"
           type="info"
@@ -375,11 +333,11 @@ const routeSteppers = computed(() => [
           {{ t("$vuetify.networkLatency.monitor.noInterfaces") }}
         </div>
 
-        <!-- Routes per adapter: the numbers every Multi Internet card uses
-             unless it sets its own. -->
+        <!-- Settings: the routes every Multi Internet card uses unless it
+             sets its own, and whether every adapter is in each pool. -->
         <section class="mi-section mt-8">
           <div class="mi-section__head">
-            <span class="text-subtitle-2">{{ mi("routesTitle") }}</span>
+            <span class="text-subtitle-2">{{ mi("settingsTitle") }}</span>
             <HelpTip :text="mi('routesDescription')" />
           </div>
           <div class="lz-panel">
@@ -442,6 +400,25 @@ const routeSteppers = computed(() => [
                 @update:model-value="(on) => setRelayTransportFallback(!!on)"
               />
             </div>
+            <template v-for="item in pools" :key="item.key">
+              <v-divider />
+              <div class="mi-route">
+                <div class="mi-route__text">
+                  <div class="text-body-2 font-weight-medium">{{ item.title }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ item.hint }}</div>
+                </div>
+                <v-switch
+                  :model-value="item.pool.auto.value"
+                  :disabled="poolsLocked"
+                  color="primary"
+                  density="compact"
+                  hide-details
+                  inset
+                  class="flex-grow-0"
+                  @update:model-value="(on) => setPool(item.pool, !!on)"
+                />
+              </div>
+            </template>
           </div>
         </section>
 
@@ -526,74 +503,6 @@ const routeSteppers = computed(() => [
 }
 
 /* Use every adapter: one tile per pool; the whole tile toggles. */
-.mi-pools {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
-  gap: 12px;
-}
-
-.mi-pool {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-block: 12px;
-  padding-inline: 14px 8px;
-  border: thin solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 12px;
-  background: rgba(var(--v-theme-surface), 0.45);
-  cursor: pointer;
-  user-select: none;
-  transition: border-color 0.15s, background-color 0.15s;
-}
-
-.mi-pool:hover {
-  border-color: rgba(var(--v-theme-on-surface), 0.25);
-}
-
-.mi-pool:focus-visible,
-.capture-mode:focus-visible {
-  outline: 2px solid rgb(var(--v-theme-primary));
-  outline-offset: 2px;
-}
-
-.mi-pool--on {
-  border-color: rgba(var(--v-theme-primary), 0.45);
-  background: rgba(var(--v-theme-primary), 0.06);
-}
-
-.mi-pool--locked {
-  cursor: default;
-  opacity: 0.6;
-}
-
-.mi-pool__icon,
-.capture-mode__icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: rgba(var(--v-theme-on-surface), 0.06);
-  color: rgba(var(--v-theme-on-surface), 0.7);
-  transition: background-color 0.15s, color 0.15s;
-}
-
-.mi-pool--on .mi-pool__icon,
-.capture-mode--active .capture-mode__icon {
-  background: rgba(var(--v-theme-primary), 0.15);
-  color: rgb(var(--v-theme-primary));
-}
-
-.mi-pool__text {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.mi-pool__switch {
-  flex: none;
-  pointer-events: none;
-}
 
 /* Routes per adapter: a row per transport with a stepper. */
 .mi-routes {
@@ -635,6 +544,28 @@ const routeSteppers = computed(() => [
 }
 
 /* Adapter switching: two radio cards. */
+.capture-mode:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.capture-mode__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.capture-mode--active .capture-mode__icon {
+  background: rgba(var(--v-theme-primary), 0.15);
+  color: rgb(var(--v-theme-primary));
+}
+
 .capture-modes {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));

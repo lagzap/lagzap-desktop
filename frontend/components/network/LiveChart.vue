@@ -4,6 +4,7 @@ import { quietChart } from "~/utils/chartIdle";
 import { useLocale, useTheme } from "vuetify";
 import { PING_TIMEOUT_COLOR } from "~/composables/useLatencyMetrics";
 import { OVERVIEW_RANGES } from "~/composables/useOverviewChart";
+import RangeTabs from "~/components/network/RangeTabs.vue";
 import { useHumanSpeed } from "~/composables/helper";
 import type { OverviewTrafficChart } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import type { LiveLatencyChart, LiveLatencySeries } from "~/types/liveChart";
@@ -71,7 +72,6 @@ const chartEl = ref<HTMLDivElement>();
 let instance: echarts.ECharts | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
-const rangeItems = OVERVIEW_RANGES.map((r) => ({ title: r, value: r }));
 const latency = computed(() => props.latency);
 const traffic = computed(() => props.traffic);
 
@@ -929,20 +929,12 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div v-if="!fixedView || rangeTabs" class="chart-view-tabs chart-range-tabs" role="radiogroup">
-        <button
-          v-for="item in rangeItems"
-          :key="item.value"
-          type="button"
-          role="radio"
-          class="chart-view-tab chart-range-tab"
-          :class="{ 'chart-view-tab--active': range === item.value }"
-          :aria-checked="range === item.value"
-          @click="emit('update:range', item.value)"
-        >
-          {{ localDigits(item.title) }}
-        </button>
-      </div>
+      <RangeTabs
+        v-if="!fixedView || rangeTabs"
+        :model-value="range"
+        :ranges="OVERVIEW_RANGES"
+        @update:model-value="(r: string) => emit('update:range', r)"
+      />
     </div>
 
     <v-expand-transition>
@@ -1157,24 +1149,6 @@ onBeforeUnmount(() => {
   font-size: 0.75rem;
   line-height: 1.2;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-}
-
-/* The time range: the same pills, joined and smaller. */
-.chart-range-tabs {
-  gap: 0;
-  border: 2px solid rgba(var(--v-theme-on-surface), 0.22);
-  border-radius: 999px;
-  padding: 2px;
-}
-
-.chart-range-tab {
-  border: none;
-  padding: 2px 10px;
-  font-variant-numeric: tabular-nums;
-}
-
-.chart-range-tab.chart-view-tab--active {
-  border: none;
 }
 
 .live-chart__divider {

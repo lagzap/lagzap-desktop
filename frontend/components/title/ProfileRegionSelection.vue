@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { mergeProps } from "vue";
+import { useInternetsMenuRequest } from "~/composables/useInternetsMenu";
 import { useLocale } from "vuetify";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
 import ContinentIcon from "~/components/icons/ContinentIcon.vue";
@@ -230,11 +232,16 @@ function toggleMultiInternet() {
   setOwnInternets([...pool]);
 }
 function pickInternet(name: string) {
-  const current = multiOn.value || multiInherited.value ? multiSelected.value : [];
+  // Off (radios): the one internet the profile uses.
+  if (!multiOn.value && !multiInherited.value) {
+    setOwnInternets([name]);
+    return;
+  }
+  // On (checkboxes): two or more ticked is Multi Internet; unticking down to
+  // one turns it off on that internet.
+  const current = multiSelected.value;
   const next = current.includes(name) ? current.filter((n) => n !== name) : [...current, name];
-  // Multi Internet joins at least two: unticking one of the last two would
-  // turn it off (that is the switch above).
-  if (next.length >= 2) setOwnInternets(next);
+  if (next.length >= 1) setOwnInternets(next);
 }
 
 // Load balancing (High traffic profiles: downloads, CDNs): new connections
@@ -274,11 +281,19 @@ function setBalanceMode(next: LoadBalanceMode) {
   if (next === balanceMode.value) return;
   setOwnInternets(next === "off" ? [LOAD_BALANCE_OFF] : []);
 }
-/** Ticking an internet makes the ticked ones the profile's own (at least two). */
+/** Ticking an internet makes the ticked ones the profile's own; unticking
+ * down to one turns load balancing off on that one. */
 function pickBalanceInternet(name: string) {
   const current = balanceSelected.value;
   const next = current.includes(name) ? current.filter((n) => n !== name) : [...current, name];
   if (next.length >= 2) setOwnInternets(next);
+  else if (next.length === 1) pickSingleBalance(next[0]);
+}
+/** Off on one internet: Go balances only over two or more, else it uses the
+ * profile's Default, so the one internet is that Default. */
+function pickSingleBalance(name: string) {
+  setSplitAdapter(name);
+  setOwnInternets([LOAD_BALANCE_OFF]);
 }
 const { settings, setLoadBalanceWeight } = useSettings();
 // Each internet's weight and share, while the menu is open.
@@ -336,6 +351,21 @@ watch(dialogOpen, (open) => {
   if (open && !(interfaces.value?.length > 0)) void updateInterfaces();
 });
 
+// A tip's Set up: open on the internets (Multi Internet or Load balancing)
+// and make them stand out for a moment.
+const internetsRequest = useInternetsMenuRequest(() => props.profile.id);
+const highlightInternets = ref(false);
+let highlightTimer: ReturnType<typeof setTimeout> | undefined;
+watch(internetsRequest, (at) => {
+  if (!at) return;
+  dialogOpen.value = true;
+  highlightInternets.value = true;
+  clearTimeout(highlightTimer);
+  highlightTimer = setTimeout(() => (highlightInternets.value = false), 2400);
+  setTimeout(() => document.querySelector(".internets-highlight")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 250);
+});
+onBeforeUnmount(() => clearTimeout(highlightTimer));
+
 </script>
 
 <template>
@@ -357,24 +387,35 @@ watch(dialogOpen, (open) => {
           profile.flags & ProfileFlag.ALLOW_REGION_SELECTION
         "
       >
-        <v-btn
+        <!-- What the regions do, after a half-second hover. -->
+        <v-tooltip
           v-if="$vuetify.display.smAndUp"
-          :text="buttonText"
-          class="text-none"
-          variant="tonal"
-          v-bind="props"
+          :text="t('$vuetify.title.profile.server.regionTip')"
+          location="top"
+          max-width="300"
+          open-delay="500"
+          :disabled="dialogOpen"
         >
-          <template #prepend>
-            <CountryFlag v-if="'flag' in currentSelectionIcon" :country="currentSelectionIcon.flag" size="small" />
-            <v-avatar v-else-if="'continent' in currentSelectionIcon" size="18" rounded="0">
-              <ContinentIcon :tag="currentSelectionIcon.continent" />
-            </v-avatar>
-            <v-icon v-else :icon="currentSelectionIcon.icon" />
+          <template #activator="{ props: tip }">
+            <v-btn
+              :text="buttonText"
+              class="text-none"
+              variant="tonal"
+              v-bind="mergeProps(props, tip)"
+            >
+              <template #prepend>
+                <CountryFlag v-if="'flag' in currentSelectionIcon" :country="currentSelectionIcon.flag" size="small" />
+                <v-avatar v-else-if="'continent' in currentSelectionIcon" size="18" rounded="0">
+                  <ContinentIcon :tag="currentSelectionIcon.continent" />
+                </v-avatar>
+                <v-icon v-else :icon="currentSelectionIcon.icon" />
+              </template>
+              <template #append>
+                <v-icon :icon="dialogOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
+              </template>
+            </v-btn>
           </template>
-          <template #append>
-            <v-icon :icon="dialogOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
-          </template>
-        </v-btn>
+        </v-tooltip>
         <!-- Narrow: the same icon or flag as the wide button, with its text
              as the tooltip. -->
         <v-btn v-else icon variant="tonal" color="tertiary" v-tooltip="buttonText" v-bind="props">
@@ -450,6 +491,7 @@ watch(dialogOpen, (open) => {
         <SplitTunnelOptions
           v-if="isMultiInternetProfile"
           multi
+          :highlight="highlightInternets"
           :on="multiOn"
           :inherited="multiInherited"
           :selected="multiSelected"
@@ -465,9 +507,12 @@ watch(dialogOpen, (open) => {
         />
         <LoadBalanceOptions
           v-else-if="isLoadBalanceProfile"
+          :highlight="highlightInternets"
           :mode="balanceMode"
           :adapters="balanceAdapters"
           :selected="balanceSelected"
+          :single-adapters="splitAdapters"
+          :single="splitAdapter || store.defaultInterface || ''"
           :missing="orphanedInterfaces"
           :shares="balanceShares"
           :loading="loadingInterfaces"
@@ -476,6 +521,7 @@ watch(dialogOpen, (open) => {
           :icon="adapterIcon"
           @mode="setBalanceMode"
           @pick="pickBalanceInternet"
+          @single="pickSingleBalance"
           @weight="(name: string, weight: number) => setLoadBalanceWeight(name, weight)"
           @refresh="updateInterfaces"
         />
@@ -988,6 +1034,7 @@ watch(dialogOpen, (open) => {
         <SplitTunnelOptions
           v-if="isMultiInternetProfile"
           multi
+          :highlight="highlightInternets"
           :on="multiOn"
           :inherited="multiInherited"
           :selected="multiSelected"
@@ -1003,9 +1050,12 @@ watch(dialogOpen, (open) => {
         />
         <LoadBalanceOptions
           v-else-if="isLoadBalanceProfile"
+          :highlight="highlightInternets"
           :mode="balanceMode"
           :adapters="balanceAdapters"
           :selected="balanceSelected"
+          :single-adapters="splitAdapters"
+          :single="splitAdapter || store.defaultInterface || ''"
           :missing="orphanedInterfaces"
           :shares="balanceShares"
           :loading="loadingInterfaces"
@@ -1014,6 +1064,7 @@ watch(dialogOpen, (open) => {
           :icon="adapterIcon"
           @mode="setBalanceMode"
           @pick="pickBalanceInternet"
+          @single="pickSingleBalance"
           @weight="(name: string, weight: number) => setLoadBalanceWeight(name, weight)"
           @refresh="updateInterfaces"
         />

@@ -778,7 +778,7 @@ export const useStore = defineStore("index", () => {
   const toggleTitleState = async (title: Title) => {
     if (isTitleActive(title.id)) {
       await deactivateTitle(title.id);
-    } else {
+    } else if (!titleComingSoon(title.id)) {
       await activateTitle(title.id);
     }
   };
@@ -796,6 +796,10 @@ export const useStore = defineStore("index", () => {
   const planBlocked = computed(
     () => planAccess.status.value !== "loading" && !planAccess.active.value,
   );
+  /** A title with no profiles yet: shown as Coming soon and never turned
+   * on. Unknown until the profiles have loaded. */
+  const titleComingSoon = (id: string): boolean =>
+    profiles.value.length > 0 && !profiles.value.some((profile) => profile.title_id === id);
   const isTitleActive = (id: string): boolean => {
     if (planBlocked.value || planAccess.titleBlocked(id)) {
       return false;
@@ -1427,6 +1431,7 @@ export const useStore = defineStore("index", () => {
     toggleProfileState,
     setDisplayLimit,
     isTitleActive,
+    titleComingSoon,
     isProfileActive,
     activeTitleLimit,
     activeTitleIds,
