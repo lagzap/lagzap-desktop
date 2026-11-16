@@ -807,7 +807,7 @@ function currentLayoutKey() {
         ? (overlayTrafficAxis()?.max ?? "")
         : "";
   const top = latencyLed.value && c ? latencyYMax() : c?.y_max;
-  return [view.value, theme.current.value.dark, formatLocale.value, top, stackedTop, c?.step, pointCount(), ...series].join("|");
+  return [view.value, theme.current.value.dark, formatLocale.value, latinNumbers.value, top, stackedTop, c?.step, pointCount(), ...series].join("|");
 }
 
 // A hidden window paints nothing; catch up once it is visible again.

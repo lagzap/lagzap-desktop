@@ -209,8 +209,68 @@ body {
   min-width: 0;
 }
 
-/* Personal data in a form field (email, phone): blurred until the field is
+/* Personal data in a form field (email, phone): masked until the field is
    focused, so it never shows on a stream by accident. */
 .lz-sensitive-field input:not(:focus) {
-  filter: blur(5px);
+  -webkit-text-security: disc;
+}
+
+/* A number and its unit ("36 ms", "0.0%", "95/100"): one run that keeps its
+   order inside right-to-left text; left-to-right with Latin numbers. */
+.lz-num {
+  unicode-bidi: isolate;
+}
+
+html.lz-latin-num .lz-num {
+  direction: ltr;
+}
+
+/* A block-level run still lines up with the right-to-left text around it. */
+html.lz-latin-num[dir="rtl"] .lz-num {
+  text-align: right;
+}
+
+/* Pill tabs, as on the charts (Latency / Traffic / Both): separate pills,
+   or joined into one group with .lz-tabs--joined (1m / 5m / 15m). */
+.lz-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lz-tab {
+  cursor: pointer;
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.22);
+  border-radius: 999px;
+  background: transparent;
+  padding: 4px 14px;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.lz-tab:hover {
+  color: rgba(var(--v-theme-on-surface), 0.87);
+}
+
+.lz-tab--active {
+  border-color: rgba(var(--v-theme-on-surface), 0.38);
+  background: rgba(var(--v-theme-on-surface), 0.12);
+  color: rgba(var(--v-theme-on-surface), 0.92);
+  font-weight: 600;
+}
+
+.lz-tabs--joined {
+  flex-wrap: nowrap;
+  gap: 0;
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.22);
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.lz-tabs--joined .lz-tab {
+  border: none;
+  padding: 2px 10px;
 }

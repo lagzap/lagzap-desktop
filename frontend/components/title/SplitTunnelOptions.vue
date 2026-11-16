@@ -103,7 +103,7 @@ const label = computed(() =>
         density="comfortable"
         class="ms-1"
         :loading="loading"
-        :title="t('$vuetify.title.profile.server.directRefresh')"
+        v-tooltip="t('$vuetify.title.profile.server.directRefresh')"
         @click.stop="emit('refresh')"
       >
         <v-icon size="14">mdi-refresh</v-icon>

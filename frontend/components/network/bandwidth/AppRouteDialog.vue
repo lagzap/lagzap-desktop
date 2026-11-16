@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Dialogs } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
-import SensitiveText from "~/components/common/SensitiveText.vue";
 import type { AppRoute } from "~/utils/indexedDB";
 
 /** Sends an app (exe) or every app in a folder through another internet.
@@ -130,7 +129,6 @@ function remove() {
           </div>
           <v-radio-group
             v-model="kind"
-            density="compact"
             hide-details>
             <div class="route-target">
               <v-radio
@@ -138,9 +136,7 @@ function remove() {
                 :label="bc('thisApp')" />
               <div class="route-target__path">
                 <span class="text-caption text-medium-emphasis text-truncate">
-                  <SensitiveText
-                    v-if="exePath"
-                    :text="exePath" />
+                  <span v-if="exePath" dir="ltr">{{ exePath }}</span>
                   <template v-else>
                     {{ bc("nothingPicked") }}
                   </template>
@@ -160,9 +156,7 @@ function remove() {
                 :label="bc('thisFolder')" />
               <div class="route-target__path">
                 <span class="text-caption text-medium-emphasis text-truncate">
-                  <SensitiveText
-                    v-if="folderPath"
-                    :text="folderPath" />
+                  <span v-if="folderPath" dir="ltr">{{ folderPath }}</span>
                   <template v-else>
                     {{ bc("nothingPicked") }}
                   </template>

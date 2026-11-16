@@ -852,18 +852,33 @@ export const useStore = defineStore("index", () => {
       titleLimitRequest.value = id;
       return;
     }
-    if (!titleStates.value[id]) {
-      titleStates.value = await GetTitleStates()
+    if (!(await ensureTitleState(id))) {
+      return;
     }
     titleStates.value[id].active = true;
     await saveTitleState(id);
   };
   const deactivateTitle = async (id: string) => {
-    if (!titleStates.value[id]) {
-      titleStates.value = await GetTitleStates()
+    // No state yet: it was never on.
+    if (!(await ensureTitleState(id, false))) {
+      return;
     }
     titleStates.value[id].active = false;
     saveTitleState(id);
+  };
+  /** A title gets its state (and its profiles' states) when first opened. One
+   * turned on from a card before it was ever opened gets them the same way,
+   * so it can be switched on without opening it first. */
+  const ensureTitleState = async (id: string, create = true): Promise<boolean> => {
+    if (titleStates.value[id]) return true;
+    const states = await GetTitleStates();
+    if (states) titleStates.value = states;
+    if (!titleStates.value[id] && create) {
+      await VisitTitle(id);
+      const visited = await GetTitleStates();
+      if (visited) titleStates.value = visited;
+    }
+    return !!titleStates.value[id];
   };
   const saveTitleState = async (id: string) => {
     try {

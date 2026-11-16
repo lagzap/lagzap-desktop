@@ -92,7 +92,7 @@ async function copyJson() {
     <v-card width="380" rounded="lg" border class="connection-info">
       <div class="px-4 pt-3 pb-2">
         <div class="text-subtitle-2 text-truncate">{{ c.process_name || c.process || "Connection" }}</div>
-        <div v-if="c.process" class="text-caption text-medium-emphasis text-truncate" :title="c.process">
+        <div v-if="c.process" class="text-caption text-medium-emphasis text-truncate" v-tooltip="c.process">
           {{ c.process }}
         </div>
       </div>

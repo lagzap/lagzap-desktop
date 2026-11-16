@@ -114,7 +114,7 @@ function transports(r: { udp: boolean; tcp: boolean }): string {
             <div class="loc-metrics">
               <div class="loc-metric">
                 <span class="loc-label">{{ t("$vuetify.networkLatency.location.bestPing") }}</span>
-                <span v-if="best?.ping" :class="`text-${qualityColor(best.quality)}`">
+                <span v-if="best?.ping" class="lz-num" :class="`text-${qualityColor(best.quality)}`">
                   {{ localDigits(best.ping) }}<small> {{ msUnit() }}</small>
                 </span>
                 <span v-else>—</span>

@@ -377,7 +377,7 @@ watch(dialogOpen, (open) => {
         </v-btn>
         <!-- Narrow: the same icon or flag as the wide button, with its text
              as the tooltip. -->
-        <v-btn v-else icon variant="tonal" color="tertiary" :title="buttonText" v-bind="props">
+        <v-btn v-else icon variant="tonal" color="tertiary" v-tooltip="buttonText" v-bind="props">
           <CountryFlag v-if="'flag' in currentSelectionIcon" :country="currentSelectionIcon.flag" size="small" />
           <v-avatar v-else-if="'continent' in currentSelectionIcon" size="20" rounded="0">
             <ContinentIcon :tag="currentSelectionIcon.continent" />

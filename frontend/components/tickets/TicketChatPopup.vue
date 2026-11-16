@@ -855,7 +855,7 @@ async function openEmojiPicker() {
                               'ticket-msg__receipt--flash':
                                 !!flashReceiptIds[item.message.id],
                             }"
-                            :title="t('$vuetify.tickets.seenByStaff')"
+                            v-tooltip="t('$vuetify.tickets.seenByStaff')"
                           >
                             <v-icon
                               icon="mdi-check-all"

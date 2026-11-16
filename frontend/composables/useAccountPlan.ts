@@ -1,7 +1,7 @@
 import { computed } from "vue";
 import { useLocale } from "vuetify";
 import { usePlanAccess } from "~/composables/usePlanAccess";
-import { formatLocale } from "~/utils/localeFormat";
+import { intlLocale } from "~/utils/localeFormat";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -41,7 +41,7 @@ export function useAccountPlan() {
   });
   const expiresText = computed(() =>
     expiresAt.value
-      ? new Intl.DateTimeFormat(formatLocale.value === "fa" ? "fa-IR" : "en-US", { dateStyle: "medium" }).format(
+      ? new Intl.DateTimeFormat(intlLocale(), { dateStyle: "medium" }).format(
           expiresAt.value,
         )
       : "",

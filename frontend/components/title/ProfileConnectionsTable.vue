@@ -95,7 +95,7 @@ function onRowClick(connectionId: string) {
           'profile-connections-table__row--selected':
             selectedConnectionId === connection.id,
         }"
-        :title="t('$vuetify.connections.showOnLatencyChart')"
+        v-tooltip="t('$vuetify.connections.showOnLatencyChart')"
         tabindex="0"
         role="button"
         @click="onRowClick(connection.id)"

@@ -157,7 +157,7 @@ async function dockBack() {
           variant="text"
           density="comfortable"
           :color="alwaysOnTop ? 'accent' : undefined"
-          :title="t('$vuetify.networkLatency.overlayAlwaysOnTop')"
+          v-tooltip="t('$vuetify.networkLatency.overlayAlwaysOnTop')"
           :aria-pressed="alwaysOnTop"
           @click="alwaysOnTop = !alwaysOnTop">
           <v-icon
@@ -170,7 +170,7 @@ async function dockBack() {
           variant="text"
           density="comfortable"
           :color="opacityOpen ? 'accent' : undefined"
-          :title="t('$vuetify.networkLatency.overlayOpacity')"
+          v-tooltip="t('$vuetify.networkLatency.overlayOpacity')"
           :aria-pressed="opacityOpen"
           @click="opacityOpen = !opacityOpen">
           <v-icon
@@ -182,7 +182,7 @@ async function dockBack() {
           size="x-small"
           variant="text"
           density="comfortable"
-          :title="t('$vuetify.networkLatency.dockIn')"
+          v-tooltip="t('$vuetify.networkLatency.dockIn')"
           @click="dockBack">
           <v-icon
             size="small"

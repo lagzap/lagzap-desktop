@@ -4,6 +4,8 @@ import { useLocale } from "vuetify";
 import { useMonitoringStore } from "~/stores/monitoring";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import PlanLock from "~/components/plan/PlanLock.vue";
+import TitleGamePing from "~/components/title/TitleGamePing.vue";
+import { ProfileFlag } from "~/constants/profile";
 
 const props = defineProps<{
   title: Title;
@@ -56,6 +58,56 @@ const profileBreakdown = computed(() => {
   return rows;
 });
 
+// While the game itself is connected (a connection of a profile flagged
+// both game packets and multipath), the chip shows the game's own ping
+// instead of the connection count, colored like the route diagram. With
+// several such profiles, the one moving the most traffic.
+const GAME_FLAGS = ProfileFlag.GAME_PACKET | ProfileFlag.MULTIPATH;
+const isGameProfile = (profileId: string) =>
+  ((store.profiles.find((profile) => profile.id === profileId)?.flags ?? 0) & GAME_FLAGS) === GAME_FLAGS;
+// Sticky: the game profile picked stays while it has a connection, so the
+// chip never swaps between profiles (or back to the count) as speeds move.
+const playingProfile = ref("");
+let dropTimer: ReturnType<typeof setTimeout> | undefined;
+watchEffect(() => {
+  const games = new Map<string, number>();
+  for (const connection of titleConnections.value) {
+    const id = connection.profile_id ?? "";
+    if (!id || !isGameProfile(id)) continue;
+    const speed = (connection.upload_speed ?? 0) + (connection.download_speed ?? 0);
+    games.set(id, (games.get(id) ?? 0) + speed);
+  }
+  if (games.has(playingProfile.value)) {
+    clearTimeout(dropTimer);
+    dropTimer = undefined;
+    return;
+  }
+  let best = "";
+  let bestSpeed = -1;
+  for (const [id, speed] of games) {
+    if (speed > bestSpeed) [best, bestSpeed] = [id, speed];
+  }
+  if (best) {
+    clearTimeout(dropTimer);
+    dropTimer = undefined;
+    playingProfile.value = best;
+  } else if (playingProfile.value && !dropTimer) {
+    // The game left the list: keep its ping a few seconds, a refresh
+    // between two lists must not drop it.
+    dropTimer = setTimeout(() => {
+      dropTimer = undefined;
+      playingProfile.value = "";
+    }, 5000);
+  }
+});
+onUnmounted(() => clearTimeout(dropTimer));
+const gamePing = ref<number | null>(null);
+const chipColor = computed(() => {
+  const ms = gamePing.value;
+  if (!ms) return "success";
+  return ms <= 90 ? "success" : ms <= 200 ? "warning" : "error";
+});
+
 const inactiveTooltip = computed(() => {
   if (!titleIsOn.value) {
     return t("$vuetify.status.inactive");
@@ -66,35 +118,78 @@ const inactiveTooltip = computed(() => {
   return t("$vuetify.status.active");
 });
 
+const toggleDisabled = computed(() => !store.appReady || store.planBlocked);
+
 async function onToggle() {
   await store.toggleTitleState(props.title);
 }
 </script>
 
 <template>
-  <PlanLock v-if="titleBlocked(props.title.id)" :unavailable="titleUnavailable(props.title.id)" />
+  <span v-if="titleBlocked(props.title.id)" class="tat">
+    <PlanLock :unavailable="titleUnavailable(props.title.id)" />
+  </span>
+  <!-- The dot or chip turns into a switch while the row is hovered, in
+       the same box: the row does not move. -->
   <v-tooltip
-    v-else-if="showConnectionChip"
+    v-else
     location="end"
     open-delay="200"
     max-width="280"
   >
     <template #activator="{ props: tip }">
-      <v-chip
+      <span
         v-bind="tip"
-        class="qa-title-conn-chip"
-        color="success"
-        size="x-small"
-        variant="elevated"
-        rounded="xl"
-        :disabled="!store.appReady || store.planBlocked"
-        @click.stop.prevent="onToggle"
+        class="tat"
+        :class="{ 'tat--disabled': toggleDisabled }"
+        role="switch"
+        :aria-checked="titleIsOn"
+        @click.stop.prevent="!toggleDisabled && onToggle()"
       >
-        {{ localDigits(connectionCount) }}
-      </v-chip>
+        <v-chip
+          v-if="showConnectionChip || playingProfile"
+          class="tat__face qa-title-conn-chip"
+          :color="chipColor"
+          size="x-small"
+          variant="tonal"
+          rounded="xl"
+          tabindex="-1"
+          :disabled="toggleDisabled"
+        >
+          <TitleGamePing
+            v-if="playingProfile"
+            :key="playingProfile"
+            :profile-id="playingProfile"
+            :fallback="localDigits(connectionCount)"
+            @ping="gamePing = $event"
+          />
+          <template v-else>{{ localDigits(connectionCount) }}</template>
+        </v-chip>
+        <v-btn
+          v-else
+          class="tat__face tat__dot"
+          :color="titleIsOn ? 'green' : 'secondary'"
+          :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
+          variant="text"
+          size="md"
+          tabindex="-1"
+          :disabled="toggleDisabled"
+        />
+        <v-switch
+          class="tat__switch"
+          inset
+          density="compact"
+          hide-details
+          readonly
+          color="green"
+          tabindex="-1"
+          :model-value="titleIsOn"
+          :disabled="toggleDisabled"
+        />
+      </span>
     </template>
 
-    <div class="qa-toggle-tip">
+    <div v-if="showConnectionChip" class="qa-toggle-tip">
       <div
         v-if="titleIsOn"
         class="qa-toggle-tip__action"
@@ -118,27 +213,70 @@ async function onToggle() {
         </li>
       </ul>
     </div>
-  </v-tooltip>
-
-  <v-tooltip
-    v-else
-    :text="inactiveTooltip"
-  >
-    <template #activator="{ props: tip }">
-      <v-btn
-        v-bind="tip"
-        :color="titleIsOn ? 'green' : 'secondary'"
-        :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
-        variant="text"
-        size="md"
-        :disabled="!store.appReady || store.planBlocked"
-        @click.stop.prevent="onToggle"
-      />
-    </template>
+    <template v-else>{{ inactiveTooltip }}</template>
   </v-tooltip>
 </template>
 
 <style scoped>
+/* The dot or chip, and the switch drawn small over it on row hover. */
+.tat {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.tat--disabled {
+  cursor: default;
+}
+
+.tat__face,
+.tat__switch {
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0, 0, 1),
+    opacity 0.18s ease;
+}
+
+.tat__face {
+  pointer-events: none;
+}
+
+/* A little smaller than Vuetify's default dot. */
+.tat__dot :deep(.v-icon) {
+  font-size: 20px;
+}
+
+.tat__switch {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max-content;
+  flex: none;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+}
+
+.tat__switch :deep(.v-selection-control) {
+  min-height: 0;
+}
+
+.v-list-item:hover .tat__face,
+.v-list-item:focus-within .tat__face {
+  opacity: 0;
+  transform: scale(0);
+}
+
+.v-list-item:hover .tat__switch,
+.v-list-item:focus-within .tat__switch {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(0.6);
+}
+
 .qa-title-conn-chip {
   cursor: pointer;
   min-width: 1.25rem;

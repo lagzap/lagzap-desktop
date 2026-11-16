@@ -89,14 +89,14 @@ onUnmounted(() => {
           variant="text"
           :color="getScoreColorClass(combinedScore)"
           class="cursor-pointer"
-          :title="
-            overlayOpen
-              ? t('$vuetify.networkLatency.overlayOpenHint')
-              : undefined
-          "
           @click="overlayOpen ? popOut() : undefined"
         >
           {{ lastPingDisplay }}
+          <v-tooltip
+            activator="parent"
+            :text="t('$vuetify.networkLatency.overlayOpenHint')"
+            :disabled="!overlayOpen"
+          />
         </v-chip>
       </template>
 
@@ -109,7 +109,7 @@ onUnmounted(() => {
             size="x-small"
             variant="text"
             density="comfortable"
-            :title="t('$vuetify.networkLatency.popOut')"
+            v-tooltip="t('$vuetify.networkLatency.popOut')"
             @click.stop="popOut"
           >
             <v-icon size="small" icon="mdi-open-in-new" />

@@ -7,7 +7,7 @@ import type {
   PricingPlans as PricingPlansData,
   Quote as QuoteData,
 } from "~/bindings/github.com/lagzap/lagzap/adapter/models";
-import { formatLocale } from "~/utils/localeFormat";
+import { formatLocale, intlLocale, nativeIntlLocale } from "~/utils/localeFormat";
 
 // Plans for sale and their quotes. Every amount shown comes from the
 // coordinator; the app only formats it (minor units / 10^digits) and splits
@@ -115,10 +115,11 @@ export function currencyLabel(code: string): string {
   return formatLocale.value === "fa" ? "تومان" : "IRT";
 }
 
-/** An amount in minor units, with the currency's symbol. */
-export function formatMoney(minor: number, code: string, digits: number): string {
+/** An amount in minor units, with the currency's symbol. native: in the
+ * language's own digits whatever the Latin numbers setting says. */
+export function formatMoney(minor: number, code: string, digits: number, native = false): string {
   const value = minor / 10 ** digits;
-  const locale = formatLocale.value === "fa" ? "fa-IR" : "en-US";
+  const locale = native ? nativeIntlLocale() : intlLocale();
   if (code === "IRR") {
     const toman = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Math.round(value / RIALS_PER_TOMAN));
     return `${toman} ${currencyLabel(code)}`;

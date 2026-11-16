@@ -735,7 +735,7 @@ onUnmounted(() => {
                     </td>
                     <td>{{ row.jitter ? row.jitter.toFixed(0) : "—" }}</td>
                     <td>{{ row.score || "—" }}</td>
-                    <td class="font-mono text-caption" :title="row.hops">
+                    <td class="font-mono text-caption" v-tooltip="row.hops">
                       {{ shortPath(row.path) }}
                     </td>
                   </tr>

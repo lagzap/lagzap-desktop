@@ -303,7 +303,7 @@ function legPath(leg: Leg): string {
                     {{ localDigits(leg.route.packet_loss.toFixed(1)) }}%
                   </span>
                 </div>
-                <div class="text-caption text-medium-emphasis text-truncate" :title="legPath(leg)">
+                <div class="text-caption text-medium-emphasis text-truncate" v-tooltip="legPath(leg)">
                   {{ legPath(leg) }}
                 </div>
               </div>

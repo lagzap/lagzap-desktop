@@ -4,7 +4,6 @@ import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
 import type { Title } from "~/bindings/github.com/lagzap/zap/data";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
-import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 import TitleActiveToggle from "~/components/title/TitleActiveToggle.vue";
 import TitleAvatar from "~/components/plan/TitleAvatar.vue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
@@ -68,7 +67,7 @@ watch(
 
 function isInteractiveTarget(target: EventTarget | null) {
   return !!(target as HTMLElement | null)?.closest?.(
-    "button, .qa-favorite-btn, .v-btn, .v-chip, .v-selection-control, input",
+    "button, .tat, .v-btn, .v-chip, .v-selection-control, input",
   );
 }
 
@@ -252,10 +251,6 @@ onBeforeUnmount(() => {
                   </template>
                 </v-tooltip>
 
-                <span class="qa-favorite-btn">
-                  <TitleFavoriteButton :title-id="title.id" size="x-small" />
-                </span>
-
                 <TitleActiveToggle :title="title" />
               </div>
             </template>
@@ -306,10 +301,6 @@ onBeforeUnmount(() => {
               </template>
             </v-tooltip>
 
-            <span class="qa-favorite-btn">
-              <TitleFavoriteButton :title-id="title.id" size="x-small" />
-            </span>
-
             <TitleActiveToggle :title="title" />
           </div>
         </template>
@@ -354,18 +345,6 @@ onBeforeUnmount(() => {
   transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.qa-favorite-btn {
-  display: inline-flex;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s ease;
-}
-
-.v-list-item:hover .qa-favorite-btn,
-.v-list-item:focus-within .qa-favorite-btn {
-  opacity: 1;
-  pointer-events: auto;
-}
 </style>
 
 <style>

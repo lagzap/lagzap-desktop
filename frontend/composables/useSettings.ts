@@ -59,6 +59,8 @@ interface AppSettings {
   allowLocalRoutes?: boolean
   /** Show game and app names in English while the UI is in another language. */
   englishTitleNames?: boolean
+  /** Latin digits and English units (36 ms, KB/s) while the UI is in another language. */
+  latinNumbers?: boolean
   /** Show LagZap and the game it is optimizing as the user's Discord status. */
   discordPresence?: boolean
   /** Windows: capture games through LagZap's virtual adapter instead of the
@@ -88,6 +90,7 @@ const ON_BY_DEFAULT = [
   'proxyDnsRequests',
   'gamingPriority',
   'discordPresence',
+  'latinNumbers',
 ] as const satisfies readonly (keyof AppSettings)[]
 
 function withDefaultsOn(value: AppSettings): AppSettings {
@@ -482,6 +485,10 @@ export const useSettings = (locale?: any, theme?: any) => {
     await saveSettings({ englishTitleNames })
   }
 
+  const setLatinNumbers = async (latinNumbers: boolean) => {
+    await saveSettings({ latinNumbers })
+  }
+
   const setDiscordPresence = async (discordPresence: boolean) => {
     await saveSettings({ discordPresence })
   }
@@ -663,6 +670,7 @@ export const useSettings = (locale?: any, theme?: any) => {
     setRelayTransportFallback,
     setAllowLocalRoutes,
     setEnglishTitleNames,
+    setLatinNumbers,
     setDiscordPresence,
     setVirtualAdapter,
     setAdapterOrder,

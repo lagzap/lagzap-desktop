@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Dialogs } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
-import SensitiveText from "~/components/common/SensitiveText.vue";
 import { speedUnit } from "~/utils/localeFormat";
 import { untilText } from "~/components/network/bandwidth/until";
 import type { AppLimit } from "~/utils/indexedDB";
@@ -233,7 +232,6 @@ function remove() {
           </div>
           <v-radio-group
             v-model="kind"
-            density="compact"
             hide-details>
             <div class="limit-target">
               <v-radio
@@ -241,9 +239,7 @@ function remove() {
                 :label="bc('thisApp')" />
               <div class="limit-target__path">
                 <span class="text-caption text-medium-emphasis text-truncate">
-                  <SensitiveText
-                    v-if="exePath"
-                    :text="exePath" />
+                  <span v-if="exePath" dir="ltr">{{ exePath }}</span>
                   <template v-else>
                     {{ bc("nothingPicked") }}
                   </template>
@@ -263,9 +259,7 @@ function remove() {
                 :label="bc('thisFolder')" />
               <div class="limit-target__path">
                 <span class="text-caption text-medium-emphasis text-truncate">
-                  <SensitiveText
-                    v-if="folderPath"
-                    :text="folderPath" />
+                  <span v-if="folderPath" dir="ltr">{{ folderPath }}</span>
                   <template v-else>
                     {{ bc("nothingPicked") }}
                   </template>
@@ -276,7 +270,7 @@ function remove() {
                   size="small"
                   variant="text"
                   :disabled="!canGoUp"
-                  :title="bc('folderUp')"
+                  v-tooltip="bc('folderUp')"
                   :aria-label="bc('folderUp')"
                   @click="goUp"
                 />

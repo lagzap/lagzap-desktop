@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useLocale } from "vuetify";
+import { maskSensitive } from "~/utils/privacy";
 
-/** Personal data (email, phone, IP) blurred until clicked: streamers keep
+/** Personal data (email, phone, IP) shown as stars until clicked: streamers keep
  * the app on screen, and nothing personal may show without them asking. */
 defineProps<{ text: string }>();
 
@@ -16,10 +17,9 @@ const shown = ref(false);
       <span
         v-bind="tip"
         class="sensitive-text"
-        :class="{ 'sensitive-text--hidden': !shown }"
         dir="ltr"
         @click.stop="shown = !shown"
-      >{{ text }}</span>
+      >{{ shown ? text : maskSensitive(text) }}</span>
     </template>
   </v-tooltip>
 </template>
@@ -28,11 +28,5 @@ const shown = ref(false);
 .sensitive-text {
   cursor: pointer;
   border-radius: 4px;
-  transition: filter 0.15s ease;
-}
-
-.sensitive-text--hidden {
-  filter: blur(5px);
-  user-select: none;
 }
 </style>

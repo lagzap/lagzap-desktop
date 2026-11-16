@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import CountryFlag from "vue-country-flag-next";
 import { useLocale } from "vuetify";
 import { useStore } from "@/stores";
+import { maskSensitive } from "~/utils/privacy";
 
 /** The connection LagZap sees for this account: public IP (hidden until
  * asked, it is often on screen while streaming), ISP and location. */
@@ -28,7 +29,7 @@ const countryCode = computed(() => (/^[A-Za-z]{2}$/.test(info.value?.Country ?? 
       <div class="lz-metric">
         <span class="lz-label">{{ t("$vuetify.profile.publicIp") }}</span>
         <span class="lz-metric__value d-flex align-center ga-1">
-          <span dir="ltr" :class="{ 'connection__ip--hidden': !showIp }">{{ info.IP || "—" }}</span>
+          <span dir="ltr">{{ !info.IP ? "—" : showIp ? info.IP : maskSensitive(info.IP) }}</span>
           <v-btn
             v-if="info.IP"
             :icon="showIp ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
@@ -54,10 +55,3 @@ const countryCode = computed(() => (/^[A-Za-z]{2}$/.test(info.value?.Country ?? 
     <div v-else class="text-body-2 text-medium-emphasis">{{ t("$vuetify.profile.connectionPending") }}</div>
   </section>
 </template>
-
-<style scoped>
-.connection__ip--hidden {
-  filter: blur(5px);
-  user-select: none;
-}
-</style>

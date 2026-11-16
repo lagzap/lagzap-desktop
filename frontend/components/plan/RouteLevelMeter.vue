@@ -4,7 +4,7 @@ import { useLocale } from "vuetify";
 import { ROUTE_LEVELS, useRouteLevel } from "~/composables/useRouteLevel";
 import { useRouteLevels } from "~/composables/useRouteLevels";
 import { usePlanAccess } from "~/composables/usePlanAccess";
-import { localDigits } from "~/utils/localeFormat";
+import { formatMs } from "~/utils/localeFormat";
 
 /** The plan's route level as three steps (Basic, Advanced, Ultimate), what
  * each does, and how much faster a higher level measured on this user's
@@ -45,7 +45,7 @@ const nextLevel = computed(() => (levels.value && planLevel.value < 3 ? planLeve
     <div v-if="upgradeLevel && upgradeMs > 0" class="route-level__upgrade">
       <v-icon icon="mdi-rocket-launch-outline" size="18" color="amber" />
       <span class="text-body-2">
-        {{ t("$vuetify.routeLevel.upgradeSummary", levelName(upgradeLevel), localDigits(upgradeMs)) }}
+        {{ t("$vuetify.routeLevel.upgradeSummary", levelName(upgradeLevel), formatMs(upgradeMs)) }}
       </span>
       <v-spacer />
       <v-btn

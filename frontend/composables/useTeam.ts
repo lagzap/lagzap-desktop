@@ -12,7 +12,7 @@ import {
   RevokeTeamInvite,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { Team, TeamError, TeamInvite, TeamResult } from "~/bindings/github.com/lagzap/lagzap/adapter/models";
-import { formatLocale } from "~/utils/localeFormat";
+import { intlLocale, nativeIntlLocale } from "~/utils/localeFormat";
 
 // The user's team and the invitations addressed to them. They come with the
 // account (GET /data, refreshed on every account update), and every team
@@ -28,10 +28,10 @@ function applyResult(result: TeamResult | null | undefined) {
   invites.value = result.team_invites ?? [];
 }
 
-export function formatTeamDate(raw: string | Date | null | undefined): string {
+export function formatTeamDate(raw: string | Date | null | undefined, native = false): string {
   const date = raw instanceof Date ? raw : raw ? new Date(raw) : null;
   if (!date || Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(formatLocale.value === "fa" ? "fa-IR" : "en-US", { dateStyle: "medium" }).format(date);
+  return new Intl.DateTimeFormat(native ? nativeIntlLocale() : intlLocale(), { dateStyle: "medium" }).format(date);
 }
 
 export function useTeam() {

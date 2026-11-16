@@ -390,9 +390,13 @@ onMounted(async () => {
         :model-value="orphanedInterfaces.length > 0 || hasCustomSettings"
         location="bottom left"
         :color="orphanedInterfaces.length > 0 ? 'warning' : 'primary'"
-        :title="orphanedInterfaces.length > 0 ? undefined : t('$vuetify.title.profile.customSettings')"
         dot
       >
+        <v-tooltip
+          activator="parent"
+          :text="t('$vuetify.title.profile.customSettings')"
+          :disabled="orphanedInterfaces.length > 0"
+        />
         <v-icon>mdi-cog</v-icon>
         </v-badge>
       </v-btn>

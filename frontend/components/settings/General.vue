@@ -15,6 +15,7 @@ const {
   setLaunchOnStartupMinimize,
   setActiveOnStart,
   setEnglishTitleNames,
+  setLatinNumbers,
   setDiscordPresence,
   getLanguages,
   getThemes,
@@ -50,6 +51,16 @@ const {
         density="compact"
         class="mb-4"
         @update:model-value="(value) => void setEnglishTitleNames(!!value)"
+      />
+      <v-checkbox
+        v-if="locale.current.value !== 'en'"
+        :label="t('$vuetify.settings.latinNumbers')"
+        :hint="t('$vuetify.settings.latinNumbersHint')"
+        :model-value="settings.latinNumbers ?? false"
+        persistent-hint
+        density="compact"
+        class="mb-4"
+        @update:model-value="(value) => void setLatinNumbers(!!value)"
       />
 
       <v-select

@@ -88,13 +88,27 @@ function setDefault(name: string, on: boolean) {
 
 // Drag from the grip only, so chips and route inputs keep working. Pointer
 // events, not HTML drag and drop: the app's WebView does not deliver the
-// latter reliably, which left the cards impossible to move.
+// latter reliably. The card follows the pointer; on drop the cards slide
+// into their new places (FLIP), the dropped one from where it was let go.
+// More settings open on every card at once, so cards in a row stay level.
+const cardsExpanded = ref(false);
+
 const dragging = ref<string | null>(null);
 const dropTarget = ref<string | null>(null);
+let dragEl: HTMLElement | null = null;
+let dragStart = { x: 0, y: 0 };
 
+function slotEl(name: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`.adapter-slot[data-adapter="${CSS.escape(name)}"]`);
+}
+
+/** The card under the pointer, the dragged one left out. */
 function slotUnder(x: number, y: number): string | null {
-  const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-adapter]");
-  return el?.dataset.adapter ?? null;
+  for (const el of document.elementsFromPoint(x, y)) {
+    const slot = el.closest<HTMLElement>("[data-adapter]");
+    if (slot && slot.dataset.adapter !== dragging.value) return slot.dataset.adapter ?? null;
+  }
+  return null;
 }
 
 function onGripDown(name: string, event: PointerEvent) {
@@ -103,25 +117,57 @@ function onGripDown(name: string, event: PointerEvent) {
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   dragging.value = name;
   dropTarget.value = null;
+  dragEl = slotEl(name);
+  dragStart = { x: event.clientX, y: event.clientY };
   document.body.classList.add("adapter-dragging");
 }
+
 function onGripMove(event: PointerEvent) {
-  if (!dragging.value) return;
-  const over = slotUnder(event.clientX, event.clientY);
-  dropTarget.value = over && over !== dragging.value ? over : null;
+  if (!dragging.value || !dragEl) return;
+  const dx = event.clientX - dragStart.x;
+  const dy = event.clientY - dragStart.y;
+  dragEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.02)`;
+  dropTarget.value = slotUnder(event.clientX, event.clientY);
 }
-function onGripUp() {
+
+async function onGripUp() {
+  const el = dragEl;
   const from = orderedNames.value.indexOf(dragging.value ?? "");
   const to = orderedNames.value.indexOf(dropTarget.value ?? "");
+  // Where every card is drawn now, the dragged one where it was let go.
+  const before = new Map(orderedNames.value.map((n) => [n, slotEl(n)?.getBoundingClientRect()]));
+  onDragEnd();
+  if (el) el.style.transform = "";
   if (from >= 0 && to >= 0 && from !== to) {
     const next = [...orderedNames.value];
     next.splice(to, 0, ...next.splice(from, 1));
     commitOrder(next);
+    await nextTick();
   }
-  onDragEnd();
+  slideFrom(before);
 }
+
+/** Moves each card from its old rect to where it is now. */
+function slideFrom(before: Map<string, DOMRect | undefined>) {
+  for (const [name, old] of before) {
+    const el = slotEl(name);
+    if (!el || !old) continue;
+    const now = el.getBoundingClientRect();
+    const dx = old.left - now.left;
+    const dy = old.top - now.top;
+    if (!dx && !dy) continue;
+    el.style.transition = "none";
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    void el.offsetWidth;
+    el.style.transition = "transform 0.22s cubic-bezier(0.2, 0, 0, 1)";
+    el.style.transform = "";
+    el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
+  }
+}
+
 function onDragEnd() {
   dragging.value = dropTarget.value = null;
+  dragEl = null;
   document.body.classList.remove("adapter-dragging");
 }
 onUnmounted(onDragEnd);
@@ -151,7 +197,8 @@ const captureModes = computed(() => [
     icon: "mdi-ethernet",
     title: mi("captureStandard"),
     badge: mi("captureRecommended"),
-    pros: [mi("captureStandardPro1"), mi("captureStandardPro2"), mi("captureStandardPro3")],
+    summary: mi("captureStandardSummary"),
+    pros: [mi("captureStandardPro1"), mi("captureStandardPro2"), mi("captureStandardPro3"), mi("captureStandardPro4")],
     cons: [mi("captureStandardCon1")],
   },
   {
@@ -159,27 +206,40 @@ const captureModes = computed(() => [
     icon: "mdi-lan-connect",
     title: mi("captureVirtual"),
     badge: "",
+    summary: mi("captureVirtualSummary"),
     pros: [mi("captureVirtualPro1"), mi("captureVirtualPro2")],
-    cons: [mi("captureVirtualCon1"), mi("captureVirtualCon2"), mi("captureVirtualCon3")],
+    cons: [mi("captureVirtualCon4"), mi("captureVirtualCon1"), mi("captureVirtualCon2"), mi("captureVirtualCon3")],
   },
 ]);
 const virtualOn = computed(() => settings.value.virtualAdapter === true);
 
 const pools = computed(() => [
+  { key: "multi", pool: multiInternet, icon: "mdi-call-split", title: mi("multi"), hint: mi("autoMultiHint") },
+  { key: "backup", pool: backupInterfaces, icon: "mdi-shield-check-outline", title: mi("backup"), hint: mi("autoBackupHint") },
+  { key: "loadBalance", pool: loadBalance, icon: "mdi-scale-balance", title: mi("loadBalance"), hint: mi("autoLoadBalanceHint") },
+]);
+const poolsLocked = computed(() => store.planBlocked || planCapsInternets.value);
+function togglePool(pool: { auto: { value: boolean } }) {
+  if (!poolsLocked.value) pool.auto.value = !pool.auto.value;
+}
+
+// Routes per adapter: a stepper per transport; empty means the default.
+const routeSteppers = computed(() => [
   {
-    key: "multi",
-    pool: multiInternet,
-    label: t("$vuetify.settings.multiInternetPage.autoMulti"),
+    key: "tcp",
+    label: mi("tcp"),
+    hint: mi("routesTcpHint"),
+    custom: globalTcpRoutes.value,
+    value: resolvedGlobalTcp.value,
+    set: setGlobalTcp,
   },
   {
-    key: "backup",
-    pool: backupInterfaces,
-    label: t("$vuetify.settings.multiInternetPage.autoBackup"),
-  },
-  {
-    key: "loadBalance",
-    pool: loadBalance,
-    label: t("$vuetify.settings.multiInternetPage.autoLoadBalance"),
+    key: "udp",
+    label: mi("udp"),
+    hint: mi("routesUdpHint"),
+    custom: globalUdpRoutes.value,
+    value: resolvedGlobalUdp.value,
+    set: setGlobalUdp,
   },
 ]);
 </script>
@@ -195,20 +255,48 @@ const pools = computed(() => [
       </template>
 
       <div class="multi-internet pa-4">
-        <div class="multi-internet__auto mb-4">
-          <v-switch
-            v-for="item in pools"
-            :key="item.key"
-            v-model="item.pool.auto.value"
-            :disabled="store.planBlocked || planCapsInternets"
-            :label="item.label"
-            color="primary"
-            density="compact"
-            hide-details
-            inset
-          />
-          <HelpTip :text="t('$vuetify.settings.useAllAdaptersHint')" />
-        </div>
+        <section class="mi-section mb-6">
+          <div class="mi-section__head">
+            <span class="text-subtitle-2">{{ mi("autoTitle") }}</span>
+            <HelpTip :text="t('$vuetify.settings.useAllAdaptersHint')" />
+          </div>
+          <div class="mi-pools">
+            <div
+              v-for="item in pools"
+              :key="item.key"
+              class="mi-pool"
+              :class="{
+                'mi-pool--on': item.pool.auto.value,
+                'mi-pool--locked': poolsLocked,
+              }"
+              role="switch"
+              :aria-checked="item.pool.auto.value"
+              :aria-label="item.title"
+              :tabindex="poolsLocked ? -1 : 0"
+              @click="togglePool(item.pool)"
+              @keydown.space.prevent="togglePool(item.pool)"
+            >
+              <div class="mi-pool__icon">
+                <v-icon :icon="item.icon" size="20" />
+              </div>
+              <div class="mi-pool__text">
+                <div class="text-body-2 font-weight-medium">{{ item.title }}</div>
+                <div class="text-caption text-medium-emphasis">{{ item.hint }}</div>
+              </div>
+              <v-switch
+                :model-value="item.pool.auto.value"
+                :disabled="poolsLocked"
+                color="primary"
+                density="compact"
+                hide-details
+                inset
+                readonly
+                class="mi-pool__switch"
+                tabindex="-1"
+              />
+            </div>
+          </div>
+        </section>
 
         <v-alert
           v-if="names.length === 1"
@@ -256,6 +344,7 @@ const pools = computed(() => [
               </template>
             </v-tooltip>
             <MultiInternetAdapterCard
+              v-model:expanded="cardsExpanded"
               :name="name"
               :monitor="monitorOf(name)"
               :color="colorOf(name)"
@@ -286,79 +375,95 @@ const pools = computed(() => [
           {{ t("$vuetify.networkLatency.monitor.noInterfaces") }}
         </div>
 
-        <!-- Routes per adapter: a card like the adapters above. -->
-        <v-card class="mt-6 routes-card" rounded="lg" variant="flat">
-          <v-card-text class="pa-4">
-          <div class="d-flex align-center ga-2 mb-3">
-            <v-icon icon="mdi-transit-connection-variant" size="20" color="primary" />
-            <span class="text-subtitle-1 font-weight-medium">{{ mi("routesTitle") }}</span>
+        <!-- Routes per adapter: the numbers every Multi Internet card uses
+             unless it sets its own. -->
+        <section class="mi-section mt-8">
+          <div class="mi-section__head">
+            <span class="text-subtitle-2">{{ mi("routesTitle") }}</span>
             <HelpTip :text="mi('routesDescription')" />
           </div>
-          <div class="multi-internet__route-inputs">
-            <v-number-input
-              :model-value="globalTcpRoutes"
-              :label="t('$vuetify.settings.multiInternetPage.tcp')"
-              :placeholder="String(resolvedGlobalTcp)"
-              :min="0"
-              :max="routeMax"
-              persistent-placeholder
-              control-variant="split"
-              variant="outlined"
-              density="compact"
-              hide-details
-              clearable
-              inset
-              :disabled="store.planBlocked"
-              @update:model-value="setGlobalTcp"
-            />
-            <v-number-input
-              :model-value="globalUdpRoutes"
-              :label="t('$vuetify.settings.multiInternetPage.udp')"
-              :placeholder="String(resolvedGlobalUdp)"
-              :min="0"
-              :max="routeMax"
-              persistent-placeholder
-              control-variant="split"
-              variant="outlined"
-              density="compact"
-              hide-details
-              clearable
-              inset
-              :disabled="store.planBlocked"
-              @update:model-value="setGlobalUdp"
-            />
+          <div class="lz-panel">
+            <div class="mi-routes">
+              <div v-for="step in routeSteppers" :key="step.key" class="mi-route">
+                <div class="mi-route__text">
+                  <div class="d-flex align-center ga-2">
+                    <span class="text-body-2 font-weight-medium">{{ step.label }}</span>
+                    <v-chip v-if="step.custom === null" size="x-small" variant="tonal">
+                      {{ mi("routesAuto") }}
+                    </v-chip>
+                    <v-btn
+                      v-else
+                      v-tooltip="mi('routesReset')"
+                      icon="mdi-restore"
+                      size="x-small"
+                      variant="text"
+                      density="comfortable"
+                      :aria-label="mi('routesReset')"
+                      :disabled="store.planBlocked"
+                      @click="step.set(null)"
+                    />
+                  </div>
+                  <div class="text-caption text-medium-emphasis">{{ step.hint }}</div>
+                </div>
+                <div class="mi-stepper" :class="{ 'mi-stepper--disabled': store.planBlocked }">
+                  <v-btn
+                    icon="mdi-minus"
+                    size="small"
+                    variant="text"
+                    density="comfortable"
+                    :disabled="store.planBlocked || step.value <= 0"
+                    @click="step.set(step.value - 1)"
+                  />
+                  <span class="mi-stepper__value lz-num">{{ localDigits(step.value) }}</span>
+                  <v-btn
+                    icon="mdi-plus"
+                    size="small"
+                    variant="text"
+                    density="comfortable"
+                    :disabled="store.planBlocked || step.value >= routeMax"
+                    @click="step.set(step.value + 1)"
+                  />
+                </div>
+              </div>
+            </div>
+            <v-divider />
+            <div class="mi-route">
+              <div class="mi-route__text">
+                <div class="text-body-2 font-weight-medium">{{ t("$vuetify.settings.route.transportFallback") }}</div>
+                <div class="text-caption text-medium-emphasis">{{ t("$vuetify.settings.route.transportFallbackHint") }}</div>
+              </div>
+              <v-switch
+                :model-value="settings.relayTransportFallback"
+                color="primary"
+                density="compact"
+                hide-details
+                inset
+                class="flex-grow-0"
+                @update:model-value="(on) => setRelayTransportFallback(!!on)"
+              />
+            </div>
           </div>
-          <v-checkbox
-            :model-value="settings.relayTransportFallback"
-            density="compact"
-            hide-details
-            class="mt-2"
-            @update:model-value="setRelayTransportFallback"
-          >
-            <template #label>
-              {{ t("$vuetify.settings.route.transportFallback") }}
-              <HelpTip class="ms-1" :text="t('$vuetify.settings.route.transportFallbackHint')" />
-            </template>
-          </v-checkbox>
-          </v-card-text>
-        </v-card>
+        </section>
 
-        <section v-if="isWindows" class="mt-6">
-          <div class="text-subtitle-2 mb-3">
-            {{ mi("virtualAdapterTitle") }}
-            <HelpTip class="ms-1" :text="mi('virtualAdapterDescription')" />
+        <section v-if="isWindows" class="mi-section mt-8">
+          <div class="mi-section__head">
+            <span class="text-subtitle-2">{{ mi("virtualAdapterTitle") }}</span>
+            <HelpTip :text="mi('virtualAdapterDescription')" />
           </div>
-          <div class="capture-modes">
-            <v-card
+          <div class="capture-modes" role="radiogroup" :aria-label="mi('virtualAdapterTitle')">
+            <div
               v-for="mode in captureModes"
               :key="String(mode.virtual)"
               class="capture-mode"
-              :class="{ 'capture-mode--active': virtualOn === mode.virtual }"
-              variant="outlined"
-              rounded="lg"
-              :disabled="virtualAdapterBusy"
-              :ripple="false"
+              :class="{
+                'capture-mode--active': virtualOn === mode.virtual,
+                'capture-mode--busy': virtualAdapterBusy,
+              }"
+              role="radio"
+              :aria-checked="virtualOn === mode.virtual"
+              :tabindex="virtualAdapterBusy ? -1 : 0"
               @click="toggleVirtualAdapter(mode.virtual)"
+              @keydown.space.prevent="toggleVirtualAdapter(mode.virtual)"
             >
               <v-progress-linear
                 v-if="virtualAdapterBusy && virtualOn !== mode.virtual"
@@ -367,30 +472,32 @@ const pools = computed(() => [
                 height="2"
                 absolute
               />
-              <div class="d-flex align-center ga-2 mb-3">
-                <v-icon :icon="mode.icon" size="20" />
-                <span class="text-subtitle-2">{{ mode.title }}</span>
-                <v-chip v-if="mode.badge" size="x-small" color="primary" variant="tonal" rounded="pill">
-                  {{ mode.badge }}
-                </v-chip>
-                <v-spacer />
-                <v-icon
-                  class="capture-mode__check"
-                  :icon="virtualOn === mode.virtual ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                  size="20"
-                />
+              <div class="capture-mode__head">
+                <div class="capture-mode__icon">
+                  <v-icon :icon="mode.icon" size="22" />
+                </div>
+                <div class="capture-mode__title">
+                  <div class="d-flex align-center flex-wrap ga-2">
+                    <span class="text-subtitle-2">{{ mode.title }}</span>
+                    <v-chip v-if="mode.badge" size="x-small" color="primary" variant="tonal">
+                      {{ mode.badge }}
+                    </v-chip>
+                  </div>
+                  <div class="text-caption text-medium-emphasis">{{ mode.summary }}</div>
+                </div>
+                <span class="capture-mode__radio" />
               </div>
               <ul class="capture-mode__list">
                 <li v-for="pro in mode.pros" :key="pro">
-                  <v-icon icon="mdi-check" size="16" color="success" />
+                  <v-icon icon="mdi-check-circle" size="16" color="success" />
                   <span>{{ pro }}</span>
                 </li>
-                <li v-for="con in mode.cons" :key="con">
-                  <v-icon icon="mdi-close" size="16" color="error" />
+                <li v-for="con in mode.cons" :key="con" class="capture-mode__con">
+                  <v-icon icon="mdi-minus-circle" size="16" color="error" />
                   <span>{{ con }}</span>
                 </li>
               </ul>
-            </v-card>
+            </div>
           </div>
           <v-alert
             v-if="virtualAdapterError"
@@ -411,51 +518,193 @@ const pools = computed(() => [
   max-width: 1100px;
 }
 
-.multi-internet__auto {
+.mi-section__head {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 24px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
+/* Use every adapter: one tile per pool; the whole tile toggles. */
+.mi-pools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 12px;
+}
+
+.mi-pool {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-block: 12px;
+  padding-inline: 14px 8px;
+  border: thin solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 12px;
+  background: rgba(var(--v-theme-surface), 0.45);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.mi-pool:hover {
+  border-color: rgba(var(--v-theme-on-surface), 0.25);
+}
+
+.mi-pool:focus-visible,
+.capture-mode:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.mi-pool--on {
+  border-color: rgba(var(--v-theme-primary), 0.45);
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+
+.mi-pool--locked {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.mi-pool__icon,
+.capture-mode__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.mi-pool--on .mi-pool__icon,
+.capture-mode--active .capture-mode__icon {
+  background: rgba(var(--v-theme-primary), 0.15);
+  color: rgb(var(--v-theme-primary));
+}
+
+.mi-pool__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mi-pool__switch {
+  flex: none;
+  pointer-events: none;
+}
+
+/* Routes per adapter: a row per transport with a stepper. */
+.mi-routes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 14px 32px;
+}
+
+.mi-route {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mi-route__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mi-stepper {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.mi-stepper--disabled {
+  opacity: 0.6;
+}
+
+.mi-stepper__value {
+  min-width: 32px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Adapter switching: two radio cards. */
 .capture-modes {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 12px;
-  max-width: 760px;
 }
 
 .capture-mode {
-  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: thin solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 12px;
+  background: rgba(var(--v-theme-surface), 0.45);
   cursor: pointer;
-  border-color: rgb(var(--v-theme-on-surface) / 0.12);
+  user-select: none;
   transition: border-color 0.15s, background-color 0.15s;
 }
 
 .capture-mode:hover {
-  border-color: rgb(var(--v-theme-on-surface) / 0.3);
+  border-color: rgba(var(--v-theme-on-surface), 0.25);
 }
 
 .capture-mode--active {
+  border-color: rgba(var(--v-theme-primary), 0.6);
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+
+.capture-mode--busy {
+  cursor: progress;
+}
+
+.capture-mode__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.capture-mode__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The radio: a ring, with a dot when picked. */
+.capture-mode__radio {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.35);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.capture-mode--active .capture-mode__radio {
   border-color: rgb(var(--v-theme-primary));
-  background: rgb(var(--v-theme-primary) / 0.06);
-}
-
-.capture-mode__check {
-  opacity: 0.5;
-}
-
-.capture-mode--active .capture-mode__check {
-  color: rgb(var(--v-theme-primary));
-  opacity: 1;
+  box-shadow:
+    inset 0 0 0 3px rgb(var(--v-theme-surface)),
+    inset 0 0 0 10px rgb(var(--v-theme-primary));
 }
 
 .capture-mode__list {
   list-style: none;
-  padding: 0;
+  padding: 12px 0 0;
   margin: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  border-top: thin solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .capture-mode__list li {
@@ -466,25 +715,26 @@ const pools = computed(() => [
   line-height: 1.4;
 }
 
+.capture-mode__con {
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
 .capture-mode__list .v-icon {
   margin-top: 1px;
   flex-shrink: 0;
 }
 
-.multi-internet__route-inputs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 200px));
-  gap: 12px;
-}
-
 .adapter-slot {
   position: relative;
   border-radius: 8px;
-  transition: opacity 0.15s, box-shadow 0.15s;
+  transition: box-shadow 0.15s;
 }
 
+/* The dragged card follows the pointer, above the others. */
 .adapter-slot--dragging {
-  opacity: 0.4;
+  z-index: 5;
+  transition: none;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
 }
 
 .adapter-slot--drop {

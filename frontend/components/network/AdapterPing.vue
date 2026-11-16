@@ -11,7 +11,7 @@ const ping = computed(() => monitor.value?.interfaces?.find((iface) => iface.nam
 
 <template>
   <span
-    class="text-caption font-weight-medium"
+    class="text-caption font-weight-medium lz-num"
     :class="ping && ping.now > 0 ? `text-${qualityColor(ping.quality)}` : 'text-medium-emphasis'"
   >
     {{ ping && ping.now > 0 ? `${localDigits(ping.now)}${msUnit()}` : "—" }}

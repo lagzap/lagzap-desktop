@@ -110,7 +110,7 @@ function openCity(key: string) {
                 icon="mdi-transit-connection-variant"
                 size="14"
                 color="primary"
-                :title="t('$vuetify.networkLatency.servers.usedByGames')"
+                v-tooltip="t('$vuetify.networkLatency.servers.usedByGames')"
               />
               <PlanLock v-if="city.locked" :size="14" />
             </div>
@@ -120,7 +120,7 @@ function openCity(key: string) {
           </div>
           <span
             v-if="city.ping"
-            class="city-card__ping text-body-1 font-weight-bold"
+            class="city-card__ping text-body-1 font-weight-bold lz-num"
             :class="`text-${qualityColor(city.quality)}`"
           >
             {{ localDigits(city.ping) }}<small class="text-caption ms-1">{{ msUnit() }}</small>

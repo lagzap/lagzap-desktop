@@ -70,7 +70,7 @@ const speedText = computed(() =>
           variant="tonal"
           prepend-icon="mdi-auto-fix"
           :color="share?.manual ? undefined : 'primary'"
-          :title="t('$vuetify.title.profile.server.loadBalanceAutoHint')"
+          v-tooltip="t('$vuetify.title.profile.server.loadBalanceAutoHint')"
           @click="emit('set', 0); open = false"
         >
           {{ t("$vuetify.title.profile.server.loadBalanceAutoSpeed", speedText) }}

@@ -12,11 +12,15 @@ import type {
 import { checkoutURL, currencyLabel, formatMoney, planFor, planLimit, snapOption, usePricing } from "~/composables/usePricing";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import { formatTeamDate, useTeam } from "~/composables/useTeam";
-import { localDigits } from "~/utils/localeFormat";
+// Prices and plans read in the language's own digits, whatever the Latin
+// numbers setting says.
+import { nativeDigits as localDigits } from "~/utils/localeFormat";
 import { useRouteLevel } from "~/composables/useRouteLevel";
 
-/** Plans for sale: a card per billing period, priced by the coordinator for
- * the chosen plan and options. Buy hands off to the website's checkout. */
+/** Plans for sale: a column per route level (Basic, Advanced, Ultimate) for
+ * the team size and billing period picked above them, priced by the
+ * coordinator; Free, full width, below. Buy hands off to the website's
+ * checkout. */
 const { t } = useLocale();
 const { levelName } = useRouteLevel();
 const route = useRoute();
@@ -27,7 +31,7 @@ const { team, active: teamActive } = useTeam();
 const plans = computed(() => pricing.value?.plans ?? []);
 const code = computed(() => pricing.value?.currency ?? "");
 const digits = computed(() => pricing.value?.digits ?? 2);
-const money = (minor: number) => formatMoney(minor, code.value, digits.value);
+const money = (minor: number) => formatMoney(minor, code.value, digits.value, true);
 
 /* ----- The choice: plan and options ----- */
 const selectedId = ref<number | null>(null);
@@ -145,33 +149,73 @@ function setPlayers(count: number) {
   if (o) choices.value = { ...choices.value, seats: snapOption(o, n) };
 }
 
-/* ----- Quotes: one per period, plus the monthly one for strike-through ----- */
-const quotes = ref<Record<number, QuoteData>>({});
+/* ----- Quotes: one per route level for the chosen period, plus the monthly
+   one for the strike-through ----- */
+const quotes = ref<Record<string, QuoteData>>({});
 const quoting = ref(false);
 const quoteFailed = ref(false);
 let generation = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
 const periods = computed<PricingPeriod[]>(() => selected.value?.periods ?? []);
+/** The billing period picked beside the team size; monthly to start. */
+const periodCount = ref(1);
+/** Monthly, quarterly, half year and yearly always show; one the plan does
+ * not sell is disabled. */
+const STANDARD_COUNTS = [1, 3, 6, 12];
+const periodTabs = computed(() => {
+  const sold = new Map(periods.value.map((p) => [p.count, p]));
+  const counts = interval.value === "month" ? [...new Set([...STANDARD_COUNTS, ...sold.keys()])] : [...sold.keys()];
+  return counts.sort((a, b) => a - b).map((count) => ({ count, period: sold.get(count) ?? null }));
+});
+const period = computed<PricingPeriod | null>(
+  () => periods.value.find((p) => p.count === periodCount.value) ?? periods.value[0] ?? null,
+);
+
+/** The route levels sold side by side: Basic, Advanced, Ultimate. A plan
+ * that sells none shows its own level alone. */
+const levels = computed<number[]>(() => {
+  if (levelOption.value) return levelValues(levelOption.value);
+  const plan = selected.value;
+  return [Math.min(3, Math.max(1, (plan ? planLimit(plan, "max_hops") : 0) || 1))];
+});
+
+/** What a column sends: the options changed from the base, at its level. */
+function columnOptions(level: number): Record<string, number> {
+  const out = { ...changed.value };
+  delete out.max_hops;
+  const o = levelOption.value;
+  if (o && level !== o.included) out.max_hops = level;
+  return out;
+}
+
+const quoteKey = (level: number, count: number) => `${level}|${count}`;
 
 function scheduleQuotes() {
   clearTimeout(timer);
-  if (!selected.value || !code.value) return;
+  if (!selected.value || !code.value || !period.value) return;
   quoting.value = true;
   timer = setTimeout(() => void runQuotes(), 300);
 }
 
 async function runQuotes() {
   const plan = selected.value;
-  if (!plan) return;
+  const chosen = period.value;
+  if (!plan || !chosen) return;
   const mine = ++generation;
   const currency = code.value;
-  const options = { ...changed.value };
-  const counts = [...new Set(plan.periods.map((p) => p.count))];
-  let results = await Promise.all(counts.map((count) => quote(plan.id, count, currency, options, upgradeMode.value)));
-  if (results.some((r) => r.error?.message === "not_an_upgrade")) {
-    // not above the current plan: priced as a plain purchase
-    results = await Promise.all(counts.map((count) => quote(plan.id, count, currency, options)));
+  // Each level at the chosen period, and monthly too when the period is
+  // discounted (its price is struck through).
+  const counts = [...new Set([chosen.count, ...(chosen.discount_percent > 0 && periods.value.some((p) => p.count === 1) ? [1] : [])])];
+  const jobs = levels.value.flatMap((level) => counts.map((count) => ({ level, count })));
+  const ask = (job: { level: number; count: number }, upgrade: boolean) =>
+    quote(plan.id, job.count, currency, columnOptions(job.level), upgrade);
+  let results = await Promise.all(jobs.map((job) => ask(job, upgradeFor(job.level))));
+  // Not above the current plan: priced as a plain purchase.
+  const retry = results.map((r, i) => (r.error?.message === "not_an_upgrade" ? i : -1)).filter((i) => i >= 0);
+  if (retry.length) {
+    const again = await Promise.all(retry.map((i) => ask(jobs[i], false)));
+    retry.forEach((i, k) => (results[i] = again[k]));
   }
   if (mine !== generation) return; // a newer choice is being quoted
 
@@ -189,7 +233,7 @@ async function runQuotes() {
       }
       case "invalid_option": {
         const opt = plan.options?.find((o) => o.option === failure.option);
-        if (opt) {
+        if (opt && opt.option !== "max_hops") {
           const current = choices.value[opt.option] ?? opt.included;
           const snapped = snapOption(opt, current);
           choices.value = { ...choices.value, [opt.option]: snapped === current ? opt.included : snapped };
@@ -206,10 +250,10 @@ async function runQuotes() {
     quoting.value = false;
     return;
   }
-  const next: Record<number, QuoteData> = {};
-  counts.forEach((count, i) => {
+  const next: Record<string, QuoteData> = {};
+  jobs.forEach((job, i) => {
     const q = results[i].quote;
-    if (q) next[count] = q;
+    if (q) next[quoteKey(job.level, job.count)] = q;
   });
   quotes.value = next;
   quoteFailed.value = false;
@@ -218,13 +262,7 @@ async function runQuotes() {
 
 onBeforeUnmount(() => clearTimeout(timer));
 
-/* ----- Cards ----- */
-const bestCount = computed(() => {
-  let best: PricingPeriod | null = null;
-  for (const p of periods.value) if (p.discount_percent > 0 && (!best || p.discount_percent > best.discount_percent)) best = p;
-  return best?.count ?? null;
-});
-
+/* ----- Columns: one per route level ----- */
 const interval = computed(() => selected.value?.interval || "month");
 const intervalCount = computed(() => selected.value?.count || 1);
 
@@ -258,19 +296,21 @@ const FACTS: { key: string; icon: string }[] = [
   { key: "max_active_titles", icon: "mdi-gamepad-variant-outline" },
   { key: "max_internets", icon: "mdi-call-split" },
   { key: "routes", icon: "mdi-routes" },
-  { key: "max_hops", icon: "mdi-rocket-launch-outline" },
 ];
+const CHECK_FACTS = ["disconnect", "bypass", "splitTunnel", "bandwidthControl", "packetLoss", "geofence"].map((key) => ({
+  key,
+  icon: "mdi-check-circle-outline",
+  value: 1,
+  option: null as PricingOption | null,
+}));
 
-/** The route level picked (or the plan's own when it sells none). */
-const routeLevel = computed(() => {
-  const plan = selected.value;
-  const v = choices.value.max_hops ?? (plan ? planLimit(plan, "max_hops") : 0);
-  return Math.min(3, Math.max(1, v || 1));
-});
+/** Ultimate only, not out yet: listed with a Coming soon chip. */
+const SOON_FACTS = [{ key: "easyLobby", icon: "mdi-account-group-outline", value: 1, option: null as PricingOption | null }];
+const SOON = new Set(SOON_FACTS.map((f) => f.key));
 
-function optionValue(q: QuoteData | undefined, key: string): number {
+function optionValue(q: QuoteData | undefined, key: string, level: number): number {
   if (key in FIXED) return FIXED[key];
-  if (BY_LEVEL.has(key)) return routeLevel.value;
+  if (BY_LEVEL.has(key)) return level;
   const plan = selected.value;
   const chosen = choices.value[key];
   if (chosen !== undefined) return chosen;
@@ -279,47 +319,61 @@ function optionValue(q: QuoteData | undefined, key: string): number {
   return plan ? planLimit(plan, key) : 0;
 }
 
-const cards = computed(() =>
-  periods.value.map((period) => {
-    const q = quotes.value[period.count];
-    const months = period.count * intervalCount.value;
+/** The level the user's own plan has, when it is this team size. */
+const currentLevel = computed(() => {
+  if (!isCurrent.value || expired.value) return 0;
+  const v = planAccess.limits.value?.max_hops ?? 0;
+  return v > 0 ? Math.min(3, v) : 0;
+});
+/** A column is the user's plan: same team size and level, nothing changed. */
+const isCurrentColumn = (level: number) =>
+  currentLevel.value === level && !Object.keys(columnOptions(level)).some((k) => k !== "max_hops");
+
+const columns = computed(() => {
+  const chosen = period.value;
+  if (!chosen) return [];
+  return levels.value.map((level) => {
+    const q = quotes.value[quoteKey(level, chosen.count)];
+    const monthly = quotes.value[quoteKey(level, 1)];
+    const months = chosen.count * intervalCount.value;
     const perInterval = q ? q.amount / months : 0;
-    const seats = optionValue(q, "seats") || selected.value?.seats || 1;
-    const monthly = quotes.value[1];
+    const seats = optionValue(q, "seats", level) || selected.value?.seats || 1;
+    const mine = isCurrentColumn(level);
     return {
-      period,
+      level,
       quote: q,
-      title: periodTitle(period.count),
+      title: levelName(level),
+      tip: levelTip(level),
+      popular: levels.value.length > 1 && level === DEFAULT_ROUTE_LEVEL,
+      current: mine,
       upgrade: !!q?.upgrade,
       credit: q?.upgrade && q.credit > 0 ? t("$vuetify.plans.credit", money(q.credit)) : "",
-      buyLabel: q?.upgrade ? t("$vuetify.plans.upgrade") : buyLabel.value,
-      best: period.count === bestCount.value,
+      buyLabel: q?.upgrade
+        ? t("$vuetify.plans.upgrade")
+        : mine && !expired.value
+          ? t("$vuetify.plans.renew")
+          : t("$vuetify.plans.buy"),
       price: q ? money(perInterval) : "",
-      billed: q && period.count > 1 ? billedText(period.count, money(q.amount)) : q ? billedText(1, "") : "",
+      billed: q && chosen.count > 1 ? billedText(chosen.count, money(q.amount)) : q ? billedText(1, "") : "",
       perPlayer: q && seats > 1 ? t("$vuetify.plans.perPlayer", money(perInterval / seats)) : "",
-      strike: q && period.discount_percent > 0 && monthly ? money(monthly.amount / intervalCount.value) : "",
+      strike: q && chosen.discount_percent > 0 && monthly ? money(monthly.amount / intervalCount.value) : "",
       facts: [
-        ...FACTS.map((f) => ({ ...f, value: optionValue(q, f.key), option: editable(f.key) })),
+        ...FACTS.map((f) => ({ ...f, value: optionValue(q, f.key, level), option: editable(f.key) })),
         ...shownOptions.value
           .filter((o) => !FACTS.some((f) => f.key === o.option))
-          .map((o) => ({ key: o.option, icon: "mdi-tune-variant", value: optionValue(q, o.option), option: o as PricingOption | null })),
+          .map((o) => ({
+            key: o.option,
+            icon: "mdi-tune-variant",
+            value: optionValue(q, o.option, level),
+            option: o as PricingOption | null,
+          })),
       ]
         .filter((f) => f.value > 0 || f.option || f.key === "max_active_titles")
-        .reduce<{ key: string; icon: string; value: number; option: PricingOption | null }[]>((list, f, i, all) => {
-          const checks = [
-            { key: "disconnect", icon: "mdi-check-circle-outline", value: 1, option: null },
-            { key: "bypass", icon: "mdi-check-circle-outline", value: 1, option: null },
-            { key: "packetLoss", icon: "mdi-check-circle-outline", value: 1, option: null },
-            { key: "geofence", icon: "mdi-check-circle-outline", value: 1, option: null },
-          ];
-          if (f.key === "max_hops") list.push(...checks);
-          list.push(f);
-          if (i === all.length - 1 && !all.some((x) => x.key === "max_hops")) list.push(...checks);
-          return list;
-        }, []),
+        .concat(CHECK_FACTS)
+        .concat(level === 3 ? SOON_FACTS : []),
     };
-  }),
-);
+  });
+});
 
 const detailsOpen = ref(false);
 
@@ -360,9 +414,11 @@ function levelTip(value: number) {
 
 /** Without a plan: what a plan would add. */
 const noPlan = computed(() => ["none", "expired"].includes(planAccess.status.value));
-const FREE_MISSING = ["routing", "disconnect", "bypass", "packetLoss", "geofence", "levels", "multiInternet"];
+/** What Free has (every plan has them too) and what it needs a plan for. */
+const FREE_INCLUDED = ["bypass", "splitTunnel", "bandwidthControl"];
+const FREE_MISSING = ["routing", "disconnect", "packetLoss", "geofence", "levels", "multiInternet"];
 /** Checkmark facts every plan has. */
-const CHECKS = new Set(["disconnect", "bypass", "packetLoss", "geofence"]);
+const CHECKS = new Set(["disconnect", "bypass", "splitTunnel", "bandwidthControl", "packetLoss", "geofence"]);
 /** Checkmark facts with an explaining tooltip. */
 const FACT_INFO: Record<string, string> = {
   routes: "$vuetify.plans.routesInfo",
@@ -450,25 +506,19 @@ const expired = computed(() => {
   return !!ends && !Number.isNaN(ends.getTime()) && ends.getTime() < Date.now();
 });
 const isCurrent = computed(() => !!selected.value && currentPlanId.value > 0 && selected.value.id === currentPlanId.value);
-const buyLabel = computed(() => (isCurrent.value && !expired.value ? t("$vuetify.plans.renew") : t("$vuetify.plans.buy")));
 /** The user's own plan is running: anything above it is an upgrade, paid as
- * the difference. Renewing the same choice is not. */
+ * the difference. Renewing the same choice (the current column) is not. */
 const upgradeMode = computed(
-  () =>
-    !!access.value?.active &&
-    access.value.source !== "team" &&
-    currentPlanId.value > 0 &&
-    !expired.value &&
-    !(isCurrent.value && !Object.keys(changed.value).length),
+  () => !!access.value?.active && access.value.source !== "team" && currentPlanId.value > 0 && !expired.value,
 );
-const sameAsCurrent = computed(() => isCurrent.value && !Object.keys(changed.value).length);
+const upgradeFor = (level: number) => upgradeMode.value && !isCurrentColumn(level);
 
 const planLine = computed(() => {
   const a = access.value;
   if (!a?.name) return "";
   let text = t("$vuetify.plans.yourPlan", a.name);
   if (a.expires_at) {
-    text += `, ${t(expired.value ? "$vuetify.plans.endedOn" : "$vuetify.plans.endsOn", formatTeamDate(a.expires_at))}`;
+    text += `, ${t(expired.value ? "$vuetify.plans.endedOn" : "$vuetify.plans.endsOn", formatTeamDate(a.expires_at, true))}`;
   }
   return text;
 });
@@ -480,10 +530,12 @@ const teamMember = computed(() => team.value?.role === "member" && teamActive.va
 /* ----- Buy: the website takes payment ----- */
 const checkout = ref<{ url: string; planId: number; expiresAt: string } | null>(null);
 
-async function buy(period: PricingPeriod) {
+async function buy(level: number) {
   const plan = selected.value;
-  if (!plan) return;
-  const url = await checkoutURL(plan.id, period.count, code.value, changed.value, !!quotes.value[period.count]?.upgrade);
+  const chosen = period.value;
+  if (!plan || !chosen) return;
+  const upgrade = !!quotes.value[quoteKey(level, chosen.count)]?.upgrade;
+  const url = await checkoutURL(plan.id, chosen.count, code.value, columnOptions(level), upgrade);
   checkout.value = { url, planId: currentPlanId.value, expiresAt: access.value?.expires_at ?? "" };
   void Browser.OpenURL(url);
 }
@@ -519,7 +571,14 @@ watch(
   },
   { immediate: true },
 );
-watch([selectedId, choices, code, () => upgradeMode.value], scheduleQuotes, { deep: true, immediate: true });
+// A plan without the chosen period falls back to its first one.
+watch(periods, (list) => {
+  if (list.length && !list.some((p) => p.count === periodCount.value)) periodCount.value = list[0].count;
+});
+watch([selectedId, choices, code, periodCount, levels, () => upgradeMode.value, currentLevel], scheduleQuotes, {
+  deep: true,
+  immediate: true,
+});
 if (!pricing.value) void loadPlans();
 </script>
 
@@ -592,55 +651,22 @@ if (!pricing.value) void loadPlans();
         <div v-else-if="!plans.length" class="text-body-1 text-medium-emphasis">{{ t("$vuetify.plans.empty") }}</div>
 
         <template v-else>
-          <!-- Plan switcher -->
-          <!-- Route level, then the plan -->
+          <!-- Team size, then the billing period at the far end -->
           <div class="plan-bar">
-            <v-btn-toggle
-              v-if="levelOption"
-              :model-value="current(levelOption)"
-              mandatory
-              rounded="xl"
-              variant="tonal"
-              color="primary"
-              density="compact"
-              divided
-              class="plan-bar__toggle"
-              @update:model-value="(v: number) => setOption(levelOption!, v)"
-            >
-              <v-tooltip v-for="v in levelValues(levelOption)" :key="v" location="bottom" max-width="320" open-delay="150">
-                <template #activator="{ props: tip }">
-                  <v-btn
-                    v-bind="tip"
-                    :value="v"
-                    size="small"
-                    class="text-none"
-                    prepend-icon="mdi-rocket-launch-outline"
-                  >
-                    {{ optionValueText(levelOption.option, v) }}
-                  </v-btn>
-                </template>
-                <div class="level-tip">
-                    <div class="font-weight-bold mb-1">{{ levelTip(v).title }}</div>
-                    <div class="mb-2">{{ levelTip(v).body }}</div>
-                    <div class="text-medium-emphasis">{{ levelTip(v).best }}</div>
-                  </div>
-              </v-tooltip>
-            </v-btn-toggle>
-            <v-btn-toggle
-              :model-value="selectedId"
-              mandatory
-              rounded="xl"
-              variant="tonal"
-              color="primary"
-              density="compact"
-              divided
-              class="plan-bar__toggle"
-              @update:model-value="(id: number) => selectPlan(plans.find((p) => p.id === id)!, null, true)"
-            >
-              <v-btn v-for="p in plans" :key="p.id" :value="p.id" size="small" class="text-none">
+            <div class="lz-tabs" role="radiogroup" :aria-label="t('$vuetify.plans.title')">
+              <button
+                v-for="p in plans"
+                :key="p.id"
+                type="button"
+                role="radio"
+                class="lz-tab"
+                :class="{ 'lz-tab--active': selectedId === p.id }"
+                :aria-checked="selectedId === p.id"
+                @click="selectPlan(p, null, true)"
+              >
                 {{ planName(p.name) }}
-              </v-btn>
-            </v-btn-toggle>
+              </button>
+            </div>
             <v-btn
               v-if="differsFromDefaults"
               variant="text"
@@ -651,6 +677,23 @@ if (!pricing.value) void loadPlans();
             >
               {{ t("$vuetify.plans.reset") }}
             </v-btn>
+            <v-spacer />
+            <div class="lz-tabs lz-tabs--joined" role="radiogroup">
+              <button
+                v-for="tab in periodTabs"
+                :key="tab.count"
+                type="button"
+                role="radio"
+                class="lz-tab"
+                :class="{ 'lz-tab--active': period?.count === tab.count }"
+                :aria-checked="period?.count === tab.count"
+                :disabled="!tab.period"
+                @click="periodCount = tab.count"
+              >
+                {{ periodTitle(tab.count) }}
+                <span v-if="tab.period && tab.period.discount_percent > 0" class="period-off lz-num">−{{ localDigits(tab.period.discount_percent) }}{{ localDigits("%") }}</span>
+              </button>
+            </div>
           </div>
 
           <v-alert v-if="quoteFailed && !quoting" type="warning" variant="tonal" density="compact" :text="t('$vuetify.plans.quoteFailed')">
@@ -659,94 +702,88 @@ if (!pricing.value) void loadPlans();
             </template>
           </v-alert>
 
-          <!-- Period cards -->
-          <div class="period-cards">
-            <section v-if="noPlan" class="lz-panel period-card period-card--free">
-              <div class="d-flex align-center flex-wrap ga-2">
-                <span class="text-subtitle-1 font-weight-medium">{{ t("$vuetify.plans.free.title") }}</span>
-                <v-chip size="x-small" variant="tonal" prepend-icon="mdi-account-outline">{{ t("$vuetify.plans.free.badge") }}</v-chip>
-              </div>
-              <div class="text-body-2 text-medium-emphasis">{{ t("$vuetify.plans.free.note") }}</div>
-              <ul class="period-card__facts">
-                <li v-for="item in FREE_MISSING" :key="item" class="text-medium-emphasis">
-                  <v-icon icon="mdi-close-circle-outline" size="16" />
-                  <span>{{ t(`$vuetify.plans.free.items.${item}`) }}</span>
-                </li>
-              </ul>
-            </section>
+          <!-- A column per route level -->
+          <div class="level-cards">
             <section
-              v-for="card in cards"
-              :key="card.period.count"
-              class="lz-panel period-card"
-              :class="{ 'period-card--best': card.best }"
+              v-for="col in columns"
+              :key="col.level"
+              class="lz-panel level-card"
+              :class="{ 'level-card--popular': col.popular, 'level-card--current': col.current }"
             >
-              <div v-if="card.best" class="period-card__ribbon bg-primary">{{ t("$vuetify.plans.bestValue") }}</div>
+              <div v-if="col.popular && !col.current" class="level-card__ribbon bg-primary">{{ t("$vuetify.plans.popular") }}</div>
 
               <div class="d-flex align-center flex-wrap ga-2">
-                <span class="text-subtitle-1 font-weight-medium">{{ card.title }}</span>
-                <v-chip v-if="card.period.discount_percent > 0" size="x-small" color="success" variant="tonal">
-                  {{ t("$vuetify.plans.off", localDigits(card.period.discount_percent)) }}
-                </v-chip>
-                <v-chip v-if="sameAsCurrent" size="x-small" color="amber" variant="tonal" prepend-icon="mdi-check">
+                <v-icon icon="mdi-rocket-launch-outline" size="20" color="primary" />
+                <span class="text-h6 font-weight-bold">{{ col.title }}</span>
+                <v-chip v-if="col.current" size="x-small" color="amber" variant="tonal" prepend-icon="mdi-check">
                   {{ t("$vuetify.plans.currentPlan") }}
                 </v-chip>
               </div>
+              <div class="level-card__about">
+                <div class="level-card__for">{{ t("$vuetify.plans.bestFor") }}</div>
+                <div class="text-body-2 text-medium-emphasis">{{ t(`$vuetify.plans.levelInfo.short${col.level}`) }}</div>
+              </div>
 
-              <v-skeleton-loader v-if="quoting || !card.quote" type="heading, text" class="bg-transparent price-skeleton" />
-              <template v-else>
-                <div class="d-flex flex-column">
-                  <span v-if="card.strike" class="text-body-2 text-medium-emphasis text-decoration-line-through">
-                    {{ card.strike }} {{ perLabel() }}
-                  </span>
-                  <div class="d-flex align-baseline flex-wrap ga-1">
-                    <span class="text-h4 font-weight-bold">{{ card.price }}</span>
-                    <span class="text-body-2 text-medium-emphasis">{{ perLabel() }}</span>
-                  </div>
-                  <span class="text-caption text-medium-emphasis">{{ card.billed }}</span>
-                  <span v-if="card.perPlayer" class="text-caption text-primary">{{ card.perPlayer }}</span>
-                  <span v-if="card.credit" class="text-caption text-success">{{ card.credit }}</span>
-                  <template v-if="card.best">
-                    <button type="button" class="price-details-toggle text-caption text-primary" @click="detailsOpen = !detailsOpen">
-                      {{ t("$vuetify.plans.priceDetails") }}
-                      <v-icon :icon="detailsOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="14" />
-                    </button>
-                    <v-expand-transition>
-                      <div v-if="detailsOpen" class="price-lines mt-1">
-                        <div v-for="(line, i) in shownLines(card.quote?.lines)" :key="i" class="price-lines__row">
-                          <span>{{ lineLabel(line) }}</span>
-                          <span>{{ money(line.amount) }}</span>
-                        </div>
-                        <v-divider class="my-1" />
-                        <div class="price-lines__row font-weight-bold">
-                          <span>{{ t("$vuetify.plans.total") }}</span>
-                          <span>{{ money(card.quote?.amount ?? 0) }}</span>
-                        </div>
-                      </div>
-                    </v-expand-transition>
-                  </template>
+              <v-skeleton-loader v-if="quoting || !col.quote" type="heading, text" class="bg-transparent price-skeleton" />
+              <div v-else class="d-flex flex-column">
+                <span v-if="col.strike" class="text-body-2 text-medium-emphasis text-decoration-line-through">
+                  {{ col.strike }} {{ perLabel() }}
+                </span>
+                <div class="d-flex align-baseline flex-wrap ga-1">
+                  <span class="text-h4 font-weight-bold">{{ col.price }}</span>
+                  <span class="text-body-2 text-medium-emphasis">{{ perLabel() }}</span>
                 </div>
-              </template>
+                <span class="text-caption text-medium-emphasis">{{ col.billed }}</span>
+                <span v-if="col.perPlayer" class="text-caption text-primary">{{ col.perPlayer }}</span>
+                <span v-if="col.credit" class="text-caption text-success">{{ col.credit }}</span>
+                <button type="button" class="price-details-toggle text-caption text-primary" @click="detailsOpen = !detailsOpen">
+                  {{ t("$vuetify.plans.priceDetails") }}
+                  <v-icon :icon="detailsOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="14" />
+                </button>
+                <v-expand-transition>
+                  <div v-if="detailsOpen" class="price-lines mt-1">
+                    <div v-for="(line, i) in shownLines(col.quote?.lines)" :key="i" class="price-lines__row">
+                      <span>{{ lineLabel(line) }}</span>
+                      <span>{{ money(line.amount) }}</span>
+                    </div>
+                    <v-divider class="my-1" />
+                    <div class="price-lines__row font-weight-bold">
+                      <span>{{ t("$vuetify.plans.total") }}</span>
+                      <span>{{ money(col.quote?.amount ?? 0) }}</span>
+                    </div>
+                  </div>
+                </v-expand-transition>
+              </div>
+
+              <v-btn
+                block
+                rounded="lg"
+                height="44"
+                class="flex-grow-0"
+                :color="col.popular || col.current ? 'primary' : undefined"
+                :variant="col.popular || col.current ? 'flat' : 'outlined'"
+                prepend-icon="mdi-cart-outline"
+                :disabled="quoting || !col.quote"
+                @click="buy(col.level)"
+              >
+                {{ col.buyLabel }}
+              </v-btn>
+
+              <v-divider />
 
               <!-- What it includes; what can be changed has its control on the row -->
-              <ul class="period-card__facts">
-                <li v-for="fact in card.facts" :key="fact.key">
+              <ul class="level-card__facts">
+                <li v-for="fact in col.facts" :key="fact.key">
                   <v-icon :icon="fact.icon" size="16" :color="CHECKS.has(fact.key) ? 'success' : 'primary'" />
                   <span class="flex-grow-1 min-w-0">
-                    {{ factText(fact.key, fact.value) }}
+                    {{ SOON.has(fact.key) ? t(`$vuetify.plans.facts.${fact.key}`) : factText(fact.key, fact.value) }}
+                    <v-chip v-if="SOON.has(fact.key)" size="x-small" variant="tonal" class="ms-1">
+                      {{ t("$vuetify.plans.soon") }}
+                    </v-chip>
                     <v-tooltip v-if="FACT_INFO[fact.key]" :text="t(FACT_INFO[fact.key]!)" location="top" max-width="300">
                       <template #activator="{ props: tip }">
                         <v-icon v-bind="tip" icon="mdi-information-outline" size="14" class="text-medium-emphasis ms-1" />
                       </template>
-                    </v-tooltip>
-                    <v-tooltip v-else-if="fact.key === 'max_hops'" location="top" max-width="320">
-                      <template #activator="{ props: tip }">
-                        <v-icon v-bind="tip" icon="mdi-information-outline" size="14" class="text-medium-emphasis ms-1" />
-                      </template>
-                      <div class="level-tip">
-                    <div class="font-weight-bold mb-1">{{ levelTip(fact.value).title }}</div>
-                    <div class="mb-2">{{ levelTip(fact.value).body }}</div>
-                    <div class="text-medium-emphasis">{{ levelTip(fact.value).best }}</div>
-                  </div>
                     </v-tooltip>
                   </span>
                   <div v-if="fact.key === 'seats'" class="stepper">
@@ -785,9 +822,13 @@ if (!pricing.value) void loadPlans();
                         :key="c.value"
                         :value="c.value"
                         size="x-small"
-                        :title="c.amount > 0 ? t('$vuetify.plans.hint', money(c.amount), perLabel()) : undefined"
                       >
                         {{ optionValueText(fact.option.option, c.value) }}
+                        <v-tooltip
+                          activator="parent"
+                          :text="t('$vuetify.plans.hint', money(c.amount), perLabel())"
+                          :disabled="!(c.amount > 0)"
+                        />
                       </v-btn>
                     </v-btn-toggle>
                     <div v-else class="stepper">
@@ -799,38 +840,49 @@ if (!pricing.value) void loadPlans();
                         :disabled="current(fact.option) - stepOf(fact.option) < minOf(fact.option)"
                         @click="setOption(fact.option, current(fact.option) - stepOf(fact.option))"
                       />
-                      <v-btn
-                        icon="mdi-plus"
-                        size="x-small"
-                        variant="tonal"
-                        density="comfortable"
-                        :title="nextStepHint(fact.option) || undefined"
-                        :disabled="current(fact.option) + stepOf(fact.option) > maxOf(fact.option)"
-                        @click="setOption(fact.option, current(fact.option) + stepOf(fact.option))"
-                      />
+                      <v-tooltip
+                        :text="nextStepHint(fact.option)"
+                        :disabled="!nextStepHint(fact.option)"
+                      >
+                        <template #activator="{ props: tip }">
+                          <v-btn
+                            v-bind="tip"
+                            icon="mdi-plus"
+                            size="x-small"
+                            variant="tonal"
+                            density="comfortable"
+                            :disabled="current(fact.option) + stepOf(fact.option) > maxOf(fact.option)"
+                            @click="setOption(fact.option, current(fact.option) + stepOf(fact.option))"
+                          />
+                        </template>
+                      </v-tooltip>
                     </div>
                   </template>
                 </li>
               </ul>
-
-              <v-spacer />
-
-              <v-btn
-                block
-                rounded="lg"
-                height="44"
-                class="flex-grow-0"
-                :color="card.best ? 'primary' : undefined"
-                :variant="card.best ? 'flat' : 'outlined'"
-                prepend-icon="mdi-cart-outline"
-                :disabled="quoting || !card.quote"
-                @click="buy(card.period)"
-              >
-                {{ card.buyLabel }}
-              </v-btn>
-
             </section>
           </div>
+
+          <!-- Free, the full width under the paid columns -->
+          <section class="lz-panel free-row" :class="{ 'free-row--current': noPlan }">
+            <div class="free-row__head">
+              <v-icon icon="mdi-account-outline" size="20" />
+              <span class="text-subtitle-1 font-weight-medium">{{ t("$vuetify.plans.free.title") }}</span>
+              <v-chip v-if="noPlan" size="x-small" color="amber" variant="tonal" prepend-icon="mdi-check">
+                {{ t("$vuetify.plans.free.badge") }}
+              </v-chip>
+            </div>
+            <ul class="free-row__items">
+              <li v-for="item in FREE_INCLUDED" :key="item" class="free-row__has">
+                <v-icon icon="mdi-check-circle-outline" size="16" color="success" />
+                <span>{{ t(`$vuetify.plans.facts.${item}`) }}</span>
+              </li>
+              <li v-for="item in FREE_MISSING" :key="item">
+                <v-icon icon="mdi-close-circle-outline" size="16" />
+                <span>{{ t(`$vuetify.plans.free.items.${item}`) }}</span>
+              </li>
+            </ul>
+          </section>
 
           <!-- Static text -->
           <div class="d-flex flex-column ga-1 text-body-2 text-medium-emphasis">
@@ -864,58 +916,71 @@ if (!pricing.value) void loadPlans();
 .plan-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px 12px;
 }
 
-.plan-bar__toggle {
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-.period-cards {
+.level-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
   align-items: stretch;
 }
 
-.period-card {
+.level-card {
   position: relative;
   overflow: hidden;
+  gap: 14px;
 }
 
-.period-card--free {
-  border-style: dashed;
+.level-card__about {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.level-tip {
-  font-size: 0.8rem;
-  line-height: 1.4;
+.level-card__for {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--v-theme-primary));
 }
 
-.period-card--best {
+.level-card--popular {
+  border: 2px solid rgba(var(--v-theme-primary), 0.7);
+}
+
+/* The user's own column: a solid gold border and a light gold wash. */
+.level-card--current {
   border: 2px solid rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.06);
 }
 
-.period-card__ribbon {
+/* A fixed-width band whose middle sits on the corner's diagonal, so any
+   label length stays centred across it. */
+.level-card__ribbon {
   position: absolute;
-  top: 14px;
-  right: -34px;
+  top: 24px;
+  right: -36px;
+  width: 140px;
   transform: rotate(45deg);
-  padding: 2px 40px;
-  font-size: 0.7rem;
-  font-weight: 600;
+  padding: 3px 0;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 0.62rem;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.v-locale--is-rtl .period-card__ribbon {
+.v-locale--is-rtl .level-card__ribbon {
   right: auto;
-  left: -34px;
+  left: -36px;
   transform: rotate(-45deg);
 }
 
-.period-card__facts {
+.level-card__facts {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -925,10 +990,67 @@ if (!pricing.value) void loadPlans();
   font-size: 0.875rem;
 }
 
-.period-card__facts li {
+.level-card__facts li {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 28px;
+}
+
+.period-off {
+  margin-inline-start: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgb(var(--v-theme-success));
+}
+
+/* Free: one full-width row; what a plan adds, side by side. */
+.free-row {
+  border-style: dashed;
+}
+
+.free-row--current {
+  border: 2px solid rgb(var(--v-theme-primary));
+  border-style: solid;
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+
+.free-row__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.free-row__items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  font-size: 0.85rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.free-row__items li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.free-row__has {
+  color: rgba(var(--v-theme-on-surface), 0.87);
+}
+
+.lz-tab:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.level-tip {
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 
 .price-lines {
@@ -961,10 +1083,6 @@ if (!pricing.value) void loadPlans();
 .fact-choices {
   height: 26px !important;
   flex-shrink: 0;
-}
-
-.period-card__facts li {
-  min-height: 28px;
 }
 
 .price-details-toggle {

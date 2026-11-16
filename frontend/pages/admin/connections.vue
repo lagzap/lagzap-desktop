@@ -174,7 +174,7 @@ const headers = computed<DataTableHeader[]>(() => {
               </template>
             </v-tooltip>
             <div class="title-cell">
-              <div class="text-body-2 text-truncate" :title="item.process">{{ item.process_name || "-" }}</div>
+              <div class="text-body-2 text-truncate" v-tooltip="item.process">{{ item.process_name || "-" }}</div>
               <div v-if="item.profile_name" class="text-caption text-medium-emphasis text-truncate">
                 {{ item.profile_name }}
               </div>
@@ -211,7 +211,7 @@ const headers = computed<DataTableHeader[]>(() => {
           </div>
         </template>
         <template v-slot:item.host="{ item }">
-          <span v-if="item.host" class="copyable" title="Click to copy" @click.stop="copy(item.host)">{{ item.host }}<v-icon v-if="copied === item.host" icon="mdi-check" size="14" color="success" class="ms-1" /></span>
+          <span v-if="item.host" class="copyable" v-tooltip="'Click to copy'" @click.stop="copy(item.host)">{{ item.host }}<v-icon v-if="copied === item.host" icon="mdi-check" size="14" color="success" class="ms-1" /></span>
           <span v-else class="text-medium-emphasis">-</span>
         </template>
         <template v-slot:item.download_speed="{ item }">

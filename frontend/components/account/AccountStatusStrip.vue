@@ -3,7 +3,7 @@ import { useLocale } from "vuetify";
 import { useRouteLevel } from "~/composables/useRouteLevel";
 import { useRouteLevels } from "~/composables/useRouteLevels";
 import { usePlanAccess } from "~/composables/usePlanAccess";
-import { localDigits } from "~/utils/localeFormat";
+import { formatMs } from "~/utils/localeFormat";
 
 /**
  * Overview controls: routing switch · plan · account.
@@ -83,7 +83,7 @@ async function onRoutingToggle(wantOn: boolean | null) {
               :disabled="!canUpgrade"
               @click="openUpgrade"
             >
-              {{ t("$vuetify.routeLevel.upgradeChip", levelName(upgrade.upgrade_level), localDigits(upgrade.upgrade_ms)) }}
+              {{ t("$vuetify.routeLevel.upgradeChip", levelName(upgrade.upgrade_level), formatMs(upgrade.upgrade_ms)) }}
             </v-chip>
           </template>
         </v-tooltip>

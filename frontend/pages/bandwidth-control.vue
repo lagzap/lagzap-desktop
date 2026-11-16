@@ -3,7 +3,6 @@ import { useLocale, useTheme } from "vuetify";
 import Container from "~/components/layout/Container.vue";
 import { interfaceBaseColor } from "~/composables/useLatencyMetrics";
 import HelpTip from "~/components/settings/HelpTip.vue";
-import SensitiveText from "~/components/common/SensitiveText.vue";
 import AppSparkline, { type SparkSeries } from "~/components/network/bandwidth/AppSparkline.vue";
 import AppLimitDialog from "~/components/network/bandwidth/AppLimitDialog.vue";
 import AppRouteDialog from "~/components/network/bandwidth/AppRouteDialog.vue";
@@ -166,6 +165,19 @@ const routeName = (route: AppRoute) => {
   return route.kind === "folder" ? base : displayName(route.path, base);
 };
 
+// Right-click on an app: the same speed cap and internet actions as its
+// buttons, at the cursor.
+const contextApp = ref<AppTraffic | null>(null);
+const contextAt = ref<[number, number]>([0, 0]);
+const contextOpen = ref(false);
+
+function openContext(event: MouseEvent, app: AppTraffic) {
+  if (app.routed || app.path.startsWith(":")) return;
+  contextApp.value = app;
+  contextAt.value = [event.clientX, event.clientY];
+  contextOpen.value = true;
+}
+
 function openRouteForApp(app: AppTraffic) {
   // A folder's rule is edited from its own row; an app row makes its own.
   const own = routeFor(app.path);
@@ -202,10 +214,18 @@ const sparks = computed(() => {
       const series: SparkSeries[] = internets.length
         ? internets.map((item) => ({ points: item.points, color: internetColor(item.name) }))
         : [{ points: historyOf(app.path), color: app.limited ? "rgb(var(--v-theme-warning))" : undefined }];
-      const legend = internets.map((item) => ({ name: item.name, color: internetColor(item.name) }));
-      return [app.path, { series, legend }];
+      return [app.path, { series, internets: internets.map((item) => item.name) }];
     }),
   );
+});
+
+/** The internets the app lines are drawn in, once for the whole list: each
+ * line's color says which internet it is. */
+const sparkLegend = computed(() => {
+  const used = new Set([...sparks.value.values()].flatMap((spark) => spark.internets));
+  return internetOrder.value
+    .filter((name) => used.has(name))
+    .map((name) => ({ name, color: internetColor(name) }));
 });
 </script>
 
@@ -281,9 +301,7 @@ const sparks = computed(() => {
                   <template v-if="limit.kind !== 'exe' && limit.kind !== 'folder'">
                     {{ limitSubtitle(limit) }}
                   </template>
-                  <SensitiveText
-                    v-else
-                    :text="limit.path" />
+                  <span v-else dir="ltr">{{ limit.path }}</span>
                 </div>
               </div>
               <v-chip
@@ -341,7 +359,7 @@ const sparks = computed(() => {
                   {{ routeName(route) }}
                 </div>
                 <div class="text-caption text-medium-emphasis text-truncate">
-                  <SensitiveText :text="route.path" />
+                  <span dir="ltr">{{ route.path }}</span>
                 </div>
               </div>
               <v-chip
@@ -372,8 +390,20 @@ const sparks = computed(() => {
             <v-divider />
           </section>
 
-          <div class="text-subtitle-2 px-4 pt-3 pb-1">
-            {{ bc("apps") }}
+          <div class="d-flex align-center px-4 pt-3 pb-1">
+            <span class="text-subtitle-2">{{ bc("apps") }}</span>
+            <v-spacer />
+            <div class="bandwidth__legend">
+              <span
+                v-for="item in sparkLegend"
+                :key="item.name"
+                class="bandwidth__internet">
+                <span
+                  class="bandwidth__dot"
+                  :style="{ background: item.color }" />
+                {{ item.name }}
+              </span>
+            </div>
           </div>
           <div
             v-if="!apps.length"
@@ -383,7 +413,8 @@ const sparks = computed(() => {
           <div
             v-for="app in sortedApps"
             :key="app.path"
-            class="bandwidth__row">
+            class="bandwidth__row"
+            @contextmenu.prevent="openContext($event, app)">
             <v-avatar
               size="32"
               rounded="0"
@@ -426,17 +457,8 @@ const sparks = computed(() => {
                   {{ bc("viaInternet", activeRoute(app.path)!.interface) }}
                 </v-chip>
               </div>
-              <div class="text-caption text-medium-emphasis d-flex align-center flex-wrap column-gap-2">
-                <span>{{ bc("sessionTotal", formatSize(app.download)) }}</span>
-                <span
-                  v-for="item in sparks.get(app.path)?.legend ?? []"
-                  :key="item.name"
-                  class="bandwidth__internet">
-                  <span
-                    class="bandwidth__dot"
-                    :style="{ background: item.color }" />
-                  {{ item.name }}
-                </span>
+              <div class="text-caption text-medium-emphasis text-truncate">
+                {{ bc("sessionTotal", formatSize(app.download)) }}
               </div>
             </div>
             <div class="bandwidth__speed text-body-2 font-weight-medium">
@@ -449,7 +471,7 @@ const sparks = computed(() => {
               variant="text"
               :disabled="app.routed || app.path.startsWith(':')"
               :aria-label="app.rule_id ? bc('editCap') : bc('addCap')"
-              :title="app.rule_id ? bc('editCap') : bc('addCap')"
+              v-tooltip="app.rule_id ? bc('editCap') : bc('addCap')"
               @click="openForApp(app)"
             />
             <!-- LagZap picks the internet for apps it routes. -->
@@ -460,12 +482,32 @@ const sparks = computed(() => {
               :color="activeRoute(app.path) ? 'primary' : undefined"
               :disabled="app.routed || app.path.startsWith(':')"
               :aria-label="bc('useInternet')"
-              :title="bc('useInternet')"
+              v-tooltip="bc('useInternet')"
               @click="openRouteForApp(app)"
             />
           </div>
         </template>
       </div>
+
+      <v-menu
+        v-model="contextOpen"
+        :target="contextAt"
+        location="bottom start">
+        <v-list
+          v-if="contextApp"
+          density="compact">
+          <v-list-item
+            :prepend-icon="contextApp.rule_id ? 'mdi-speedometer-slow' : 'mdi-speedometer'"
+            :title="contextApp.rule_id ? bc('editCap') : bc('addCap')"
+            @click="openForApp(contextApp)"
+          />
+          <v-list-item
+            prepend-icon="mdi-swap-horizontal"
+            :title="bc('useInternet')"
+            @click="openRouteForApp(contextApp)"
+          />
+        </v-list>
+      </v-menu>
 
       <div
         v-if="running"
@@ -482,7 +524,7 @@ const sparks = computed(() => {
               size="small"
               color="surface-variant"
               variant="elevated"
-              :title="`${bc('sortBy')}: ${sortTitle}`"
+              v-tooltip="`${bc('sortBy')}: ${sortTitle}`"
               :aria-label="bc('sortBy')"
             />
           </template>
@@ -512,7 +554,7 @@ const sparks = computed(() => {
               size="small"
               color="surface-variant"
               variant="elevated"
-              :title="bc('addRule')"
+              v-tooltip="bc('addRule')"
               :aria-label="bc('addRule')"
             />
           </template>
@@ -613,15 +655,26 @@ const sparks = computed(() => {
   flex: none;
 }
 
+.bandwidth__legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 16px;
+  margin-inline-start: 16px;
+  font-size: 0.7rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
 .bandwidth__internet {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .bandwidth__dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex: none;
 }

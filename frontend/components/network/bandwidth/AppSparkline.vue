@@ -58,13 +58,11 @@ const paths = computed(() => {
 </template>
 
 <style scoped>
+/* Time runs left to right in Persian too. (A scoped :global(...) rule here
+   compiled to a bare .v-locale--is-rtl and turned the whole app LTR.) */
 .app-sparkline {
   display: block;
   flex: none;
-}
-
-/* Time runs left to right in Persian too. */
-:global(.v-locale--is-rtl) .app-sparkline {
   direction: ltr;
 }
 </style>

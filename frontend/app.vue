@@ -23,6 +23,18 @@ watchEffect(() => {
   formatLocale.value = locale.current.value;
 });
 const { settings, isLoaded } = useSettings(locale, theme);
+// The "Latin numbers and units" setting (on unless turned off).
+watchEffect(() => {
+  latinNumbers.value = settings.value.latinNumbers !== false;
+});
+// The page's own direction and language, so right-to-left text and
+// number runs (.lz-num) lay out right even outside Vuetify's components.
+watchEffect(() => {
+  const root = document.documentElement;
+  root.dir = locale.isRtl.value ? "rtl" : "ltr";
+  root.lang = locale.current.value;
+  root.classList.toggle("lz-latin-num", latinNumbers.value);
+});
 
 const isMaximized = ref<boolean>(false);
 const loaded = ref(false);
@@ -105,7 +117,6 @@ async function close() {
     v-if="!isOverlayWindow"
     class="d-flex align-self-start position-fixed top-0"
     :class="{
-      'flex-row-reverse': $vuetify.locale.isRtl,
       'left-0': $vuetify.locale.isRtl,
       'right-0': !$vuetify.locale.isRtl,
     }"

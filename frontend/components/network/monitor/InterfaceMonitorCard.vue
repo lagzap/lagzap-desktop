@@ -46,7 +46,7 @@ const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E5
       <div class="d-flex align-center ga-2 mb-3">
         <v-icon :icon="icon" :color="color" size="20" />
         <span class="text-subtitle-1 font-weight-medium text-truncate flex-shrink-0 iface-card__name">{{ iface.name }}</span>
-        <span v-if="iface.isp" class="text-caption text-medium-emphasis text-truncate" :title="ispTip">{{ iface.isp }}</span>
+        <span v-if="iface.isp" class="text-caption text-medium-emphasis text-truncate" v-tooltip="ispTip">{{ iface.isp }}</span>
         <v-chip v-if="iface.default && !single" size="x-small" variant="tonal">
           {{ t("$vuetify.networkLatency.monitor.default") }}
         </v-chip>
@@ -67,25 +67,25 @@ const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E5
 
       <div class="d-flex flex-wrap align-end ga-4 mb-1">
         <div class="iface-card__ping">
-          <span
+          <span class="lz-num"><span
             class="text-h4 font-weight-bold"
             :class="`text-${qualityColor(ping.quality)}`"
           >{{ ping.now > 0 ? localDigits(ping.now) : "—" }}</span>
           <span class="text-caption text-medium-emphasis ms-1">
             {{ ping.now > 0 ? msUnit() : t("$vuetify.networkLatency.monitor.timeout") }}
-          </span>
+          </span></span>
           <div class="text-caption text-medium-emphasis">
             {{ t("$vuetify.networkLatency.monitor.internetPing") }}
           </div>
         </div>
         <div class="iface-card__stats text-caption">
-          <div><span>{{ t("$vuetify.networkLatency.monitor.min") }}</span><b>{{ stats.min ? localDigits(stats.min) : "—" }}</b></div>
-          <div><span>{{ t("$vuetify.networkLatency.monitor.avg") }}</span><b>{{ stats.avg ? localDigits(Math.round(stats.avg)) : "—" }}</b></div>
-          <div><span>{{ t("$vuetify.networkLatency.monitor.max") }}</span><b>{{ stats.max ? localDigits(stats.max) : "—" }}</b></div>
-          <div><span>{{ t("$vuetify.networkLatency.jitter") }}</span><b>{{ localDigits(stats.jitter.toFixed(1)) }}</b></div>
+          <div><span>{{ t("$vuetify.networkLatency.monitor.min") }}</span><b class="lz-num">{{ stats.min ? localDigits(stats.min) : "—" }}</b></div>
+          <div><span>{{ t("$vuetify.networkLatency.monitor.avg") }}</span><b class="lz-num">{{ stats.avg ? localDigits(Math.round(stats.avg)) : "—" }}</b></div>
+          <div><span>{{ t("$vuetify.networkLatency.monitor.max") }}</span><b class="lz-num">{{ stats.max ? localDigits(stats.max) : "—" }}</b></div>
+          <div><span>{{ t("$vuetify.networkLatency.jitter") }}</span><b class="lz-num">{{ localDigits(stats.jitter.toFixed(1)) }}</b></div>
           <div>
             <span>{{ t("$vuetify.networkLatency.loss") }}</span>
-            <b :class="stats.loss > 1 ? 'text-error' : ''">{{ localDigits(`${stats.loss.toFixed(1)}%`) }}</b>
+            <b class="lz-num" :class="stats.loss > 1 ? 'text-error' : ''">{{ localDigits(`${stats.loss.toFixed(1)}%`) }}</b>
           </div>
         </div>
       </div>

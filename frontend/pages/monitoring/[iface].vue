@@ -135,12 +135,12 @@ function routeLabel(via?: string[] | null): string {
                 <div>
                   <div class="iface-hero__label">{{ t("$vuetify.networkLatency.monitor.internetPing") }}</div>
                   <div>
-                    <span class="text-h3 font-weight-bold" :class="`text-${qualityColor(ping.quality)}`">
+                    <span class="lz-num"><span class="text-h3 font-weight-bold" :class="`text-${qualityColor(ping.quality)}`">
                       {{ ping.now > 0 ? localDigits(ping.now) : "—" }}
                     </span>
                     <span class="text-body-2 text-medium-emphasis ms-1">
                       {{ ping.now > 0 ? msUnit() : t("$vuetify.networkLatency.monitor.timeout") }}
-                    </span>
+                    </span></span>
                   </div>
                   <div class="text-body-2 font-weight-medium" :class="`text-${qualityColor(ping.quality)}`">
                     {{ t(`$vuetify.networkLatency.monitor.qualityWord.${ping.quality || "down"}`) }}
@@ -151,23 +151,23 @@ function routeLabel(via?: string[] | null): string {
               <div class="iface-hero__metrics">
                 <div class="iface-metric">
                   <span class="iface-hero__label">{{ t("$vuetify.networkLatency.avg") }}</span>
-                  <span>{{ stats.avg ? localDigits(Math.round(stats.avg)) : "—" }}<small> {{ msUnit() }}</small></span>
+                  <span class="lz-num">{{ stats.avg ? localDigits(Math.round(stats.avg)) : "—" }}<small> {{ msUnit() }}</small></span>
                 </div>
                 <div class="iface-metric">
                   <span class="iface-hero__label">{{ t("$vuetify.networkLatency.min") }} / {{ t("$vuetify.networkLatency.max") }}</span>
-                  <span>{{ stats.min ? localDigits(stats.min) : "—" }} / {{ stats.max ? localDigits(stats.max) : "—" }}<small> {{ msUnit() }}</small></span>
+                  <span class="lz-num">{{ stats.min ? localDigits(stats.min) : "—" }} / {{ stats.max ? localDigits(stats.max) : "—" }}<small> {{ msUnit() }}</small></span>
                 </div>
                 <div class="iface-metric">
                   <span class="iface-hero__label">{{ t("$vuetify.networkLatency.jitter") }}</span>
-                  <span>{{ localDigits(stats.jitter.toFixed(1)) }}<small> {{ msUnit() }}</small></span>
+                  <span class="lz-num">{{ localDigits(stats.jitter.toFixed(1)) }}<small> {{ msUnit() }}</small></span>
                 </div>
                 <div class="iface-metric">
                   <span class="iface-hero__label">{{ t("$vuetify.networkLatency.loss") }}</span>
-                  <span :class="stats.loss > 1 ? 'text-error' : ''">{{ localDigits(stats.loss.toFixed(1)) }}<small>{{ localDigits('%') }}</small></span>
+                  <span class="lz-num" :class="stats.loss > 1 ? 'text-error' : ''">{{ localDigits(stats.loss.toFixed(1)) }}<small>{{ localDigits('%') }}</small></span>
                 </div>
                 <div class="iface-metric">
                   <span class="iface-hero__label">{{ t("$vuetify.networkLatency.monitor.detail.uptime") }}</span>
-                  <span :class="detail.uptime >= 0 && detail.uptime < 99 ? 'text-warning' : ''">
+                  <span class="lz-num" :class="detail.uptime >= 0 && detail.uptime < 99 ? 'text-warning' : ''">
                     {{ detail.uptime >= 0 ? localDigits(detail.uptime.toFixed(1)) : "—" }}<small v-if="detail.uptime >= 0">{{ localDigits('%') }}</small>
                   </span>
                 </div>

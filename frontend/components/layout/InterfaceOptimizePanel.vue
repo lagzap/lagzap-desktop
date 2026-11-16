@@ -108,7 +108,7 @@ function statusText(row: IfaceStatus): string {
     case "probing":
       return t("$vuetify.routeAnalysis.ifaceProbing", row.completed ?? 0, row.total ?? 0);
     case "done":
-      return t("$vuetify.routeAnalysis.ifaceReady", row.best_ms ?? 0, row.reachable ?? 0);
+      return t("$vuetify.routeAnalysis.ifaceReady", formatMs(row.best_ms), localDigits(row.reachable ?? 0));
     default:
       return row.reason === "no_internet"
         ? t("$vuetify.routeAnalysis.ifaceNoInternet")

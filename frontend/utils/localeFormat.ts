@@ -5,6 +5,10 @@ import { ref } from "vue";
  * re-render when the language changes. */
 export const formatLocale = ref("en");
 
+/** The "Latin numbers and units" setting: 36 ms and KB/s in every language.
+ * app.vue keeps it in step with the setting. */
+export const latinNumbers = ref(false);
+
 const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 
 const UNITS: Record<string, { ms: string; bytes: string[]; perSecond: string }> = {
@@ -13,11 +17,51 @@ const UNITS: Record<string, { ms: string; bytes: string[]; perSecond: string }> 
 };
 
 function units() {
-  return UNITS[formatLocale.value] ?? UNITS.en;
+  return (!latinNumbers.value && UNITS[formatLocale.value]) || UNITS.en;
 }
 
+/** Numbers and units are written the Persian way. */
 function farsi() {
-  return formatLocale.value === "fa";
+  return formatLocale.value === "fa" && !latinNumbers.value;
+}
+
+/** Latin numbers inside right-to-left text. */
+function latinInRtl() {
+  return formatLocale.value === "fa" && latinNumbers.value;
+}
+
+/** Keeps "36ms" or "1.5 MB/s" one left-to-right run inside Persian text, so
+ * the unit never jumps to the other side of the number. */
+function ltrRun(text: string): string {
+  return latinInRtl() ? `\u2066${text}\u2069` : text;
+}
+
+/** The Intl locale for numbers and dates: Persian with Latin digits when the
+ * setting is on. */
+export function intlLocale(): string {
+  if (formatLocale.value !== "fa") return "en-US";
+  return latinNumbers.value ? "fa-IR-u-nu-latn" : "fa-IR";
+}
+
+/** The UI language's own digits, ignoring the Latin numbers setting: for
+ * prices and plans, which always read in the language's digits. */
+const NATIVE_DIGITS: Record<string, string> = { fa: FA_DIGITS, ar: "٠١٢٣٤٥٦٧٨٩" };
+
+export function nativeDigits(text: string | number | null | undefined): string {
+  const s = text == null ? "" : String(text);
+  const set = NATIVE_DIGITS[formatLocale.value];
+  if (!set) return s;
+  return s
+    .replace(/(\d)\.(?=\d)/g, "$1٫")
+    .replace(/\d/g, (d) => set[+d])
+    .replace(/%/g, "٪");
+}
+
+/** intlLocale, ignoring the Latin numbers setting. */
+export function nativeIntlLocale(): string {
+  if (formatLocale.value === "fa") return "fa-IR";
+  if (formatLocale.value === "ar") return "ar-EG";
+  return "en-US";
 }
 
 /** Writes the digits, decimal sign and percent sign of text in the UI
@@ -40,7 +84,7 @@ export function msUnit(): string {
 export function formatMs(value: number | null | undefined, empty = "—", decimals = 0): string {
   if (value == null || !Number.isFinite(value) || value <= 0) return empty;
   const n = localDigits(decimals > 0 ? value.toFixed(decimals) : Math.round(value));
-  return farsi() ? `${n} ${msUnit()}` : `${n}${msUnit()}`;
+  return ltrRun(farsi() ? `${n} ${msUnit()}` : `${n}${msUnit()}`);
 }
 
 /** "MB/s" / "م.ب/ث" for 1024^power bytes per second. */
@@ -51,15 +95,15 @@ export function speedUnit(power: number): string {
 
 /** Time of day in the UI language's digits. */
 export function formatTimeOfDay(at: Date): string {
-  return farsi() ? at.toLocaleTimeString("fa-IR") : at.toLocaleTimeString();
+  return formatLocale.value === "fa" ? at.toLocaleTimeString(intlLocale()) : at.toLocaleTimeString();
 }
 
 function scaled(bytes: number, perSecond: boolean): string {
   const u = units();
   const suffix = perSecond ? u.perSecond : "";
-  if (!(bytes > 0)) return `${localDigits(0)} ${u.bytes[0]}${suffix}`;
+  if (!(bytes > 0)) return ltrRun(`${localDigits(0)} ${u.bytes[0]}${suffix}`);
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), u.bytes.length - 1);
-  return `${localDigits((bytes / Math.pow(1024, i)).toFixed(2))} ${u.bytes[i]}${suffix}`;
+  return ltrRun(`${localDigits((bytes / Math.pow(1024, i)).toFixed(2))} ${u.bytes[i]}${suffix}`);
 }
 
 /** "1.17 MB/s" / "۱٫۱۷ م.ب/ث". */

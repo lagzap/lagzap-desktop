@@ -49,7 +49,8 @@ const { t } = useLocale();
 
 // More settings (route counts, traffic limit) fold behind the round chevron
 // at the card's bottom.
-const expanded = ref(false);
+// More settings: the page opens and closes every card together.
+const expanded = defineModel<boolean>("expanded", { default: false });
 
 const KIND_ICON: Record<string, string> = {
   ethernet: "mdi-ethernet",
@@ -132,7 +133,7 @@ const roles = computed(() => [
       <div class="d-flex align-center ga-2 mb-2">
         <v-icon :icon="icon" :color="color" size="20" />
         <span class="text-subtitle-1 font-weight-medium text-truncate flex-shrink-0 adapter-card__name">{{ name }}</span>
-        <span v-if="monitor?.isp" class="text-caption text-medium-emphasis text-truncate" :title="ispTip">{{ monitor.isp }}</span>
+        <span v-if="monitor?.isp" class="text-caption text-medium-emphasis text-truncate" v-tooltip="ispTip">{{ monitor.isp }}</span>
         <v-chip v-if="metered" color="warning" size="x-small" variant="tonal" prepend-icon="mdi-cash-clock">
           {{ t("$vuetify.settings.multiInternetPage.metered") }}
         </v-chip>
@@ -142,7 +143,7 @@ const roles = computed(() => [
         <v-spacer />
         <PlanLock v-if="planLocked" :need="unlockInternets ? { option: 'max_internets', value: unlockInternets } : undefined" />
         <span
-          class="adapter-card__ping text-h6 font-weight-bold"
+          class="adapter-card__ping text-h6 font-weight-bold lz-num"
           :class="ping && ping.now > 0 ? `text-${qualityColor(ping.quality)}` : 'text-medium-emphasis'"
         >
           {{ ping && ping.now > 0 ? localDigits(ping.now) : "—" }}<small class="text-caption text-medium-emphasis ms-1">{{ msUnit() }}</small>
@@ -254,7 +255,7 @@ const roles = computed(() => [
     type="button"
     class="adapter-card__toggle"
     :aria-expanded="expanded"
-    :title="expanded ? t('$vuetify.settings.multiInternetPage.lessSettings') : t('$vuetify.settings.multiInternetPage.moreSettings')"
+    v-tooltip="expanded ? t('$vuetify.settings.multiInternetPage.lessSettings') : t('$vuetify.settings.multiInternetPage.moreSettings')"
     @click="expanded = !expanded"
   >
     <v-icon size="16" class="adapter-card__chevron" :class="{ 'adapter-card__chevron--up': expanded }">mdi-chevron-down</v-icon>

@@ -63,17 +63,17 @@ function openInterface(name: string) {
       <div class="monitor-summary__metrics">
         <div class="monitor-summary__metric">
           <span class="monitor-summary__label">{{ t("$vuetify.networkLatency.monitor.internetPing") }}</span>
-          <span class="monitor-summary__value" :class="`text-${qualityColor(summary.quality)}`">
+          <span class="monitor-summary__value lz-num" :class="`text-${qualityColor(summary.quality)}`">
             {{ summary.best_ping > 0 ? localDigits(summary.best_ping) : "—" }}<small> {{ msUnit() }}</small>
           </span>
         </div>
         <div class="monitor-summary__metric">
           <span class="monitor-summary__label">{{ t("$vuetify.networkLatency.jitter") }}</span>
-          <span class="monitor-summary__value">{{ localDigits((summary.jitter ?? 0).toFixed(1)) }}<small> {{ msUnit() }}</small></span>
+          <span class="monitor-summary__value lz-num">{{ localDigits((summary.jitter ?? 0).toFixed(1)) }}<small> {{ msUnit() }}</small></span>
         </div>
         <div class="monitor-summary__metric">
           <span class="monitor-summary__label">{{ t("$vuetify.networkLatency.loss") }}</span>
-          <span class="monitor-summary__value" :class="(summary.loss ?? 0) > 1 ? 'text-error' : ''">
+          <span class="monitor-summary__value lz-num" :class="(summary.loss ?? 0) > 1 ? 'text-error' : ''">
             {{ localDigits((summary.loss ?? 0).toFixed(1)) }}<small>{{ localDigits("%") }}</small>
           </span>
         </div>
@@ -92,7 +92,7 @@ function openInterface(name: string) {
         <div v-if="multi" class="monitor-summary__metric">
           <span class="monitor-summary__label">{{ t("$vuetify.networkLatency.monitor.connections") }}</span>
           <span class="monitor-summary__value" :class="summary.online < summary.total ? 'text-warning' : ''">
-            {{ t("$vuetify.networkLatency.monitor.online", summary.online, summary.total) }}
+            {{ t("$vuetify.networkLatency.monitor.online", localDigits(summary.online), localDigits(summary.total)) }}
           </span>
         </div>
       </div>

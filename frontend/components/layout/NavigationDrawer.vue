@@ -331,8 +331,12 @@ async function confirmExit(restart: boolean) {
 
 <style scoped>
 /* The LagZap name is the way to Overview. */
-/* A count as plain text after the item, not a filled badge. */
+/* A count as plain text after the item, not a filled badge; centred in
+   the same 36px column as the apps' dots, chips and locks below. */
 .nav-count {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 36px;
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   color: rgba(var(--v-theme-on-surface), 0.6);

@@ -88,7 +88,7 @@ function metricValueStyle(accent: string | null) {
               class="network-summary__value font-weight-medium"
               :style="metricValueStyle(jitterAccent)"
             >
-              {{ localDigits((quality?.jitter ?? 0).toFixed(1)) }} {{ msUnit() }}
+              <span class="lz-num">{{ localDigits((quality?.jitter ?? 0).toFixed(1)) }} {{ msUnit() }}</span>
             </div>
           </div>
 
