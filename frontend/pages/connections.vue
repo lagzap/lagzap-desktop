@@ -11,6 +11,7 @@ import { useLocale, type DataTableHeader } from "vuetify";
 import { DisconnectProfile, DisconnectTitle } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 const store = useStore();
+const { admin } = usePlanAccess();
 const locale = useLocale();
 const { t } = locale;
 const { connections } = useMonitoringStore();
@@ -248,6 +249,10 @@ const sortBy = ref<VDataTable["sortBy"]>([
                 <span class="text-caption ms-1">
                   {{ item.destination_ip }}
                 </span>
+                <!-- Admins: source → destination port, faint. -->
+                <span v-if="admin" class="connection-ports ms-1" dir="ltr">
+                  {{ item.source_port || "?" }} → {{ item.destination_port || "?" }}
+                </span>
               </div>
             </template>
           </v-tooltip>
@@ -438,5 +443,13 @@ const sortBy = ref<VDataTable["sortBy"]>([
 .udp-note :deep(.v-list-item-subtitle) {
   white-space: normal;
   -webkit-line-clamp: unset;
+}
+
+/* Admins' port numbers: there, but quieter than the address. */
+.connection-ports {
+  font-size: 0.7rem;
+  color: rgba(var(--v-theme-on-surface), 0.38);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 </style>
