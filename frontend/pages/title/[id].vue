@@ -9,10 +9,13 @@ import ChangelogBadge from "~/components/title/ChangelogBadge.vue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import PlanLock from "~/components/plan/PlanLock.vue";
 import ComingSoonMark from "~/components/title/ComingSoonMark.vue";
+import AdminLogDialog from "~/components/admin/AdminLogDialog.vue";
 
 const { t } = useLocale();
 const store = useStore();
-const { titleLocked, titleBlocked, titleUnavailable, canUpgrade, openUpgrade } = usePlanAccess();
+const { titleLocked, titleBlocked, titleUnavailable, canUpgrade, openUpgrade, admin } = usePlanAccess();
+// Admins: every connection's console lines of this title.
+const logOpen = ref(false);
 const route = useRoute();
 const router = useRouter();
 const data = useSanctumUser<DataResponse>();
@@ -118,6 +121,24 @@ onBeforeUnmount(() => {
           dense
           :entries="title.updates"
           :since="changelogSince"
+        />
+        <v-btn
+          v-if="title && admin"
+          v-tooltip:bottom="t('$vuetify.consoleLog.open')"
+          icon="mdi-console"
+          color="info"
+          variant="tonal"
+          size="small"
+          class="me-1"
+          :aria-label="t('$vuetify.consoleLog.open')"
+          @click="logOpen = true"
+        />
+        <AdminLogDialog
+          v-if="title && admin"
+          v-model="logOpen"
+          kind="title"
+          :id="title.id"
+          :name="store.titleName(title.name)"
         />
         <TitleFavoriteButton v-if="title" :title-id="title.id" />
         <ComingSoonMark v-if="comingSoon" :size="18" class="me-2" />

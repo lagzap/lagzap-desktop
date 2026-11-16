@@ -6,6 +6,10 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as data$0 from "../../zap/data/models.js";
+
 /**
  * AccessOffer is /data's "access_offer": absent when nothing is on offer.
  */
@@ -838,6 +842,52 @@ export class ConnectionLeg {
             $$parsedSource["route"] = $$createField0_0($$parsedSource["route"]);
         }
         return new ConnectionLeg(/** @type {Partial<ConnectionLeg>} */($$parsedSource));
+    }
+}
+
+/**
+ * ConnectionLogLine is one console line of a connection: At in unix ms,
+ * Level as the console names it.
+ */
+export class ConnectionLogLine {
+    /**
+     * Creates a new ConnectionLogLine instance.
+     * @param {Partial<ConnectionLogLine>} [$$source = {}] - The source object to create the ConnectionLogLine.
+     */
+    constructor($$source = {}) {
+        if (!("at" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["at"] = 0;
+        }
+        if (!("level" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["level"] = "";
+        }
+        if (!("text" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["text"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ConnectionLogLine instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ConnectionLogLine}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ConnectionLogLine(/** @type {Partial<ConnectionLogLine>} */($$parsedSource));
     }
 }
 
@@ -2205,6 +2255,97 @@ export class LinkQuality {
 }
 
 /**
+ * LiveStats is what the statistics collector has on a profile or title
+ * right now (admins): its open sessions, each with the interval being
+ * summed up. Enabled is false while statistics are off (usage data not
+ * shared), so nothing is collected.
+ */
+export class LiveStats {
+    /**
+     * Creates a new LiveStats instance.
+     * @param {Partial<LiveStats>} [$$source = {}] - The source object to create the LiveStats.
+     */
+    constructor($$source = {}) {
+        if (!("enabled" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["enabled"] = false;
+        }
+        if (!("sessions" in $$source)) {
+            /**
+             * @member
+             * @type {LiveStatsSession[]}
+             */
+            this["sessions"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LiveStats instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LiveStats}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType29;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("sessions" in $$parsedSource) {
+            $$parsedSource["sessions"] = $$createField1_0($$parsedSource["sessions"]);
+        }
+        return new LiveStats(/** @type {Partial<LiveStats>} */($$parsedSource));
+    }
+}
+
+/**
+ * LiveStatsSession is one open session and its current interval so far.
+ */
+export class LiveStatsSession {
+    /**
+     * Creates a new LiveStatsSession instance.
+     * @param {Partial<LiveStatsSession>} [$$source = {}] - The source object to create the LiveStatsSession.
+     */
+    constructor($$source = {}) {
+        if (!("session" in $$source)) {
+            /**
+             * @member
+             * @type {data$0.StatsGameSession | null}
+             */
+            this["session"] = null;
+        }
+        if (!("interval" in $$source)) {
+            /**
+             * @member
+             * @type {data$0.StatsSessionInterval | null}
+             */
+            this["interval"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LiveStatsSession instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LiveStatsSession}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType31;
+        const $$createField1_0 = $$createType33;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("session" in $$parsedSource) {
+            $$parsedSource["session"] = $$createField0_0($$parsedSource["session"]);
+        }
+        if ("interval" in $$parsedSource) {
+            $$parsedSource["interval"] = $$createField1_0($$parsedSource["interval"]);
+        }
+        return new LiveStatsSession(/** @type {Partial<LiveStatsSession>} */($$parsedSource));
+    }
+}
+
+/**
  * LoadBalanceShare is one internet in a High traffic profile's load
  * balancing: its weight (1..10), whether the user set it, its share of new
  * connections in percent, and the speed (bytes/s) an automatic weight uses.
@@ -2348,7 +2489,7 @@ export class LocationMonitor {
      * @returns {LocationMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType29;
+        const $$createField2_0 = $$createType35;
         const $$createField5_0 = $$createType6;
         const $$createField6_0 = $$createType20;
         const $$createField7_0 = $$createType9;
@@ -2433,7 +2574,7 @@ export class NameResult {
      * @returns {NameResult}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType31;
+        const $$createField1_0 = $$createType37;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("error" in $$parsedSource) {
             $$parsedSource["error"] = $$createField1_0($$parsedSource["error"]);
@@ -2535,9 +2676,9 @@ export class NetworkInterfaceMonitor {
      * @returns {NetworkInterfaceMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField7_0 = $$createType32;
-        const $$createField8_0 = $$createType33;
-        const $$createField9_0 = $$createType35;
+        const $$createField7_0 = $$createType38;
+        const $$createField8_0 = $$createType39;
+        const $$createField9_0 = $$createType41;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("ping" in $$parsedSource) {
             $$parsedSource["ping"] = $$createField7_0($$parsedSource["ping"]);
@@ -2593,8 +2734,8 @@ export class NetworkMonitor {
      * @returns {NetworkMonitor}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType36;
-        const $$createField2_0 = $$createType37;
+        const $$createField1_0 = $$createType42;
+        const $$createField2_0 = $$createType43;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("summary" in $$parsedSource) {
             $$parsedSource["summary"] = $$createField1_0($$parsedSource["summary"]);
@@ -2757,7 +2898,7 @@ export class OverviewChart {
      * @returns {OverviewChart}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType38;
+        const $$createField1_0 = $$createType44;
         const $$createField2_0 = $$createType20;
         const $$createField3_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -2835,7 +2976,7 @@ export class OverviewLatencyChart {
      */
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType23;
-        const $$createField4_0 = $$createType40;
+        const $$createField4_0 = $$createType46;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -3074,8 +3215,8 @@ export class OverviewTrafficChart {
      * @returns {OverviewTrafficChart}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType41;
-        const $$createField4_0 = $$createType43;
+        const $$createField3_0 = $$createType47;
+        const $$createField4_0 = $$createType49;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -3551,11 +3692,11 @@ export class PlanAccess {
      */
     static createFrom($$source = {}) {
         const $$createField5_0 = $$createType6;
-        const $$createField10_0 = $$createType44;
-        const $$createField11_0 = $$createType45;
-        const $$createField12_0 = $$createType45;
-        const $$createField13_0 = $$createType45;
-        const $$createField14_0 = $$createType46;
+        const $$createField10_0 = $$createType50;
+        const $$createField11_0 = $$createType51;
+        const $$createField12_0 = $$createType51;
+        const $$createField13_0 = $$createType51;
+        const $$createField14_0 = $$createType52;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("features" in $$parsedSource) {
             $$parsedSource["features"] = $$createField5_0($$parsedSource["features"]);
@@ -3857,8 +3998,8 @@ export class PricingOption {
      * @returns {PricingOption}
      */
     static createFrom($$source = {}) {
-        const $$createField7_0 = $$createType48;
-        const $$createField8_0 = $$createType50;
+        const $$createField7_0 = $$createType54;
+        const $$createField8_0 = $$createType56;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("choices" in $$parsedSource) {
             $$parsedSource["choices"] = $$createField7_0($$parsedSource["choices"]);
@@ -4027,8 +4168,8 @@ export class PricingPlan {
      * @returns {PricingPlan}
      */
     static createFrom($$source = {}) {
-        const $$createField6_0 = $$createType52;
-        const $$createField7_0 = $$createType54;
+        const $$createField6_0 = $$createType58;
+        const $$createField7_0 = $$createType60;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("periods" in $$parsedSource) {
             $$parsedSource["periods"] = $$createField6_0($$parsedSource["periods"]);
@@ -4087,8 +4228,8 @@ export class PricingPlans {
      * @returns {PricingPlans}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType56;
-        const $$createField3_0 = $$createType58;
+        const $$createField2_0 = $$createType62;
+        const $$createField3_0 = $$createType64;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("currencies" in $$parsedSource) {
             $$parsedSource["currencies"] = $$createField2_0($$parsedSource["currencies"]);
@@ -4130,8 +4271,8 @@ export class PricingPlansResult {
      * @returns {PricingPlansResult}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType60;
-        const $$createField1_0 = $$createType62;
+        const $$createField0_0 = $$createType66;
+        const $$createField1_0 = $$createType68;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("pricing" in $$parsedSource) {
             $$parsedSource["pricing"] = $$createField0_0($$parsedSource["pricing"]);
@@ -4270,8 +4411,8 @@ export class ProfileChart {
         const $$createField3_0 = $$createType6;
         const $$createField4_0 = $$createType7;
         const $$createField5_0 = $$createType9;
-        const $$createField6_0 = $$createType63;
-        const $$createField8_0 = $$createType65;
+        const $$createField6_0 = $$createType69;
+        const $$createField8_0 = $$createType71;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField3_0($$parsedSource["interfaces"]);
@@ -4395,12 +4536,12 @@ export class ProfileDiagram {
      * @returns {ProfileDiagram}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType67;
-        const $$createField6_0 = $$createType69;
-        const $$createField7_0 = $$createType71;
+        const $$createField5_0 = $$createType73;
+        const $$createField6_0 = $$createType75;
+        const $$createField7_0 = $$createType77;
         const $$createField8_0 = $$createType13;
-        const $$createField9_0 = $$createType73;
-        const $$createField10_0 = $$createType74;
+        const $$createField9_0 = $$createType79;
+        const $$createField10_0 = $$createType80;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("session" in $$parsedSource) {
             $$parsedSource["session"] = $$createField5_0($$parsedSource["session"]);
@@ -4519,11 +4660,11 @@ export class ProfileLatencyChart {
      */
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType23;
-        const $$createField4_0 = $$createType76;
-        const $$createField5_0 = $$createType78;
-        const $$createField7_0 = $$createType80;
+        const $$createField4_0 = $$createType82;
+        const $$createField5_0 = $$createType84;
+        const $$createField7_0 = $$createType86;
         const $$createField8_0 = $$createType24;
-        const $$createField9_0 = $$createType81;
+        const $$createField9_0 = $$createType87;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("stats" in $$parsedSource) {
             $$parsedSource["stats"] = $$createField3_0($$parsedSource["stats"]);
@@ -4627,7 +4768,7 @@ export class ProfileLatencySeries {
     static createFrom($$source = {}) {
         const $$createField5_0 = $$createType24;
         const $$createField6_0 = $$createType23;
-        const $$createField7_0 = $$createType83;
+        const $$createField7_0 = $$createType89;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("points" in $$parsedSource) {
             $$parsedSource["points"] = $$createField5_0($$parsedSource["points"]);
@@ -4719,8 +4860,8 @@ export class Quote {
      * @returns {Quote}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType85;
-        const $$createField4_0 = $$createType86;
+        const $$createField0_0 = $$createType91;
+        const $$createField4_0 = $$createType92;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("lines" in $$parsedSource) {
             $$parsedSource["lines"] = $$createField0_0($$parsedSource["lines"]);
@@ -4847,7 +4988,7 @@ export class QuoteRequest {
      * @returns {QuoteRequest}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType86;
+        const $$createField3_0 = $$createType92;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("options" in $$parsedSource) {
             $$parsedSource["options"] = $$createField3_0($$parsedSource["options"]);
@@ -4886,8 +5027,8 @@ export class QuoteResult {
      * @returns {QuoteResult}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType88;
-        const $$createField1_0 = $$createType62;
+        const $$createField0_0 = $$createType94;
+        const $$createField1_0 = $$createType68;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("quote" in $$parsedSource) {
             $$parsedSource["quote"] = $$createField0_0($$parsedSource["quote"]);
@@ -5175,9 +5316,9 @@ export class ServerCityDetails {
      * @returns {ServerCityDetails}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType90;
-        const $$createField6_0 = $$createType92;
-        const $$createField7_0 = $$createType94;
+        const $$createField5_0 = $$createType96;
+        const $$createField6_0 = $$createType98;
+        const $$createField7_0 = $$createType100;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("connections" in $$parsedSource) {
             $$parsedSource["connections"] = $$createField5_0($$parsedSource["connections"]);
@@ -5237,7 +5378,7 @@ export class ServerDirectory {
      */
     static createFrom($$source = {}) {
         const $$createField1_0 = $$createType6;
-        const $$createField2_0 = $$createType96;
+        const $$createField2_0 = $$createType102;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField1_0($$parsedSource["interfaces"]);
@@ -5309,7 +5450,7 @@ export class ServerRegion {
      * @returns {ServerRegion}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType98;
+        const $$createField4_0 = $$createType104;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cities" in $$parsedSource) {
             $$parsedSource["cities"] = $$createField4_0($$parsedSource["cities"]);
@@ -5469,11 +5610,11 @@ export class Team {
      * @returns {Team}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType99;
-        const $$createField5_0 = $$createType100;
-        const $$createField11_0 = $$createType101;
-        const $$createField12_0 = $$createType103;
-        const $$createField13_0 = $$createType105;
+        const $$createField4_0 = $$createType105;
+        const $$createField5_0 = $$createType106;
+        const $$createField11_0 = $$createType107;
+        const $$createField12_0 = $$createType109;
+        const $$createField13_0 = $$createType111;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("plan" in $$parsedSource) {
             $$parsedSource["plan"] = $$createField4_0($$parsedSource["plan"]);
@@ -5833,9 +5974,9 @@ export class TeamResult {
      * @returns {TeamResult}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType107;
-        const $$createField1_0 = $$createType109;
-        const $$createField3_0 = $$createType31;
+        const $$createField0_0 = $$createType113;
+        const $$createField1_0 = $$createType115;
+        const $$createField3_0 = $$createType37;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("team" in $$parsedSource) {
             $$parsedSource["team"] = $$createField0_0($$parsedSource["team"]);
@@ -5918,85 +6059,91 @@ const $$createType24 = $Create.Array($Create.Any);
 const $$createType25 = PingBatch.createFrom;
 const $$createType26 = LegQuality.createFrom;
 const $$createType27 = $Create.Array($$createType26);
-const $$createType28 = ServerCityDetails.createFrom;
-const $$createType29 = $Create.Nullable($$createType28);
-const $$createType30 = TeamError.createFrom;
+const $$createType28 = LiveStatsSession.createFrom;
+const $$createType29 = $Create.Array($$createType28);
+const $$createType30 = data$0.StatsGameSession.createFrom;
 const $$createType31 = $Create.Nullable($$createType30);
-const $$createType32 = InterfacePing.createFrom;
-const $$createType33 = InterfaceTraffic.createFrom;
-const $$createType34 = InterfaceServer.createFrom;
-const $$createType35 = $Create.Array($$createType34);
-const $$createType36 = NetworkMonitorSummary.createFrom;
-const $$createType37 = $Create.Array($$createType18);
-const $$createType38 = OverviewQuality.createFrom;
-const $$createType39 = OverviewLatencySeries.createFrom;
-const $$createType40 = $Create.Array($$createType39);
-const $$createType41 = OverviewTrafficStats.createFrom;
-const $$createType42 = OverviewTrafficSeries.createFrom;
-const $$createType43 = $Create.Array($$createType42);
-const $$createType44 = PlanLimits.createFrom;
-const $$createType45 = $Create.Map($Create.Any, $Create.Any);
-const $$createType46 = $Create.Map($Create.Any, $$createType6);
-const $$createType47 = PricingChoice.createFrom;
-const $$createType48 = $Create.Array($$createType47);
-const $$createType49 = PricingTier.createFrom;
-const $$createType50 = $Create.Array($$createType49);
-const $$createType51 = PricingPeriod.createFrom;
-const $$createType52 = $Create.Array($$createType51);
-const $$createType53 = PricingOption.createFrom;
+const $$createType32 = data$0.StatsSessionInterval.createFrom;
+const $$createType33 = $Create.Nullable($$createType32);
+const $$createType34 = ServerCityDetails.createFrom;
+const $$createType35 = $Create.Nullable($$createType34);
+const $$createType36 = TeamError.createFrom;
+const $$createType37 = $Create.Nullable($$createType36);
+const $$createType38 = InterfacePing.createFrom;
+const $$createType39 = InterfaceTraffic.createFrom;
+const $$createType40 = InterfaceServer.createFrom;
+const $$createType41 = $Create.Array($$createType40);
+const $$createType42 = NetworkMonitorSummary.createFrom;
+const $$createType43 = $Create.Array($$createType18);
+const $$createType44 = OverviewQuality.createFrom;
+const $$createType45 = OverviewLatencySeries.createFrom;
+const $$createType46 = $Create.Array($$createType45);
+const $$createType47 = OverviewTrafficStats.createFrom;
+const $$createType48 = OverviewTrafficSeries.createFrom;
+const $$createType49 = $Create.Array($$createType48);
+const $$createType50 = PlanLimits.createFrom;
+const $$createType51 = $Create.Map($Create.Any, $Create.Any);
+const $$createType52 = $Create.Map($Create.Any, $$createType6);
+const $$createType53 = PricingChoice.createFrom;
 const $$createType54 = $Create.Array($$createType53);
-const $$createType55 = PricingCurrency.createFrom;
+const $$createType55 = PricingTier.createFrom;
 const $$createType56 = $Create.Array($$createType55);
-const $$createType57 = PricingPlan.createFrom;
+const $$createType57 = PricingPeriod.createFrom;
 const $$createType58 = $Create.Array($$createType57);
-const $$createType59 = PricingPlans.createFrom;
-const $$createType60 = $Create.Nullable($$createType59);
-const $$createType61 = PricingError.createFrom;
-const $$createType62 = $Create.Nullable($$createType61);
-const $$createType63 = ProfileDiagram.createFrom;
-const $$createType64 = LinkQuality.createFrom;
-const $$createType65 = $Create.Nullable($$createType64);
-const $$createType66 = DiagramSession.createFrom;
-const $$createType67 = $Create.Nullable($$createType66);
-const $$createType68 = RouteLevel.createFrom;
-const $$createType69 = $Create.Nullable($$createType68);
-const $$createType70 = DiagramInterface.createFrom;
-const $$createType71 = $Create.Array($$createType70);
-const $$createType72 = DiagramPreview.createFrom;
+const $$createType59 = PricingOption.createFrom;
+const $$createType60 = $Create.Array($$createType59);
+const $$createType61 = PricingCurrency.createFrom;
+const $$createType62 = $Create.Array($$createType61);
+const $$createType63 = PricingPlan.createFrom;
+const $$createType64 = $Create.Array($$createType63);
+const $$createType65 = PricingPlans.createFrom;
+const $$createType66 = $Create.Nullable($$createType65);
+const $$createType67 = PricingError.createFrom;
+const $$createType68 = $Create.Nullable($$createType67);
+const $$createType69 = ProfileDiagram.createFrom;
+const $$createType70 = LinkQuality.createFrom;
+const $$createType71 = $Create.Nullable($$createType70);
+const $$createType72 = DiagramSession.createFrom;
 const $$createType73 = $Create.Nullable($$createType72);
-const $$createType74 = DiagramBackups.createFrom;
-const $$createType75 = ProfileLatencySeries.createFrom;
-const $$createType76 = $Create.Array($$createType75);
-const $$createType77 = LossWarning.createFrom;
-const $$createType78 = $Create.Nullable($$createType77);
-const $$createType79 = TransportWarning.createFrom;
-const $$createType80 = $Create.Nullable($$createType79);
-const $$createType81 = $Create.Nullable($$createType75);
-const $$createType82 = SeriesPath.createFrom;
-const $$createType83 = $Create.Array($$createType82);
-const $$createType84 = QuoteLine.createFrom;
-const $$createType85 = $Create.Array($$createType84);
-const $$createType86 = $Create.Map($Create.Any, $Create.Any);
-const $$createType87 = Quote.createFrom;
-const $$createType88 = $Create.Nullable($$createType87);
-const $$createType89 = CityConnection.createFrom;
-const $$createType90 = $Create.Array($$createType89);
-const $$createType91 = CityRoute.createFrom;
-const $$createType92 = $Create.Array($$createType91);
-const $$createType93 = CityServer.createFrom;
-const $$createType94 = $Create.Array($$createType93);
-const $$createType95 = ServerRegion.createFrom;
+const $$createType74 = RouteLevel.createFrom;
+const $$createType75 = $Create.Nullable($$createType74);
+const $$createType76 = DiagramInterface.createFrom;
+const $$createType77 = $Create.Array($$createType76);
+const $$createType78 = DiagramPreview.createFrom;
+const $$createType79 = $Create.Nullable($$createType78);
+const $$createType80 = DiagramBackups.createFrom;
+const $$createType81 = ProfileLatencySeries.createFrom;
+const $$createType82 = $Create.Array($$createType81);
+const $$createType83 = LossWarning.createFrom;
+const $$createType84 = $Create.Nullable($$createType83);
+const $$createType85 = TransportWarning.createFrom;
+const $$createType86 = $Create.Nullable($$createType85);
+const $$createType87 = $Create.Nullable($$createType81);
+const $$createType88 = SeriesPath.createFrom;
+const $$createType89 = $Create.Array($$createType88);
+const $$createType90 = QuoteLine.createFrom;
+const $$createType91 = $Create.Array($$createType90);
+const $$createType92 = $Create.Map($Create.Any, $Create.Any);
+const $$createType93 = Quote.createFrom;
+const $$createType94 = $Create.Nullable($$createType93);
+const $$createType95 = CityConnection.createFrom;
 const $$createType96 = $Create.Array($$createType95);
-const $$createType97 = ServerCity.createFrom;
+const $$createType97 = CityRoute.createFrom;
 const $$createType98 = $Create.Array($$createType97);
-const $$createType99 = TeamPlan.createFrom;
-const $$createType100 = TeamPerson.createFrom;
-const $$createType101 = $Create.Array($$createType100);
-const $$createType102 = TeamLockedSeat.createFrom;
-const $$createType103 = $Create.Array($$createType102);
-const $$createType104 = TeamPendingInvite.createFrom;
-const $$createType105 = $Create.Array($$createType104);
-const $$createType106 = Team.createFrom;
-const $$createType107 = $Create.Nullable($$createType106);
-const $$createType108 = TeamInvite.createFrom;
+const $$createType99 = CityServer.createFrom;
+const $$createType100 = $Create.Array($$createType99);
+const $$createType101 = ServerRegion.createFrom;
+const $$createType102 = $Create.Array($$createType101);
+const $$createType103 = ServerCity.createFrom;
+const $$createType104 = $Create.Array($$createType103);
+const $$createType105 = TeamPlan.createFrom;
+const $$createType106 = TeamPerson.createFrom;
+const $$createType107 = $Create.Array($$createType106);
+const $$createType108 = TeamLockedSeat.createFrom;
 const $$createType109 = $Create.Array($$createType108);
+const $$createType110 = TeamPendingInvite.createFrom;
+const $$createType111 = $Create.Array($$createType110);
+const $$createType112 = Team.createFrom;
+const $$createType113 = $Create.Nullable($$createType112);
+const $$createType114 = TeamInvite.createFrom;
+const $$createType115 = $Create.Array($$createType114);

@@ -3,8 +3,10 @@ import TitleIcon from "~/components/title/TitleIcon.vue";
 import { computed, onUnmounted, ref, shallowRef, watch } from "vue";
 import { useLocale, useTheme } from "vuetify";
 import CountryFlag from "vue-country-flag-next";
-import { GetConnectionChart, GetConnectionDetails } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import type { ConnectionChart } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { GetConnectionChart, GetConnectionDetails, GetConnectionLog } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import type { ConnectionChart, ConnectionLogLine } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { usePlanAccess } from "~/composables/usePlanAccess";
+import ConsoleLog from "~/components/admin/ConsoleLog.vue";
 import LiveChart from "~/components/network/LiveChart.vue";
 import RelayServerCell from "~/components/network/RelayServerCell.vue";
 import { colorForChartSeries } from "~/composables/useLatencyMetrics";
@@ -53,6 +55,23 @@ const range = ref("1m");
 const view = ref<"latency" | "traffic">("latency");
 const now = ref(Date.now());
 
+// Admins: the console lines of this connection, as the Console page showed
+// them (kept by the core per connection, also after it ends).
+const plan = usePlanAccess();
+const logOpen = ref(false);
+const logLines = shallowRef<ConnectionLogLine[]>([]);
+async function refreshLog() {
+  const want = id.value;
+  if (!plan.admin.value || !logOpen.value || !want) return;
+  try {
+    const lines = (await GetConnectionLog(want)) ?? [];
+    if (want === id.value) logLines.value = lines;
+  } catch {
+    // not an admin (any more) or the service is not running
+  }
+}
+watch(logOpen, (on) => on && void refreshLog());
+
 // The row as last seen: the Connections list can drop it for a moment
 // between updates, which must not blank the dialog. Gone for 2s, the
 // connection has ended: the dialog stops where it ended.
@@ -80,6 +99,7 @@ async function refresh() {
   if (!want || document.hidden || ended.value) return;
   // A failed or empty answer keeps the last one, so the mode never falls
   // back to "One adapter" for a moment.
+  void refreshLog();
   const [d, ch] = await Promise.allSettled([GetConnectionDetails(want), GetConnectionChart(want, range.value)]);
   if (want !== id.value) return;
   if (d.status === "fulfilled" && d.value) details.value = d.value as Details;
@@ -102,6 +122,7 @@ watch(
       details.value = null;
       chart.value = null;
       view.value = "latency";
+      logLines.value = [];
     }
     if (!isOpen || !rowId) return;
     void refresh();
@@ -309,6 +330,30 @@ function legPath(leg: Leg): string {
               </div>
             </div>
           </template>
+        </template>
+
+        <!-- Admins: this connection's console lines. -->
+        <template v-if="plan.admin.value">
+          <v-divider class="my-3" />
+          <div class="d-flex align-center ga-2">
+            <v-btn
+              variant="tonal"
+              color="info"
+              size="small"
+              class="text-none"
+              :append-icon="logOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+              @click="logOpen = !logOpen"
+            >
+              <v-icon icon="mdi-console" size="16" class="me-1" />
+              {{ t("$vuetify.connections.details.log") }}
+              <span v-if="logLines.length" class="text-medium-emphasis ms-1">({{ localDigits(logLines.length) }})</span>
+            </v-btn>
+          </div>
+          <v-expand-transition>
+            <div v-if="logOpen" class="mt-2">
+              <ConsoleLog :lines="logLines" :height="260" />
+            </div>
+          </v-expand-transition>
         </template>
       </v-card-text>
     </v-card>

@@ -1684,6 +1684,471 @@ export const RoutingMode = {
     RoutingMode_ROUTING_MODE_DIRECT: 10,
 };
 
+/**
+ * One profile session: from its first connection until it ends.
+ */
+export class StatsGameSession {
+    /**
+     * Creates a new StatsGameSession instance.
+     * @param {Partial<StatsGameSession>} [$$source = {}] - The source object to create the StatsGameSession.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["title_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["profile_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["profile_flags"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["started_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["ended_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {StatsSessionEnd | undefined}
+             */
+            this["end"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Relays that carried the session.
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["relay_node_ids"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Cities, countries or regions the user picked; empty = automatic.
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["region_selection"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Adapter type the session started on, and how many adapters it used.
+             * @member
+             * @type {StatsNetworkKind | undefined}
+             */
+            this["network_kind"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["adapter_count"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * ASN of the adapter the session started on (0 = not known yet).
+             * @member
+             * @type {number | undefined}
+             */
+            this["asn"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * "tun" when the virtual adapter captured traffic, else "ndis" on Windows.
+             * @member
+             * @type {string | undefined}
+             */
+            this["capture_mode"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Best live path of every probe round while the session ran.
+             * @member
+             * @type {StatsLatency | null | undefined}
+             */
+            this["latency"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["connections"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["bytes_up"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["bytes_down"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Details are in StatsInterruption rows with this session_id.
+             * @member
+             * @type {number | undefined}
+             */
+            this["interruptions"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Game connections that closed within 20s after an interruption.
+             * @member
+             * @type {number | undefined}
+             */
+            this["disconnects"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * LagZap moved the session to a standby adapter or path without dropping it.
+             * @member
+             * @type {number | undefined}
+             */
+            this["failovers"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Single paths LagZap replaced while others kept carrying the session.
+             * @member
+             * @type {number | undefined}
+             */
+            this["path_redials"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new StatsGameSession instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {StatsGameSession}
+     */
+    static createFrom($$source = {}) {
+        const $$createField7_0 = $$createType0;
+        const $$createField8_0 = $$createType0;
+        const $$createField13_0 = $$createType23;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("relay_node_ids" in $$parsedSource) {
+            $$parsedSource["relay_node_ids"] = $$createField7_0($$parsedSource["relay_node_ids"]);
+        }
+        if ("region_selection" in $$parsedSource) {
+            $$parsedSource["region_selection"] = $$createField8_0($$parsedSource["region_selection"]);
+        }
+        if ("latency" in $$parsedSource) {
+            $$parsedSource["latency"] = $$createField13_0($$parsedSource["latency"]);
+        }
+        return new StatsGameSession(/** @type {Partial<StatsGameSession>} */($$parsedSource));
+    }
+}
+
+/**
+ * Latency of a set of probes. Lost probes count in samples and lost only.
+ */
+export class StatsLatency {
+    /**
+     * Creates a new StatsLatency instance.
+     * @param {Partial<StatsLatency>} [$$source = {}] - The source object to create the StatsLatency.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["samples"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["lost"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["avg_ms"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["min_ms"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["p50_ms"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["p95_ms"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["max_ms"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["jitter_ms"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Replies per latency bucket, so hours and users can be merged exactly.
+             * Upper bucket edges in ms: 20, 40, 60, 80, 100, 130, 160, 200, 250, 300,
+             * 400, 600, 1000, then everything above (14 buckets).
+             * @member
+             * @type {number[] | undefined}
+             */
+            this["buckets"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new StatsLatency instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {StatsLatency}
+     */
+    static createFrom($$source = {}) {
+        const $$createField8_0 = $$createType24;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("buckets" in $$parsedSource) {
+            $$parsedSource["buckets"] = $$createField8_0($$parsedSource["buckets"]);
+        }
+        return new StatsLatency(/** @type {Partial<StatsLatency>} */($$parsedSource));
+    }
+}
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const StatsNetworkKind = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    StatsNetworkKind_STATS_NETWORK_KIND_UNKNOWN: 0,
+    StatsNetworkKind_STATS_NETWORK_KIND_ETHERNET: 1,
+    StatsNetworkKind_STATS_NETWORK_KIND_WIFI: 2,
+    StatsNetworkKind_STATS_NETWORK_KIND_CELLULAR: 3,
+    StatsNetworkKind_STATS_NETWORK_KIND_OTHER: 4,
+};
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+export const StatsSessionEnd = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    StatsSessionEnd_STATS_SESSION_END_UNKNOWN: 0,
+
+    /**
+     * No connections for 2 minutes: the game (or app using the profile) closed.
+     */
+    StatsSessionEnd_STATS_SESSION_END_IDLE: 1,
+
+    /**
+     * The user turned the profile or game off in LagZap.
+     */
+    StatsSessionEnd_STATS_SESSION_END_USER_STOPPED: 2,
+
+    /**
+     * LagZap shut down normally.
+     */
+    StatsSessionEnd_STATS_SESSION_END_APP_QUIT: 3,
+
+    /**
+     * LagZap stopped without shutting down (crash, killed, power loss); found
+     * on the next start. ended_at is the last time the session was saved.
+     */
+    StatsSessionEnd_STATS_SESSION_END_APP_CRASH: 4,
+};
+
+/**
+ * A running session summed up every 5 minutes for games (profiles routing
+ * game packets) and every 10 minutes for other profiles; the last interval
+ * is cut when the session ends.
+ */
+export class StatsSessionInterval {
+    /**
+     * Creates a new StatsSessionInterval instance.
+     * @param {Partial<StatsSessionInterval>} [$$source = {}] - The source object to create the StatsSessionInterval.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["session_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["profile_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["title_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["game"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["started_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["ended_at"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Best live path of every probe round in the interval.
+             * @member
+             * @type {StatsLatency | null | undefined}
+             */
+            this["latency"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * A route of a connection moved to another path.
+             * @member
+             * @type {number | undefined}
+             */
+            this["route_changes"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["interruptions"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["disconnects"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Lag fixes LagZap tried: a route swapped for lag, a dead route replaced,
+             * a blackout acted on. ok: the new route answered (or, for a lag swap, its
+             * ping or loss was clearly better 30s later). failed: it did not, or the
+             * session had to give up. A fix can resolve in a later interval.
+             * @member
+             * @type {number | undefined}
+             */
+            this["lag_fixes"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["lag_fixes_ok"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["lag_fixes_failed"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new StatsSessionInterval instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {StatsSessionInterval}
+     */
+    static createFrom($$source = {}) {
+        const $$createField6_0 = $$createType23;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("latency" in $$parsedSource) {
+            $$parsedSource["latency"] = $$createField6_0($$parsedSource["latency"]);
+        }
+        return new StatsSessionInterval(/** @type {Partial<StatsSessionInterval>} */($$parsedSource));
+    }
+}
+
 export class Ticket {
     /**
      * Creates a new Ticket instance.
@@ -1827,7 +2292,7 @@ export class Ticket {
      * @returns {Ticket}
      */
     static createFrom($$source = {}) {
-        const $$createField11_0 = $$createType24;
+        const $$createField11_0 = $$createType27;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messages" in $$parsedSource) {
             $$parsedSource["messages"] = $$createField11_0($$parsedSource["messages"]);
@@ -2003,7 +2468,7 @@ export class Title {
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType9;
         const $$createField8_0 = $$createType18;
-        const $$createField9_0 = $$createType27;
+        const $$createField9_0 = $$createType30;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
             $$parsedSource["name"] = $$createField3_0($$parsedSource["name"]);
@@ -2150,7 +2615,7 @@ export class UpdatePayload {
      * @returns {UpdatePayload}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType29;
+        const $$createField0_0 = $$createType32;
         const $$createField1_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("last_update_at" in $$parsedSource) {
@@ -2186,11 +2651,14 @@ const $$createType18 = $Create.Array($$createType17);
 const $$createType19 = NodeRoute.createFrom;
 const $$createType20 = $Create.Nullable($$createType19);
 const $$createType21 = $Create.Array($$createType20);
-const $$createType22 = TicketMessage.createFrom;
+const $$createType22 = StatsLatency.createFrom;
 const $$createType23 = $Create.Nullable($$createType22);
-const $$createType24 = $Create.Array($$createType23);
-const $$createType25 = TitleCategory.createFrom;
+const $$createType24 = $Create.Array($Create.Any);
+const $$createType25 = TicketMessage.createFrom;
 const $$createType26 = $Create.Nullable($$createType25);
 const $$createType27 = $Create.Array($$createType26);
-const $$createType28 = timestamppb$0.Timestamp.createFrom;
+const $$createType28 = TitleCategory.createFrom;
 const $$createType29 = $Create.Nullable($$createType28);
+const $$createType30 = $Create.Array($$createType29);
+const $$createType31 = timestamppb$0.Timestamp.createFrom;
+const $$createType32 = $Create.Nullable($$createType31);

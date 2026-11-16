@@ -243,6 +243,51 @@ func (s *Service) GetConnectionChart(id, rangeKey string) *adapter.ConnectionCha
 	return s.coordinator.GetConnectionChart(id, rangeKey)
 }
 
+// GetConnectionLog is one Connections page row's console lines (admins
+// only), oldest first.
+func (s *Service) GetConnectionLog(id string) ([]adapter.ConnectionLogLine, error) {
+	if s.coordinator == nil {
+		return nil, nil
+	}
+	return s.coordinator.GetConnectionLog(id)
+}
+
+// GetProfileLog is every connection's console lines of a profile, merged
+// by time (admins only).
+func (s *Service) GetProfileLog(profileID string) ([]adapter.ConnectionLogLine, error) {
+	if s.coordinator == nil {
+		return nil, nil
+	}
+	return s.coordinator.GetProfileLog(profileID)
+}
+
+// GetTitleLog is every connection's console lines of a title, merged by
+// time (admins only).
+func (s *Service) GetTitleLog(titleID string) ([]adapter.ConnectionLogLine, error) {
+	if s.coordinator == nil {
+		return nil, nil
+	}
+	return s.coordinator.GetTitleLog(titleID)
+}
+
+// GetProfileStats is a profile's statistics as collected right now (admins
+// only).
+func (s *Service) GetProfileStats(profileID string) (adapter.LiveStats, error) {
+	if s.coordinator == nil {
+		return adapter.LiveStats{}, nil
+	}
+	return s.coordinator.GetProfileStats(profileID)
+}
+
+// GetTitleStats is a title's statistics as collected right now (admins
+// only).
+func (s *Service) GetTitleStats(titleID string) (adapter.LiveStats, error) {
+	if s.coordinator == nil {
+		return adapter.LiveStats{}, nil
+	}
+	return s.coordinator.GetTitleStats(titleID)
+}
+
 func (s *Service) NeedWIFIState() bool {
 	return s.lagzap.Router().NeedWIFIState()
 }

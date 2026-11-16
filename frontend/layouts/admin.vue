@@ -42,6 +42,11 @@ const navItems = computed(() => [
     title: t("$vuetify.navigation.logs"),
     icon: "mdi-text",
   },
+  {
+    name: "admin-insights",
+    title: t("$vuetify.consoleLog.page"),
+    icon: "mdi-chart-timeline-variant",
+  },
 ]);
 
 /** The open page's name in the top bar ("Admin Tools" when none matches). */

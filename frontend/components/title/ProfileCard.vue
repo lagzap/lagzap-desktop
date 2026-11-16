@@ -26,6 +26,7 @@ import RouteLevelText from "~/components/plan/RouteLevelText.vue";
 import MultiInternetHint from "~/components/title/MultiInternetHint.vue";
 import MultipathOffHint from "~/components/title/MultipathOffHint.vue";
 import BetterInternetHint from "~/components/title/BetterInternetHint.vue";
+import AdminLogDialog from "~/components/admin/AdminLogDialog.vue";
 
 const props = defineProps<{
   profile: Profile;
@@ -34,6 +35,8 @@ const props = defineProps<{
 }>();
 
 const changelogHover = ref(false);
+// Admins: this profile's connections' console lines.
+const logOpen = ref(false);
 // Report a problem: the bug dialog, subject prefilled with this profile.
 const reportOpen = ref(false);
 
@@ -87,7 +90,7 @@ const isGameMultiProfile = computed(() => {
 });
 
 const store = useStore();
-const { profileLocked, profileUnavailable, canUpgrade, openUpgrade } = usePlanAccess();
+const { profileLocked, profileUnavailable, canUpgrade, openUpgrade, admin } = usePlanAccess();
 /** Not in the user's plan: shown with the unlock offer, never turned on. */
 const locked = computed(() => profileLocked(props.profile.id));
 /** No plan offers it yet: a gray lock, nothing to purchase or pick. */
@@ -384,6 +387,27 @@ const routeSettingsText = computed(() => {
           </v-btn>
         </template>
       </v-tooltip>
+      <v-tooltip v-if="admin" :text="t('$vuetify.consoleLog.open')" location="top" open-delay="300">
+        <template #activator="{ props: tipProps }">
+          <v-btn
+            v-bind="tipProps"
+            icon="mdi-console"
+            color="info"
+            variant="tonal"
+            size="small"
+            class="me-1"
+            :aria-label="t('$vuetify.consoleLog.open')"
+            @click="logOpen = true"
+          />
+        </template>
+      </v-tooltip>
+      <AdminLogDialog
+        v-if="admin"
+        v-model="logOpen"
+        kind="profile"
+        :id="props.profile.id"
+        :name="store.localized(props.profile.name)"
+      />
       <DialogBugFeedback
         v-model="reportOpen"
         :subject="t('$vuetify.tickets.reportSubject', store.localized(props.profile.name))"
