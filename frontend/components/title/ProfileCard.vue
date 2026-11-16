@@ -90,7 +90,7 @@ const isGameMultiProfile = computed(() => {
 });
 
 const store = useStore();
-const { profileLocked, profileUnavailable, canUpgrade, openUpgrade, admin } = usePlanAccess();
+const { profileLocked, profileUnavailable, canUpgrade, openUpgrade, admin, limits: planLimits } = usePlanAccess();
 /** Not in the user's plan: shown with the unlock offer, never turned on. */
 const locked = computed(() => profileLocked(props.profile.id));
 /** No plan offers it yet: a gray lock, nothing to purchase or pick. */
@@ -125,6 +125,14 @@ const diagram = computed(() => profileChart.value?.diagram ?? null);
 const routeLevel = computed(() => diagram.value?.level ?? null);
 const interfaceRouteGroups = computed(() => diagram.value?.interfaces ?? []);
 const canFixLag = computed(() => !!diagram.value?.show && !diagram.value?.idle);
+/** Realtime optimization off (or the Basic route level, which has none):
+ * routes never change on their own, so the card offers the fix itself. */
+const realtimeOff = computed(
+  () =>
+    (!admin.value && planLimits.value?.max_hops === 1) ||
+    settings.value.realtimeOptimization === false
+);
+const showFindBetterRoute = computed(() => realtimeOff.value && canFixLag.value);
 const fixingLag = ref(false);
 async function fixLag() {
   if (fixingLag.value) return;
@@ -369,6 +377,28 @@ const routeSettingsText = computed(() => {
     </template>
 
     <template #append>
+      <v-tooltip
+        v-if="showFindBetterRoute"
+        :text="t('$vuetify.networkLatency.findBetterRouteHint')"
+        location="top"
+        max-width="320"
+        open-delay="300"
+      >
+        <template #activator="{ props: tipProps }">
+          <v-btn
+            v-bind="tipProps"
+            prepend-icon="mdi-auto-fix"
+            color="primary"
+            variant="tonal"
+            size="small"
+            class="me-1"
+            :loading="fixingLag"
+            @click="fixLag"
+          >
+            {{ t("$vuetify.networkLatency.findBetterRoute") }}
+          </v-btn>
+        </template>
+      </v-tooltip>
       <v-tooltip :text="t('$vuetify.tickets.reportProblem')" location="top" open-delay="300">
         <template #activator="{ props: tipProps }">
           <!-- Shown on hover like the changelog, in its color. -->

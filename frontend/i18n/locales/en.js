@@ -1325,6 +1325,8 @@
             },
         },
         tryFixLag: 'Try fix lag',
+        findBetterRoute: 'Find better route',
+        findBetterRouteHint: 'Realtime optimization is off, so routes only change when you ask. This looks for better routes now and moves this app onto them without dropping its connection.',
         routeN: 'Route {0}',
         unstableNote: 'Unstable connection: every route is losing packets. LagZap is doing its best to keep your app from losing any.',
         backupRoutesReady: 'Backup routes ready: {0}, best ping {1} ms. If a route fails, LagZap switches to one right away.',
