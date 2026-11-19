@@ -18,6 +18,7 @@ export {
     ConnectionLeg,
     ConnectionLogLine,
     ConnectionStatus,
+    DNSQueryRecord,
     DefaultInterfaceFallback,
     DiagramBackups,
     DiagramEstimate,
@@ -90,5 +91,6 @@ export {
     TeamPerson,
     TeamPlan,
     TeamResult,
+    TrafficTakeover,
     TransportWarning
 } from "./models.js";

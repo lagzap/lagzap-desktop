@@ -25,8 +25,10 @@ function metricValueStyle(accent: string | null) {
   return accent ? { color: accent } : undefined;
 }
 
-// Download and upload open Bandwidth Control; their buttons open its
-// whole-PC cap or another-internet dialog there.
+// Download and upload open Bandwidth Control; their three-dots menu opens
+// its whole-PC cap or another-internet dialog there.
+/** The tile whose menu is open: its button stays shown meanwhile. */
+const menuFor = ref("");
 const bandwidthShortcuts = computed(() => [
   { open: "cap", icon: "mdi-speedometer-slow", title: t("$vuetify.bandwidthControl.pcCap") },
   { open: "internet", icon: "mdi-swap-horizontal", title: t("$vuetify.bandwidthControl.useInternet") },
@@ -92,20 +94,38 @@ function openBandwidth(open?: string) {
             >
               {{ useHumanSpeed(item.value) }}
             </div>
-            <div class="network-summary__actions">
-              <v-btn
-                v-for="shortcut in bandwidthShortcuts"
-                :key="shortcut.open"
-                v-tooltip:top="shortcut.title"
-                :aria-label="shortcut.title"
-                icon
-                size="small"
-                variant="tonal"
-                @click.stop="openBandwidth(shortcut.open)"
-                @keydown.enter.stop
+            <div
+              class="network-summary__actions"
+              :class="{ 'network-summary__actions--open': menuFor === item.key }"
+            >
+              <v-menu
+                :model-value="menuFor === item.key"
+                location="bottom end"
+                @update:model-value="(open: boolean) => (menuFor = open ? item.key : '')"
               >
-                <v-icon :icon="shortcut.icon" size="18" />
-              </v-btn>
+                <template #activator="{ props: menuProps }">
+                  <v-btn
+                    v-bind="menuProps"
+                    :aria-label="t('$vuetify.common.more')"
+                    icon
+                    size="x-small"
+                    variant="tonal"
+                    @click.stop
+                    @keydown.enter.stop
+                  >
+                    <v-icon icon="mdi-dots-vertical" size="16" />
+                  </v-btn>
+                </template>
+                <v-list density="compact">
+                  <v-list-item
+                    v-for="shortcut in bandwidthShortcuts"
+                    :key="shortcut.open"
+                    :prepend-icon="shortcut.icon"
+                    :title="shortcut.title"
+                    @click="openBandwidth(shortcut.open)"
+                  />
+                </v-list>
+              </v-menu>
             </div>
           </div>
 
@@ -264,8 +284,8 @@ function openBandwidth(open?: string) {
   outline-offset: 2px;
 }
 
-/* The cap and internet buttons float over the tile's end, centered, so
- * the tile does not move when they show. */
+/* The three-dots button floats over the tile's end, centered, so the tile
+ * does not move when it shows. */
 .network-summary__link {
   position: relative;
 }
@@ -275,7 +295,6 @@ function openBandwidth(open?: string) {
   top: 50%;
   inset-inline-end: 8px;
   display: flex;
-  gap: 6px;
   transform: translateY(-50%);
   opacity: 0;
   pointer-events: none;
@@ -283,7 +302,8 @@ function openBandwidth(open?: string) {
 }
 
 .network-summary__link:hover .network-summary__actions,
-.network-summary__link:focus-within .network-summary__actions {
+.network-summary__link:focus-within .network-summary__actions,
+.network-summary__actions--open {
   opacity: 1;
   pointer-events: auto;
 }

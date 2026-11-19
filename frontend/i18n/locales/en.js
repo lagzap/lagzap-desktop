@@ -742,6 +742,8 @@
         interfaceReconnectBody: 'Plug your network cable back in to keep your connections alive.',
         defaultFallbackActive: '{0} has no internet. LagZap is using {1} until {0} is stable again.',
         defaultFallbackRestored: '{0} is back. LagZap is using it again.',
+        trafficTakeoverDns: "{0} (another VPN) is holding your internet and DNS. LagZap can't proxy DNS requests while it's on, and it may block LagZap's traffic. Turn it off to use Proxy DNS requests again.",
+        trafficTakeoverRoute: "{0} (another VPN) is holding your internet. It may block LagZap's traffic; turn it off if your games don't connect.",
         routeProtected: 'A route to {0} stopped working. LagZap switched you to a better one before you disconnected.',
         routeProtectedGeneric: 'A route stopped working. LagZap switched you to a better one before you disconnected.'
     },
@@ -777,7 +779,8 @@
     common: {
         search: 'Search',
         searchPlaceholder: 'Search for apps & games...',
-        closed: 'Closed'
+        closed: 'Closed',
+        more: 'More'
     },
     auth: {
         fields: {

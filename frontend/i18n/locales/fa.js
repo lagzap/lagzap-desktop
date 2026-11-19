@@ -755,6 +755,8 @@ export default {
         interfaceReconnectBody: 'برای حفظ اتصال برنامه، کابل شبکه را دوباره وصل کنید.',
         defaultFallbackActive: '{0} اینترنت ندارد. LagZap تا پایدار شدن {0} از {1} استفاده می‌کند.',
         defaultFallbackRestored: '{0} برگشت. LagZap دوباره از آن استفاده می‌کند.',
+        trafficTakeoverDns: '{0} (یک VPN دیگر) اینترنت و DNS شما را در دست دارد. تا روشن است LagZap نمی‌تواند درخواست‌های DNS را پروکسی کند و ممکن است ترافیک LagZap را مسدود کند. برای استفاده دوباره از پروکسی درخواست‌های DNS آن را خاموش کنید.',
+        trafficTakeoverRoute: '{0} (یک VPN دیگر) اینترنت شما را در دست دارد. ممکن است ترافیک LagZap را مسدود کند؛ اگر بازی‌ها وصل نمی‌شوند آن را خاموش کنید.',
         routeProtected: 'یکی از مسیرهای {0} از کار افتاد. LagZap قبل از قطع شدن، شما را به مسیر بهتری منتقل کرد.',
         routeProtectedGeneric: 'یکی از مسیرها از کار افتاد. LagZap قبل از قطع شدن، شما را به مسیر بهتری منتقل کرد.'
     },
@@ -769,7 +771,8 @@ export default {
     common: {
         search: 'جستجو',
         searchPlaceholder: 'جستجو برای اپلیکیشن ها و بازی ها...',
-        closed: 'بسته'
+        closed: 'بسته',
+        more: 'بیشتر'
     },
     auth: {
         fields: {

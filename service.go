@@ -190,6 +190,15 @@ func (s *Service) GetDefaultInterfaceFallback() adapter.DefaultInterfaceFallback
 	return s.coordinator.DefaultInterfaceFallback()
 }
 
+// GetTrafficTakeover says whether another VPN app holds the PC's internet
+// route and DNS, which keeps LagZap from proxying DNS requests.
+func (s *Service) GetTrafficTakeover() adapter.TrafficTakeover {
+	if s.coordinator == nil {
+		return adapter.TrafficTakeover{}
+	}
+	return s.coordinator.TrafficTakeover()
+}
+
 // SetAdapterOrder sets the adapter order of the Multi Internet page: the
 // order backups take over in, the Default first.
 func (s *Service) SetAdapterOrder(names []string) {

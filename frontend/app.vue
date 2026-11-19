@@ -4,6 +4,7 @@ import { useMessagesStore } from "~/stores/messages";
 import OptimizeParticles from "~/components/effects/OptimizeParticles.vue";
 import InterfaceReconnectOverlay from "~/components/network/InterfaceReconnectOverlay.vue";
 import DefaultFallbackNotice from "~/components/network/DefaultFallbackNotice.vue";
+import TrafficTakeoverNotice from "~/components/network/TrafficTakeoverNotice.vue";
 import RouteProtectedNotice from "~/components/network/RouteProtectedNotice.vue";
 import SessionIntervalRecorder from "~/components/network/SessionIntervalRecorder.vue";
 import DialogUpdateCheck from "~/components/dialog/UpdateCheck.vue";
@@ -174,6 +175,8 @@ async function close() {
   <InterfaceReconnectOverlay v-if="!isOverlayWindow" />
 
   <DefaultFallbackNotice v-if="!isOverlayWindow" />
+
+  <TrafficTakeoverNotice v-if="!isOverlayWindow" />
 
   <DialogSessionRating v-if="!isOverlayWindow" />
 

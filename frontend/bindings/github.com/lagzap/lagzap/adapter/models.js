@@ -907,6 +907,137 @@ export const ConnectionStatus = {
 };
 
 /**
+ * DNSQueryRecord is one lookup an app sent that LagZap captured, for the
+ * Admin Tools DNS page.
+ */
+export class DNSQueryRecord {
+    /**
+     * Creates a new DNSQueryRecord instance.
+     * @param {Partial<DNSQueryRecord>} [$$source = {}] - The source object to create the DNSQueryRecord.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["id"] = 0;
+        }
+        if (!("time" in $$source)) {
+            /**
+             * unix ms
+             * @member
+             * @type {number}
+             */
+            this["time"] = 0;
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("type" in $$source)) {
+            /**
+             * A, AAAA, TXT, HTTPS...
+             * @member
+             * @type {string}
+             */
+            this["type"] = "";
+        }
+        if (!("network" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["network"] = "";
+        }
+        if (!("source" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["source"] = "";
+        }
+        if (!("process" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["process"] = "";
+        }
+        if (!("rule" in $$source)) {
+            /**
+             * tag of the DNS rule that matched ("" = default)
+             * @member
+             * @type {string}
+             */
+            this["rule"] = "";
+        }
+        if (!("server" in $$source)) {
+            /**
+             * DNS server tag
+             * @member
+             * @type {string}
+             */
+            this["server"] = "";
+        }
+        if (!("outcome" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["outcome"] = "";
+        }
+        if (!("rcode" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["rcode"] = "";
+        }
+        if (!("answers" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["answers"] = [];
+        }
+        if (!("duration_ms" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["duration_ms"] = 0;
+        }
+        if (!("error" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DNSQueryRecord instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DNSQueryRecord}
+     */
+    static createFrom($$source = {}) {
+        const $$createField11_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("answers" in $$parsedSource) {
+            $$parsedSource["answers"] = $$createField11_0($$parsedSource["answers"]);
+        }
+        return new DNSQueryRecord(/** @type {Partial<DNSQueryRecord>} */($$parsedSource));
+    }
+}
+
+/**
  * DefaultInterfaceFallback says LagZap left the main adapter (the one picked
  * as Default, else Windows' default) because it has no internet, and which
  * adapter it uses until the main one is stable again.
@@ -6004,6 +6135,61 @@ export class TeamResult {
             $$parsedSource["error"] = $$createField3_0($$parsedSource["error"]);
         }
         return new TeamResult(/** @type {Partial<TeamResult>} */($$parsedSource));
+    }
+}
+
+/**
+ * TrafficTakeover says another VPN or tunnel app took Windows' route to the
+ * internet (Route), and the PC's DNS with it when its adapter has DNS
+ * servers (DNS). LagZap cannot proxy DNS requests while it holds them, and
+ * a kill switch in that app can block LagZap's own traffic.
+ */
+export class TrafficTakeover {
+    /**
+     * Creates a new TrafficTakeover instance.
+     * @param {Partial<TrafficTakeover>} [$$source = {}] - The source object to create the TrafficTakeover.
+     */
+    constructor($$source = {}) {
+        if (!("active" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["active"] = false;
+        }
+        if (!("adapter" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["adapter"] = "";
+        }
+        if (!("route" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["route"] = false;
+        }
+        if (!("dns" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["dns"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TrafficTakeover instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TrafficTakeover}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TrafficTakeover(/** @type {Partial<TrafficTakeover>} */($$parsedSource));
     }
 }
 
