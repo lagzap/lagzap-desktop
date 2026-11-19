@@ -75,7 +75,18 @@ type propVariant struct {
 
 type comObj struct{ p unsafe.Pointer }
 
+var errNilCOM = errors.New("nil COM object")
+
+// call runs a method of the object. Its arguments are often pointers to
+// locals (out parameters); uintptrescapes moves those to the heap for the
+// call, as a stack that grows meanwhile would move them away from where
+// Windows writes, leaving them nil.
+//
+//go:uintptrescapes
 func (c comObj) call(method int, args ...uintptr) error {
+	if c.p == nil {
+		return errNilCOM
+	}
 	vtbl := *(*unsafe.Pointer)(c.p)
 	fn := *(*uintptr)(unsafe.Add(vtbl, uintptr(method)*unsafe.Sizeof(uintptr(0))))
 	hr, _, _ := syscall.SyscallN(fn, append([]uintptr{uintptr(c.p)}, args...)...)
