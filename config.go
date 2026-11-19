@@ -33,9 +33,9 @@ func (c *Service) generateConfig() option.Options {
 		netip.MustParseAddr("2001:4860:4860::8888"),
 	})
 	inet4Range := badoption.Prefix{}
-	inet4Range.Build(netip.MustParsePrefix("172.18.0.1/24"))
+	inet4Range.Build(netip.MustParsePrefix("172.18.1.0/24"))
 	inet6Range := badoption.Prefix{}
-	inet6Range.Build(netip.MustParsePrefix("fdfe:dcba:9876::1/126"))
+	inet6Range.Build(netip.MustParsePrefix("fd4c:5a7a:9d3e:f::/64"))
 	var queryTypeA option.DNSQueryType
 	queryTypeA.UnmarshalJSON([]byte("A"))
 	var queryTypeAAAA option.DNSQueryType

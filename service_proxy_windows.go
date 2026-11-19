@@ -60,7 +60,7 @@ func (s *Service) startVirtualAdapter() error {
 			Stack:         "gvisor",
 			Address: []netip.Prefix{
 				netip.MustParsePrefix("172.18.0.1/30"),
-				netip.MustParsePrefix("fdfe:dcba:9876::1/126"),
+				netip.MustParsePrefix("fd4c:5a7a:9d3e::1/126"),
 			},
 		},
 	)
