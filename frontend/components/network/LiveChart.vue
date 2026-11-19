@@ -197,7 +197,7 @@ function toggleStats() {
     // not remembered
   }
 }
-/** "Avg 99.8ms · 0.0% loss" or "↓ 9.67 KB/s · ↑ 244 B/s" (averages). */
+/** "Avg 99.8ms · 0.0% loss", or for traffic the live "↓ 9.67 KB/s · ↑ 244 B/s" (template). */
 const statsSummary = computed(() => {
   if (latencyLed.value && latency.value) {
     const { avg, loss } = latency.value.stats;
@@ -921,9 +921,10 @@ onBeforeUnmount(() => {
         >
           <template v-if="statsSummary">{{ statsSummary }}</template>
           <template v-else-if="traffic">
-            <v-icon icon="mdi-arrow-down" size="12" />{{ useHumanSpeed(traffic.stats.avg_download) }}
+            <!-- Live: the latest second, every internet added up. -->
+            <v-icon icon="mdi-arrow-down" size="12" />{{ useHumanSpeed(traffic.stats.live_download) }}
             <span class="mx-1">·</span>
-            <v-icon icon="mdi-arrow-up" size="12" />{{ useHumanSpeed(traffic.stats.avg_upload) }}
+            <v-icon icon="mdi-arrow-up" size="12" />{{ useHumanSpeed(traffic.stats.live_upload) }}
           </template>
           <v-icon :icon="statsOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="16" />
         </button>

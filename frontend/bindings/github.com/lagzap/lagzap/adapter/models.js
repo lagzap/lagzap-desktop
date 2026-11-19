@@ -3312,6 +3312,22 @@ export class OverviewTrafficStats {
              */
             this["peak_upload"] = 0;
         }
+        if (!("live_download" in $$source)) {
+            /**
+             * LiveDownload / LiveUpload: the latest second's speed, every internet
+             * added up (0 once traffic stopped).
+             * @member
+             * @type {number}
+             */
+            this["live_download"] = 0;
+        }
+        if (!("live_upload" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["live_upload"] = 0;
+        }
 
         Object.assign(this, $$source);
     }
