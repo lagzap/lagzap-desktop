@@ -771,6 +771,33 @@ export function useRegionSelection(profile: Profile) {
     return hierarchy;
   });
 
+  /** A relay Automatic can pick: besides the profile's rules, the core needs
+   * it active, enabled, public and with a location. */
+  const AUTO_FLAGS =
+    NodeFlag.NodeFlag_NODE_FLAG_ACTIVE | NodeFlag.NodeFlag_NODE_FLAG_ENABLED | NodeFlag.NodeFlag_NODE_FLAG_PUBLIC;
+  const autoPickable = (node: Node): boolean =>
+    shouldShowNode(node) && (node.flags & AUTO_FLAGS) === AUTO_FLAGS && !!node.latitude && !!node.longitude;
+
+  /** The servers Automatic picks from, by region and country: the preview
+   * shows these, not every server the location menus offer. */
+  const automaticCityHierarchy = computed(() => {
+    const hierarchy: Record<string, Record<string, string[]>> = {};
+    Object.values(store.nodes)
+      .filter(autoPickable)
+      .forEach((node) => {
+        const cities = ((hierarchy[node.region] ??= {})[node.country] ??= []);
+        const cityKey = nodeCityGroupKey(node);
+        if (!cities.includes(cityKey)) cities.push(cityKey);
+      });
+    return hierarchy;
+  });
+
+  /** Automatic's cities in a country, lowest ping first. */
+  const getAutomaticCitiesForCountry = (regionTag: string, countryIso2: string): string[] => {
+    const cities = automaticCityHierarchy.value[regionTag]?.[countryIso2] ?? [];
+    return getSortedCitiesForCountry(regionTag, countryIso2).filter((city) => cities.includes(city));
+  };
+
   // Get sorted cities for a specific region and country
   const getSortedCitiesForCountry = (
     regionTag: string,
@@ -1269,6 +1296,9 @@ export function useRegionSelection(profile: Profile) {
     // City hierarchy (for city mode)
     cityHierarchy,
     getSortedCitiesForCountry,
+    automaticCityHierarchy,
+    getAutomaticCitiesForCountry,
+    autoPickable,
     getRegionCitiesSelected,
     getRegionCitiesSomeSelected,
     toggleRegionCities,

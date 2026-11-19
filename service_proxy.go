@@ -16,6 +16,8 @@ func (s *Service) StartProxy() error {
 		return E.New("service is not running")
 	}
 	defer s.coordinator.ApplyAllTitleStates()
+	// The last step of the start: Dedicated IP tunnels start now.
+	defer s.coordinator.WireGuardReady()
 
 	return s.lagzap.Inbound().Create(
 		s.ctx,

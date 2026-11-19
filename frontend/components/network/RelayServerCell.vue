@@ -6,6 +6,7 @@ import {
   isConnectionNotRelayed,
   useRelayIssueMessage,
 } from "~/composables/useRelayIssue";
+import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
 
 /** "LagZap Server" cell: relay location, or a warning with the reason when
  * the connection is not relayed (or relayed outside the profile selection). */
@@ -26,6 +27,17 @@ const nodeCountry = computed(
 );
 /** Sent straight out (split tunnel / Direct, no LagZap server). */
 const direct = computed(() => !props.connection.node_id);
+
+/** Gone through the profile's Dedicated IP (WireGuard): the connection is in
+ * the tunnel's LagZap session. Its server's country follows the relay. */
+const dedicatedIp = computed(() => {
+  const profileId = props.connection.profile_id;
+  const group = props.connection.group_id;
+  if (!profileId || !group) return null;
+  const wireGuard = useProfileWireGuard(profileId);
+  if (wireGuard.status.value.session !== group || !wireGuard.selected.value) return null;
+  return wireGuard.selected.value;
+});
 </script>
 
 <template>
@@ -52,10 +64,21 @@ const direct = computed(() => !props.connection.node_id);
     <span :class="[textClass, 'ms-1']">
       {{ t("$vuetify.connections.direct") }}<template v-if="connection.iface"> · {{ connection.iface }}</template>
     </span>
+    <template v-if="dedicatedIp">
+      <v-icon icon="mdi-arrow-right" size="14" class="mx-1" />
+      <CountryFlag v-if="dedicatedIp.country" :country="dedicatedIp.country" size="small" />
+      <span :class="[textClass, 'ms-1']">{{ t("$vuetify.connections.dedicatedIp") }}</span>
+    </template>
   </div>
   <div v-else class="d-flex align-center flex-nowrap">
     <CountryFlag v-if="nodeCountry" :country="nodeCountry" size="small" />
     <span :class="[textClass, 'ms-1']">{{ getNodeLabel(connection.node_id) }}</span>
+    <!-- Then the Dedicated IP (WireGuard) it leaves from. -->
+    <template v-if="dedicatedIp">
+      <v-icon icon="mdi-arrow-right" size="14" class="mx-1" />
+      <CountryFlag v-if="dedicatedIp.country" :country="dedicatedIp.country" size="small" />
+      <span :class="[textClass, 'ms-1']" v-tooltip="dedicatedIp.ip">{{ t("$vuetify.connections.dedicatedIp") }}</span>
+    </template>
   </div>
 </template>
 

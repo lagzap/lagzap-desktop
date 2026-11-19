@@ -59,6 +59,16 @@ func (s *Service) SetAppRoutes(rules []adapter.AppRouteRule) {
 	s.coordinator.SetAppRoutes(rules)
 }
 
+// SetAppTunnels replaces which apps (or the whole PC) go through a saved
+// Dedicated IP (WireGuard). The client keeps them in IndexedDB and sends
+// them again whenever the service starts.
+func (s *Service) SetAppTunnels(rules []adapter.AppTunnelRule) {
+	if s.coordinator == nil {
+		return
+	}
+	s.coordinator.SetAppTunnels(rules)
+}
+
 // Gaming: a game profile has an active connection, or had one in the last
 // minute ("only while gaming" caps apply). Changes come on "gaming-state".
 func (s *Service) Gaming() bool {

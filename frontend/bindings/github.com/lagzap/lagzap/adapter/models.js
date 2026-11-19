@@ -489,6 +489,68 @@ export class AppTrafficSnapshot {
     }
 }
 
+/**
+ * AppTunnelRule sends one app's (exe), one folder's apps' or the whole PC's
+ * traffic through a saved Dedicated IP (WireGuard) config. Rules live in the
+ * desktop client's IndexedDB like AppRouteRule; the core holds the last set.
+ */
+export class AppTunnelRule {
+    /**
+     * Creates a new AppTunnelRule instance.
+     * @param {Partial<AppTunnelRule>} [$$source = {}] - The source object to create the AppTunnelRule.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("kind" in $$source)) {
+            /**
+             * Kind: AppLimitExe, AppLimitFolder or AppLimitPC (Path empty).
+             * @member
+             * @type {string}
+             */
+            this["kind"] = "";
+        }
+        if (!("path" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["path"] = "";
+        }
+        if (!("config_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["config_id"] = "";
+        }
+        if (!("enabled" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["enabled"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AppTunnelRule instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {AppTunnelRule}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AppTunnelRule(/** @type {Partial<AppTunnelRule>} */($$parsedSource));
+    }
+}
+
 export class CityConnection {
     /**
      * Creates a new CityConnection instance.
@@ -4931,6 +4993,57 @@ export class ProfileLatencySeries {
 }
 
 /**
+ * ProfileWireGuard is every saved Dedicated IP (WireGuard) config as the app
+ * shows them, never keys, and the one this profile uses while Enabled. The
+ * configs stay on this PC, one list every profile picks from.
+ */
+export class ProfileWireGuard {
+    /**
+     * Creates a new ProfileWireGuard instance.
+     * @param {Partial<ProfileWireGuard>} [$$source = {}] - The source object to create the ProfileWireGuard.
+     */
+    constructor($$source = {}) {
+        if (!("enabled" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["enabled"] = false;
+        }
+        if (!("selected" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["selected"] = "";
+        }
+        if (!("configs" in $$source)) {
+            /**
+             * @member
+             * @type {WireGuardConfigSummary[]}
+             */
+            this["configs"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProfileWireGuard instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ProfileWireGuard}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType91;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("configs" in $$parsedSource) {
+            $$parsedSource["configs"] = $$createField2_0($$parsedSource["configs"]);
+        }
+        return new ProfileWireGuard(/** @type {Partial<ProfileWireGuard>} */($$parsedSource));
+    }
+}
+
+/**
  * Quote is POST /pricing/quote. Options are the resolved values, every
  * option included. For an upgrade, Upgrade is set, Credit is what is left of
  * the current plan, FullAmount the price before it and Amount what is paid.
@@ -5007,8 +5120,8 @@ export class Quote {
      * @returns {Quote}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType91;
-        const $$createField4_0 = $$createType92;
+        const $$createField0_0 = $$createType93;
+        const $$createField4_0 = $$createType94;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("lines" in $$parsedSource) {
             $$parsedSource["lines"] = $$createField0_0($$parsedSource["lines"]);
@@ -5135,7 +5248,7 @@ export class QuoteRequest {
      * @returns {QuoteRequest}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType92;
+        const $$createField3_0 = $$createType94;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("options" in $$parsedSource) {
             $$parsedSource["options"] = $$createField3_0($$parsedSource["options"]);
@@ -5174,7 +5287,7 @@ export class QuoteResult {
      * @returns {QuoteResult}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType94;
+        const $$createField0_0 = $$createType96;
         const $$createField1_0 = $$createType68;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("quote" in $$parsedSource) {
@@ -5463,9 +5576,9 @@ export class ServerCityDetails {
      * @returns {ServerCityDetails}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType96;
-        const $$createField6_0 = $$createType98;
-        const $$createField7_0 = $$createType100;
+        const $$createField5_0 = $$createType98;
+        const $$createField6_0 = $$createType100;
+        const $$createField7_0 = $$createType102;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("connections" in $$parsedSource) {
             $$parsedSource["connections"] = $$createField5_0($$parsedSource["connections"]);
@@ -5525,7 +5638,7 @@ export class ServerDirectory {
      */
     static createFrom($$source = {}) {
         const $$createField1_0 = $$createType6;
-        const $$createField2_0 = $$createType102;
+        const $$createField2_0 = $$createType104;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("interfaces" in $$parsedSource) {
             $$parsedSource["interfaces"] = $$createField1_0($$parsedSource["interfaces"]);
@@ -5597,7 +5710,7 @@ export class ServerRegion {
      * @returns {ServerRegion}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType104;
+        const $$createField4_0 = $$createType106;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cities" in $$parsedSource) {
             $$parsedSource["cities"] = $$createField4_0($$parsedSource["cities"]);
@@ -5757,11 +5870,11 @@ export class Team {
      * @returns {Team}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType105;
-        const $$createField5_0 = $$createType106;
-        const $$createField11_0 = $$createType107;
-        const $$createField12_0 = $$createType109;
-        const $$createField13_0 = $$createType111;
+        const $$createField4_0 = $$createType107;
+        const $$createField5_0 = $$createType108;
+        const $$createField11_0 = $$createType109;
+        const $$createField12_0 = $$createType111;
+        const $$createField13_0 = $$createType113;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("plan" in $$parsedSource) {
             $$parsedSource["plan"] = $$createField4_0($$parsedSource["plan"]);
@@ -6121,8 +6234,8 @@ export class TeamResult {
      * @returns {TeamResult}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType113;
-        const $$createField1_0 = $$createType115;
+        const $$createField0_0 = $$createType115;
+        const $$createField1_0 = $$createType117;
         const $$createField3_0 = $$createType37;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("team" in $$parsedSource) {
@@ -6232,6 +6345,198 @@ export class TransportWarning {
     }
 }
 
+export class WireGuardConfigSummary {
+    /**
+     * Creates a new WireGuardConfigSummary instance.
+     * @param {Partial<WireGuardConfigSummary>} [$$source = {}] - The source object to create the WireGuardConfigSummary.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("ip" in $$source)) {
+            /**
+             * IP is the dedicated IP the traffic leaves from (looked up through the
+             * tunnel once it works; the server's address until then); Port is the
+             * WireGuard port.
+             * @member
+             * @type {string}
+             */
+            this["ip"] = "";
+        }
+        if (!("port" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["port"] = 0;
+        }
+        if (!("country" in $$source)) {
+            /**
+             * Country (ISO code) and City where the traffic leaves the WireGuard
+             * server; empty when unknown.
+             * @member
+             * @type {string}
+             */
+            this["country"] = "";
+        }
+        if (!("city" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["city"] = "";
+        }
+        if (!("addresses" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["addresses"] = [];
+        }
+        if (!("profiles" in $$source)) {
+            /**
+             * Profiles using it.
+             * @member
+             * @type {string[]}
+             */
+            this["profiles"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new WireGuardConfigSummary instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {WireGuardConfigSummary}
+     */
+    static createFrom($$source = {}) {
+        const $$createField6_0 = $$createType6;
+        const $$createField7_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("addresses" in $$parsedSource) {
+            $$parsedSource["addresses"] = $$createField6_0($$parsedSource["addresses"]);
+        }
+        if ("profiles" in $$parsedSource) {
+            $$parsedSource["profiles"] = $$createField7_0($$parsedSource["profiles"]);
+        }
+        return new WireGuardConfigSummary(/** @type {Partial<WireGuardConfigSummary>} */($$parsedSource));
+    }
+}
+
+/**
+ * WireGuardStatus says whether a profile's WireGuard works: the path is
+ * you, LagZap's entries and relay, the WireGuard server, then the internet.
+ */
+export class WireGuardStatus {
+    /**
+     * Creates a new WireGuardStatus instance.
+     * @param {Partial<WireGuardStatus>} [$$source = {}] - The source object to create the WireGuardStatus.
+     */
+    constructor($$source = {}) {
+        if (!("config_id" in $$source)) {
+            /**
+             * ConfigID: the config whose tunnel this is (shared by the profiles
+             * using it).
+             * @member
+             * @type {string}
+             */
+            this["config_id"] = "";
+        }
+        if (!("state" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["state"] = "";
+        }
+        if (!("relay" in $$source)) {
+            /**
+             * Relay is the LagZap relay that carries the tunnel (its node ID); empty
+             * with Direct: the tunnel goes straight to the WireGuard server (the
+             * region choice is Direct).
+             * @member
+             * @type {string}
+             */
+            this["relay"] = "";
+        }
+        if (!("direct" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["direct"] = false;
+        }
+        if (!("owner" in $$source)) {
+            /**
+             * Owner is the profile whose region choice picks the relay (profiles
+             * sharing a config share its one tunnel).
+             * @member
+             * @type {string}
+             */
+            this["owner"] = "";
+        }
+        if (!("session" in $$source)) {
+            /**
+             * Session is the tunnel's LagZap session (its connection ID): the
+             * connections inside the tunnel carry it as their group, so the app
+             * tells which went through the Dedicated IP.
+             * @member
+             * @type {string}
+             */
+            this["session"] = "";
+        }
+        if (!("ping" in $$source)) {
+            /**
+             * Ping is the round trip from here through the relay and the WireGuard
+             * server back to the relay's echo server, in ms; 0 when unknown.
+             * @member
+             * @type {number}
+             */
+            this["ping"] = 0;
+        }
+        if (!("handshake" in $$source)) {
+            /**
+             * Handshake is the last WireGuard handshake (unix seconds); 0 for none.
+             * @member
+             * @type {number}
+             */
+            this["handshake"] = 0;
+        }
+        if (!("error" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new WireGuardStatus instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {WireGuardStatus}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new WireGuardStatus(/** @type {Partial<WireGuardStatus>} */($$parsedSource));
+    }
+}
+
 // Private type creation functions
 const $$createType0 = AccessOfferDiscord.createFrom;
 const $$createType1 = $Create.Array($Create.Any);
@@ -6323,29 +6628,31 @@ const $$createType86 = $Create.Nullable($$createType85);
 const $$createType87 = $Create.Nullable($$createType81);
 const $$createType88 = SeriesPath.createFrom;
 const $$createType89 = $Create.Array($$createType88);
-const $$createType90 = QuoteLine.createFrom;
+const $$createType90 = WireGuardConfigSummary.createFrom;
 const $$createType91 = $Create.Array($$createType90);
-const $$createType92 = $Create.Map($Create.Any, $Create.Any);
-const $$createType93 = Quote.createFrom;
-const $$createType94 = $Create.Nullable($$createType93);
-const $$createType95 = CityConnection.createFrom;
-const $$createType96 = $Create.Array($$createType95);
-const $$createType97 = CityRoute.createFrom;
+const $$createType92 = QuoteLine.createFrom;
+const $$createType93 = $Create.Array($$createType92);
+const $$createType94 = $Create.Map($Create.Any, $Create.Any);
+const $$createType95 = Quote.createFrom;
+const $$createType96 = $Create.Nullable($$createType95);
+const $$createType97 = CityConnection.createFrom;
 const $$createType98 = $Create.Array($$createType97);
-const $$createType99 = CityServer.createFrom;
+const $$createType99 = CityRoute.createFrom;
 const $$createType100 = $Create.Array($$createType99);
-const $$createType101 = ServerRegion.createFrom;
+const $$createType101 = CityServer.createFrom;
 const $$createType102 = $Create.Array($$createType101);
-const $$createType103 = ServerCity.createFrom;
+const $$createType103 = ServerRegion.createFrom;
 const $$createType104 = $Create.Array($$createType103);
-const $$createType105 = TeamPlan.createFrom;
-const $$createType106 = TeamPerson.createFrom;
-const $$createType107 = $Create.Array($$createType106);
-const $$createType108 = TeamLockedSeat.createFrom;
+const $$createType105 = ServerCity.createFrom;
+const $$createType106 = $Create.Array($$createType105);
+const $$createType107 = TeamPlan.createFrom;
+const $$createType108 = TeamPerson.createFrom;
 const $$createType109 = $Create.Array($$createType108);
-const $$createType110 = TeamPendingInvite.createFrom;
+const $$createType110 = TeamLockedSeat.createFrom;
 const $$createType111 = $Create.Array($$createType110);
-const $$createType112 = Team.createFrom;
-const $$createType113 = $Create.Nullable($$createType112);
-const $$createType114 = TeamInvite.createFrom;
-const $$createType115 = $Create.Array($$createType114);
+const $$createType112 = TeamPendingInvite.createFrom;
+const $$createType113 = $Create.Array($$createType112);
+const $$createType114 = Team.createFrom;
+const $$createType115 = $Create.Nullable($$createType114);
+const $$createType116 = TeamInvite.createFrom;
+const $$createType117 = $Create.Array($$createType116);

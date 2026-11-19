@@ -6,6 +6,11 @@ import HelpTip from "~/components/settings/HelpTip.vue";
 import AppSparkline, { type SparkSeries } from "~/components/network/bandwidth/AppSparkline.vue";
 import AppLimitDialog from "~/components/network/bandwidth/AppLimitDialog.vue";
 import AppRouteDialog from "~/components/network/bandwidth/AppRouteDialog.vue";
+import AppTunnelDialog from "~/components/network/bandwidth/AppTunnelDialog.vue";
+import CountryFlag from "vue-country-flag-next";
+import { GetProfileWireGuard } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import type { WireGuardConfig } from "~/composables/useProfileWireGuard";
+import type { AppTunnel } from "~/utils/indexedDB";
 import { limitActiveNow, nowMs, routeFor, useBandwidthControl } from "~/composables/useBandwidthControl";
 import { untilText } from "~/components/network/bandwidth/until";
 import { formatSize, formatSpeed } from "~/utils/localeFormat";
@@ -31,6 +36,9 @@ const {
   deleteLimit,
   saveRoute,
   deleteRoute,
+  tunnels,
+  saveTunnel,
+  deleteTunnel,
 } = useBandwidthControl();
 
 const displayName = (path: string, fallback: string) =>
@@ -179,6 +187,50 @@ const routeName = (route: AppRoute) => {
   const base = route.path.split(/[\\/]/).filter(Boolean).pop() ?? route.path;
   return route.kind === "folder" ? base : displayName(route.path, base);
 };
+
+// Apps, folders or the whole PC sent through a Dedicated IP (WireGuard).
+const tunnelDialog = ref(false);
+const tunnelTarget = ref<{ path: string; name: string; tunnel: AppTunnel | null; wholePc: boolean }>({
+  path: "",
+  name: "",
+  tunnel: null,
+  wholePc: false,
+});
+/** The saved Dedicated IP configs (one list on this PC). */
+const wireGuardConfigs = ref<WireGuardConfig[]>([]);
+async function loadWireGuardConfigs() {
+  try {
+    const summary = (await GetProfileWireGuard("")) as { configs?: WireGuardConfig[] };
+    wireGuardConfigs.value = summary.configs ?? [];
+  } catch {
+    wireGuardConfigs.value = [];
+  }
+}
+onMounted(loadWireGuardConfigs);
+watch(tunnelDialog, (shown) => !shown && void loadWireGuardConfigs());
+const configOf = (id: string) => wireGuardConfigs.value.find((config) => config.id === id) ?? null;
+
+const tunnelName = (tunnel: AppTunnel) => {
+  if (tunnel.kind === "pc") return bc("wholePc");
+  const base = tunnel.path.split(/[\\/]/).filter(Boolean).pop() ?? tunnel.path;
+  return tunnel.kind === "folder" ? base : displayName(tunnel.path, base);
+};
+
+function openTunnel(tunnel: AppTunnel | null, wholePc = false) {
+  tunnelTarget.value = { path: tunnel?.path ?? "", name: tunnel ? tunnelName(tunnel) : "", tunnel, wholePc };
+  tunnelDialog.value = true;
+}
+
+function openTunnelForApp(app: AppTraffic) {
+  tunnelTarget.value = { path: app.path, name: displayName(app.path, app.name), tunnel: null, wholePc: false };
+  tunnelDialog.value = true;
+}
+
+/** From the chip: send the rule's apps through config now (turning it on). */
+function useConfigFor(tunnel: AppTunnel, id: string) {
+  if (tunnel.enabled && tunnel.config_id === id) return;
+  saveTunnel({ ...tunnel, config_id: id, enabled: true });
+}
 
 // Right-click on an app: the same speed cap and internet actions as its
 // buttons, at the cursor.
@@ -465,6 +517,106 @@ const sparkLegend = computed(() => {
             <v-divider />
           </section>
 
+          <section v-if="tunnels.length">
+            <div class="text-subtitle-2 px-4 pt-3 pb-1">
+              {{ bc("dedicatedIps") }}
+            </div>
+            <div
+              v-for="tunnel in tunnels"
+              :key="tunnel.id"
+              class="bandwidth__row">
+              <v-avatar
+                size="32"
+                rounded="0"
+                class="flex-none">
+                <v-icon
+                  v-if="tunnel.kind === 'pc'"
+                  icon="mdi-monitor" />
+                <v-icon
+                  v-else-if="tunnel.kind === 'folder'"
+                  icon="mdi-folder-outline" />
+                <v-img
+                  v-else-if="infoOf(tunnel.path).icon"
+                  :src="infoOf(tunnel.path).icon" />
+                <v-icon
+                  v-else
+                  icon="mdi-application-outline" />
+              </v-avatar>
+              <div class="bandwidth__name">
+                <div class="text-body-2 font-weight-medium text-truncate">
+                  {{ tunnelName(tunnel) }}
+                </div>
+                <div class="text-caption text-medium-emphasis text-truncate">
+                  <span v-if="tunnel.kind === 'pc'">{{ bc("allApps") }}</span>
+                  <span v-else dir="ltr">{{ tunnel.path }}</span>
+                </div>
+              </div>
+              <!-- The chip picks the config right here. -->
+              <v-menu location="bottom end">
+                <template #activator="{ props: menu }">
+                  <v-chip
+                    v-bind="menu"
+                    :color="tunnel.enabled ? 'primary' : undefined"
+                    size="small"
+                    variant="tonal"
+                    append-icon="mdi-menu-down"
+                  >
+                    <CountryFlag
+                      v-if="configOf(tunnel.config_id)?.country"
+                      :country="configOf(tunnel.config_id)!.country"
+                      size="small"
+                      class="me-1" />
+                    {{ tunnel.enabled ? (configOf(tunnel.config_id)?.name ?? bc("dedicatedIpGone")) : bc("dedicatedIpOff") }}
+                  </v-chip>
+                </template>
+                <v-list density="compact">
+                  <v-list-item
+                    v-for="config in wireGuardConfigs"
+                    :key="config.id"
+                    :active="tunnel.enabled && tunnel.config_id === config.id"
+                    color="primary"
+                    @click="useConfigFor(tunnel, config.id)"
+                  >
+                    <template #prepend>
+                      <CountryFlag
+                        v-if="config.country"
+                        :country="config.country"
+                        size="small"
+                        class="me-2" />
+                    </template>
+                    <v-list-item-title>{{ config.name }}</v-list-item-title>
+                    <v-list-item-subtitle dir="ltr">{{ config.ip }}</v-list-item-subtitle>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
+              <v-switch
+                :model-value="tunnel.enabled"
+                color="primary"
+                density="compact"
+                hide-details
+                inset
+                class="flex-none"
+                @update:model-value="saveTunnel({ ...tunnel, enabled: Boolean($event) })"
+              />
+              <v-btn
+                icon="mdi-pencil-outline"
+                size="small"
+                variant="text"
+                :aria-label="bc('editDedicatedIp')"
+                @click="openTunnel(tunnel)"
+              />
+              <v-btn
+                v-tooltip:top="bc('remove')"
+                icon="mdi-delete-outline"
+                size="small"
+                variant="text"
+                :aria-label="bc('remove')"
+                @click="deleteTunnel(tunnel.id)"
+              />
+            </div>
+            <v-divider />
+          </section>
+
           <div class="bandwidth__apps-head d-flex align-center px-4 pt-3 pb-1">
             <span class="text-subtitle-2">{{ bc("apps") }}</span>
             <v-scale-transition :origin="isRtl ? 'center right' : 'center left'" mode="out-in">
@@ -616,6 +768,11 @@ const sparkLegend = computed(() => {
             :title="bc('useInternet')"
             @click="openRouteForApp(contextApp)"
           />
+          <v-list-item
+            prepend-icon="mdi-tunnel-outline"
+            :title="bc('useDedicatedIp')"
+            @click="openTunnelForApp(contextApp)"
+          />
         </v-list>
       </v-menu>
 
@@ -679,6 +836,16 @@ const sparkLegend = computed(() => {
               prepend-icon="mdi-swap-horizontal"
               @click="openRoute(null)"
             />
+            <v-list-item
+              :title="bc('useDedicatedIp')"
+              prepend-icon="mdi-tunnel-outline"
+              @click="openTunnel(null)"
+            />
+            <v-list-item
+              :title="bc('dedicatedIpWholePc')"
+              prepend-icon="mdi-monitor"
+              @click="openTunnel(tunnels.find((item) => item.kind === 'pc') ?? null, true)"
+            />
           </v-list>
         </v-menu>
         <v-fab
@@ -702,6 +869,15 @@ const sparkLegend = computed(() => {
       :fixed="dialogTarget.fixed"
       @save="saveLimit"
       @remove="deleteLimit"
+    />
+    <AppTunnelDialog
+      v-model="tunnelDialog"
+      :path="tunnelTarget.path"
+      :name="tunnelTarget.name"
+      :tunnel="tunnelTarget.tunnel"
+      :whole-pc="tunnelTarget.wholePc"
+      @save="saveTunnel"
+      @remove="deleteTunnel"
     />
     <AppRouteDialog
       v-model="routeDialog"

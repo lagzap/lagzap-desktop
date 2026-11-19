@@ -246,8 +246,10 @@ const sortBy = ref<VDataTable["sortBy"]>([
                   :country="item.country_code"
                   size="small"
                 />
+                <!-- A Dedicated IP tunnel's own connection: its WireGuard
+                     server by hostname (only these rows show one). -->
                 <span class="text-caption ms-1">
-                  {{ item.destination_ip }}
+                  {{ item.type === "wireguard" && item.host ? item.host : item.destination_ip }}
                 </span>
                 <!-- Admins: source → destination port, faint. -->
                 <span v-if="admin" class="connection-ports ms-1" dir="ltr">
@@ -322,9 +324,11 @@ const sortBy = ref<VDataTable["sortBy"]>([
                   size="small"
                 />
                 <span class="text-caption ms-1">
-                  {{ item.items[0].raw.destination_ip }}:{{
-                    item.items[0].raw.destination_port
-                  }}
+                  {{
+                    item.items[0].raw.type === "wireguard" && item.items[0].raw.host
+                      ? item.items[0].raw.host
+                      : item.items[0].raw.destination_ip
+                  }}:{{ item.items[0].raw.destination_port }}
                 </span>
               </div>
             </td>

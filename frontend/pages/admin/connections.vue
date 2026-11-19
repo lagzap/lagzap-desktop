@@ -97,10 +97,14 @@ const items = computed(() =>
     .map(({ connection, closed }) => {
       const profile = connection.profile_id ? profileById.value.get(connection.profile_id) : undefined;
       const title = titleById.value.get(connection.title_id ?? profile?.title_id ?? "");
+      // A Dedicated IP tunnel's own connection to the WireGuard server: the
+      // only rows whose destination shows a hostname.
+      const wireguard = connection.type === "wireguard";
       return {
         ...connection,
         closed,
-        process_name: processName(connection.process),
+        wireguard,
+        process_name: wireguard ? t("$vuetify.title.profile.wireguard.title") : processName(connection.process),
         title_icon: title?.icon_url ?? "",
         title_name: title ? store.titleName(title.name) : "",
         profile_name: profile ? store.titleName(profile.name) : "",
@@ -214,7 +218,8 @@ const headers = computed<DataTableHeader[]>(() => {
             <v-tooltip :text="item.title_name || item.process || '-'" location="top" open-delay="300">
               <template #activator="{ props: tip }">
                 <v-avatar v-bind="tip" size="24" rounded="sm" variant="tonal">
-                  <v-img v-if="item.title_icon" :src="item.title_icon" />
+                  <v-icon v-if="item.wireguard" icon="mdi-tunnel-outline" size="16" />
+                  <v-img v-else-if="item.title_icon" :src="item.title_icon" />
                   <v-icon v-else icon="mdi-application-outline" size="16" />
                 </v-avatar>
               </template>
@@ -249,7 +254,7 @@ const headers = computed<DataTableHeader[]>(() => {
             <span class="ms-1">
               <v-tooltip v-if="item.destination_ip" :text="item.destination_ip" location="top" open-delay="300">
             <template #activator="{ props: tip }">
-              <span v-bind="tip" class="copyable ip-cell" @click.stop="copy(item.destination_ip)"><span class="ip-cell__text">{{ item.destination_port ? hostForPort(item.destination_ip) : item.destination_ip }}</span><span v-if="item.destination_port" class="port">:{{ item.destination_port }}</span><v-icon v-if="copied === item.destination_ip" icon="mdi-check" size="14" color="success" class="ms-1" /></span>
+              <span v-bind="tip" class="copyable ip-cell" @click.stop="copy(item.destination_ip)"><span class="ip-cell__text">{{ item.wireguard && item.host ? item.host : item.destination_port ? hostForPort(item.destination_ip) : item.destination_ip }}</span><span v-if="item.destination_port" class="port">:{{ item.destination_port }}</span><v-icon v-if="copied === item.destination_ip" icon="mdi-check" size="14" color="success" class="ms-1" /></span>
             </template>
           </v-tooltip>
               <span v-else class="text-medium-emphasis">-</span>

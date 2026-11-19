@@ -85,7 +85,7 @@ tasks:
     cmds:
       - wails3 generate bindings -obfuscated -f '{{.BUILD_FLAGS}}'
     vars:
-      BUILD_FLAGS: '-tags production,with_gvisor,with_dhcp,with_coordinator,tfogo_checklinkname0'
+      BUILD_FLAGS: '-tags production,with_gvisor,with_wireguard,with_dhcp,with_coordinator,tfogo_checklinkname0'
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` files from an image

@@ -5,17 +5,22 @@ import {
   SetAppLimits,
   SetAppRoutes,
   SetAppTrafficWatch,
+  SetAppTunnels,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import { AppLimitRule, AppRouteRule, type AppTraffic } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { AppLimitRule, AppRouteRule, AppTunnelRule, type AppTraffic } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import {
   listAppLimits,
   listAppRoutes,
+  listAppTunnels,
   removeAppLimit,
   removeAppRoute,
+  removeAppTunnel,
   saveAppLimit,
   saveAppRoute,
+  saveAppTunnel,
   type AppLimit,
   type AppRoute,
+  type AppTunnel,
 } from "~/utils/indexedDB";
 
 /** Seconds of download speed each app's sparkline shows. */
@@ -28,6 +33,9 @@ const limits = ref<AppLimit[]>([]);
 /** Apps and folders sent through another internet (Go moves their new
  * connections on the NDIS layer). */
 const routes = ref<AppRoute[]>([]);
+/** Apps, folders or the whole PC sent through a Dedicated IP (WireGuard):
+ * Go captures them and routes them into the config's tunnel. */
+const tunnels = ref<AppTunnel[]>([]);
 const apps = shallowRef<AppTraffic[]>([]);
 const history = new Map<string, number[]>();
 /** Each app's last minute of speed per internet it arrived on (app key ->
@@ -56,6 +64,58 @@ function pushRoutes() {
   SetAppRoutes(routes.value.map((route) => new AppRouteRule(route))).catch(() => {
     // service not running; "service-started" sends them again
   });
+}
+
+function pushTunnels() {
+  SetAppTunnels(tunnels.value.map((tunnel) => new AppTunnelRule(tunnel))).catch(() => {
+    // service not running; "service-started" sends them again
+  });
+}
+
+async function loadTunnels() {
+  try {
+    tunnels.value = await listAppTunnels();
+  } catch {
+    tunnels.value = [];
+  }
+  pushTunnels();
+}
+
+export async function saveTunnel(tunnel: AppTunnel) {
+  // One whole-PC rule: a new one replaces it.
+  if (tunnel.kind === "pc") {
+    for (const old of tunnels.value.filter((item) => item.kind === "pc" && item.id !== tunnel.id)) {
+      await removeAppTunnel(old.id);
+    }
+    tunnels.value = tunnels.value.filter((item) => item.kind !== "pc" || item.id === tunnel.id);
+  }
+  await saveAppTunnel(tunnel);
+  const index = tunnels.value.findIndex((item) => item.id === tunnel.id);
+  if (index >= 0) tunnels.value.splice(index, 1, { ...tunnel });
+  else tunnels.value.push({ ...tunnel });
+  pushTunnels();
+}
+
+export async function deleteTunnel(id: string) {
+  await removeAppTunnel(id);
+  tunnels.value = tunnels.value.filter((item) => item.id !== id);
+  pushTunnels();
+}
+
+/** The Dedicated IP rule for path's app: its own, else its deepest
+ * folder's (as Go matches); the whole PC's is separate. */
+export function tunnelFor(path: string): AppTunnel | null {
+  const key = pathKey(path);
+  let best: AppTunnel | null = null;
+  for (const tunnel of tunnels.value) {
+    if (tunnel.kind === "pc") continue;
+    const rule = pathKey(tunnel.path);
+    if (tunnel.kind === "exe" && rule === key) return tunnel;
+    if (tunnel.kind === "folder" && key.startsWith(rule + "\\") && (!best || rule.length > pathKey(best.path).length)) {
+      best = tunnel;
+    }
+  }
+  return best;
 }
 
 async function loadRoutes() {
@@ -134,10 +194,12 @@ export function installBandwidthLimits() {
   installed = true;
   loadLimits();
   loadRoutes();
+  loadTunnels();
   setInterval(dropExpired, 30_000);
   Events.On("service-started", () => {
     pushLimits();
     pushRoutes();
+    pushTunnels();
   });
   Events.On("gaming-state", ({ data }: any) => {
     gaming.value = Boolean(Array.isArray(data) ? data[0] : data);
@@ -311,5 +373,8 @@ export function useBandwidthControl() {
     deleteLimit,
     saveRoute,
     deleteRoute,
+    tunnels,
+    saveTunnel,
+    deleteTunnel,
   };
 }

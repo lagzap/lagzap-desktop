@@ -13,6 +13,7 @@ import { localDigits } from "~/utils/localeFormat";
 import { DEFAULT_TCP_ROUTES, DEFAULT_UDP_ROUTES, resolveProfileRouteCounts } from "~/composables/routeCountUtils";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 import SplitTunnelOptions from "~/components/title/SplitTunnelOptions.vue";
+import ProfileWireGuard from "~/components/title/ProfileWireGuard.vue";
 import LoadBalanceOptions, { type LoadBalanceMode } from "~/components/title/LoadBalanceOptions.vue";
 import { GetLoadBalanceShares } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { LoadBalanceShare } from "~/bindings/github.com/lagzap/lagzap/adapter";
@@ -61,6 +62,9 @@ const {
   // City hierarchy (for city mode)
   cityHierarchy,
   getSortedCitiesForCountry,
+  automaticCityHierarchy,
+  getAutomaticCitiesForCountry,
+  autoPickable,
   getRegionCitiesSelected,
   getRegionCitiesSomeSelected,
   toggleRegionCities,
@@ -136,8 +140,19 @@ const cityRegionRoutes = (regionTag: string) =>
       sum + getSortedCitiesForCountry(regionTag, country).reduce((n: number, city: string) => n + cityRoutes(city), 0),
     0,
   );
+/** A city's routes over the servers Automatic can pick there. */
+const automaticCityRoutes = (city: string) => routesOf(cityMap.value[city]?.filter(autoPickable));
 const automaticRoutes = computed(() =>
-  Object.keys(cityHierarchy.value).reduce((sum, regionTag) => sum + cityRegionRoutes(regionTag), 0),
+  Object.entries(automaticCityHierarchy.value).reduce(
+    (sum, [regionTag, countries]) =>
+      sum +
+      Object.keys(countries).reduce(
+        (n, country) =>
+          n + getAutomaticCitiesForCountry(regionTag, country).reduce((m: number, city: string) => m + automaticCityRoutes(city), 0),
+        0,
+      ),
+    0,
+  ),
 );
 const routesLabel = (n: number) => t("$vuetify.title.profile.server.routeCount", localDigits(n));
 
@@ -185,7 +200,9 @@ const splitAdapter = computed(() => selectedDefaultInterface.value);
 const splitAdapters = computed(() => {
   const names = (interfaces.value ?? []).map((iface) => iface.Name);
   const saved = [splitAdapter.value, ...(store.profileStates[props.profile.id]?.network_interfaces ?? [])];
-  for (const name of saved) if (name && name !== "*" && !names.includes(name)) names.push(name);
+  // "*" and "-" are settings (follow Multi Internet / load balancing off),
+  // not adapters.
+  for (const name of saved) if (name && name !== "*" && name !== LOAD_BALANCE_OFF && !names.includes(name)) names.push(name);
   return names;
 });
 function setSplitAdapter(name: string) {
@@ -539,6 +556,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
           @pick="setSplitAdapter"
           @refresh="updateInterfaces"
         />
+        <ProfileWireGuard :profile-id="profile.id" :disabled="!store.appReady" />
       </v-list>
       <v-divider v-if="mode !== 'direct'" />
 
@@ -563,13 +581,13 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
             </v-tooltip>
           </div>
         </v-list-subheader>
-        <template v-for="regionTag in Object.keys(cityHierarchy)" :key="`auto-${regionTag}`">
+        <template v-for="regionTag in Object.keys(automaticCityHierarchy)" :key="`auto-${regionTag}`">
           <template
-            v-for="countryIso2 in Object.keys(cityHierarchy[regionTag])"
+            v-for="countryIso2 in Object.keys(automaticCityHierarchy[regionTag])"
             :key="`auto-${regionTag}-${countryIso2}`"
           >
             <v-list-item
-              v-for="city in getSortedCitiesForCountry(regionTag, countryIso2)"
+              v-for="city in getAutomaticCitiesForCountry(regionTag, countryIso2)"
               :key="`auto-${city}`"
               density="compact"
             >
@@ -582,7 +600,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
                   </v-avatar>
                   <div class="ms-2">
                     <div class="text-caption">{{ getCityLabel(city) }}</div>
-                    <v-tooltip v-if="cityRoutes(city)" :text="routesTip(cityRoutes(city))" location="top" max-width="300" open-delay="200"><template #activator="{ props: tip }"><div v-bind="tip" class="route-count route-count-tip">{{ routesLabel(cityRoutes(city)) }}</div></template></v-tooltip>
+                    <v-tooltip v-if="automaticCityRoutes(city)" :text="routesTip(automaticCityRoutes(city))" location="top" max-width="300" open-delay="200"><template #activator="{ props: tip }"><div v-bind="tip" class="route-count route-count-tip">{{ routesLabel(automaticCityRoutes(city)) }}</div></template></v-tooltip>
                   </div>
                 </div>
               </template>
@@ -596,7 +614,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
             </v-list-item>
           </template>
         </template>
-        <v-list-item v-if="Object.keys(cityHierarchy).length === 0">
+        <v-list-item v-if="Object.keys(automaticCityHierarchy).length === 0">
           <template #title>
             <span class="text-caption text-medium-emphasis">
               {{ t("$vuetify.title.profile.server.automaticNone") }}
@@ -1082,6 +1100,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
           @pick="setSplitAdapter"
           @refresh="updateInterfaces"
         />
+        <ProfileWireGuard :profile-id="profile.id" :disabled="!store.appReady" />
         <v-divider class="my-1" />
 
         <!-- Hierarchical Node Items: Region > Country > Cities -->

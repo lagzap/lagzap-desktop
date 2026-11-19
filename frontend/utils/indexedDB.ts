@@ -7,10 +7,12 @@ const SESSION_INTERVALS_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 const APP_LIMITS = "appLimits";
 /** Apps sent through another internet; kept like the speed caps. */
 const APP_ROUTES = "appRoutes";
+/** Apps (or the whole PC) sent through a Dedicated IP; kept like the caps. */
+const APP_TUNNELS = "appTunnels";
 
 export const openDatabase = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("lagzapDatabase", 7);
+    const request = indexedDB.open("lagzapDatabase", 8);
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -29,6 +31,9 @@ export const openDatabase = (): Promise<IDBDatabase> => {
       }
       if (!db.objectStoreNames.contains(APP_ROUTES)) {
         db.createObjectStore(APP_ROUTES, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(APP_TUNNELS)) {
+        db.createObjectStore(APP_TUNNELS, { keyPath: "id" });
       }
     };
 
@@ -218,5 +223,42 @@ export async function removeAppRoute(id: string): Promise<void> {
   const db = await openDatabase();
   const transaction = db.transaction([APP_ROUTES], "readwrite");
   transaction.objectStore(APP_ROUTES).delete(id);
+  await waitForTransaction(transaction);
+}
+
+/** One app (exe), folder or the whole PC ("pc", no path) sent through a
+ * saved Dedicated IP (WireGuard) config (the shape Go's SetAppTunnels
+ * takes). */
+export interface AppTunnel {
+  id: string;
+  /** "exe", "folder" or "pc". */
+  kind: string;
+  path: string;
+  config_id: string;
+  enabled: boolean;
+}
+
+export async function listAppTunnels(): Promise<AppTunnel[]> {
+  const db = await openDatabase();
+  const transaction = db.transaction([APP_TUNNELS], "readonly");
+  const store = transaction.objectStore(APP_TUNNELS);
+  return new Promise((resolve, reject) => {
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result as AppTunnel[]);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveAppTunnel(tunnel: AppTunnel): Promise<void> {
+  const db = await openDatabase();
+  const transaction = db.transaction([APP_TUNNELS], "readwrite");
+  transaction.objectStore(APP_TUNNELS).put({ ...tunnel });
+  await waitForTransaction(transaction);
+}
+
+export async function removeAppTunnel(id: string): Promise<void> {
+  const db = await openDatabase();
+  const transaction = db.transaction([APP_TUNNELS], "readwrite");
+  transaction.objectStore(APP_TUNNELS).delete(id);
   await waitForTransaction(transaction);
 }

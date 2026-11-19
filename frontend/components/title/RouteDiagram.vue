@@ -2,7 +2,7 @@
 import { onMounted, onBeforeUnmount, ref, computed, watch } from "vue";
 import { debounce } from "es-toolkit";
 import { useStore } from "~/stores";
-import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
+import { RoutingMode, type Profile } from "~/bindings/github.com/lagzap/zap/data";
 import type { DiagramRoute } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import { useProfileChart } from "~/composables/useProfileChart";
 import {
@@ -16,6 +16,8 @@ import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
 import { useLocale, useTheme } from "vuetify";
 import * as echarts from "echarts";
 import { quietChart } from "~/utils/chartIdle";
+import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
+import { flagImage } from "~/utils/flagImage";
 
 const props = defineProps<{
   profile: Profile;
@@ -61,6 +63,15 @@ const preview = computed(() =>
 );
 /** Preview or idle prediction — drawn dashed until a live route exists. */
 const isEstimate = computed(() => !!preview.value || !!diagram.value?.idle);
+/** The profile picks its servers itself (Automatic): until a connection
+ * shows the ones used, every server slot reads "Automatic" rather than a
+ * guess that may not be what it picks. */
+const automaticEstimate = computed(
+  () =>
+    isEstimate.value &&
+    (store.profileStates[props.profile.id]?.mode ?? RoutingMode.RoutingMode_ROUTING_MODE_GLOBAL) ===
+      RoutingMode.RoutingMode_ROUTING_MODE_GLOBAL
+);
 
 const PREVIEW_DIRECT = "preview:direct";
 const PREVIEW_DOMESTIC = "preview:domestic";
@@ -249,6 +260,9 @@ function locationForRouteHop(
   if (hop?.node_id === PREVIEW_DIRECT) {
     return "";
   }
+  if (automaticEstimate.value) {
+    return t("$vuetify.title.profile.server.automaticServer");
+  }
   if (hop?.node_id === PREVIEW_DOMESTIC) {
     return t("$vuetify.title.profile.domestic");
   }
@@ -263,6 +277,9 @@ function previewDestinationName(): string {
   const p = preview.value;
   if (!p || p.direct) {
     return t("$vuetify.title.profile.server.directWithoutServer");
+  }
+  if (automaticEstimate.value) {
+    return t("$vuetify.title.profile.server.automaticServer");
   }
   const city = nodeCityName(p.relay_node_id);
   if (!city) {
@@ -1001,8 +1018,11 @@ function updateChart() {
 
   // Destination convergence X (shared by all routes)
   const destConvergenceX = px(startX + (maxHops + 1) * hopSpacing);
+  // With a Dedicated IP the game sits further right, past its WireGuard hop.
+  const wireGuardHop = wireGuard.active.value ? wireGuard.selected.value : null;
+  const gameX = destConvergenceX + (wireGuardHop ? 150 : 70);
 
-  const scale = diagramScale(destConvergenceX + 70 - startX, diagramHeight);
+  const scale = diagramScale(gameX - startX, diagramHeight);
 
   // Add route nodes and links with equal spacing
   routes.forEach((route, routeIndex) => {
@@ -1345,10 +1365,61 @@ function updateChart() {
     lineStyle: flowLineStyle(),
   });
 
+  // The relay hands the traffic to the user's WireGuard server, which takes
+  // it to the game.
+  let toGame = "destination";
+  if (wireGuardHop) {
+    // Where it leaves (the city, else the country) above; WireGuard and the
+    // ping through it below. Never the endpoint.
+    const place = wireGuardHop.city || wireGuardHop.country || "WireGuard";
+    const ping = wireGuard.status.value.state === "working" && wireGuard.status.value.ping
+      ? `WireGuard · ${formatMs(wireGuard.status.value.ping)}`
+      : "WireGuard";
+    nodes.push({
+      id: "wireguard",
+      name: place,
+      x: px(destConvergenceX + 90),
+      y: px(centerY),
+      symbol: wireGuardFlag.value ? `image://${wireGuardFlag.value}` : "roundRect",
+      symbolSize: [24, 18],
+      tooltip: { show: false },
+      silent: true,
+      itemStyle: { color: chrome.hopSub },
+      label: {
+        show: true,
+        position: "inside",
+        formatter: `{a|${place}}\n{b|${ping}}`,
+        rich: {
+          a: {
+            color: chrome.hopLabel,
+            fontSize: 11,
+            lineHeight: 14,
+            align: "center",
+            padding: [0, 0, 26, 0],
+          },
+          b: {
+            color: chrome.hopSub,
+            fontSize: 9,
+            lineHeight: 14,
+            align: "center",
+            padding: [26, 0, 0, 0],
+          },
+        },
+      },
+    });
+    links.push({
+      source: "destination",
+      target: "wireguard",
+      tooltip: { show: false },
+      lineStyle: flowLineStyle(),
+    });
+    toGame = "wireguard";
+  }
+
   nodes.push({
     id: "game-server",
     name: "Game",
-    x: px(destConvergenceX + 70),
+    x: px(gameX),
     y: px(centerY),
     symbolSize: 0,
     tooltip: { show: false },
@@ -1373,7 +1444,7 @@ function updateChart() {
   });
 
   links.push({
-    source: "destination",
+    source: toGame,
     target: "game-server",
     tooltip: { show: false },
     lineStyle: flowLineStyle(),
@@ -1390,7 +1461,7 @@ function updateChart() {
     nodes.push({
       id,
       name: "",
-      x: px(destConvergenceX + 70),
+      x: px(gameX),
       y,
       symbolSize: 0,
       tooltip: { show: false },
@@ -1410,7 +1481,7 @@ function updateChart() {
     nodes.push({
       id: "actual-ping",
       name: text,
-      x: px(destConvergenceX + 70),
+      x: px(gameX),
       y: badgeTop,
       symbolSize: 0,
       tooltip: { show: false },
@@ -1439,7 +1510,8 @@ function updateChart() {
       containLabel: false,
     },
     tooltip: {
-      show: true,
+      // A preview or idle prediction has nothing measured to show.
+      show: !isEstimate.value,
       trigger: "item",
       triggerOn: "mousemove",
       renderMode: "html",
@@ -1552,6 +1624,23 @@ function updateChart() {
 
 // The chart div only exists once Go reports show=true, usually after mount,
 // and is re-created when the diagram hides; follow the element itself.
+// Dedicated IP (WireGuard) in use: a hop between the relay and the game,
+// the config's flag, name and the ping through it.
+const wireGuard = useProfileWireGuard(props.profile.id);
+const wireGuardFlag = ref("");
+watch(
+  () => wireGuard.selected.value?.country ?? "",
+  async (country) => {
+    wireGuardFlag.value = country ? await flagImage(country) : "";
+    updateChart();
+  },
+  { immediate: true }
+);
+watch(
+  () => [wireGuard.active.value, wireGuard.selected.value?.id, wireGuard.status.value.ping, wireGuard.status.value.state],
+  () => updateChart()
+);
+
 // The box's height eases between route counts (CSS); the chart follows it
 // frame by frame instead of jumping to the end size.
 let boxObserver: ResizeObserver | null = null;

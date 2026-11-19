@@ -197,6 +197,9 @@ export const useStore = defineStore("index", () => {
   const startupOptimizeDone = ref(false);
   const serviceReady = ref<boolean>(false);
   const appReady = ref<boolean>(false);
+  /** A data sync step that keeps failing and is retried (null when the
+   * sync goes fine). The splash or a notice says syncing has problems. */
+  const syncProblem = ref<{ step: string; error: string; failed: boolean } | null>(null);
   const ndisRunning = ref<boolean>(false);
   // Replaced whole twice a second and never mutated: no deep proxies.
   const latency = shallowRef<MultiInterfaceLatency | null>(null);
@@ -509,6 +512,29 @@ export const useStore = defineStore("index", () => {
   Events.On("account-invalid", () => void nuxtApp.runWithContext(() => handleAuthFailure()));
   Events.On("titles", ({ data }) => upsertTitles(asEntityList(data)));
   Events.On("title-delete", ({ data }) => deleteTitle(asEntityID(data)));
+  Events.On("sync-state", ({ data }) => {
+    const raw = (Array.isArray(data) && data.length === 1 ? data[0] : data) as {
+      step?: string;
+      error?: string;
+      retrying?: boolean;
+      failed?: boolean;
+      done?: boolean;
+    } | null;
+    if (!raw) return;
+    if (raw.done) {
+      syncProblem.value = null;
+      return;
+    }
+    if (raw.retrying || raw.failed) {
+      syncProblem.value = { step: raw.step ?? "", error: raw.error ?? "", failed: !!raw.failed };
+      // Still starting: the splash keeps loading and says why.
+      if (!appReady.value && loading.value) {
+        statusMessage.value = raw.failed
+          ? locale.t("$vuetify.service.syncFailed")
+          : locale.t("$vuetify.service.syncRetrying", raw.step ?? "");
+      }
+    }
+  });
   Events.On("profiles", ({ data }) => upsertProfiles(asEntityList(data)));
   Events.On("profile-delete", ({ data }) => deleteProfile(asEntityID(data)));
   Events.On("active-titles-trimmed", ({ data }) => {
@@ -1385,6 +1411,7 @@ export const useStore = defineStore("index", () => {
     online,
     usable,
     appReady,
+    syncProblem,
     planBlocked,
     internetStatus,
     status,

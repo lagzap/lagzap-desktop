@@ -10,6 +10,7 @@ export {
     AppRouteRule,
     AppTraffic,
     AppTrafficSnapshot,
+    AppTunnelRule,
     CityConnection,
     CityRoute,
     CityServer,
@@ -71,6 +72,7 @@ export {
     ProfileDiagram,
     ProfileLatencyChart,
     ProfileLatencySeries,
+    ProfileWireGuard,
     Quote,
     QuoteLine,
     QuoteRequest,
@@ -92,5 +94,7 @@ export {
     TeamPlan,
     TeamResult,
     TrafficTakeover,
-    TransportWarning
+    TransportWarning,
+    WireGuardConfigSummary,
+    WireGuardStatus
 } from "./models.js";

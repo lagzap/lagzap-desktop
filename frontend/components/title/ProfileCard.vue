@@ -4,6 +4,7 @@ import { useStore } from "@/stores";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
 import ProfileRouteSettings from "~/components/title/ProfileRouteSettings.vue";
 import ProfileRegionSelection from "~/components/title/ProfileRegionSelection.vue";
+import WireGuardHint from "~/components/title/WireGuardHint.vue";
 import ProfileActivityChip from "~/components/title/ProfileActivityChip.vue";
 import ProfileEstimatedPing from "~/components/title/ProfileEstimatedPing.vue";
 import ChangelogBadge from "~/components/title/ChangelogBadge.vue";
@@ -484,6 +485,10 @@ const routeSettingsText = computed(() => {
 
     <!-- Another internet helps: downloads go faster, games ride out one
          internet's lag. One line while the profile is in use. -->
+    <!-- Dedicated IP (WireGuard) in use: which, its ping, and Disable. -->
+    <div class="profile-hint-wrap">
+      <WireGuardHint :profile-id="props.profile.id" />
+    </div>
     <!-- A game on one route: multipath is off, above the hint. -->
     <div v-if="isGameMultiProfile" class="profile-hint-wrap">
       <MultipathOffHint :profile="props.profile" dismissable />
