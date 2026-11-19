@@ -1442,6 +1442,7 @@
     },
     consoleLog: {
         open: 'Console log',
+        profileUpdated: 'Profile updated {0}',
         title: 'Log & stats · {0}',
         subtitle: 'Console lines of its connections, live and ended, and its statistics as collected (admins only).',
         tabLog: 'Console log',

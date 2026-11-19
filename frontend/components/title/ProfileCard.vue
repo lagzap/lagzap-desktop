@@ -91,6 +91,13 @@ const isGameMultiProfile = computed(() => {
 
 const store = useStore();
 const { profileLocked, profileUnavailable, canUpgrade, openUpgrade, admin, limits: planLimits } = usePlanAccess();
+
+/** Admins only: when the profile last changed. */
+const profileUpdatedText = computed(() => {
+  if (!admin.value || !props.profile.updated_at) return "";
+  const at = new Date(props.profile.updated_at);
+  return Number.isNaN(at.getTime()) ? "" : t("$vuetify.consoleLog.profileUpdated", at.toLocaleString());
+});
 /** Not in the user's plan: shown with the unlock offer, never turned on. */
 const locked = computed(() => profileLocked(props.profile.id));
 /** No plan offers it yet: a gray lock, nothing to purchase or pick. */
@@ -364,16 +371,22 @@ const routeSettingsText = computed(() => {
           <v-icon icon="mdi-lock" size="12" />
         </template>
       </v-switch>
-      <v-switch
-        v-else
-        inset
-        density="compact"
-        :model-value="store.isProfileActive(props.profile.id)"
-        hide-details
-        color="cyan"
-        :disabled="!store.appReady || locked || unavailable || store.planBlocked"
-        @update:model-value="toggleProfile"
-      />
+      <!-- Admins: when the profile last changed, on hover. -->
+      <v-tooltip v-else :disabled="!profileUpdatedText" :text="profileUpdatedText" location="top" open-delay="300">
+        <template #activator="{ props: tipProps }">
+          <span v-bind="tipProps" class="d-inline-flex">
+            <v-switch
+              inset
+              density="compact"
+              :model-value="store.isProfileActive(props.profile.id)"
+              hide-details
+              color="cyan"
+              :disabled="!store.appReady || locked || unavailable || store.planBlocked"
+              @update:model-value="toggleProfile"
+            />
+          </span>
+        </template>
+      </v-tooltip>
     </template>
 
     <template #append>
