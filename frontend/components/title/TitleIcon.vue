@@ -22,9 +22,11 @@ watch(
   () => props.image,
   () => (failed.value = false),
 );
+// Quoted: the logo is inlined as a data URL with spaces and quotes, and an
+// unquoted url() with those is dropped, leaving a plain grey square.
 const logoStyle = computed(() => ({
-  "-webkit-mask-image": `url(${logoUrl})`,
-  "mask-image": `url(${logoUrl})`,
+  "-webkit-mask-image": `url("${logoUrl}")`,
+  "mask-image": `url("${logoUrl}")`,
 }));
 </script>
 
