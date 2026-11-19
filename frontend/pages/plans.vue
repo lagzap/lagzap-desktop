@@ -17,10 +17,10 @@ import { formatTeamDate, useTeam } from "~/composables/useTeam";
 import { nativeDigits as localDigits } from "~/utils/localeFormat";
 import { useRouteLevel } from "~/composables/useRouteLevel";
 
-/** Plans for sale: a column per route level (Basic, Advanced, Ultimate) for
- * the team size and billing period picked above them, priced by the
- * coordinator; Free, full width, below. Buy hands off to the website's
- * checkout. */
+/** Plans for sale: the team size (Solo, Duo, ...) and billing period picked
+ * above, then a card per plan for sale (Basic, Advanced, ...) priced by the
+ * coordinator for that size and period; Free, full width, below. Buy hands
+ * off to the website's checkout. */
 const { t } = useLocale();
 const { levelName } = useRouteLevel();
 const route = useRoute();
@@ -33,26 +33,72 @@ const code = computed(() => pricing.value?.currency ?? "");
 const digits = computed(() => pricing.value?.digits ?? 2);
 const money = (minor: number) => formatMoney(minor, code.value, digits.value, true);
 
-/* ----- The choice: plan and options ----- */
-const selectedId = ref<number | null>(null);
-const choices = ref<Record<string, number>>({});
-const selected = computed<PricingPlan | null>(() => plans.value.find((p) => p.id === selectedId.value) ?? null);
+/** Internets and route paths come with the route level: Basic 1, Advanced 2,
+ * Ultimate 3. Devices stay at 1 for now. Neither is picked here. */
+const BY_LEVEL = new Set(["max_internets", "routes"]);
+const FIXED: Record<string, number> = { devices: 1 };
+/** Options that follow the route level or are fixed: shown, never chosen or sent. */
+const NOT_CHOSEN = new Set([...BY_LEVEL, ...Object.keys(FIXED)]);
+/** Fair use is private: the server sets it from the plan and internets, so
+ * it is never shown or chosen here. */
+const HIDDEN_OPTIONS = new Set(["fair_traffic"]);
+/** The most popular route level gets the ribbon. */
+const POPULAR_LEVEL = 2;
 
-const included = (plan: PricingPlan) =>
-  Object.fromEntries((plan.options ?? []).filter((o) => !NOT_CHOSEN.has(o.option)).map((o) => [o.option, o.included]));
+/* ----- Team size: picked above the cards, for every plan ----- */
+const seatsOption = (plan: PricingPlan) => plan.options?.find((o) => o.option === "seats") ?? null;
 
-/** The options changed from what the base price includes. */
-const changed = computed(() => {
-  const plan = selected.value;
-  if (!plan) return {};
+/** The player counts a plan sells: its seats option's values, or its own seats. */
+function seatValuesOf(plan: PricingPlan): number[] {
+  const o = seatsOption(plan);
+  if (!o) return [plan.seats || 1];
+  if (o.type === "choices") return (o.choices ?? []).map((c) => c.value);
+  const out: number[] = [];
+  for (let v = minOf(o); v <= maxOf(o); v += stepOf(o)) out.push(v);
+  return out;
+}
+
+/** Every team size some plan sells, smallest first. */
+const teamSizes = computed(() => [...new Set(plans.value.flatMap(seatValuesOf))].sort((a, b) => a - b));
+const seats = ref(1);
+const sellsSeats = (plan: PricingPlan, n: number) => seatValuesOf(plan).includes(n);
+
+const TEAM_NAMES: Record<number, string> = { 1: "solo", 2: "duo", 3: "trio", 4: "squad" };
+function teamName(n: number): string {
+  const name = TEAM_NAMES[n];
+  return name ? t(`$vuetify.plans.names.${name}`) : t("$vuetify.plans.facts.seats", localDigits(n));
+}
+
+/* ----- Each plan's own options (active apps, ...) ----- */
+const choices = ref<Record<number, Record<string, number>>>({});
+
+const included = (plan: PricingPlan): Record<string, number> =>
+  Object.fromEntries(
+    (plan.options ?? []).filter((o) => o.option !== "seats" && !NOT_CHOSEN.has(o.option)).map((o) => [o.option, o.included]),
+  );
+const planChoices = (plan: PricingPlan) => choices.value[plan.id] ?? included(plan);
+
+/** What a card sends: its options changed from the base, and the team size. */
+function cardOptions(plan: PricingPlan): Record<string, number> {
   const out: Record<string, number> = {};
+  const picked = planChoices(plan);
   for (const o of plan.options ?? []) {
-    if (NOT_CHOSEN.has(o.option)) continue;
-    const v = choices.value[o.option];
+    if (o.option === "seats") {
+      const n = snapOption(o, seats.value);
+      if (n !== o.included) out.seats = n;
+      continue;
+    }
+    const v = picked[o.option];
     if (v !== undefined && v !== o.included) out[o.option] = v;
   }
   return out;
-});
+}
+
+/** The plan's route level: as picked when it sells levels, else its own. */
+function levelOf(plan: PricingPlan): number {
+  const v = planChoices(plan).max_hops ?? planLimit(plan, "max_hops");
+  return Math.min(3, Math.max(1, v || 1));
+}
 
 /** "need=max_internets:3" from a Purchase button: the limit that would
  * unlock what the user tried. */
@@ -65,152 +111,87 @@ function parseNeed(): { option: string; value: number } | null {
   return { option, value: n };
 }
 
-/** Internets and route paths come with the route level: Basic 1, Advanced 2,
- * Ultimate 3. Devices stay at 1 for now. Neither is picked here. */
-const BY_LEVEL = new Set(["max_internets", "routes"]);
-const FIXED: Record<string, number> = { devices: 1 };
-
-/** Where a plan starts: what its price includes, at the Advanced route level
- * when it sells route levels. */
-const DEFAULT_ROUTE_LEVEL = 2;
-function defaults(plan: PricingPlan): Record<string, number> {
-  const out = included(plan);
-  const level = plan.options?.find((o) => o.option === "max_hops");
-  if (level) out.max_hops = snapOption(level, DEFAULT_ROUTE_LEVEL);
-  return out;
-}
-
-/** Switches plan. carry keeps what was picked (route level, internets, route
- * paths) where the new plan sells it; seats come from the plan. */
-function selectPlan(plan: PricingPlan, need: { option: string; value: number } | null = null, carry = false) {
-  const next = defaults(plan);
-  if (carry) {
-    for (const o of plan.options ?? []) {
-      const before = choices.value[o.option];
-      if (o.option !== "seats" && before !== undefined && !NOT_CHOSEN.has(o.option)) next[o.option] = snapOption(o, before);
+/** Starts at the user's own team size, or what a Purchase button asked for. */
+function pickInitial() {
+  const sizes = teamSizes.value;
+  if (!sizes.length) return;
+  const need = parseNeed();
+  const mine = plans.value.find((p) => p.id === planAccess.access.value?.plan_id);
+  let n = mine ? (seatsOption(mine)?.included ?? mine.seats) : sizes[0];
+  if (need?.option === "seats") n = need.value;
+  seats.value = sizes.find((s) => s >= n) ?? sizes[sizes.length - 1];
+  if (need && need.option !== "seats") {
+    const plan = planFor(plans.value, need.option, need.value);
+    const opt = plan?.options?.find((o) => o.option === need.option);
+    if (plan && opt && need.value > opt.included) {
+      choices.value = { ...choices.value, [plan.id]: { ...planChoices(plan), [need.option]: snapOption(opt, need.value) } };
     }
   }
-  const opt = need && plan.options?.find((o) => o.option === need.option);
-  if (need && opt && need.value > opt.included) next[need.option] = snapOption(opt, need.value);
-  selectedId.value = plan.id;
-  choices.value = next;
-}
-
-function pickInitial() {
-  const list = plans.value;
-  if (!list.length) return;
-  const need = parseNeed();
-  const wanted = Number(route.query.plan) || 0;
-  const plan =
-    list.find((p) => p.id === wanted) ??
-    (need ? planFor(list, need.option, need.value) : null) ??
-    list.find((p) => p.id === planAccess.access.value?.plan_id) ??
-    list[0];
-  selectPlan(plan, need);
 }
 
 function resetOptions() {
-  if (selected.value) choices.value = defaults(selected.value);
+  choices.value = {};
 }
 
-/** Something differs from where the plan starts (Reset shows). */
-const differsFromDefaults = computed(() => {
-  const plan = selected.value;
-  if (!plan) return false;
-  const base = defaults(plan);
-  return Object.keys(base).some((k) => choices.value[k] !== base[k]);
-});
+/** An option differs from where its plan starts (Reset shows). */
+const differsFromDefaults = computed(() =>
+  plans.value.some((plan) => {
+    const base = included(plan);
+    const picked = planChoices(plan);
+    return Object.keys(base).some((k) => picked[k] !== base[k]);
+  }),
+);
 
-/* ----- Players: the count picks the plan (Solo to Squad, then Clan) ----- */
-const seatsOption = (plan: PricingPlan) => plan.options?.find((o) => o.option === "seats") ?? null;
-const playerRange = computed(() => {
-  let min = Infinity;
-  let max = 0;
-  for (const p of plans.value) {
-    const o = seatsOption(p);
-    min = Math.min(min, o ? o.min || o.included : p.seats);
-    max = Math.max(max, o ? o.max || o.included : p.seats);
-  }
-  return { min: Number.isFinite(min) ? min : 1, max: max || 1 };
-});
-const playerCount = computed(() => choices.value.seats ?? selected.value?.seats ?? 1);
-
-function setPlayers(count: number) {
-  const n = Math.min(playerRange.value.max, Math.max(playerRange.value.min, count));
-  const fixed = plans.value.find((p) => !seatsOption(p) && p.seats === n);
-  const ranged = plans.value.find((p) => {
-    const o = seatsOption(p);
-    return o && n >= (o.min || o.included) && n <= (o.max || o.included);
-  });
-  const target = fixed ?? ranged;
-  if (!target) return;
-  if (target.id !== selectedId.value) selectPlan(target, null, true);
-  const o = seatsOption(target);
-  if (o) choices.value = { ...choices.value, seats: snapOption(o, n) };
-}
-
-/* ----- Quotes: one per route level for the chosen period, plus the monthly
-   one for the strike-through ----- */
+/* ----- Quotes: one per card for the chosen period, plus the monthly one
+   for the strike-through ----- */
 const quotes = ref<Record<string, QuoteData>>({});
 const quoting = ref(false);
 const quoteFailed = ref(false);
 let generation = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
-const periods = computed<PricingPeriod[]>(() => selected.value?.periods ?? []);
 /** The billing period picked beside the team size; monthly to start. */
 const periodCount = ref(1);
-/** Monthly, quarterly, half year and yearly always show; one the plan does
- * not sell is disabled. */
+/** Monthly, quarterly, half year and yearly always show; one no plan sells
+ * is disabled. */
 const STANDARD_COUNTS = [1, 3, 6, 12];
+const interval = computed(() => plans.value[0]?.interval || "month");
+const periodOf = (plan: PricingPlan, count: number) => plan.periods?.find((p) => p.count === count) ?? null;
 const periodTabs = computed(() => {
-  const sold = new Map(periods.value.map((p) => [p.count, p]));
+  const sold = new Map<number, PricingPeriod>();
+  for (const plan of plans.value) for (const p of plan.periods ?? []) if (!sold.has(p.count)) sold.set(p.count, p);
   const counts = interval.value === "month" ? [...new Set([...STANDARD_COUNTS, ...sold.keys()])] : [...sold.keys()];
   return counts.sort((a, b) => a - b).map((count) => ({ count, period: sold.get(count) ?? null }));
 });
-const period = computed<PricingPeriod | null>(
-  () => periods.value.find((p) => p.count === periodCount.value) ?? periods.value[0] ?? null,
+
+/** The plans shown: for sale at this team size and period. */
+const shownPlans = computed(() =>
+  plans.value.filter((plan) => sellsSeats(plan, seats.value) && periodOf(plan, periodCount.value)),
 );
 
-/** The route levels sold side by side: Basic, Advanced, Ultimate. A plan
- * that sells none shows its own level alone. */
-const levels = computed<number[]>(() => {
-  if (levelOption.value) return levelValues(levelOption.value);
-  const plan = selected.value;
-  return [Math.min(3, Math.max(1, (plan ? planLimit(plan, "max_hops") : 0) || 1))];
-});
-
-/** What a column sends: the options changed from the base, at its level. */
-function columnOptions(level: number): Record<string, number> {
-  const out = { ...changed.value };
-  delete out.max_hops;
-  const o = levelOption.value;
-  if (o && level !== o.included) out.max_hops = level;
-  return out;
-}
-
-const quoteKey = (level: number, count: number) => `${level}|${count}`;
+const quoteKey = (planId: number, count: number) => `${planId}|${count}`;
 
 function scheduleQuotes() {
   clearTimeout(timer);
-  if (!selected.value || !code.value || !period.value) return;
+  if (!shownPlans.value.length || !code.value) return;
   quoting.value = true;
   timer = setTimeout(() => void runQuotes(), 300);
 }
 
 async function runQuotes() {
-  const plan = selected.value;
-  const chosen = period.value;
-  if (!plan || !chosen) return;
+  const count = periodCount.value;
   const mine = ++generation;
   const currency = code.value;
-  // Each level at the chosen period, and monthly too when the period is
+  // Each card at the chosen period, and monthly too when the period is
   // discounted (its price is struck through).
-  const counts = [...new Set([chosen.count, ...(chosen.discount_percent > 0 && periods.value.some((p) => p.count === 1) ? [1] : [])])];
-  const jobs = levels.value.flatMap((level) => counts.map((count) => ({ level, count })));
-  const ask = (job: { level: number; count: number }, upgrade: boolean) =>
-    quote(plan.id, job.count, currency, columnOptions(job.level), upgrade);
-  let results = await Promise.all(jobs.map((job) => ask(job, upgradeFor(job.level))));
+  const jobs = shownPlans.value.flatMap((plan) => {
+    const chosen = periodOf(plan, count);
+    const counts = [count, ...(chosen && chosen.discount_percent > 0 && periodOf(plan, 1) && count !== 1 ? [1] : [])];
+    return counts.map((c) => ({ plan, count: c }));
+  });
+  const ask = (job: { plan: PricingPlan; count: number }, upgrade: boolean) =>
+    quote(job.plan.id, job.count, currency, cardOptions(job.plan), upgrade);
+  const results = await Promise.all(jobs.map((job) => ask(job, upgradeFor(job.plan))));
   // Not above the current plan: priced as a plain purchase.
   const retry = results.map((r, i) => (r.error?.message === "not_an_upgrade" ? i : -1)).filter((i) => i >= 0);
   if (retry.length) {
@@ -219,11 +200,12 @@ async function runQuotes() {
   }
   if (mine !== generation) return; // a newer choice is being quoted
 
-  const failure = results.find((r) => r.error)?.error;
-  if (failure) {
+  const failedAt = results.findIndex((r) => r.error);
+  if (failedAt >= 0) {
+    const failure = results[failedAt].error!;
+    const plan = jobs[failedAt].plan;
     switch (failure.message) {
       case "plan_unavailable":
-        selectedId.value = null;
         await loadPlans();
         return;
       case "currency_unavailable": {
@@ -233,10 +215,13 @@ async function runQuotes() {
       }
       case "invalid_option": {
         const opt = plan.options?.find((o) => o.option === failure.option);
-        if (opt && opt.option !== "max_hops") {
-          const current = choices.value[opt.option] ?? opt.included;
-          const snapped = snapOption(opt, current);
-          choices.value = { ...choices.value, [opt.option]: snapped === current ? opt.included : snapped };
+        if (opt && opt.option !== "seats") {
+          const was = planChoices(plan)[opt.option] ?? opt.included;
+          const snapped = snapOption(opt, was);
+          choices.value = {
+            ...choices.value,
+            [plan.id]: { ...planChoices(plan), [opt.option]: snapped === was ? opt.included : snapped },
+          };
           return;
         }
         break;
@@ -253,7 +238,7 @@ async function runQuotes() {
   const next: Record<string, QuoteData> = {};
   jobs.forEach((job, i) => {
     const q = results[i].quote;
-    if (q) next[quoteKey(job.level, job.count)] = q;
+    if (q) next[quoteKey(job.plan.id, job.count)] = q;
   });
   quotes.value = next;
   quoteFailed.value = false;
@@ -262,10 +247,7 @@ async function runQuotes() {
 
 onBeforeUnmount(() => clearTimeout(timer));
 
-/* ----- Columns: one per route level ----- */
-const interval = computed(() => selected.value?.interval || "month");
-const intervalCount = computed(() => selected.value?.count || 1);
-
+/* ----- Cards: one per plan ----- */
 function periodTitle(count: number): string {
   if (interval.value === "month") {
     if ([1, 3, 6, 12].includes(count)) return t(`$vuetify.plans.period.${count}`);
@@ -308,63 +290,53 @@ const CHECK_FACTS = ["disconnect", "bypass", "splitTunnel", "bandwidthControl", 
 const SOON_FACTS = [{ key: "easyLobby", icon: "mdi-account-group-outline", value: 1, option: null as PricingOption | null }];
 const SOON = new Set(SOON_FACTS.map((f) => f.key));
 
-function optionValue(q: QuoteData | undefined, key: string, level: number): number {
+function optionValue(plan: PricingPlan, q: QuoteData | undefined, key: string): number {
   if (key in FIXED) return FIXED[key];
-  if (BY_LEVEL.has(key)) return level;
-  const plan = selected.value;
-  const chosen = choices.value[key];
+  if (BY_LEVEL.has(key)) return levelOf(plan);
+  if (key === "seats") return seats.value;
+  const chosen = planChoices(plan)[key];
   if (chosen !== undefined) return chosen;
   const fromQuote = q?.options?.[key];
   if (fromQuote !== undefined && fromQuote !== null) return fromQuote;
-  return plan ? planLimit(plan, key) : 0;
+  return planLimit(plan, key);
 }
 
-/** The level the user's own plan has, when it is this team size. */
-const currentLevel = computed(() => {
-  if (!isCurrent.value || expired.value) return 0;
-  const v = planAccess.limits.value?.max_hops ?? 0;
-  return v > 0 ? Math.min(3, v) : 0;
-});
-/** A column is the user's plan: same team size and level, nothing changed. */
-const isCurrentColumn = (level: number) =>
-  currentLevel.value === level && !Object.keys(columnOptions(level)).some((k) => k !== "max_hops");
+/** A card is the user's plan: the same plan, nothing changed. */
+const isCurrentCard = (plan: PricingPlan) =>
+  !expired.value && currentPlanId.value === plan.id && !Object.keys(cardOptions(plan)).length;
 
-const columns = computed(() => {
-  const chosen = period.value;
-  if (!chosen) return [];
-  return levels.value.map((level) => {
-    const q = quotes.value[quoteKey(level, chosen.count)];
-    const monthly = quotes.value[quoteKey(level, 1)];
-    const months = chosen.count * intervalCount.value;
+const cards = computed(() => {
+  const count = periodCount.value;
+  const many = shownPlans.value.length > 1;
+  return shownPlans.value.map((plan) => {
+    const chosen = periodOf(plan, count)!;
+    const q = quotes.value[quoteKey(plan.id, count)];
+    const monthly = quotes.value[quoteKey(plan.id, 1)];
+    const months = count * (plan.count || 1);
     const perInterval = q ? q.amount / months : 0;
-    const seats = optionValue(q, "seats", level) || selected.value?.seats || 1;
-    const mine = isCurrentColumn(level);
+    const level = levelOf(plan);
+    const mine = isCurrentCard(plan);
     return {
+      plan,
       level,
       quote: q,
-      title: levelName(level),
-      tip: levelTip(level),
-      popular: levels.value.length > 1 && level === DEFAULT_ROUTE_LEVEL,
+      title: planName(plan.name),
+      popular: many && level === POPULAR_LEVEL,
       current: mine,
-      upgrade: !!q?.upgrade,
       credit: q?.upgrade && q.credit > 0 ? t("$vuetify.plans.credit", money(q.credit)) : "",
-      buyLabel: q?.upgrade
-        ? t("$vuetify.plans.upgrade")
-        : mine && !expired.value
-          ? t("$vuetify.plans.renew")
-          : t("$vuetify.plans.buy"),
+      buyLabel: q?.upgrade ? t("$vuetify.plans.upgrade") : mine ? t("$vuetify.plans.renew") : t("$vuetify.plans.buy"),
       price: q ? money(perInterval) : "",
-      billed: q && chosen.count > 1 ? billedText(chosen.count, money(q.amount)) : q ? billedText(1, "") : "",
-      perPlayer: q && seats > 1 ? t("$vuetify.plans.perPlayer", money(perInterval / seats)) : "",
-      strike: q && chosen.discount_percent > 0 && monthly ? money(monthly.amount / intervalCount.value) : "",
+      billed: q && count > 1 ? billedText(count, money(q.amount)) : q ? billedText(1, "") : "",
+      perPlayer: q && seats.value > 1 ? t("$vuetify.plans.perPlayer", money(perInterval / seats.value)) : "",
+      strike: q && chosen.discount_percent > 0 && monthly ? money(monthly.amount / (plan.count || 1)) : "",
       facts: [
-        ...FACTS.map((f) => ({ ...f, value: optionValue(q, f.key, level), option: editable(f.key) })),
-        ...shownOptions.value
+        ...FACTS.map((f) => ({ ...f, value: optionValue(plan, q, f.key), option: editable(plan, f.key) })),
+        ...shownOptions(plan)
           .filter((o) => !FACTS.some((f) => f.key === o.option))
           .map((o) => ({
             key: o.option,
             icon: "mdi-tune-variant",
-            value: optionValue(q, o.option, level),
+            value: optionValue(plan, q, o.option),
             option: o as PricingOption | null,
           })),
       ]
@@ -388,7 +360,7 @@ function lineLabel(line: { type?: string; option?: string; label?: string; value
   return line.label || line.type || "";
 }
 
-/* ----- Customize ----- */
+/* ----- Options on a card ----- */
 function optionName(option: string): string {
   const key = `$vuetify.plans.options.${option}`;
   const text = t(key);
@@ -400,16 +372,6 @@ function optionName(option: string): string {
 function optionValueText(option: string, value: number): string {
   if (option === "max_hops") return levelName(Math.min(3, Math.max(1, value))) || localDigits(value);
   return localDigits(value);
-}
-
-/** What a route level does and who it suits, in plain words. */
-function levelTip(value: number) {
-  const level = Math.min(3, Math.max(1, value));
-  return {
-    title: levelName(level),
-    body: t(`$vuetify.plans.levelInfo.body${level}`),
-    best: t(`$vuetify.plans.levelInfo.best${level}`),
-  };
 }
 
 /** Without a plan: what a plan would add. */
@@ -426,13 +388,6 @@ const FACT_INFO: Record<string, string> = {
   geofence: "$vuetify.plans.geofenceInfo",
 };
 
-/** The route level is picked by name, like a choice. */
-function levelValues(o: PricingOption): number[] {
-  const out: number[] = [];
-  for (let v = minOf(o); v <= maxOf(o); v += stepOf(o)) out.push(v);
-  return out;
-}
-
 function stepOf(o: PricingOption) {
   return o.step || 1;
 }
@@ -442,16 +397,16 @@ function minOf(o: PricingOption) {
 function maxOf(o: PricingOption) {
   return o.max || o.included;
 }
-function current(o: PricingOption) {
-  return choices.value[o.option] ?? o.included;
+function current(plan: PricingPlan, o: PricingOption) {
+  return planChoices(plan)[o.option] ?? o.included;
 }
-function setOption(o: PricingOption, value: number) {
-  choices.value = { ...choices.value, [o.option]: snapOption(o, value) };
+function setOption(plan: PricingPlan, o: PricingOption, value: number) {
+  choices.value = { ...choices.value, [plan.id]: { ...planChoices(plan), [o.option]: snapOption(o, value) } };
 }
 
 /** The price of the option's next step, as the server lists it (a hint). */
-function nextStepHint(o: PricingOption): string {
-  const v = current(o);
+function nextStepHint(plan: PricingPlan, o: PricingOption): string {
+  const v = current(plan, o);
   if (v + stepOf(o) > maxOf(o)) return "";
   let amount = 0;
   if (o.type === "unit") amount = o.unit_amount;
@@ -462,21 +417,12 @@ function nextStepHint(o: PricingOption): string {
   return amount > 0 ? t("$vuetify.plans.hint", money(amount), perLabel()) : "";
 }
 
-/** The option behind a fact, when the buyer can change it. */
-const editable = (key: string): PricingOption | null => shownOptions.value.find((o) => o.option === key) ?? null;
-
-/** Fair use is private: the server sets it from the plan and internets, so
- * it is never shown or chosen here. */
-const HIDDEN_OPTIONS = new Set(["fair_traffic"]);
-/** The route level is picked next to the plan, not under Customize. */
-const levelOption = computed(() => selected.value?.options?.find((o) => o.option === "max_hops") ?? null);
-/** Options that follow the route level or are fixed: shown, never chosen or sent. */
-const NOT_CHOSEN = new Set([...BY_LEVEL, ...Object.keys(FIXED)]);
-const shownOptions = computed(() =>
-  (selected.value?.options ?? []).filter(
-    (o) => !HIDDEN_OPTIONS.has(o.option) && o.option !== "max_hops" && !NOT_CHOSEN.has(o.option),
-  ),
-);
+/** The options a buyer changes on the card (the team size is picked above). */
+const shownOptions = (plan: PricingPlan) =>
+  (plan.options ?? []).filter((o) => !HIDDEN_OPTIONS.has(o.option) && o.option !== "seats" && !NOT_CHOSEN.has(o.option));
+/** The option behind a fact, when the buyer can change it on the card. */
+const editable = (plan: PricingPlan, key: string): PricingOption | null =>
+  shownOptions(plan).find((o) => o.option === key) ?? null;
 
 /** Plan names the app knows read in the UI language (Solo, Duo, ...). */
 function planName(name: string): string {
@@ -505,13 +451,12 @@ const expired = computed(() => {
   const ends = access.value?.expires_at ? new Date(access.value.expires_at) : null;
   return !!ends && !Number.isNaN(ends.getTime()) && ends.getTime() < Date.now();
 });
-const isCurrent = computed(() => !!selected.value && currentPlanId.value > 0 && selected.value.id === currentPlanId.value);
 /** The user's own plan is running: anything above it is an upgrade, paid as
- * the difference. Renewing the same choice (the current column) is not. */
+ * the difference. Renewing the same choice (the current card) is not. */
 const upgradeMode = computed(
   () => !!access.value?.active && access.value.source !== "team" && currentPlanId.value > 0 && !expired.value,
 );
-const upgradeFor = (level: number) => upgradeMode.value && !isCurrentColumn(level);
+const upgradeFor = (plan: PricingPlan) => upgradeMode.value && !isCurrentCard(plan);
 
 const planLine = computed(() => {
   const a = access.value;
@@ -530,12 +475,11 @@ const teamMember = computed(() => team.value?.role === "member" && teamActive.va
 /* ----- Buy: the website takes payment ----- */
 const checkout = ref<{ url: string; planId: number; expiresAt: string } | null>(null);
 
-async function buy(level: number) {
-  const plan = selected.value;
-  const chosen = period.value;
-  if (!plan || !chosen) return;
-  const upgrade = !!quotes.value[quoteKey(level, chosen.count)]?.upgrade;
-  const url = await checkoutURL(plan.id, chosen.count, code.value, columnOptions(level), upgrade);
+async function buy(plan: PricingPlan) {
+  const count = periodCount.value;
+  if (!periodOf(plan, count)) return;
+  const upgrade = !!quotes.value[quoteKey(plan.id, count)]?.upgrade;
+  const url = await checkoutURL(plan.id, count, code.value, cardOptions(plan), upgrade);
   checkout.value = { url, planId: currentPlanId.value, expiresAt: access.value?.expires_at ?? "" };
   void Browser.OpenURL(url);
 }
@@ -564,18 +508,28 @@ const currencyModel = computed({
 
 // These run last, after everything they read is defined: on a return visit
 // the plans are already loaded and the plans watch fires during setup.
+let picked = false;
 watch(
   plans,
   () => {
-    if (!selected.value) pickInitial();
+    if (!picked && plans.value.length) {
+      picked = true;
+      pickInitial();
+    }
+    // A team size no plan sells any more falls back to the nearest one.
+    const sizes = teamSizes.value;
+    if (sizes.length && !sizes.includes(seats.value)) seats.value = sizes.find((s) => s >= seats.value) ?? sizes[sizes.length - 1];
   },
   { immediate: true },
 );
-// A plan without the chosen period falls back to its first one.
-watch(periods, (list) => {
-  if (list.length && !list.some((p) => p.count === periodCount.value)) periodCount.value = list[0].count;
+// A period no plan sells falls back to the first one sold.
+watch(periodTabs, (tabs) => {
+  if (!tabs.some((tab) => tab.count === periodCount.value && tab.period)) {
+    const first = tabs.find((tab) => tab.period);
+    if (first) periodCount.value = first.count;
+  }
 });
-watch([selectedId, choices, code, periodCount, levels, () => upgradeMode.value, currentLevel], scheduleQuotes, {
+watch([shownPlans, seats, choices, code, periodCount, () => upgradeMode.value], scheduleQuotes, {
   deep: true,
   immediate: true,
 });
@@ -655,16 +609,16 @@ if (!pricing.value) void loadPlans();
           <div class="plan-bar">
             <div class="lz-tabs" role="radiogroup" :aria-label="t('$vuetify.plans.title')">
               <button
-                v-for="p in plans"
-                :key="p.id"
+                v-for="n in teamSizes"
+                :key="n"
                 type="button"
                 role="radio"
                 class="lz-tab"
-                :class="{ 'lz-tab--active': selectedId === p.id }"
-                :aria-checked="selectedId === p.id"
-                @click="selectPlan(p, null, true)"
+                :class="{ 'lz-tab--active': seats === n }"
+                :aria-checked="seats === n"
+                @click="seats = n"
               >
-                {{ planName(p.name) }}
+                {{ teamName(n) }}
               </button>
             </div>
             <v-btn
@@ -685,8 +639,8 @@ if (!pricing.value) void loadPlans();
                 type="button"
                 role="radio"
                 class="lz-tab"
-                :class="{ 'lz-tab--active': period?.count === tab.count }"
-                :aria-checked="period?.count === tab.count"
+                :class="{ 'lz-tab--active': periodCount === tab.count }"
+                :aria-checked="periodCount === tab.count"
                 :disabled="!tab.period"
                 @click="periodCount = tab.count"
               >
@@ -702,11 +656,11 @@ if (!pricing.value) void loadPlans();
             </template>
           </v-alert>
 
-          <!-- A column per route level -->
+          <!-- A card per plan for sale -->
           <div class="level-cards">
             <section
-              v-for="col in columns"
-              :key="col.level"
+              v-for="col in cards"
+              :key="col.plan.id"
               class="lz-panel level-card"
               :class="{ 'level-card--popular': col.popular, 'level-card--current': col.current }"
             >
@@ -764,7 +718,7 @@ if (!pricing.value) void loadPlans();
                 :variant="col.popular || col.current ? 'flat' : 'outlined'"
                 prepend-icon="mdi-cart-outline"
                 :disabled="quoting || !col.quote"
-                @click="buy(col.level)"
+                @click="buy(col.plan)"
               >
                 {{ col.buyLabel }}
               </v-btn>
@@ -786,28 +740,10 @@ if (!pricing.value) void loadPlans();
                       </template>
                     </v-tooltip>
                   </span>
-                  <div v-if="fact.key === 'seats'" class="stepper">
-                    <v-btn
-                      icon="mdi-minus"
-                      size="x-small"
-                      variant="tonal"
-                      density="comfortable"
-                      :disabled="playerCount <= playerRange.min"
-                      @click="setPlayers(playerCount - 1)"
-                    />
-                    <v-btn
-                      icon="mdi-plus"
-                      size="x-small"
-                      variant="tonal"
-                      density="comfortable"
-                      :disabled="playerCount >= playerRange.max"
-                      @click="setPlayers(playerCount + 1)"
-                    />
-                  </div>
-                  <template v-else-if="fact.option">
+                  <template v-if="fact.option">
                     <v-btn-toggle
                       v-if="fact.option.type === 'choices'"
-                      :model-value="current(fact.option)"
+                      :model-value="current(col.plan, fact.option)"
                       mandatory
                       rounded="lg"
                       density="compact"
@@ -815,7 +751,7 @@ if (!pricing.value) void loadPlans();
                       color="primary"
                       divided
                       class="fact-choices"
-                      @update:model-value="(v: number) => setOption(fact.option!, v)"
+                      @update:model-value="(v: number) => setOption(col.plan, fact.option!, v)"
                     >
                       <v-btn
                         v-for="c in fact.option.choices"
@@ -837,12 +773,12 @@ if (!pricing.value) void loadPlans();
                         size="x-small"
                         variant="tonal"
                         density="comfortable"
-                        :disabled="current(fact.option) - stepOf(fact.option) < minOf(fact.option)"
-                        @click="setOption(fact.option, current(fact.option) - stepOf(fact.option))"
+                        :disabled="current(col.plan, fact.option) - stepOf(fact.option) < minOf(fact.option)"
+                        @click="setOption(col.plan, fact.option, current(col.plan, fact.option) - stepOf(fact.option))"
                       />
                       <v-tooltip
-                        :text="nextStepHint(fact.option)"
-                        :disabled="!nextStepHint(fact.option)"
+                        :text="nextStepHint(col.plan, fact.option)"
+                        :disabled="!nextStepHint(col.plan, fact.option)"
                       >
                         <template #activator="{ props: tip }">
                           <v-btn
@@ -851,8 +787,8 @@ if (!pricing.value) void loadPlans();
                             size="x-small"
                             variant="tonal"
                             density="comfortable"
-                            :disabled="current(fact.option) + stepOf(fact.option) > maxOf(fact.option)"
-                            @click="setOption(fact.option, current(fact.option) + stepOf(fact.option))"
+                            :disabled="current(col.plan, fact.option) + stepOf(fact.option) > maxOf(fact.option)"
+                            @click="setOption(col.plan, fact.option, current(col.plan, fact.option) + stepOf(fact.option))"
                           />
                         </template>
                       </v-tooltip>
@@ -863,7 +799,7 @@ if (!pricing.value) void loadPlans();
             </section>
           </div>
 
-          <!-- Free, the full width under the paid columns -->
+          <!-- Free, the full width under the paid cards -->
           <section class="lz-panel free-row" :class="{ 'free-row--current': noPlan }">
             <div class="free-row__head">
               <v-icon icon="mdi-account-outline" size="20" />
