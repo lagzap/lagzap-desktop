@@ -14,6 +14,7 @@ import { DEFAULT_TCP_ROUTES, DEFAULT_UDP_ROUTES, resolveProfileRouteCounts } fro
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 import SplitTunnelOptions from "~/components/title/SplitTunnelOptions.vue";
 import ProfileWireGuard from "~/components/title/ProfileWireGuard.vue";
+import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
 import LoadBalanceOptions, { type LoadBalanceMode } from "~/components/title/LoadBalanceOptions.vue";
 import { GetLoadBalanceShares } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { LoadBalanceShare } from "~/bindings/github.com/lagzap/lagzap/adapter";
@@ -78,6 +79,9 @@ const {
   getLowestPingForCountry,
   getLowestPingForRegion,
   lowestPingForCity,
+  unavailablePing,
+  unavailablePingForCity,
+  unavailablePingForRegion,
   getLowestPingForNode,
 
   // City helpers
@@ -312,6 +316,10 @@ function pickSingleBalance(name: string) {
   setSplitAdapter(name);
   setOwnInternets([LOAD_BALANCE_OFF]);
 }
+// A Dedicated IP is one tunnel on one internet: load balancing is off and
+// one internet is picked (the core ignores load balancing for it too).
+const { summary: profileWireGuard } = useProfileWireGuard(props.profile.id);
+const dedicatedIpOn = computed(() => profileWireGuard.value.enabled && !!profileWireGuard.value.selected);
 const { settings, setLoadBalanceWeight } = useSettings();
 // Each internet's weight and share, while the menu is open.
 const balanceShares = ref<Record<string, LoadBalanceShare>>({});
@@ -525,7 +533,8 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
         <LoadBalanceOptions
           v-else-if="isLoadBalanceProfile"
           :highlight="highlightInternets"
-          :mode="balanceMode"
+          :mode="dedicatedIpOn ? 'off' : balanceMode"
+          :locked="dedicatedIpOn ? t('$vuetify.title.profile.server.loadBalanceDedicatedIp') : ''"
           :adapters="balanceAdapters"
           :selected="balanceSelected"
           :single-adapters="splitAdapters"
@@ -609,6 +618,14 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
                   v-if="lowestPingForCity(city) !== null"
                   :tag="lowestPingForCity(city).tag"
                 />
+                <v-tooltip v-else-if="unavailablePingForCity(city) !== null" :text="t('$vuetify.title.profile.server.unavailableTip')" location="top" max-width="260" open-delay="200">
+                  <template #activator="{ props: tip }">
+                    <span v-bind="tip" class="d-flex align-center ga-2">
+                      <span class="text-caption text-medium-emphasis">{{ t("$vuetify.title.profile.server.unavailable") }}</span>
+                      <Ping :latency-ms="unavailablePingForCity(city)" />
+                    </span>
+                  </template>
+                </v-tooltip>
                 <Ping v-else :tag="firstNodeIdForCity(city)" />
               </template>
             </v-list-item>
@@ -650,7 +667,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
         <v-list-item
           v-for="region in filteredRegions"
           :key="region.tag"
-          :disabled="region.active === false"
+          :disabled="region.active === false || (unavailablePingForRegion(region.tag) !== null && !(store.profileStates[profile.id].regions || []).includes(region.tag))"
           @click="toggleRegion(region.tag)"
         >
           <template #prepend>
@@ -683,7 +700,15 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
               v-if="getLowestPingForRegion(region.tag) !== null"
               :tag="getLowestPingForRegion(region.tag).tag"
             />
-            <Ping
+            <v-tooltip v-else-if="unavailablePingForRegion(region.tag) !== null" :text="t('$vuetify.title.profile.server.unavailableTip')" location="top" max-width="260" open-delay="200">
+                  <template #activator="{ props: tip }">
+                    <span v-bind="tip" class="d-flex align-center ga-2">
+                      <span class="text-caption text-medium-emphasis">{{ t("$vuetify.title.profile.server.unavailable") }}</span>
+                      <Ping :latency-ms="unavailablePingForRegion(region.tag)" />
+                    </span>
+                  </template>
+                </v-tooltip>
+                <Ping
               v-else
               :tag="
                 (regionCountryMap[region.tag] &&
@@ -756,6 +781,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
             :key="countryCode"
             density="compact"
             class="ms-3"
+            :disabled="unavailablePing(areas[countryCode]) !== null && !(store.profileStates[profile.id].countries || []).includes(countryCode)"
             @click="toggleCountry(countryCode)"
           >
             <template #prepend>
@@ -790,7 +816,15 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
                 v-if="getLowestPingForCountry(areas[countryCode]) !== null"
                 :tag="getLowestPingForCountry(areas[countryCode]).tag"
               />
-              <Ping
+              <v-tooltip v-else-if="unavailablePing(areas[countryCode]) !== null" :text="t('$vuetify.title.profile.server.unavailableTip')" location="top" max-width="260" open-delay="200">
+                  <template #activator="{ props: tip }">
+                    <span v-bind="tip" class="d-flex align-center ga-2">
+                      <span class="text-caption text-medium-emphasis">{{ t("$vuetify.title.profile.server.unavailable") }}</span>
+                      <Ping :latency-ms="unavailablePing(areas[countryCode])" />
+                    </span>
+                  </template>
+                </v-tooltip>
+                <Ping
                 v-else
                 :tag="
                   areas[countryCode] &&
@@ -879,6 +913,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
               :key="city"
               density="compact"
               class="ml-4"
+              :disabled="unavailablePingForCity(city) !== null && !getCitySelected(city)"
               @click="toggleCity(city)"
             >
               <template #prepend>
@@ -909,6 +944,14 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
                   v-if="lowestPingForCity(city) !== null"
                   :tag="lowestPingForCity(city).tag"
                 />
+                <v-tooltip v-else-if="unavailablePingForCity(city) !== null" :text="t('$vuetify.title.profile.server.unavailableTip')" location="top" max-width="260" open-delay="200">
+                  <template #activator="{ props: tip }">
+                    <span v-bind="tip" class="d-flex align-center ga-2">
+                      <span class="text-caption text-medium-emphasis">{{ t("$vuetify.title.profile.server.unavailable") }}</span>
+                      <Ping :latency-ms="unavailablePingForCity(city)" />
+                    </span>
+                  </template>
+                </v-tooltip>
                 <Ping v-else :tag="firstNodeIdForCity(city)" />
               </template>
             </v-list-item>
@@ -1069,7 +1112,8 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
         <LoadBalanceOptions
           v-else-if="isLoadBalanceProfile"
           :highlight="highlightInternets"
-          :mode="balanceMode"
+          :mode="dedicatedIpOn ? 'off' : balanceMode"
+          :locked="dedicatedIpOn ? t('$vuetify.title.profile.server.loadBalanceDedicatedIp') : ''"
           :adapters="balanceAdapters"
           :selected="balanceSelected"
           :single-adapters="splitAdapters"
@@ -1163,6 +1207,14 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
                   v-if="lowestPingForCity(cityKey) !== null"
                   :tag="lowestPingForCity(cityKey)!.tag"
                 />
+                <v-tooltip v-else-if="unavailablePingForCity(cityKey) !== null" :text="t('$vuetify.title.profile.server.unavailableTip')" location="top" max-width="260" open-delay="200">
+                  <template #activator="{ props: tip }">
+                    <span v-bind="tip" class="d-flex align-center ga-2">
+                      <span class="text-caption text-medium-emphasis">{{ t("$vuetify.title.profile.server.unavailable") }}</span>
+                      <Ping :latency-ms="unavailablePingForCity(cityKey)" />
+                    </span>
+                  </template>
+                </v-tooltip>
                 <Ping v-else :tag="firstNodeIdForCity(cityKey)" />
               </template>
             </v-list-item>

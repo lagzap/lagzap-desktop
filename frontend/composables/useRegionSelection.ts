@@ -323,6 +323,31 @@ export function useRegionSelection(profile: Profile) {
     return getLowestPingForCountry(nodes.filter(hasRelayFlag));
   };
 
+  /** A location whose active relays have no route but answered the probe:
+   * their best probe ping. The list shows it with the location unavailable;
+   * null when the location has a route or nothing was measured. */
+  const unavailablePing = (nodes: Node[] | undefined): number | null => {
+    if (!nodes?.length || getLowestPingForCountry(nodes) !== null) return null;
+    let best: number | null = null;
+    for (const node of nodes) {
+      if (!hasRelayFlag(node) || (node.flags & NodeFlag.NodeFlag_NODE_FLAG_ACTIVE) === 0) continue;
+      const ms = store.relayProbePings[node.id];
+      if (ms > 0 && (best === null || ms < best)) best = ms;
+    }
+    return best;
+  };
+
+  const unavailablePingForCity = (cityKeyOrLegacy: string): number | null => {
+    const cityKey = cityKeyForNode(cityKeyOrLegacy) ?? cityKeyOrLegacy;
+    return unavailablePing(cityMap.value[cityKey] ?? getCityGroupNodes(cityKey));
+  };
+
+  const unavailablePingForRegion = (regionTag: string): number | null => {
+    const nodes: Node[] = [];
+    Object.values(areasByRegion.value[regionTag] || {}).forEach((arr) => nodes.push(...arr));
+    return unavailablePing(nodes);
+  };
+
   function profileSelectedCityKeys(profileState: {
     mode?: number;
     cities?: string[];
@@ -1312,6 +1337,9 @@ export function useRegionSelection(profile: Profile) {
     getLowestPingForCountry,
     getLowestPingForRegion,
     lowestPingForCity,
+    unavailablePing,
+    unavailablePingForCity,
+    unavailablePingForRegion,
     getLowestPingForNode,
     bestPingForCurrentSelection,
     bestPingMsForCurrentSelection,

@@ -325,6 +325,15 @@ func (s *Service) ClearDNSCache() {
 	s.coordinator.ClearDNSCache()
 }
 
+// GetRelayProbePings is the ping measured to each relay (by node id), also
+// for relays without routes.
+func (s *Service) GetRelayProbePings() map[string]float32 {
+	if !s.IsReady() {
+		return nil
+	}
+	return s.coordinator.RelayProbePings()
+}
+
 func (s *Service) GetLatency() *D.Latency {
 	return s.coordinator.GetLatency()
 }

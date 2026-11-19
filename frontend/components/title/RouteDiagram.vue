@@ -967,7 +967,11 @@ function updateChart() {
   const diagramHeight = (s: number) => halfSpan + ROOM_ABOVE / s + roomBelow(s);
   // Spacing between hops: 100, wider when the height limits the scale so
   // the diagram still fills the width.
-  const hopSpacing = stretchedHopSpacing(100, maxHops + 1, 70, diagramHeight);
+  // Past the last column: the relay, the WireGuard hop when there is one, and
+  // the game, a gap apart each.
+  const exitGap = 64;
+  const exitGaps = wireGuard.active.value && wireGuard.selected.value ? 3 : 2;
+  const hopSpacing = stretchedHopSpacing(100, maxHops + 1, exitGap * exitGaps, diagramHeight);
   const centerY = 0; // Keep center at 0, routes will be distributed around it
   const centerX = 0; // For vertical layout
 
@@ -1020,7 +1024,12 @@ function updateChart() {
   const destConvergenceX = px(startX + (maxHops + 1) * hopSpacing);
   // With a Dedicated IP the game sits further right, past its WireGuard hop.
   const wireGuardHop = wireGuard.active.value ? wireGuard.selected.value : null;
-  const gameX = destConvergenceX + (wireGuardHop ? 150 : 70);
+  // One gap on each side of the relay (and of the WireGuard hop): routes
+  // meet, the relay, the game, evenly. Its name ("Amsterdam 01") is centered
+  // on it, so the gap fits half a name and half the game icon.
+  const destX = destConvergenceX + exitGap;
+  const wireGuardX = destX + exitGap;
+  const gameX = (wireGuardHop ? wireGuardX : destX) + exitGap;
 
   const scale = diagramScale(gameX - startX, diagramHeight);
 
@@ -1160,7 +1169,7 @@ function updateChart() {
         y: routeY,
         symbol: "rect",
         symbolSize: [hitWidth, 36],
-        tooltip: { show: true },
+        tooltip: { show: !isEstimate.value },
         silent: false,
         z: 200,
         itemStyle: {
@@ -1239,7 +1248,7 @@ function updateChart() {
         y: px(y),
         symbol: "rect",
         symbolSize: [width, height],
-        tooltip: { show: true },
+        tooltip: { show: !isEstimate.value },
         silent: false,
         z: 200,
         itemStyle: {
@@ -1261,7 +1270,7 @@ function updateChart() {
     spineHit(
       "spine-hit-right",
       destConvergenceX,
-      destConvergenceX + 70,
+      destX + exitGap / 2,
       centerY,
       spineHeight,
       rightSpineTooltip
@@ -1298,7 +1307,7 @@ function updateChart() {
     nodes.push({
       ...hopMarkerNode(
         "destination",
-        destConvergenceX + 30,
+        destX,
         centerY,
         destinationName,
         session.transport,
@@ -1311,14 +1320,14 @@ function updateChart() {
       symbol: "rect",
       symbolSize: [46, 20],
       silent: false,
-      tooltip: { show: true },
+      tooltip: { show: !isEstimate.value },
       value: tip,
     });
   } else {
     nodes.push({
       id: "destination",
       name: destinationName,
-      x: px(destConvergenceX + 30),
+      x: px(destX),
       y: px(centerY),
       symbol: "circle",
       symbolSize: 10,
@@ -1378,7 +1387,7 @@ function updateChart() {
     nodes.push({
       id: "wireguard",
       name: place,
-      x: px(destConvergenceX + 90),
+      x: px(wireGuardX),
       y: px(centerY),
       symbol: wireGuardFlag.value ? `image://${wireGuardFlag.value}` : "roundRect",
       symbolSize: [24, 18],

@@ -124,5 +124,7 @@ tasks:
       VERSION: '{{.VERSION}}'
       RELEASES_REPO: '{{.RELEASES_REPO}}'
       UPDATE_MIRRORS: '{{.UPDATE_MIRRORS}}'
+      # WAILS_MCP=1 compiles in the Wails MCP server (127.0.0.1:9099) for dev builds.
+      WAILS_MCP: '{{.WAILS_MCP}}'
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}

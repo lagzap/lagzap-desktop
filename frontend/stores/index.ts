@@ -31,6 +31,7 @@ import {
   StartBootstrapLocalProxy,
   GetOptimizeProgress,
   GetIfaceEntryRTTs,
+  GetRelayProbePings,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
   type RelayRoute,
@@ -213,6 +214,21 @@ export const useStore = defineStore("index", () => {
   const routes = ref<Record<string, RelayRoute>>({});
   /** Optimize client→entry RTT per NIC: key = `${iface}|${ip}|${tcp|udp|icmp}`. */
   const ifaceEntryRtt = ref<Record<string, number>>({});
+  /** Ping this client measured to each relay (node id), also for relays
+   * without routes: region selection shows it on unavailable locations. */
+  const relayProbePings = ref<Record<string, number>>({});
+  let relayProbeTimer: ReturnType<typeof setTimeout> | null = null;
+  const refreshRelayProbePings = () => {
+    if (relayProbeTimer) clearTimeout(relayProbeTimer);
+    relayProbeTimer = setTimeout(async () => {
+      relayProbeTimer = null;
+      try {
+        relayProbePings.value = (await GetRelayProbePings()) ?? {};
+      } catch {
+        // Service not ready yet: the next routes update asks again.
+      }
+    }, 1000);
+  };
   const clientInfo = ref<ClientInfo | null>(null);
 
   const defaultInterface = ref<string | null>(null);
@@ -563,6 +579,7 @@ export const useStore = defineStore("index", () => {
       ...routes.value,
       ...raw,
     };
+    refreshRelayProbePings();
   });
   Events.On("iface-entry-rtt", ({ data }) => {
     const raw = asObjectPayload(data);
@@ -578,6 +595,8 @@ export const useStore = defineStore("index", () => {
       }
     }
     ifaceEntryRtt.value = next;
+    // Probes are done when entry RTTs come out: relay pings are fresh too.
+    refreshRelayProbePings();
   });
   Events.On("route-probe", ({ data }) => {
     const raw = asObjectPayload(data);
@@ -1438,6 +1457,7 @@ export const useStore = defineStore("index", () => {
     clientInfo,
     routes,
     ifaceEntryRtt,
+    relayProbePings,
     latency,
 
     defaultInterface,

@@ -521,6 +521,17 @@ export function GetRegions() {
 }
 
 /**
+ * GetRelayProbePings is the ping measured to each relay (by node id), also
+ * for relays without routes.
+ * @returns {$CancellablePromise<{ [_ in string]?: number }>}
+ */
+export function GetRelayProbePings() {
+    return $Call.ByID(1976782807).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType21($result);
+    }));
+}
+
+/**
  * GetRouteLevels is the plan's route level and the biggest gain a higher
  * level measured, for the overview and the profile page.
  * @returns {$CancellablePromise<adapter$0.RouteLevel | null>}

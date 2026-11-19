@@ -14,15 +14,24 @@ info:
   version: "0.0.0.0" # The application version
 # Dev mode configuration
 dev_mode:
-  root_path: .
+  # Watch the lagzap core too (go.work points at it), so core edits rebuild
+  # the app. Every command still runs from clients/desktop.
+  root_path: ../..
   log_level: warn
   debounce: 5000
   ignore:
     dir:
       - .git
+      - .claude
+      - .idea
+      - .vscode
+      - .cursor
+      - .continue
+      - .github
       - node_modules
       - frontend
       - bin
+      - release
     file:
       - .DS_Store
       - .gitignore
@@ -32,12 +41,16 @@ dev_mode:
     git_ignore: true
   executes:
     - cmd: wails3 task common:install:frontend:deps
+      dir: clients/desktop
       type: once
     - cmd: wails3 task common:dev:frontend
+      dir: clients/desktop
       type: background
     - cmd: wails3 task build:backend
+      dir: clients/desktop
       type: blocking
     - cmd: wails3 task run
+      dir: clients/desktop
       type: primary
 
 # File Associations

@@ -13,7 +13,7 @@
         "@vee-validate/yup": "^4.15.1",
         "@vee-validate/zod": "^4.15.1",
         "@vueuse/core": "^13.6.0",
-        "@wailsio/runtime": "3.0.0-alpha.97",
+        "@wailsio/runtime": "3.1.0",
         "baseline-browser-mapping": "^2.10.42",
         "bindings": "^1.5.0",
         "caniuse-lite": "^1.0.30001803",
@@ -685,7 +685,7 @@
 
     "@vueuse/shared": ["@vueuse/shared@13.6.0", "", { "peerDependencies": { "vue": "^3.5.0" } }, "sha512-pDykCSoS2T3fsQrYqf9SyF0QXWHmcGPQ+qiOVjlYSzlWd9dgppB2bFSM1GgKKkt7uzn0BBMV3IbJsUfHG2+BCg=="],
 
-    "@wailsio/runtime": ["@wailsio/runtime@3.0.0-alpha.97", "", {}, "sha512-alvEG6B0YqW7AcBcNaUWNMD9q8JWqx5AO6BPOZpijBeq4ZjhQxSom3jvvq8Z1mWSMKPEjSvlFirKIh9NLI3ajA=="],
+    "@wailsio/runtime": ["@wailsio/runtime@3.1.0", "", {}, "sha512-noEAedvRyO8TLCrqhGwzrp+mbMxAIDa2rYmdJQOzvJV9MxgaZeXAJGNBiMiKMTSSy4ESOtQi4VH/5heSzi6ZmA=="],
 
     "@webassemblyjs/ast": ["@webassemblyjs/ast@1.14.1", "", { "dependencies": { "@webassemblyjs/helper-numbers": "1.13.2", "@webassemblyjs/helper-wasm-bytecode": "1.13.2" } }, "sha512-nuBEDgQfm1ccRp/8bCQrx1frohyufl4JlbMMZ4P1wpeOfDhF6FQkxZJ1b/e+PLwr6X1Nhw6OLme5usuBWYBvuQ=="],
 

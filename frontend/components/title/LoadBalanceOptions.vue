@@ -31,6 +31,9 @@ const props = defineProps<{
   /** Opened from a tip's Set up: stands out for a moment. */
   highlight?: boolean;
   icon: (name: string) => string;
+  /** Why load balancing cannot be on (a Dedicated IP): the switch is off
+   * and fixed, one internet is picked below. */
+  locked?: string;
 }>();
 const emit = defineEmits<{
   mode: [mode: LoadBalanceMode];
@@ -59,7 +62,7 @@ function onRow(name: string) {
 <template>
   <v-list-item
     :class="['load-balance', { 'load-balance--on': mode !== 'off', 'internets-highlight': highlight }]"
-    :disabled="disabled"
+    :disabled="disabled || !!locked"
     @click="toggle"
   >
     <template #prepend>
@@ -77,7 +80,8 @@ function onRow(name: string) {
       <span class="text-caption ms-2">{{ t("$vuetify.title.profile.server.loadBalance") }}</span>
     </template>
     <template #append>
-      <span v-if="poolTooSmall" class="text-caption text-medium-emphasis">
+      <span v-if="locked" class="text-caption text-medium-emphasis">{{ locked }}</span>
+      <span v-else-if="poolTooSmall" class="text-caption text-medium-emphasis">
         {{ t("$vuetify.title.profile.server.loadBalancePoolOff") }}
       </span>
       <span v-else-if="mode !== 'off'" class="text-caption text-primary d-flex align-center">
