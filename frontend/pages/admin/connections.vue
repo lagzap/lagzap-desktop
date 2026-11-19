@@ -53,15 +53,53 @@ async function copy(value: string | undefined) {
   copiedTimer = setTimeout(() => (copied.value = ""), 1200);
 }
 
+/** A closed connection stays listed, greyed out, this long. */
+const CLOSED_KEEP_MS = 60_000;
+
+type Live = NonNullable<typeof connections.value>[number];
+/** Connections that left the live list, by id, with when they closed. */
+const closed = ref(new Map<string, { connection: Live; closedAt: number }>());
+let lastLive = new Map<string, Live>();
+
+watch(
+  connections,
+  (list) => {
+    const live = new Map((list ?? []).map((connection) => [connection.id, connection]));
+    const next = new Map(closed.value);
+    for (const [id, connection] of lastLive) {
+      if (!live.has(id)) next.set(id, { connection, closedAt: Date.now() });
+    }
+    for (const id of live.keys()) next.delete(id);
+    closed.value = next;
+    lastLive = live;
+  },
+  { immediate: true }
+);
+
+const pruneTimer = setInterval(() => {
+  const cutoff = Date.now() - CLOSED_KEEP_MS;
+  if (![...closed.value.values()].some((c) => c.closedAt < cutoff)) return;
+  closed.value = new Map([...closed.value].filter(([, c]) => c.closedAt >= cutoff));
+}, 5_000);
+onUnmounted(() => clearInterval(pruneTimer));
+
 /** Connections with the title and profile they belong to, when LagZap matched one. */
 const items = computed(() =>
-  [...(connections.value ?? [])]
-    .sort((a, b) => (a.start > b.start ? -1 : 1))
-    .map((connection) => {
+  [
+    ...(connections.value ?? []).map((connection) => ({ connection, closed: false })),
+    // A closed connection moves nothing any more.
+    ...[...closed.value.values()].map(({ connection }) => ({
+      connection: { ...connection, upload_speed: 0, download_speed: 0 },
+      closed: true,
+    })),
+  ]
+    .sort((a, b) => (a.connection.start > b.connection.start ? -1 : 1))
+    .map(({ connection, closed }) => {
       const profile = connection.profile_id ? profileById.value.get(connection.profile_id) : undefined;
       const title = titleById.value.get(connection.title_id ?? profile?.title_id ?? "");
       return {
         ...connection,
+        closed,
         process_name: processName(connection.process),
         title_icon: title?.icon_url ?? "",
         title_name: title ? store.titleName(title.name) : "",
@@ -69,6 +107,13 @@ const items = computed(() =>
       };
     })
 );
+
+const rowProps = ({ item }: { item: { closed: boolean } }) => (item.closed ? { class: "row-closed" } : {});
+
+/** "2001:db8::1" with a port reads as "[2001:db8::1]". */
+function hostForPort(ip: string): string {
+  return ip.includes(":") ? `[${ip}]` : ip;
+}
 
 const search = ref<string>("");
 const headers = computed<DataTableHeader[]>(() => {
@@ -92,14 +137,14 @@ const headers = computed<DataTableHeader[]>(() => {
       key: "source",
       align: "start" as const,
       nowrap: true,
-      width: "160px",
+      width: "190px",
     },
     {
       title: "Destination",
       key: "destination",
       align: "start" as const,
       nowrap: true,
-      width: "180px",
+      width: "210px",
     },
     {
       title: "Host",
@@ -154,6 +199,7 @@ const headers = computed<DataTableHeader[]>(() => {
         :search
         :headers
         :items
+        :row-props="rowProps"
         density="compact"
         multi-sort
         fixed-header
@@ -188,7 +234,7 @@ const headers = computed<DataTableHeader[]>(() => {
         <template v-slot:item.source="{ item }">
           <v-tooltip v-if="item.source_ip" :text="item.source_ip" location="top" open-delay="300">
             <template #activator="{ props: tip }">
-              <span v-bind="tip" class="copyable ip-cell" @click.stop="copy(item.source_ip)"><span class="ip-cell__text">{{ item.source_ip }}</span><v-icon v-if="copied === item.source_ip" icon="mdi-check" size="14" color="success" class="ms-1" /></span>
+              <span v-bind="tip" class="copyable ip-cell" @click.stop="copy(item.source_ip)"><span class="ip-cell__text">{{ item.source_port ? hostForPort(item.source_ip) : item.source_ip }}</span><span v-if="item.source_port" class="port">:{{ item.source_port }}</span><v-icon v-if="copied === item.source_ip" icon="mdi-check" size="14" color="success" class="ms-1" /></span>
             </template>
           </v-tooltip>
           <span v-else class="text-medium-emphasis">-</span>
@@ -203,7 +249,7 @@ const headers = computed<DataTableHeader[]>(() => {
             <span class="ms-1">
               <v-tooltip v-if="item.destination_ip" :text="item.destination_ip" location="top" open-delay="300">
             <template #activator="{ props: tip }">
-              <span v-bind="tip" class="copyable ip-cell" @click.stop="copy(item.destination_ip)"><span class="ip-cell__text">{{ item.destination_ip }}</span><v-icon v-if="copied === item.destination_ip" icon="mdi-check" size="14" color="success" class="ms-1" /></span>
+              <span v-bind="tip" class="copyable ip-cell" @click.stop="copy(item.destination_ip)"><span class="ip-cell__text">{{ item.destination_port ? hostForPort(item.destination_ip) : item.destination_ip }}</span><span v-if="item.destination_port" class="port">:{{ item.destination_port }}</span><v-icon v-if="copied === item.destination_ip" icon="mdi-check" size="14" color="success" class="ms-1" /></span>
             </template>
           </v-tooltip>
               <span v-else class="text-medium-emphasis">-</span>
@@ -232,6 +278,7 @@ const headers = computed<DataTableHeader[]>(() => {
         </template>
         <template v-slot:item.start="{ item }">
           {{ new Date(item.start).toLocaleTimeString() }}
+          <div v-if="item.closed" class="text-caption">Closed</div>
         </template>
       </v-data-table-virtual>
     </Container>
@@ -253,8 +300,19 @@ const headers = computed<DataTableHeader[]>(() => {
 .ip-cell {
   display: inline-flex;
   align-items: center;
-  max-width: 140px;
+  max-width: 180px;
   vertical-align: middle;
+}
+
+/* The port after an address, quieter than the address itself. */
+.port {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+/* A connection that closed in the last minute: still listed, greyed out. */
+:deep(.row-closed) {
+  opacity: 0.4;
 }
 
 .ip-cell__text {
