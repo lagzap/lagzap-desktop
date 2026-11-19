@@ -18,6 +18,11 @@ const navItems = computed(() => [
     icon: "mdi-network-outline",
   },
   {
+    name: "admin-dns",
+    title: "DNS",
+    icon: "mdi-dns-outline",
+  },
+  {
     name: "admin-routes",
     title: "Route Monitoring",
     icon: "mdi-network-pos",

@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/lagzap/lagzap-desktop/constant"
+	"github.com/lagzap/lagzap/adapter"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
@@ -15,15 +16,25 @@ var (
 	adminToolsWindow application.Window
 )
 
-// AdminToolsEnabled reports whether Admin Tools are available on this build.
+// AdminToolsEnabled reports whether Admin Tools are available: on dev and
+// alpha builds, and for admin accounts on any build (to debug production).
 func (s *Service) AdminToolsEnabled() bool {
-	return constant.AdminToolsEnabled()
+	return constant.AdminToolsEnabled() || (s.coordinator != nil && s.coordinator.IsAdmin())
 }
 
-// OpenAdminTools opens (or focuses) the Admin Tools window. No-op outside
-// dev/alpha (and wails DevBuild).
+// GetDNSQueries returns the DNS lookups LagZap captured newer than after
+// (a record id; 0 for all kept), for the Admin Tools DNS page.
+func (s *Service) GetDNSQueries(after uint64) []adapter.DNSQueryRecord {
+	if s.dnsRouter == nil || !s.AdminToolsEnabled() {
+		return []adapter.DNSQueryRecord{}
+	}
+	return s.dnsRouter.QueryLog(after)
+}
+
+// OpenAdminTools opens (or focuses) the Admin Tools window. No-op unless
+// AdminToolsEnabled.
 func (s *Service) OpenAdminTools() {
-	if s.app == nil || !constant.AdminToolsEnabled() {
+	if s.app == nil || !s.AdminToolsEnabled() {
 		return
 	}
 

@@ -11,6 +11,7 @@ import LatencyChip from "~/components/network/LatencyChip.vue";
 import { localDigits } from "~/utils/localeFormat";
 import { useMonitoringStore } from "~/stores/monitoring";
 import { activeLimitCount } from "~/composables/useBandwidthControl";
+import { openAdminTools } from "~/composables/useAdminToolsWindow";
 
 const { t } = useLocale();
 const data = useSanctumUser<DataResponse>();
@@ -64,6 +65,8 @@ const quiting = ref(false)
 const { checking: updateChecking, checkForUpdate } = useUpdateCheck(t)
 const tickets = useTicketsStore()
 const bugFeedbackOpen = ref(false)
+// Admin accounts get Admin Tools here on every build, production included.
+const { admin: isAdmin } = usePlanAccess()
 
 // Exit asks first (Cancel is the default), and can restart instead. Both
 // quit like the tray's Quit; before, Exit only hid the window to the tray.
@@ -187,6 +190,11 @@ async function confirmExit(restart: boolean) {
             >
               <template #title>
                 <span class="text-caption">{{ t('$vuetify.settings.checkForUpdate') }}</span>
+              </template>
+            </v-list-item>
+            <v-list-item v-if="isAdmin" prepend-icon="mdi-tools" @click="openAdminTools()">
+              <template #title>
+                <span class="text-caption">Admin Tools</span>
               </template>
             </v-list-item>
             <v-list-item prepend-icon="mdi-bug" @click="bugFeedbackOpen = true">
