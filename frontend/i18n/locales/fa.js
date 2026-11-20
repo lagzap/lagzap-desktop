@@ -719,6 +719,8 @@ export default {
         rateButton: 'امتیاز به این جلسه',
         liveTitle: '{0} الان چطور اجرا می‌شود؟',
         liveTitleGeneric: 'الان چطور پیش می‌رود؟',
+        liveTitleApp: '{0} الان چطور کار می‌کند؟',
+        liveTitleAppGeneric: 'الان چطور کار می‌کند؟',
         liveThanks: 'ممنون! این به ما کمک می‌کند مسیرهای شما را بهتر کنیم.',
         noSession: 'اول کمی استفاده کنید: هنوز جلسه‌ای برای امتیاز دادن نیست.',
         reasons: {

@@ -27,6 +27,9 @@ const isGame = computed(() => {
   const flags = profile.value?.flags ?? 0;
   return (flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !== 0;
 });
+// Game profiles carry game packets; the rating asks how a game plays and
+// anything else how it works.
+const isGamePacket = computed(() => ((profile.value?.flags ?? 0) & ProfileFlag.GAME_PACKET) !== 0);
 const hasData = computed(() => !!latency.value?.series?.length || !!traffic.value?.series?.length);
 </script>
 
@@ -56,7 +59,7 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
           <ProfileActivityChip :profile="profile" part="speed" />
         </template>
       </LiveChart>
-      <QuickRating v-if="!popup" :profile-id="profileId" />
+      <QuickRating v-if="!popup" :profile-id="profileId" :game="isGamePacket" />
     </div>
     <div v-else-if="popup" class="text-center text-medium-emphasis py-8 text-body-2">
       {{ t("$vuetify.title.profile.noTrafficYet") }}

@@ -706,6 +706,8 @@
         rateButton: 'Rate this session',
         liveTitle: 'How is {0} playing right now?',
         liveTitleGeneric: 'How is it playing right now?',
+        liveTitleApp: 'How is {0} working right now?',
+        liveTitleAppGeneric: 'How is it working right now?',
         liveThanks: 'Thanks! That helps us tune your routes.',
         noSession: 'Play a bit first: there is no session to rate yet.',
         reasons: {

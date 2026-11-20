@@ -7,7 +7,7 @@ import { useSessionRating } from "~/composables/useSessionRating";
 /** A quick rating of how a running session plays right now, over the
  * profile's chart. Go asks now and then ("stats-rate-live"): ten minutes into
  * a session, at different hours of the day. One tap sends it. */
-const props = defineProps<{ profileId: string }>();
+const props = defineProps<{ profileId: string; game?: boolean }>();
 
 // An ask nobody answered goes away on its own.
 const LIVE_ASK_TTL_MS = 20 * 60_000;
@@ -36,6 +36,9 @@ const thanked = ref(false);
 const title = computed(() => {
   const game = store.titles.find((item) => item.id === request.value?.title_id);
   const name = game ? store.titleName(game.name) : "";
+  if (!props.game) {
+    return name ? t("$vuetify.sessionRating.liveTitleApp", [name]) : t("$vuetify.sessionRating.liveTitleAppGeneric");
+  }
   return name ? t("$vuetify.sessionRating.liveTitle", [name]) : t("$vuetify.sessionRating.liveTitleGeneric");
 });
 
@@ -66,7 +69,7 @@ async function rate(value: number | string) {
 
 <template>
   <v-fade-transition>
-    <v-card v-if="request" class="quick-rating pa-3" rounded="lg" elevation="8">
+    <v-card v-if="request" class="quick-rating pa-3" rounded="lg" flat color="transparent">
       <div class="d-flex align-start ga-2">
         <span class="text-body-2 flex-grow-1">
           {{ thanked ? t("$vuetify.sessionRating.liveThanks") : title }}
