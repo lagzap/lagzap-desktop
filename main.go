@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/lagzap/lagzap-desktop/constant"
+	"github.com/lagzap/lagzap/common/crashlog"
+	C "github.com/lagzap/lagzap/constant"
 	"github.com/lagzap/lagzap/log"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -27,6 +29,11 @@ type PanicDetails struct {
 func main() {
 	// Restarted from the app: let the old LagZap finish exiting first.
 	waitForOldInstance(os.Args[1:])
+	// Crashes of this run (caught panics and the runtime's fatal output) are
+	// kept on disk and sent on a later run.
+	if err := crashlog.Start(C.Version, constant.Version); err != nil {
+		fmt.Printf("crashlog: %v\n", err)
+	}
 	setRealTimePriority()
 	startDebugPprof()
 	ctx := context.Background()
@@ -76,7 +83,7 @@ func main() {
 				if window != nil {
 					window.Show()
 					window.Restore()
-					window.Focus()
+					focusWindow(window)
 				}
 				// A Jump List entry starts LagZap again with its target.
 				service.openJumpTarget(jumpTargetFromArgs(data.Args))
@@ -92,16 +99,13 @@ func main() {
 				SetTitle("LagZap crashed!").
 				SetMessage("A crash has been occurred, please restart the application!").
 				Show()
-			file, err := os.OpenFile("panic.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-			if err != nil {
-				fmt.Printf("Failed to open panic log file: %s\n", err)
-				return
+			// Sent to the server on a later run (coordinator crash reports).
+			errText := ""
+			if panicDetails.Error != nil {
+				errText = panicDetails.Error.Error()
 			}
-			defer file.Close()
-
-			logMessage := fmt.Sprintf("Time: %s\nError: %s\nStacktrace: %s\n\n", panicDetails.Time, panicDetails.Error, panicDetails.FullStackTrace)
-			if _, err := file.WriteString(logMessage); err != nil {
-				fmt.Printf("Failed to write to panic log file: %s\n", err)
+			if err := crashlog.WritePanic(errText, panicDetails.FullStackTrace); err != nil {
+				fmt.Printf("Failed to save the crash: %s\n", err)
 			}
 		},
 	})
@@ -140,7 +144,7 @@ func main() {
 		Name:               "main",
 		Title:              "LagZap",
 		Width:              1200,
-		Height:             850,
+		Height:             800,
 		MinWidth:           400,
 		MinHeight:          800,
 		ZoomControlEnabled: false,
@@ -183,6 +187,7 @@ func main() {
 		},
 		URL: "/#/start-service",
 	})
+	trackWindowReady(window)
 	// Hook (sync) on Common.WindowClosing — OnWindowEvent listeners are async and
 	// cannot reliably Cancel before Wails' default destroy handler runs. Taskbar
 	// Close / Alt+F4 must hide to tray, not destroy the window.
@@ -219,7 +224,7 @@ func main() {
 	menu := application.NewMenu()
 	menu.Add("Open").OnClick(func(ctx *application.Context) {
 		window.Show()
-		window.Focus()
+		focusWindow(window)
 	})
 	if constant.AdminToolsEnabled() {
 		menu.Add("Admin Tools").OnClick(func(ctx *application.Context) {
@@ -242,11 +247,11 @@ func main() {
 	})
 	systray.OnClick(func() {
 		window.Show()
-		window.Focus()
+		focusWindow(window)
 	})
 	systray.OnDoubleClick(func() {
 		window.Show()
-		window.Focus()
+		focusWindow(window)
 	})
 	systray.SetMenu(menu)
 

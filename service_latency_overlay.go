@@ -26,7 +26,7 @@ func (s *Service) OpenLatencyOverlay() {
 	if win, ok := s.app.Window.GetByName(latencyOverlayWindowName); ok && win != nil {
 		latencyOverlayWindow = win
 		win.Show()
-		win.Focus()
+		focusWindow(win)
 		s.setLatencyOverlayOpen(true)
 		s.app.Event.Emit("latency-overlay-opened", nil)
 		return
@@ -57,6 +57,7 @@ func (s *Service) OpenLatencyOverlay() {
 		},
 	})
 
+	trackWindowReady(win)
 	latencyOverlayWindow = win
 	win.OnWindowEvent(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		latencyOverlayMu.Lock()
@@ -67,7 +68,7 @@ func (s *Service) OpenLatencyOverlay() {
 	})
 
 	win.Show()
-	win.Focus()
+	focusWindow(win)
 	s.setLatencyOverlayOpen(true)
 	s.app.Event.Emit("latency-overlay-opened", nil)
 }

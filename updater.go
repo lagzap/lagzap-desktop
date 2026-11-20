@@ -94,6 +94,7 @@ func initUpdater(app *application.App) bool {
 			PasswordAutosaveEnabled: false,
 		},
 	})
+	trackWindowReady(updateWin)
 	updaterMu.Lock()
 	updaterWin = updateWin
 	updaterReady = true
@@ -226,7 +227,7 @@ func dismissUpdater(app *application.App) {
 	if gate {
 		// First dismiss after startup: main has been working hidden — show it.
 		mainWin.Show()
-		mainWin.Focus()
+		focusWindow(mainWin)
 		return
 	}
 	// Later dismissals (manual up-to-date / skip): never interrupt a visible main.

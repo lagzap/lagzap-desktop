@@ -44,7 +44,7 @@ func (s *Service) OpenAdminTools() {
 	if win, ok := s.app.Window.GetByName(adminToolsWindowName); ok && win != nil {
 		adminToolsWindow = win
 		win.Show()
-		win.Focus()
+		focusWindow(win)
 		s.app.Event.Emit("admin-tools-opened", nil)
 		return
 	}
@@ -94,6 +94,7 @@ func (s *Service) OpenAdminTools() {
 		},
 	})
 
+	trackWindowReady(win)
 	adminToolsWindow = win
 	win.OnWindowEvent(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		adminToolsMu.Lock()
@@ -103,7 +104,7 @@ func (s *Service) OpenAdminTools() {
 	})
 
 	win.Show()
-	win.Focus()
+	focusWindow(win)
 	s.app.Event.Emit("admin-tools-opened", nil)
 }
 

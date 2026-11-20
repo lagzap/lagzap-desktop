@@ -547,7 +547,7 @@ export const useStore = defineStore("index", () => {
       if (!appReady.value && loading.value) {
         statusMessage.value = raw.failed
           ? locale.t("$vuetify.service.syncFailed")
-          : locale.t("$vuetify.service.syncRetrying", raw.step ?? "");
+          : locale.t("$vuetify.service.syncRetrying");
       }
     }
   });

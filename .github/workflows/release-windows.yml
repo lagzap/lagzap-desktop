@@ -288,6 +288,7 @@ jobs:
             -channel "$CHANNEL" \
             -name "LagZap $VERSION" \
             -notes-file release-body.md \
+            -url-prefix "$VERSION" \
             -output bin/update.manifest.json \
             "$ZIP"
           rm -f updater.key
@@ -320,6 +321,7 @@ jobs:
         shell: bash
         env:
           CHANNEL: ${{ steps.ver.outputs.channel }}
+          VERSION: ${{ steps.ver.outputs.semver }}
           ARVAN_S3_ENDPOINT: ${{ secrets.ARVAN_S3_ENDPOINT }}
           ARVAN_S3_BUCKET: ${{ secrets.ARVAN_S3_BUCKET }}
           ARVAN_S3_ACCESS_KEY: ${{ secrets.ARVAN_S3_ACCESS_KEY }}
@@ -336,10 +338,17 @@ jobs:
               return 0
             fi
             local dest="s3://${bucket}/${CHANNEL}/windows"
-            for f in "bin/${APP_NAME}-windows-amd64-setup.exe" bin/SHA256SUMS                 "bin/${APP_NAME}-windows-amd64.zip" bin/update.manifest.json; do
+            # The zip goes under its version (the manifest points there), so a
+            # CDN never serves an older cached zip under a newer manifest. The
+            # manifest itself is never cached.
+            put() {
               AWS_ACCESS_KEY_ID="$key" AWS_SECRET_ACCESS_KEY="$secret" AWS_DEFAULT_REGION="$region" \
-                aws s3 cp "$f" "${dest}/$(basename "$f")" --endpoint-url "$endpoint" ${acl:+--acl "$acl"} --only-show-errors
-            done
+                aws s3 cp "$1" "$2" --endpoint-url "$endpoint" ${acl:+--acl "$acl"} --only-show-errors "${@:3}"
+            }
+            put "bin/${APP_NAME}-windows-amd64-setup.exe" "${dest}/${APP_NAME}-windows-amd64-setup.exe"
+            put bin/SHA256SUMS "${dest}/SHA256SUMS"
+            put "bin/${APP_NAME}-windows-amd64.zip" "${dest}/${VERSION}/${APP_NAME}-windows-amd64.zip"
+            put bin/update.manifest.json "${dest}/update.manifest.json" --cache-control "no-cache, max-age=0"
             echo "$name: uploaded to ${dest}"
           }
           # Arvan objects are made public per object; R2 has no object ACLs

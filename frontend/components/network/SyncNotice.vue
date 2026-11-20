@@ -11,7 +11,7 @@ const shown = computed(() => store.appReady && !!store.syncProblem);
 const text = computed(() =>
   store.syncProblem?.failed
     ? t("$vuetify.service.syncFailed")
-    : t("$vuetify.service.syncRetrying", store.syncProblem?.step ?? ""),
+    : t("$vuetify.service.syncRetrying"),
 );
 </script>
 

@@ -507,7 +507,7 @@
             title: 'Privacy',
             allowSendDebugInfo: 'Send debug information',
             allowSendAnonymousData: 'Send anonymous usage data',
-            allowSendAnonymousDataHint: 'Ping, connection quality and disconnects, so we can improve routes and servers. Never the sites or servers you connect to.',
+            allowSendAnonymousDataHint: 'Ping, connection quality and disconnects, so we can improve routes and servers. Never the sites or servers you connect to. Crash reports, and the log of a game that had a connection problem, go too, with your IP addresses and the sites in it hidden.',
         },
         startup: {
             title: 'Startup',
@@ -824,7 +824,7 @@
         initializing: 'Initializing',
         preparing: 'Analysis is about to begin...',
         connecting: 'Connecting...',
-        syncRetrying: 'Syncing has some problems ({0}), retrying…',
+        syncRetrying: 'Syncing has some problems, retrying…',
         syncFailed: 'Syncing failed, reconnecting…',
         fetchingData: 'Fetching data',
         ready: 'LagZap is Ready!',

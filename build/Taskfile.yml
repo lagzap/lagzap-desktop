@@ -93,10 +93,11 @@ tasks:
     sources:
       - "appicon.png"
     generates:
-      - "icons.icns"
-      - "icons.ico"
+      - "darwin/icons.icns"
+      - "windows/icons.ico"
     cmds:
-      - wails3 generate icons -input appicon.png -windowsfilename windows/icons.ico
+      # Paths are relative to build/; Wails 3.1 defaults them to build/...
+      - wails3 generate icons -input appicon.png -windowsfilename windows/icons.ico -macfilename darwin/icons.icns
 
   dev:frontend:
     summary: Runs the frontend in development mode

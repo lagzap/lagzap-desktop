@@ -3,8 +3,8 @@ module github.com/lagzap/lagzap-desktop
 go 1.26.0
 
 require (
-	github.com/lagzap/lagzap v0.1.10-beta.5
-	github.com/lagzap/zap v0.1.0-beta.22
+	github.com/lagzap/lagzap v0.1.10-beta.6
+	github.com/lagzap/zap v0.1.0-beta.23
 	github.com/miekg/dns v1.1.67
 	github.com/wailsapp/wails/v3 v3.1.0
 	golang.org/x/sys v0.48.0

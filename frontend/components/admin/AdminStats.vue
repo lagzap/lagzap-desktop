@@ -73,6 +73,8 @@ const time = (at: number) => new Date(at).toLocaleTimeString();
 // Chart: each finished interval's average and p95 ping, and its
 // interruptions and disconnects as bars.
 const chartEl = ref<HTMLElement | null>(null);
+// More than this between one interval's end and the next one's start is a gap.
+const historyGapMs = 2 * 60_000;
 let chart: echarts.ECharts | undefined;
 function draw() {
   const el = chartEl.value;
@@ -80,7 +82,16 @@ function draw() {
   // the chart to nothing. The size watch below draws once it has room.
   if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
   chart ??= echarts.init(el, theme.current.value.dark ? "dark" : undefined, { renderer: "canvas" });
-  const rows = history.value;
+  const rows = [...history.value].sort((a, b) => a.ended_at - b.ended_at);
+  // A stretch with no interval (LagZap off, nothing connected) stays empty:
+  // a null point there breaks the ping lines instead of joining across it.
+  const pings: { at: number; row?: SessionInterval }[] = [];
+  let lastEnd = 0;
+  for (const r of rows) {
+    if (lastEnd && r.started_at - lastEnd > historyGapMs) pings.push({ at: r.started_at });
+    pings.push({ at: r.ended_at, row: r });
+    lastEnd = Math.max(lastEnd, r.ended_at);
+  }
   chart.setOption(
     {
       backgroundColor: "transparent",
@@ -94,8 +105,8 @@ function draw() {
         { type: "value", minInterval: 1, splitLine: { show: false } },
       ],
       series: [
-        { name: t("$vuetify.adminStats.avg"), type: "line", showSymbol: false, data: rows.map((r) => [r.ended_at, r.latency?.avg_ms ?? null]) },
-        { name: "p95", type: "line", showSymbol: false, lineStyle: { type: "dashed" }, data: rows.map((r) => [r.ended_at, r.latency?.p95_ms ?? null]) },
+        { name: t("$vuetify.adminStats.avg"), type: "line", showSymbol: false, data: pings.map((p) => [p.at, p.row?.latency?.avg_ms ?? null]) },
+        { name: "p95", type: "line", showSymbol: false, lineStyle: { type: "dashed" }, data: pings.map((p) => [p.at, p.row?.latency?.p95_ms ?? null]) },
         { name: t("$vuetify.adminStats.interruptions"), type: "bar", yAxisIndex: 1, barMaxWidth: 6, itemStyle: { color: "#fb8c00" }, data: rows.map((r) => [r.ended_at, r.interruptions ?? 0]) },
         { name: t("$vuetify.adminStats.disconnects"), type: "bar", yAxisIndex: 1, barMaxWidth: 6, itemStyle: { color: "#e53935" }, data: rows.map((r) => [r.ended_at, r.disconnects ?? 0]) },
       ],
