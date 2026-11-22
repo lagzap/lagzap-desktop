@@ -9,6 +9,9 @@ import { ProfileFlag } from "~/constants/profile";
 
 const props = defineProps<{
   profileId: string;
+  /** Shown before any data too (a title's only profile): the chart's frame
+   * and its "No data", so the card is never empty. */
+  always?: boolean;
   /** The usage popup, for profiles without a card chart: no rating, and a
    * message while nothing has been measured yet. */
   popup?: boolean;
@@ -48,18 +51,27 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
         :range="range"
         :latency-color="latencyColor"
         :traffic-color="trafficColor"
-        :chart-height="240"
+        :chart-height="180"
         :session-start="chart?.session_start ?? 0"
         :session-divider="divided"
         @update:range="(r) => setRange(r as OverviewRange)"
       >
         <!-- A game's live speeds, under the chart on the left (its data
              used follows the ping above). -->
-        <template v-if="!popup && profile && isGame" #footer-start>
-          <ProfileActivityChip :profile="profile" part="speed" />
+        <!-- After them, whatever the card adds (its connections toggle). -->
+        <template v-if="!popup" #footer-start>
+          <div class="ping-usage__footer">
+            <ProfileActivityChip v-if="profile && isGame" :profile="profile" part="speed" />
+            <slot name="footer" />
+          </div>
         </template>
       </LiveChart>
       <QuickRating v-if="!popup" :profile-id="profileId" :game="isGamePacket" />
+    </div>
+    <!-- Shown before any data (a title's only profile): the chart's empty
+         grid, no line and no "No data", so the card is never bare. -->
+    <div v-else-if="always" class="ping-usage ping-usage--empty" aria-hidden="true">
+      <div class="ping-usage__grid" />
     </div>
     <div v-else-if="popup" class="text-center text-medium-emphasis py-8 text-body-2">
       {{ t("$vuetify.title.profile.noTrafficYet") }}
@@ -90,5 +102,29 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
 .chart-grow-leave-from {
   max-height: 640px;
   opacity: 1;
+}
+
+.ping-usage__grid {
+  height: 180px;
+  margin: 8px 0 12px 40px;
+  border-bottom: 1px dashed rgba(var(--v-theme-on-surface), 0.25);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 44px,
+    rgba(var(--v-theme-on-surface), 0.08) 44px,
+    rgba(var(--v-theme-on-surface), 0.08) 45px
+  );
+}
+
+.ping-usage__footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.ping-usage__footer:empty {
+  display: none;
 }
 </style>

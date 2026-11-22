@@ -8,7 +8,7 @@ import {
   SelectProfileWireGuard,
   SetProfileWireGuardEnabled,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import { localDigits } from "~/utils/localeFormat";
+import { formatMs, localDigits } from "~/utils/localeFormat";
 import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
 import { useProfileWireGuard, type WireGuardConfig as Config } from "~/composables/useProfileWireGuard";
 
@@ -273,7 +273,7 @@ const handshakeAgo = computed(() => {
         </div>
         <div v-if="status.state === 'working' && status.ping">
           <span class="text-medium-emphasis">{{ t("$vuetify.title.profile.wireguard.ping") }}</span>
-          {{ localDigits(status.ping) }} ms
+          {{ formatMs(status.ping) }}
         </div>
         <div v-if="status.error" class="text-error">{{ status.error }}</div>
       </div>

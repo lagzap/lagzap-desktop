@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useLocale, useTheme } from "vuetify";
+import { useLocale } from "vuetify";
 import { ProbeProfileRoutes } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import { getScoreAccent } from "~/composables/useLatencyMetrics";
+import { getLatencyColorClass } from "~/composables/useLatencyMetrics";
 import { useProfileEstimate } from "~/composables/useProfileChart";
 import { BEST_INTERFACE, useProfileViewInterface } from "~/composables/useProfileViewInterface";
 
@@ -16,17 +16,21 @@ const props = defineProps<{
   fixingLag?: boolean;
   /** Nothing follows the ping: no trailing separator. */
   last?: boolean;
+  /** In a status pill after "On": no label, no separator, a "·" before. */
+  bare?: boolean;
 }>();
 const emit = defineEmits<{ fixLag: []; showLatency: [] }>();
 const { t } = useLocale();
-const theme = useTheme();
 const estimate = useProfileEstimate(props.profileId);
 const { selectedInterfaceKey } = useProfileViewInterface(props.profileId);
 
 const ping = computed(() => estimate.value?.ping ?? 0);
-const color = computed(() =>
-  ping.value > 0 ? getScoreAccent(estimate.value?.score ?? -1, theme.current.value.dark) ?? undefined : undefined
-);
+/** The ping's colour, on the same ms steps as every ping in the app. */
+const colorClass = computed(() => {
+  if (!(ping.value > 0)) return "";
+  const name = getLatencyColorClass(ping.value);
+  return name === "grey" ? "text-grey" : `text-${name}`;
+});
 
 const probing = ref(false);
 async function probe() {
@@ -52,15 +56,17 @@ const views = computed(() => props.views ?? []);
 </script>
 
 <template>
-  <span v-if="estimate" class="est-ping" @contextmenu.prevent="openMenu">
-    <span class="est-ping__label">{{ t("$vuetify.title.profile.estimatedPing") }}</span>
-    <v-tooltip location="bottom" max-width="320" open-delay="150">
+  <span v-if="estimate" class="est-ping" :class="{ 'est-ping--bare': bare }" @contextmenu.prevent="openMenu">
+    <span v-if="bare" class="est-ping__dot">·</span>
+    <span v-else class="est-ping__label">{{ t("$vuetify.title.profile.estimatedPing") }}</span>
+    <!-- Gone while the right-click menu is open. -->
+    <v-tooltip location="bottom" max-width="320" open-delay="1500" :disabled="menuOpen">
       <template #activator="{ props: tip }">
         <button
           v-bind="tip"
           type="button"
           class="est-ping__value"
-          :style="{ color }"
+          :class="colorClass"
           @click.stop="emit('showLatency'); probe()"
         >
           {{ probing ? t("$vuetify.title.profile.probingPing") : formatMs(ping) }}
@@ -71,7 +77,7 @@ const views = computed(() => props.views ?? []);
     </v-tooltip>
     <!-- Right after the value: e.g. the route quality chevron. -->
     <slot name="after-value" />
-    <span v-if="!last" class="est-ping__sep">•</span>
+    <span v-if="!last && !bare" class="est-ping__sep">•</span>
 
     <v-menu v-model="menuOpen" :target="menuAt" location="bottom start" :close-on-content-click="true">
       <v-list density="compact" min-width="170" class="est-menu py-1">
@@ -133,6 +139,11 @@ const views = computed(() => props.views ?? []);
   text-decoration: underline dashed;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+}
+
+.est-ping--bare .est-ping__value {
+  font-weight: 500;
+  text-decoration: none;
 }
 
 .est-ping__value:disabled {

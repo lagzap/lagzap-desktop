@@ -24,6 +24,10 @@ import { profileLimit } from "~/composables/useBandwidthControl";
 
 const props = defineProps<{
   profile: Profile;
+  /** No gear of its own: opened through v-model:open, shown at target
+   * (Simple view opens it from the card's ⋮ menu). */
+  bare?: boolean;
+  target?: Element | null;
 }>();
 
 const locale = useLocale();
@@ -330,7 +334,7 @@ const updateInterfaces = async () => {
   loadingInterfaces.value = false;
 };
 
-const dialogOpen = ref(false);
+const dialogOpen = defineModel<boolean>("open", { default: false });
 const closeDialog = () => {
   dialogOpen.value = false;
 };
@@ -350,8 +354,9 @@ onMounted(async () => {
     max-width="500"
     scrollable
     :close-on-content-click="false"
+    :target="bare ? target ?? undefined : undefined"
   >
-    <template v-slot:activator="{ props }">
+    <template v-if="!bare" v-slot:activator="{ props }">
       <v-btn
         variant="plain"
         icon
@@ -376,7 +381,7 @@ onMounted(async () => {
     </template>
     <v-card>
       <v-card-title class="d-flex align-center ga-2">
-        <span>{{ t("$vuetify.title.profile.routeSettings") }}</span>
+        <span>{{ t("$vuetify.title.profile.settings") }}</span>
         <v-spacer />
         <RouteLevelText :level="planLevel" />
       </v-card-title>
@@ -391,8 +396,9 @@ onMounted(async () => {
           >
             <v-col cols="12">
               <div class="d-flex align-center justify-space-between mb-1">
+                <!-- TCP and UDP name themselves; the label is for the total only. -->
                 <span class="text-body-2 text-medium-emphasis">
-                  {{ showAdvancedRouteOptions ? t("$vuetify.title.profile.routes") : t("$vuetify.title.profile.smartRoutes") }}
+                  {{ showAdvancedRouteOptions ? "" : t("$vuetify.title.profile.smartRoutes") }}
                 </span>
                 <div class="d-flex align-center">
                   <v-btn

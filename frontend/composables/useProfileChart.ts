@@ -123,7 +123,8 @@ export function useProfileChart(profileId: string) {
     if (c.actual) {
       series.unshift({ id: "actual", label: c.actual.label, points: c.actual.points, actual: true });
     }
-    return { ...c, series };
+    // No route quality line: the pings say it already.
+    return { ...c, series, quality: null };
   });
 
   return {

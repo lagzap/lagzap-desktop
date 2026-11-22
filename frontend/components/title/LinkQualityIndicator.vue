@@ -6,14 +6,19 @@ import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
 import { adminToolsAvailable } from "~/composables/useAdminToolsWindow";
 
 // The live session's link as LagZap measures it from its own packets: a
-// plain summary for everyone, every leg's numbers for admin builds.
+// plain summary first, every route's numbers under "Show details" (open
+// from the start in admin builds). Opened from the profile's ⋮ menu or its
+// status line, as a dialog.
 const props = defineProps<{ link: LinkQuality }>();
+const open = defineModel<boolean>("open", { default: false });
+const details = ref(false);
 const { t } = useLocale();
 const { getNodeLabelByIp } = useNodeLocationLabel();
 
 const admin = ref(false);
 onMounted(async () => {
   admin.value = await adminToolsAvailable();
+  details.value = admin.value;
 });
 
 // A leg needs this many packets in the window before its numbers mean much.
@@ -53,7 +58,6 @@ const level = computed<Level>(() => {
   }
   return "good";
 });
-const open = ref(false);
 const color = computed(() => ({ good: "success", warn: "warning", bad: "error" })[level.value]);
 
 // The icon names the problem, in the headline's order: loss (or packets
@@ -123,78 +127,95 @@ const columns = ["Leg", "Ping", "Loss", "First", "Lag", "Queue", "Bursts", "Stal
 </script>
 
 <template>
-  <!-- Opens and closes on click, so it stays put while reading it. -->
-  <v-menu v-model="open" :close-on-content-click="false" location="bottom start" max-width="640">
-    <template #activator="{ props: menuProps }">
-      <v-btn
-        v-bind="menuProps"
-        icon
-        variant="text"
-        size="x-small"
-        width="22"
-        height="22"
-        :aria-label="t('$vuetify.title.profile.link.title')"
-      >
-        <!-- A plain chevron after the ping: more about the route's quality. -->
-        <v-icon :icon="open ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="16" class="text-medium-emphasis" />
-      </v-btn>
-    </template>
-    <v-card rounded="lg" class="pa-3 link-card">
-      <div class="d-flex align-center ga-2 mb-1">
-        <v-icon :icon="icon" :color="color" size="18" />
-        <span class="text-subtitle-2">{{ t("$vuetify.title.profile.link.title") }}</span>
-      </div>
-      <div class="text-body-2 mb-2">{{ headline }}</div>
-      <div class="text-caption text-medium-emphasis mb-2">
-        {{ t("$vuetify.title.profile.link.roundTrip", props.link.rtt, props.link.jitter) }}
-      </div>
-      <div v-for="a in adapters" :key="a.iface" class="d-flex justify-space-between text-body-2">
-        <span>{{ a.iface }}</span>
-        <span :class="`text-${a.tone}`">{{ a.state }}</span>
-      </div>
-
-      <template v-if="admin">
-        <v-divider class="my-2" />
-        <div class="text-caption text-medium-emphasis mb-1">
-          {{ t("$vuetify.title.profile.link.advanced", pct(props.link.resends)) }}
+  <v-dialog v-model="open" max-width="680" scrollable>
+    <v-card rounded="lg" class="link-card">
+      <v-card-item>
+        <template #prepend>
+          <v-icon :icon="icon" :color="color" size="22" />
+        </template>
+        <v-card-title class="text-subtitle-1">{{ t("$vuetify.title.profile.link.title") }}</v-card-title>
+        <template #append>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="open = false" />
+        </template>
+      </v-card-item>
+      <v-card-text class="pt-0">
+        <!-- In plain words: how it is going, and each internet. -->
+        <div class="text-body-1 mb-1">{{ headline }}</div>
+        <div class="text-caption text-medium-emphasis mb-3">
+          {{ t("$vuetify.title.profile.link.roundTrip", props.link.rtt, props.link.jitter) }}
         </div>
-        <v-table density="compact" class="link-table">
-          <thead>
-            <tr>
-              <th v-for="col in columns" :key="col">
-                <v-tooltip :text="t(`$vuetify.title.profile.link.tip${col}`)" location="top" max-width="300">
-                  <template #activator="{ props: tipProps }">
-                    <span v-bind="tipProps" class="link-col">{{ t(`$vuetify.title.profile.link.col${col}`) }}</span>
-                  </template>
-                </v-tooltip>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="leg in legRows" :key="leg.iface + leg.network + leg.path_key" :class="{ 'text-medium-emphasis': leg.backup }">
-              <td>
-                {{ legName(leg) }}
-                <span v-if="leg.backup"> · {{ t("$vuetify.title.profile.link.backup") }}</span>
-                <div class="text-medium-emphasis">{{ t("$vuetify.title.profile.link.packets", leg.received) }}</div>
-              </td>
-              <td>{{ leg.ping || "—" }}</td>
-              <td>{{ pct(leg.loss) }}</td>
-              <td>{{ pct(leg.first) }}</td>
-              <td>{{ leg.lag }}</td>
-              <td>{{ leg.queue }}</td>
-              <td>{{ leg.bursts }}</td>
-              <td>{{ leg.stall }}</td>
-            </tr>
-          </tbody>
-        </v-table>
-      </template>
+        <div v-for="a in adapters" :key="a.iface" class="link-adapter">
+          <span>{{ a.iface }}</span>
+          <span :class="`text-${a.tone}`">{{ a.state }}</span>
+        </div>
+
+        <!-- Every route's numbers, for the curious. -->
+        <button type="button" class="link-details" @click="details = !details">
+          {{ t(details ? "$vuetify.title.profile.link.hideDetails" : "$vuetify.title.profile.link.showDetails") }}
+          <v-icon :icon="details ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="16" />
+        </button>
+        <v-expand-transition>
+          <div v-if="details">
+            <div class="text-caption text-medium-emphasis mb-1">
+              {{ t("$vuetify.title.profile.link.advanced", pct(props.link.resends)) }}
+            </div>
+            <v-table density="compact" class="link-table">
+              <thead>
+                <tr>
+                  <th v-for="col in columns" :key="col">
+                    <v-tooltip :text="t(`$vuetify.title.profile.link.tip${col}`)" location="top" max-width="300">
+                      <template #activator="{ props: tipProps }">
+                        <span v-bind="tipProps" class="link-col">{{ t(`$vuetify.title.profile.link.col${col}`) }}</span>
+                      </template>
+                    </v-tooltip>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="leg in legRows" :key="leg.iface + leg.network + leg.path_key" :class="{ 'text-medium-emphasis': leg.backup }">
+                  <td>
+                    {{ legName(leg) }}
+                    <span v-if="leg.backup"> · {{ t("$vuetify.title.profile.link.backup") }}</span>
+                    <div class="text-medium-emphasis">{{ t("$vuetify.title.profile.link.packets", leg.received) }}</div>
+                  </td>
+                  <td>{{ leg.ping || "—" }}</td>
+                  <td>{{ pct(leg.loss) }}</td>
+                  <td>{{ pct(leg.first) }}</td>
+                  <td>{{ leg.lag }}</td>
+                  <td>{{ leg.queue }}</td>
+                  <td>{{ leg.bursts }}</td>
+                  <td>{{ leg.stall }}</td>
+                </tr>
+              </tbody>
+            </v-table>
+          </div>
+        </v-expand-transition>
+      </v-card-text>
     </v-card>
-  </v-menu>
+  </v-dialog>
 </template>
 
 <style scoped>
-.link-card {
-  min-width: 420px;
+.link-adapter {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 0.875rem;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.link-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 12px 0 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: rgb(var(--v-theme-primary));
+  cursor: pointer;
 }
 .link-col {
   cursor: help;

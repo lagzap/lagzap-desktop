@@ -42,3 +42,54 @@ async function cutFlag(code: string): Promise<string> {
     return "";
   }
 }
+
+/** The flag alone, its transparent margin in the sprite cut away, so it
+ * fills a box edge to edge (rounded corners and sizing are the caller's). */
+const trimmed = new Map<string, Promise<string>>();
+
+export function flagImageTrimmed(country: string): Promise<string> {
+  const code = country.trim().toLowerCase();
+  if (!code) return Promise.resolve("");
+  let found = trimmed.get(code);
+  if (!found) {
+    found = flagImage(code).then(trimFlag);
+    trimmed.set(code, found);
+  }
+  return found;
+}
+
+async function trimFlag(url: string): Promise<string> {
+  if (!url) return "";
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return url;
+    ctx.drawImage(image, 0, 0);
+    const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let top = height, left = width, right = -1, bottom = -1;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Solid pixels only: the sprite's soft edge and shadow are left out.
+        if (data[(y * width + x) * 4 + 3] > 200) {
+          if (x < left) left = x;
+          if (x > right) right = x;
+          if (y < top) top = y;
+          if (y > bottom) bottom = y;
+        }
+      }
+    }
+    if (right < left || bottom < top) return url;
+    const out = document.createElement("canvas");
+    out.width = right - left + 1;
+    out.height = bottom - top + 1;
+    out.getContext("2d")?.drawImage(canvas, left, top, out.width, out.height, 0, 0, out.width, out.height);
+    return out.toDataURL("image/png");
+  } catch {
+    return url;
+  }
+}

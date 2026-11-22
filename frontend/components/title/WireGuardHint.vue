@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import { useLocale } from "vuetify";
 import CountryFlag from "vue-country-flag-next";
 import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
-import { localDigits } from "~/utils/localeFormat";
+import { formatMs } from "~/utils/localeFormat";
 
 /** Under the profile while its Dedicated IP (WireGuard) is in use: the
  * server's flag, which config and IP, the ping through it, and Disable. */
@@ -17,7 +17,7 @@ const right = computed(() => {
   switch (status.value.state) {
     case "working":
       return status.value.ping
-        ? { color: "success", text: `${localDigits(status.value.ping)} ms` }
+        ? { color: "success", text: formatMs(status.value.ping) }
         : { color: "success", text: t("$vuetify.title.profile.wireguard.working") };
     case "connecting":
       return { color: "info", text: t("$vuetify.title.profile.wireguard.connecting") };

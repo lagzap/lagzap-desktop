@@ -4,6 +4,8 @@ import Container from "~/components/layout/Container.vue";
 import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
 import ProfileCard from "~/components/title/ProfileCard.vue";
+import PlayFromPicker from "~/components/title/PlayFromPicker.vue";
+import { ProfileFlag } from "~/constants/profile";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 import ChangelogBadge from "~/components/title/ChangelogBadge.vue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
@@ -13,7 +15,7 @@ import AdminLogDialog from "~/components/admin/AdminLogDialog.vue";
 
 const { t } = useLocale();
 const store = useStore();
-const { titleLocked, titleBlocked, titleUnavailable, canUpgrade, openUpgrade, admin } = usePlanAccess();
+const { titleUnavailable, admin, profileUnavailable } = usePlanAccess();
 // Admins: every connection's console lines of this title.
 const logOpen = ref(false);
 const route = useRoute();
@@ -32,47 +34,44 @@ const profiles = computed(() =>
 /** Visit time before this page open — used so "new" changelog isn't wiped by visitTitle. */
 const changelogSince = ref(0);
 
-const showInactiveBanner = ref(false);
+/* One "Play from" for the whole game and the game's profile up front;
+ * each profile's own location and settings sit in its ⋮ menu. */
+/** Profiles that pick a location (locked locations show their lock). */
+const locationProfiles = computed(() =>
+  profiles.value.filter(
+    (p) =>
+      p.route_action == "route" &&
+      (p.flags & ProfileFlag.ALLOW_REGION_SELECTION) !== 0 &&
+      !profileUnavailable(p.id),
+  ),
+);
+/** The picker follows the profiles it covers (a new set, a new picker). */
+const locationKey = computed(() => locationProfiles.value.map((p) => p.id).join(","));
+/** The game's own profile (its packets optimized), else the first. */
+const featuredId = computed(
+  () => (profiles.value.find((p) => (p.flags & ProfileFlag.GAME_PACKET) !== 0) ?? profiles.value[0])?.id,
+);
+/** The featured profile first, the rest in their order. */
+const orderedProfiles = computed(() => {
+  const list = [...profiles.value];
+  const i = list.findIndex((p) => p.id === featuredId.value);
+  if (i > 0) list.unshift(...list.splice(i, 1));
+  return list;
+});
+
 /** No profiles yet: nothing to turn on (Coming soon). */
 const comingSoon = computed(() => !!title.value && store.titleComingSoon(title.value.id));
-/** Locked, no active plan or coming soon: the title cannot be turned on. */
+/** No plan offers it yet, or coming soon: the title cannot be turned on.
+ * The plan locks locations, not titles. */
 const cannotActivate = computed(
-  () => !!title.value && (store.planBlocked || titleBlocked(title.value.id) || comingSoon.value),
+  () => !!title.value && (titleUnavailable(title.value.id) || comingSoon.value),
 );
-let bannerDelayTimer: ReturnType<typeof setTimeout> | null = null;
-
-function clearBannerDelay() {
-  if (bannerDelayTimer != null) {
-    clearTimeout(bannerDelayTimer);
-    bannerDelayTimer = null;
-  }
-}
-
 function recordVisit(titleId: string) {
   // visited_at is Unix seconds (Go's VisitTitle).
   const prev = Number(store.titleStates[titleId]?.visited_at || 0);
   changelogSince.value = Number.isFinite(prev) && prev > 0 ? prev * 1000 : 0;
   void store.visitTitle(titleId);
 }
-
-watch(
-  () => ({
-    ready: store.appReady,
-    inactive: !!(title.value && !store.isTitleActive(title.value.id)),
-  }),
-  ({ ready, inactive }) => {
-    clearBannerDelay();
-    showInactiveBanner.value = false;
-    if (!ready || !inactive) {
-      return;
-    }
-    bannerDelayTimer = setTimeout(() => {
-      bannerDelayTimer = null;
-      showInactiveBanner.value = true;
-    }, 500);
-  },
-  { immediate: true }
-);
 
 watch(
   () => ({
@@ -88,9 +87,6 @@ watch(
   { immediate: true },
 );
 
-onBeforeUnmount(() => {
-  clearBannerDelay();
-});
 </script>
 
 <template>
@@ -142,80 +138,66 @@ onBeforeUnmount(() => {
         />
         <TitleFavoriteButton v-if="title" :title-id="title.id" />
         <ComingSoonMark v-if="comingSoon" :size="18" class="me-2" />
-        <PlanLock v-else-if="title && cannotActivate" :unavailable="titleUnavailable(title.id)" />
+        <PlanLock v-else-if="title && cannotActivate" unavailable />
+        <!-- With a Play from card the switch sits there instead. -->
         <v-switch
-          v-else
+          v-else-if="!locationProfiles.length"
           :model-value="store.isTitleActive(title.id)"
+          inset
           hide-details
+          color="cyan"
           :disabled="!store.appReady"
-          :color="store.isTitleActive(title.id) ? 'green' : 'secondary'"
+          class="title-switch flex-grow-0 me-2"
           @click="store.toggleTitleState(title)"
-        >
-          <v-icon>mdi-pause</v-icon>
-        </v-switch>
+        />
       </template>
-      <v-expand-transition v-if="store.appReady">
-        <v-banner
-          v-if="showInactiveBanner && !cannotActivate"
-          color="primary"
-          lines="one"
-        >
-          <v-banner-text>
-            {{ t("$vuetify.title.isNotActive", [store.titleName(title.name)]) }}
-          </v-banner-text>
-
-          <template #actions>
-            <v-btn
-              variant="tonal"
-              prepend-icon="mdi-check"
-              @click="store.toggleTitleState(title)"
-            >
-              {{ t("$vuetify.title.action") }}
-            </v-btn>
-          </template>
-        </v-banner>
-      </v-expand-transition>
-
-      <v-expand-transition>
-        <v-banner
-          v-if="title && titleLocked(title.id) && !store.planBlocked && !comingSoon"
-          color="warning"
-          lines="one"
-        >
-          <template #prepend>
-            <v-avatar color="warning" variant="tonal" icon="mdi-lock-outline" />
-          </template>
-          <v-banner-text>{{ t("$vuetify.plan.titleLocked") }}</v-banner-text>
-
-          <template v-if="canUpgrade" #actions>
-            <v-btn variant="tonal" prepend-icon="mdi-cart-outline" @click="openUpgrade">
-              {{ t("$vuetify.plan.unlock") }}
-            </v-btn>
-          </template>
-        </v-banner>
-      </v-expand-transition>
       <div v-if="comingSoon" class="title-soon">
         <v-icon icon="mdi-clock-outline" size="48" class="title-soon__icon" />
         <div class="text-h6">{{ t("$vuetify.title.comingSoon") }}</div>
         <div class="text-body-2 text-medium-emphasis">{{ t("$vuetify.title.comingSoonHint") }}</div>
       </div>
-      <div v-else-if="title" class="d-flex flex-column" style="column-gap: 0.5rem">
-        <template v-for="profile in profiles" :key="profile.id">
-          <ProfileCard
-            :profile="profile"
-            :changelog-since="changelogSince"
+      <!-- Each profile its own card, with room between them. -->
+      <div v-else-if="title" class="d-flex flex-column ga-3 pa-3">
+        <PlayFromPicker
+          v-if="locationProfiles.length"
+          :key="locationKey"
+          :profiles="locationProfiles"
+        >
+          <!-- The game on or off, beside where it plays from. -->
+          <v-switch
+            v-if="!comingSoon && !cannotActivate"
+            :model-value="store.isTitleActive(title.id)"
+            inset
+            hide-details
+            color="cyan"
+            :disabled="!store.appReady"
+            class="title-switch flex-grow-0"
+            @click="store.toggleTitleState(title)"
           />
-          <v-divider
-            v-if="profile.id !== profiles[profiles.length - 1].id"
-            class="mx-3"
-          />
-        </template>
+        </PlayFromPicker>
+        <ProfileCard
+          v-for="profile in orderedProfiles"
+          :key="profile.id"
+          :profile="profile"
+          :changelog-since="changelogSince"
+          :featured="profile.id === featuredId"
+          :single="profiles.length === 1"
+          :game-name="store.titleName(title.name)"
+          :game-icon="title.icon_url"
+        />
       </div>
     </Container>
   </div>
 </template>
 
 <style scoped>
+/* The game's own switch: the profiles' style, a size up. */
+.title-switch {
+  transform: scale(1.2);
+  transform-origin: top right;
+}
+
+
 /* No profiles yet: the page says so in the middle of its card. */
 .title-soon {
   display: flex;
