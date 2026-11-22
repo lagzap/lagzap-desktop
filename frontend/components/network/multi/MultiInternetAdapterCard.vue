@@ -12,6 +12,11 @@ import type { NetworkInterfaceMonitor } from "~/bindings/github.com/lagzap/lagza
 const props = defineProps<{
   name: string;
   monitor?: NetworkInterfaceMonitor;
+  /** The ping chart's ceiling, shared by every adapter's card. */
+  pingYMax?: number;
+  /** The moment (Unix ms) any card's chart is hovered: every card shows its
+   * ping then, with a cursor line. */
+  hoverAt?: number | null;
   color: string;
   isDefault: boolean;
   /** The default was picked here, not by the operating system. */
@@ -44,8 +49,31 @@ const emit = defineEmits<{
   setMetered: [on: boolean];
   setTcp: [value: number | null];
   setUdp: [value: number | null];
+  hover: [at: number | null];
 }>();
 const { t } = useLocale();
+
+/** The hovered point of this card's ping chart (null: none or outside it). */
+const hoverIdx = computed(() => {
+  const p = props.monitor?.ping;
+  const n = p?.points?.length ?? 0;
+  if (props.hoverAt == null || !p?.step || !n) return null;
+  const idx = Math.round((props.hoverAt - p.end) / p.step) + n - 1;
+  return idx >= 0 && idx < n ? idx : null;
+});
+function onChartHover(idx: number | null) {
+  const p = props.monitor?.ping;
+  const n = p?.points?.length ?? 0;
+  emit("hover", idx == null || !p?.step ? null : p.end - (n - 1 - idx) * p.step);
+}
+/** The ping shown big: the hovered moment's while hovering, else the latest
+ * (0: none or lost). */
+const shownPing = computed(() => {
+  const p = props.monitor?.ping;
+  if (!p) return 0;
+  if (props.hoverAt == null) return p.now > 0 ? p.now : 0;
+  return hoverIdx.value == null ? 0 : Math.max(0, p.points?.[hoverIdx.value] ?? 0);
+});
 
 // More settings (route counts, traffic limit) fold behind the round chevron
 // at the card's bottom.
@@ -144,18 +172,20 @@ const roles = computed(() => [
         <PlanLock v-if="planLocked" :need="unlockInternets ? { option: 'max_internets', value: unlockInternets } : undefined" />
         <span
           class="adapter-card__ping text-h6 font-weight-bold lz-num"
-          :class="ping && ping.now > 0 ? `text-${qualityColor(ping.quality)}` : 'text-medium-emphasis'"
+          :class="ping && shownPing > 0 ? `text-${qualityColor(ping.quality)}` : 'text-medium-emphasis'"
         >
-          {{ ping && ping.now > 0 ? localDigits(ping.now) : "—" }}<small class="text-caption text-medium-emphasis ms-1">{{ msUnit() }}</small>
+          {{ shownPing > 0 ? localDigits(shownPing) : "—" }}<small class="text-caption text-medium-emphasis ms-1">{{ msUnit() }}</small>
         </span>
       </div>
 
       <Sparkline
         v-if="ping?.points?.length"
         :series="[{ points: ping.points, color, fill: true }]"
-        :y-max="ping.y_max"
+        :y-max="pingYMax || ping.y_max"
         :height="40"
+        :cursor="hoverIdx"
         mark-lost
+        @hover="onChartHover"
       />
       <div v-else class="adapter-card__empty text-caption text-medium-emphasis">
         {{ t("$vuetify.settings.multiInternetPage.noPing") }}

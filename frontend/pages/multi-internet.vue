@@ -34,7 +34,9 @@ const {
   setInterfaceUdp,
 } = useNetworkAdapterSettings();
 const { settings, setRelayTransportFallback, setVirtualAdapter, setAdapterOrder } = useSettings();
-const { monitor, colorOf } = useNetworkMonitor();
+const { monitor, colorOf, scale } = useNetworkMonitor();
+/** The moment any adapter's ping chart is hovered: every card shows it. */
+const pingHoverAt = ref<number | null>(null);
 
 const names = computed(() => interfaces.value.map((iface) => iface.Name).filter(Boolean));
 
@@ -305,6 +307,9 @@ const routeSteppers = computed(() => [
               v-model:expanded="cardsExpanded"
               :name="name"
               :monitor="monitorOf(name)"
+              :ping-y-max="scale.ping"
+              :hover-at="pingHoverAt"
+              @hover="pingHoverAt = $event"
               :color="colorOf(name)"
               :is-default="name === effectiveDefault"
               :default-pinned="defaultInterfaceOverride === name"

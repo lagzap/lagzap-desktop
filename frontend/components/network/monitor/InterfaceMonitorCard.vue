@@ -2,12 +2,20 @@
 import CountryFlag from "vue-country-flag-next";
 import { useLocale, useTheme } from "vuetify";
 import Sparkline from "~/components/network/monitor/Sparkline.vue";
+import SensitiveText from "~/components/common/SensitiveText.vue";
 import { qualityColor } from "~/composables/useNetworkMonitor";
 import { useHumanSpeed } from "~/composables/helper";
 import type { NetworkInterfaceMonitor } from "~/bindings/github.com/lagzap/lagzap/adapter";
 
-/** One internet connection. Pure rendering of the Go snapshot. */
-const props = defineProps<{ iface: NetworkInterfaceMonitor; color: string; single?: boolean }>();
+/** One internet connection. Pure rendering of the Go snapshot. scale: the
+ * chart ceilings every connection's card shares, so they compare at a
+ * glance. */
+const props = defineProps<{
+  iface: NetworkInterfaceMonitor;
+  color: string;
+  single?: boolean;
+  scale?: { ping: number; traffic: number; gateway: number };
+}>();
 const emit = defineEmits<{ open: [] }>();
 const { t } = useLocale();
 const theme = useTheme();
@@ -37,6 +45,56 @@ const statusColor = computed(() =>
   props.iface.status === "no_internet" ? "error" : props.iface.status === "warming" ? "info" : "success"
 );
 const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E57C2"));
+
+/** The ping to the NIC's own router: slow here means the local link (often
+ * Wi-Fi) is the problem, not the internet. */
+const gateway = computed(() => props.iface.gateway);
+const gatewayMs = (ms: number) => (ms >= 10 ? localDigits(Math.round(ms)) : localDigits(ms.toFixed(1)));
+
+// Hovering any of the card's small charts points all three at that moment
+// (matched by time) and the big numbers show its values, with no tooltip.
+const hoverAt = ref<number | null>(null);
+/** Index of time at in points that end at end, step ms apart (null: outside). */
+function indexAt(at: number | null, end: number, step: number, length: number) {
+  if (at == null || !end || !step || !length) return null;
+  const idx = Math.round((at - end) / step) + length - 1;
+  return idx >= 0 && idx < length ? idx : null;
+}
+const timeOf = (idx: number, end: number, step: number, length: number) => end - (length - 1 - idx) * step;
+const pingIdx = computed(() => indexAt(hoverAt.value, ping.value.end, ping.value.step, ping.value.points?.length ?? 0));
+const trafficIdx = computed(() =>
+  indexAt(hoverAt.value, props.iface.traffic.end, props.iface.traffic.step, props.iface.traffic.down?.length ?? 0),
+);
+const gatewayIdx = computed(() => indexAt(hoverAt.value, gateway.value?.end ?? 0, 1000, gateway.value?.points?.length ?? 0));
+function hoverPing(idx: number | null) {
+  hoverAt.value = idx == null ? null : timeOf(idx, ping.value.end, ping.value.step, ping.value.points?.length ?? 0);
+}
+function hoverTraffic(idx: number | null) {
+  const tr = props.iface.traffic;
+  hoverAt.value = idx == null ? null : timeOf(idx, tr.end, tr.step, tr.down?.length ?? 0);
+}
+function hoverGateway(idx: number | null) {
+  const g = gateway.value;
+  hoverAt.value = idx == null || !g ? null : timeOf(idx, g.end, 1000, g.points?.length ?? 0);
+}
+/** The ping shown big: the hovered point's, else the latest (0: lost, -1: no data). */
+const shownPing = computed(() => {
+  if (hoverAt.value == null) return ping.value.now > 0 ? ping.value.now : 0;
+  return pingIdx.value == null ? -1 : (ping.value.points?.[pingIdx.value] ?? -1);
+});
+const shownGateway = computed(() => {
+  const g = gateway.value;
+  if (!g) return -1;
+  if (hoverAt.value == null) return g.now;
+  return gatewayIdx.value == null ? -1 : (g.points?.[gatewayIdx.value] ?? -1);
+});
+const shownSpeed = computed(() => {
+  const tr = props.iface.traffic;
+  if (hoverAt.value == null) return { down: tr.download || 0, up: tr.upload || 0 };
+  const i = trafficIdx.value;
+  return i == null ? null : { down: Math.max(0, tr.down?.[i] ?? 0), up: Math.max(0, tr.up?.[i] ?? 0) };
+});
+const hoverTime = computed(() => (hoverAt.value == null ? "" : formatTimeOfDay(new Date(hoverAt.value))));
 </script>
 
 <template>
@@ -70,12 +128,12 @@ const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E5
           <span class="lz-num"><span
             class="text-h4 font-weight-bold"
             :class="`text-${qualityColor(ping.quality)}`"
-          >{{ ping.now > 0 ? localDigits(ping.now) : "—" }}</span>
+          >{{ shownPing > 0 ? localDigits(shownPing) : "—" }}</span>
           <span class="text-caption text-medium-emphasis ms-1">
-            {{ ping.now > 0 ? msUnit() : t("$vuetify.networkLatency.monitor.timeout") }}
+            {{ shownPing > 0 || shownPing < 0 ? msUnit() : t("$vuetify.networkLatency.monitor.timeout") }}
           </span></span>
-          <div class="text-caption text-medium-emphasis">
-            {{ t("$vuetify.networkLatency.monitor.internetPing") }}
+          <div class="text-caption text-medium-emphasis text-no-wrap lz-num">
+            {{ hoverTime || t("$vuetify.networkLatency.monitor.internetPing") }}
           </div>
         </div>
         <div class="iface-card__stats text-caption">
@@ -93,19 +151,48 @@ const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E5
       <Sparkline
         class="mb-3"
         :series="[{ points: ping.points ?? [], color, fill: true }]"
-        :y-max="ping.y_max"
+        :y-max="scale?.ping || ping.y_max"
         :height="48"
+        :cursor="pingIdx"
         mark-lost
+        @hover="hoverPing"
       />
+
+      <div v-if="gateway?.address" class="iface-card__gateway mb-3" @click.stop>
+        <div class="d-flex align-center ga-2 text-body-2">
+          <v-icon icon="mdi-router-wireless" size="16" class="text-medium-emphasis" />
+          <span class="text-medium-emphasis" v-tooltip:top="t('$vuetify.networkLatency.monitor.gatewayHint')">
+            {{ t("$vuetify.networkLatency.monitor.gatewayPing") }}
+          </span>
+          <SensitiveText :text="gateway.address" class="text-caption text-medium-emphasis" />
+          <v-spacer />
+          <span class="lz-num font-weight-medium" :class="gateway.quality ? `text-${qualityColor(gateway.quality)}` : ''">
+            {{ shownGateway > 0 ? `${gatewayMs(shownGateway)} ${msUnit()}` : shownGateway === 0 && hoverAt != null ? t("$vuetify.networkLatency.monitor.timeout") : "—" }}
+          </span>
+          <span class="text-caption text-medium-emphasis lz-num">
+            {{ t("$vuetify.networkLatency.monitor.avg") }} {{ gateway.avg ? gatewayMs(gateway.avg) : "—" }}
+            · {{ t("$vuetify.networkLatency.monitor.max") }} {{ gateway.max ? gatewayMs(gateway.max) : "—" }}
+            · <span :class="gateway.loss > 1 ? 'text-error' : ''">{{ localDigits(`${gateway.loss.toFixed(0)}%`) }}</span>
+          </span>
+        </div>
+        <Sparkline
+          :series="[{ points: gateway.points ?? [], color }]"
+          :y-max="scale?.gateway || 10"
+          :height="20"
+          :cursor="gatewayIdx"
+          mark-lost
+          @hover="hoverGateway"
+        />
+      </div>
 
       <div class="d-flex align-center ga-4 mb-1 text-body-2">
         <span class="d-flex align-center ga-1">
           <v-icon icon="mdi-arrow-down" size="16" :color="color" />
-          {{ useHumanSpeed(iface.traffic.download || 0) }}
+          {{ shownSpeed ? useHumanSpeed(shownSpeed.down) : "—" }}
         </span>
         <span class="d-flex align-center ga-1">
           <v-icon icon="mdi-arrow-up" size="16" :color="uploadColor" />
-          {{ useHumanSpeed(iface.traffic.upload || 0) }}
+          {{ shownSpeed ? useHumanSpeed(shownSpeed.up) : "—" }}
         </span>
         <v-spacer />
         <span v-if="iface.game_legs > 0" class="text-caption text-medium-emphasis d-flex align-center ga-1">
@@ -119,8 +206,10 @@ const uploadColor = computed(() => (theme.current.value.dark ? "#B39DDB" : "#7E5
           { points: iface.traffic.down ?? [], color, fill: true },
           { points: iface.traffic.up ?? [], color: uploadColor },
         ]"
-        :y-max="iface.traffic.y_max"
+        :y-max="scale?.traffic || iface.traffic.y_max"
         :height="28"
+        :cursor="trafficIdx"
+        @hover="hoverTraffic"
       />
 
       <div class="text-caption text-medium-emphasis mb-1">

@@ -3,8 +3,10 @@ import CountryFlag from "vue-country-flag-next";
 import { useLocale } from "vuetify";
 import Container from "~/components/layout/Container.vue";
 import LiveChart from "~/components/network/LiveChart.vue";
+import Sparkline from "~/components/network/monitor/Sparkline.vue";
+import SensitiveText from "~/components/common/SensitiveText.vue";
 import RangeTabs from "~/components/network/RangeTabs.vue";
-import { qualityColor, useInterfaceMonitor, useNetworkMonitor } from "~/composables/useNetworkMonitor";
+import { gatewayCeiling, qualityColor, useInterfaceMonitor, useNetworkMonitor } from "~/composables/useNetworkMonitor";
 import { useHumanSpeed } from "~/composables/helper";
 import type { OverviewRange } from "~/composables/useOverviewChart";
 import type { LiveLatencyChart } from "~/types/liveChart";
@@ -41,6 +43,45 @@ const latency = computed<LiveLatencyChart | null>(() => {
   const c = detail.value?.latency;
   if (!c?.series?.length) return null;
   return { ...c, series: c.series.map((s) => ({ id: s.name, label: s.name, points: s.points })) };
+});
+
+/** The ping to this connection's router (its last minute): slow here means
+ * the local link (often Wi-Fi) is the problem, not the internet. */
+const gateway = computed(() => iface.value?.gateway);
+const gatewayMax = computed(() => gatewayCeiling(Math.max(0, ...(gateway.value?.points ?? []))));
+const gatewayMs = (ms: number) => (ms >= 10 ? localDigits(Math.round(ms)) : localDigits(ms.toFixed(1)));
+
+// One cursor for the internet and router ping charts, matched by time: the
+// router's samples are a second apart, ending at gateway.end.
+const cursorAt = ref<number | null>(null);
+const cursorFrom = ref<"internet" | "router" | null>(null);
+function hoverInternet(at: number | null) {
+  cursorAt.value = at;
+  cursorFrom.value = at == null ? null : "internet";
+}
+function gatewayTime(idx: number) {
+  const g = gateway.value;
+  return g?.end ? g.end - (g.points.length - 1 - idx) * 1000 : null;
+}
+function hoverRouter(idx: number | null) {
+  cursorAt.value = idx == null ? null : gatewayTime(idx);
+  cursorFrom.value = cursorAt.value == null ? null : "router";
+}
+/** The router point under the shared cursor (-1: outside its minute). */
+const routerCursor = computed(() => {
+  const g = gateway.value;
+  if (cursorAt.value == null || !g?.end) return null;
+  const idx = Math.round((cursorAt.value - g.end) / 1000) + g.points.length - 1;
+  return idx >= 0 && idx < g.points.length ? idx : null;
+});
+/** "12:03:04 · 0.7 ms" for the router chart's header while the cursor is on it. */
+const routerCursorText = computed(() => {
+  const idx = routerCursor.value;
+  const g = gateway.value;
+  if (idx == null || !g || cursorAt.value == null) return "";
+  const v = g.points[idx];
+  const value = v > 0 ? `${gatewayMs(v)} ${msUnit()}` : v === 0 ? t("$vuetify.networkLatency.monitor.timeout") : "—";
+  return `${formatTimeOfDay(new Date(cursorAt.value))} · ${value}`;
 });
 
 const SERVERS_SHOWN = 8;
@@ -195,7 +236,60 @@ function routeLabel(via?: string[] | null): string {
               fixed-view="latency"
               compact
               hide-stats
+              :cursor-at="cursorFrom === 'router' ? cursorAt : null"
+              @hover="hoverInternet"
             />
+          </div>
+
+          <!-- Router ping: the local link on its own. -->
+          <div v-if="gateway?.address" class="iface-page__card">
+            <div class="d-flex align-center ga-2 mb-2">
+              <div class="iface-page__title mb-0">{{ t("$vuetify.networkLatency.monitor.gatewayPing") }}</div>
+              <SensitiveText :text="gateway.address" class="text-caption text-medium-emphasis" />
+              <v-spacer />
+              <span class="text-caption text-medium-emphasis lz-num">{{ routerCursorText || t("$vuetify.networkLatency.monitor.lastMinute") }}</span>
+            </div>
+            <div class="iface-gateway">
+              <div class="iface-gateway__now">
+                <span class="lz-num"><span
+                  class="text-h4 font-weight-bold"
+                  :class="gateway.quality ? `text-${qualityColor(gateway.quality)}` : ''"
+                >{{ gateway.now > 0 ? gatewayMs(gateway.now) : "—" }}</span>
+                <span class="text-body-2 text-medium-emphasis ms-1">{{ msUnit() }}</span></span>
+                <div
+                  v-if="gateway.quality"
+                  class="text-body-2 font-weight-medium"
+                  :class="`text-${qualityColor(gateway.quality)}`">
+                  {{ t(`$vuetify.networkLatency.monitor.qualityWord.${gateway.quality}`) }}
+                </div>
+              </div>
+              <div class="iface-metric">
+                <span class="iface-hero__label">{{ t("$vuetify.networkLatency.avg") }}</span>
+                <span class="lz-num">{{ gateway.avg ? gatewayMs(gateway.avg) : "—" }}<small> {{ msUnit() }}</small></span>
+              </div>
+              <div class="iface-metric">
+                <span class="iface-hero__label">{{ t("$vuetify.networkLatency.max") }}</span>
+                <span class="lz-num">{{ gateway.max ? gatewayMs(gateway.max) : "—" }}<small> {{ msUnit() }}</small></span>
+              </div>
+              <div class="iface-metric">
+                <span class="iface-hero__label">{{ t("$vuetify.networkLatency.loss") }}</span>
+                <span class="lz-num" :class="gateway.loss > 1 ? 'text-error' : ''">{{ localDigits(gateway.loss.toFixed(1)) }}<small>{{ localDigits('%') }}</small></span>
+              </div>
+            </div>
+            <div class="iface-gateway__chart">
+              <span class="iface-gateway__ceiling text-caption text-medium-emphasis lz-num">{{ localDigits(gatewayMax) }} {{ msUnit() }}</span>
+              <Sparkline
+                :series="[{ points: gateway.points ?? [], color, fill: true }]"
+                :y-max="gatewayMax"
+                :height="96"
+                :cursor="routerCursor"
+                mark-lost
+                @hover="hoverRouter"
+              />
+            </div>
+            <div class="text-caption text-medium-emphasis mt-2">
+              {{ t("$vuetify.networkLatency.monitor.gatewayHint") }}
+            </div>
           </div>
 
           <div class="iface-page__card">
@@ -396,6 +490,31 @@ function routeLabel(via?: string[] | null): string {
   color: rgba(var(--v-theme-on-surface), 0.55);
   font-size: 0.7rem;
   white-space: nowrap;
+}
+
+/* Router ping: the reading and its stats in a row, the chart under it. */
+.iface-gateway {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 32px;
+  margin-bottom: 12px;
+}
+
+.iface-gateway__now {
+  min-width: 110px;
+}
+
+.iface-gateway__chart {
+  position: relative;
+  padding-top: 16px;
+  border-top: 1px dashed rgba(var(--v-theme-on-surface), 0.12);
+}
+
+.iface-gateway__ceiling {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
 }
 
 .iface-metric {

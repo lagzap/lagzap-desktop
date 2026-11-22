@@ -9,10 +9,27 @@ interface Series {
   fill?: boolean;
 }
 
+/** cursor: a point index to mark with a line (a cursor shared with another
+ * chart); hover reports the index under the pointer (null on leave). */
 const props = withDefaults(
-  defineProps<{ series: Series[]; yMax: number; height?: number; markLost?: boolean }>(),
-  { height: 44, markLost: false }
+  defineProps<{ series: Series[]; yMax: number; height?: number; markLost?: boolean; cursor?: number | null }>(),
+  { height: 44, markLost: false, cursor: null }
 );
+const emit = defineEmits<{ hover: [number | null] }>();
+
+const count = computed(() => Math.max(0, ...props.series.map((s) => s.points.length)));
+const xOf = (i: number) => (count.value > 1 ? (i / (count.value - 1)) * 100 : 50);
+function onMove(event: MouseEvent) {
+  const rect = (event.currentTarget as SVGElement).getBoundingClientRect();
+  if (!rect.width || count.value < 1) return;
+  const i = Math.round(((event.clientX - rect.left) / rect.width) * (count.value - 1));
+  emit("hover", Math.min(count.value - 1, Math.max(0, i)));
+}
+/** The cursor line's x (0-100), null when hidden. */
+const mark = computed(() => {
+  const i = props.cursor;
+  return i == null || i < 0 || i >= count.value ? null : { x: xOf(i) };
+});
 
 const H = 40;
 const id = `spark-${Math.random().toString(36).slice(2, 9)}`;
@@ -61,6 +78,8 @@ const paths = computed(() =>
     preserveAspectRatio="none"
     :style="{ height: `${height}px` }"
     aria-hidden="true"
+    @mousemove="onMove"
+    @mouseleave="emit('hover', null)"
   >
     <defs>
       <linearGradient v-for="p in paths" :id="p.grad" :key="p.grad" x1="0" y1="0" x2="0" y2="1">
@@ -92,10 +111,25 @@ const paths = computed(() =>
         vector-effect="non-scaling-stroke"
       />
     </template>
+    <template v-if="mark">
+      <line
+        :x1="mark.x"
+        :x2="mark.x"
+        y1="0"
+        :y2="H"
+        class="sparkline__cursor"
+        stroke-width="1"
+        vector-effect="non-scaling-stroke"
+      />
+    </template>
   </svg>
 </template>
 
 <style scoped>
+.sparkline__cursor {
+  stroke: rgba(var(--v-theme-on-surface), 0.45);
+}
+
 .sparkline {
   display: block;
   width: 100%;

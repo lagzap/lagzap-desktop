@@ -9,7 +9,7 @@ import type { OverviewRange } from "~/composables/useOverviewChart";
 /** Per-connection network monitor: one summary card + one card per internet
  * connection. Renders the Go snapshot only. */
 const { t } = useLocale();
-const { monitor, range, ranges, setRange, colorOf } = useNetworkMonitor();
+const { monitor, range, ranges, setRange, colorOf, scale } = useNetworkMonitor();
 const summary = computed(() => monitor.value?.summary);
 const interfaces = computed(() => monitor.value?.interfaces ?? []);
 // With one internet there is nothing to compare or pick between.
@@ -100,6 +100,7 @@ function openInterface(name: string) {
         :key="iface.name"
         :iface="iface"
         :color="colorOf(iface.name)"
+        :scale="scale"
         :single="!multi"
         @open="openInterface(iface.name)"
       />

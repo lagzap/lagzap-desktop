@@ -95,7 +95,25 @@ export function useNetworkMonitor() {
     select(next);
   }
 
-  return { monitor, range: readonly(range), ranges: OVERVIEW_RANGES, setRange, colorOf };
+  return { monitor, range: readonly(range), ranges: OVERVIEW_RANGES, setRange, colorOf, scale };
+}
+
+/** One y scale per chart kind for every connection, so their charts compare
+ * at a glance: the largest ceiling Go picked for any of them. */
+const scale = computed(() => {
+  const list = monitor.value?.interfaces ?? [];
+  const top = (values: number[]) => Math.max(0, ...values);
+  return {
+    ping: top(list.map((iface) => iface.ping.y_max)),
+    traffic: top(list.map((iface) => iface.traffic.y_max)),
+    gateway: gatewayCeiling(top(list.flatMap((iface) => iface.gateway?.points ?? []))),
+  };
+});
+
+/** A round ceiling for gateway pings (ms): 5, 10, 20, 50, 100, then 100s. */
+export function gatewayCeiling(max: number) {
+  for (const step of [5, 10, 20, 50, 100]) if (max <= step) return step;
+  return Math.ceil(max / 100) * 100;
 }
 
 /** One connection's monitoring page. Go streams the ready snapshot on
