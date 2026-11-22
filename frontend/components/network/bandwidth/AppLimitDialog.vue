@@ -2,6 +2,7 @@
 import { Dialogs } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
 import { speedUnit } from "~/utils/localeFormat";
+import PillToggle from "~/components/common/PillToggle.vue";
 import { untilText } from "~/components/network/bandwidth/until";
 import type { AppLimit } from "~/utils/indexedDB";
 
@@ -21,6 +22,9 @@ const props = defineProps<{
   /** A cap of a fixed kind: the whole PC, every high-traffic profile (path
    * unused), or one routed profile (path is its id). */
   fixed?: "pc" | "high_traffic" | "profile" | "adapter";
+  /** A profile's cap with its three choices on top: the global high-traffic
+   * cap (this label), Off, or its own cap. Global removes the profile's rule. */
+  globalLabel?: string;
 }>();
 const emit = defineEmits<{ save: [AppLimit]; remove: [string] }>();
 const open = defineModel<boolean>({ default: false });
@@ -28,10 +32,22 @@ const open = defineModel<boolean>({ default: false });
 const { t } = useLocale();
 const bc = (key: string, ...params: unknown[]) => t(`$vuetify.bandwidthControl.${key}`, ...params);
 
+const KB = 1024;
 const MB = 1024 * 1024;
 type Kind = "exe" | "folder" | "pc" | "high_traffic" | "profile" | "adapter";
 const kind = ref<Kind>("exe");
-const megabytes = ref("1");
+/** The cap as typed, in unit (KB/s or MB/s). */
+const amount = ref("1");
+const unit = ref<1 | 2>(2);
+const unitOptions = computed(() => [
+  { value: 1, title: speedUnit(1) },
+  { value: 2, title: speedUnit(2) },
+]);
+/** Shows bytes/s in the unit that reads best: KB/s under 1 MB/s. */
+function showCap(bytes: number) {
+  unit.value = bytes < MB ? 1 : 2;
+  amount.value = String(+(bytes / (unit.value === 1 ? KB : MB)).toFixed(2));
+}
 const onlyWhileGaming = ref(false);
 const exePath = ref("");
 const folderPath = ref("");
@@ -90,13 +106,23 @@ function keepFields(): Pick<AppLimit, "expires_at" | "until_restart"> {
   }
 }
 
+type Choice = "global" | "off" | "own";
+const choice = ref<Choice>("own");
+const choices = computed(() => [
+  { value: "global" as Choice, title: props.globalLabel ?? "", icon: "mdi-earth" },
+  { value: "off" as Choice, title: bc("capNever") },
+  { value: "own" as Choice, title: bc("capCustom"), icon: "mdi-speedometer-slow" },
+]);
+const ownCap = computed(() => !props.globalLabel || choice.value === "own");
+
 watch(open, (isOpen) => {
   if (!isOpen) return;
+  choice.value = !props.limit ? "global" : props.limit.download <= 0 ? "off" : "own";
   const ends = props.limit?.expires_at;
   keep.value = props.limit?.until_restart ? "restart" : ends && ends > Date.now() ? "current" : "always";
   if (props.fixed) {
     kind.value = props.fixed;
-    megabytes.value = props.limit && props.limit.download > 0 ? String(+(props.limit.download / MB).toFixed(2)) : "5";
+    showCap(props.limit && props.limit.download > 0 ? props.limit.download : 5 * MB);
     onlyWhileGaming.value = props.limit?.only_while_gaming ?? true;
     return;
   }
@@ -104,14 +130,13 @@ watch(open, (isOpen) => {
     kind.value = props.limit.kind === "folder" ? "folder" : "exe";
     exePath.value = props.limit.kind === "folder" ? "" : props.limit.path;
     folderPath.value = props.limit.kind === "folder" ? props.limit.path : folderOf(props.limit.path);
-    megabytes.value = String(+(props.limit.download / MB).toFixed(2));
+    showCap(props.limit.download);
     onlyWhileGaming.value = props.limit.only_while_gaming;
   } else {
     kind.value = "exe";
     exePath.value = props.path;
     folderPath.value = props.path ? folderOf(props.path) : "";
-    const suggested = props.speed && props.speed > 2 * MB ? Math.round(props.speed / 2 / MB) : 1;
-    megabytes.value = String(suggested);
+    showCap(props.speed && props.speed > 2 * MB ? Math.round(props.speed / 2 / MB) * MB : MB);
     onlyWhileGaming.value = true;
   }
 });
@@ -159,8 +184,8 @@ function goUp() {
 }
 
 const bytesPerSecond = computed(() => {
-  const value = Number(String(megabytes.value).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace("٫", "."));
-  return Number.isFinite(value) && value > 0 ? Math.round(value * MB) : 0;
+  const value = Number(String(amount.value).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace("٫", "."));
+  return Number.isFinite(value) && value > 0 ? Math.round(value * (unit.value === 1 ? KB : MB)) : 0;
 });
 
 const chosenPath = computed(() => {
@@ -182,6 +207,23 @@ const canSave = computed(
 );
 
 function save() {
+  if (props.globalLabel && choice.value === "global") {
+    if (props.limit) emit("remove", props.limit.id);
+    open.value = false;
+    return;
+  }
+  if (props.globalLabel && choice.value === "off") {
+    emit("save", {
+      id: props.limit?.id ?? crypto.randomUUID(),
+      kind: "profile",
+      path: props.path,
+      download: 0,
+      only_while_gaming: false,
+      enabled: true,
+    });
+    open.value = false;
+    return;
+  }
   if (!canSave.value) return;
   emit("save", {
     id: props.limit?.id ?? crypto.randomUUID(),
@@ -209,17 +251,29 @@ function remove() {
       :title="title"
       rounded="lg">
       <v-card-text class="d-flex flex-column ga-3">
-        <v-text-field
-          v-model="megabytes"
-          :label="bc('capSpeed')"
-          :suffix="speedUnit(2)"
-          :error-messages="bytesPerSecond ? [] : [bc('invalid')]"
-          inputmode="decimal"
-          density="compact"
-          variant="outlined"
-          autofocus
-          @keydown.enter="save"
-        />
+        <PillToggle v-if="globalLabel" v-model="choice" :items="choices" />
+        <template v-if="ownCap">
+        <div class="d-flex align-start ga-2">
+          <v-text-field
+            v-model="amount"
+            :label="bc('capSpeed')"
+            :error-messages="bytesPerSecond ? [] : [bc('invalid')]"
+            inputmode="decimal"
+            density="compact"
+            variant="outlined"
+            autofocus
+            @keydown.enter="save"
+          />
+          <v-select
+            v-model="unit"
+            :items="unitOptions"
+            :aria-label="bc('capUnit')"
+            density="compact"
+            variant="outlined"
+            hide-details
+            class="limit-unit"
+          />
+        </div>
 
         <div
           v-if="fixed"
@@ -317,13 +371,14 @@ function remove() {
           hide-details
         />
 
+        </template>
         <div class="text-caption text-medium-emphasis">
-          {{ bc("never") }}
+          {{ globalLabel ? bc("highTrafficSettingHint") : bc("never") }}
         </div>
       </v-card-text>
       <v-card-actions>
         <v-btn
-          v-if="limit"
+          v-if="limit && !globalLabel"
           color="error"
           variant="text"
           @click="remove">
@@ -338,7 +393,7 @@ function remove() {
         <v-btn
           color="primary"
           variant="tonal"
-          :disabled="!canSave"
+          :disabled="ownCap && !canSave"
           @click="save">
           {{ bc("save") }}
         </v-btn>
@@ -348,6 +403,10 @@ function remove() {
 </template>
 
 <style scoped>
+.limit-unit {
+  flex: 0 0 112px;
+}
+
 .limit-target + .limit-target {
   margin-top: 4px;
 }

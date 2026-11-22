@@ -7,7 +7,13 @@ import {
   SetAppTrafficWatch,
   SetAppTunnels,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import { AppLimitRule, AppRouteRule, AppTunnelRule, type AppTraffic } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import {
+  AppLimitRule,
+  AppRouteRule,
+  AppTunnelRule,
+  type AppTraffic,
+  type InternetTraffic,
+} from "~/bindings/github.com/lagzap/lagzap/adapter";
 import {
   listAppLimits,
   listAppRoutes,
@@ -37,7 +43,12 @@ const routes = ref<AppRoute[]>([]);
  * Go captures them and routes them into the config's tunnel. */
 const tunnels = ref<AppTunnel[]>([]);
 const apps = shallowRef<AppTraffic[]>([]);
+/** Each internet's download now, today and this month (LagZap's relays
+ * included). */
+const internets = shallowRef<InternetTraffic[]>([]);
 const history = new Map<string, number[]>();
+/** Each internet's last minute of download (by name). */
+const linkHistory = new Map<string, number[]>();
 /** Each app's last minute of speed per internet it arrived on (app key ->
  * internet name -> points). Starts when the page opens; Go keeps none. */
 const internetHistory = new Map<string, Map<string, number[]>>();
@@ -213,6 +224,29 @@ function keyOf(path: string) {
   return path.toLowerCase();
 }
 
+/** points with value added at the end, one minute long. */
+function pushPoint(points: number[] | undefined, value: number) {
+  const next = [...(points ?? new Array(HISTORY_SECONDS).fill(0)), value];
+  return next.length > HISTORY_SECONDS ? next.slice(-HISTORY_SECONDS) : next;
+}
+
+function rememberInternets(list: InternetTraffic[], withHistory: boolean) {
+  const seen = new Set<string>();
+  for (const item of list) {
+    seen.add(item.name);
+    linkHistory.set(
+      item.name,
+      withHistory && item.history?.length
+        ? item.history.slice(-HISTORY_SECONDS)
+        : pushPoint(linkHistory.get(item.name), item.download_speed),
+    );
+  }
+  for (const name of linkHistory.keys()) {
+    if (!seen.has(name)) linkHistory.delete(name);
+  }
+  internets.value = list;
+}
+
 function remember(list: AppTraffic[], withHistory: boolean) {
   const seen = new Set<string>();
   for (const app of list) {
@@ -255,6 +289,7 @@ async function watch(on: boolean) {
       running.value = snapshot != null;
       if (snapshot) {
         gaming.value = snapshot.gaming;
+        rememberInternets(snapshot.internets ?? [], true);
         remember(snapshot.apps ?? [], true);
       }
     }
@@ -275,13 +310,16 @@ function start() {
       if (!payload) return;
       running.value = true;
       gaming.value = payload.gaming;
+      rememberInternets(payload.internets ?? [], false);
       remember(payload.apps ?? [], false);
     }),
     Events.On("service-started", () => !document.hidden && watch(true)),
     Events.On("service-stopped", () => {
       running.value = false;
       apps.value = [];
+      internets.value = [];
       history.clear();
+      linkHistory.clear();
       internetHistory.clear();
     }),
   ];
@@ -365,6 +403,9 @@ export function useBandwidthControl() {
     routes,
     historyTick,
     historyOf: (path: string) => history.get(keyOf(path)) ?? [],
+    internets,
+    /** An internet's last minute of download (by adapter name). */
+    linkHistoryOf: (name: string) => linkHistory.get(name) ?? [],
     /** The app's last minute per internet, by name (empty: none known). */
     internetsOf: (path: string) =>
       [...(internetHistory.get(keyOf(path)) ?? new Map<string, number[]>())].map(([name, points]) => ({ name, points })),
