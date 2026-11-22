@@ -8,6 +8,7 @@ import DiscordIcon from "~/components/icons/DiscordIcon.vue";
 import XIcon from "~/components/icons/XIcon.vue";
 import TelegramIcon from "~/components/icons/TelegramIcon.vue";
 import LatencyChip from "~/components/network/LatencyChip.vue";
+import TitleIcon from "~/components/title/TitleIcon.vue";
 import { localDigits } from "~/utils/localeFormat";
 import { useMonitoringStore } from "~/stores/monitoring";
 import { activeLimitCount } from "~/composables/useBandwidthControl";
@@ -32,6 +33,22 @@ const { connections } = useMonitoringStore();
 const connectionCount = computed(
   () => connections.value?.filter((c) => !!c.profile_id).length ?? 0
 );
+/** The titles with the most connections, for the Connections item: the top
+ * two as overlapping icons, then the number of connections left. */
+const connectionTitles = computed(() => {
+  const byTitle = new Map<string, number>();
+  for (const c of connections.value ?? []) {
+    if (!c.profile_id || !c.title_id) continue;
+    byTitle.set(c.title_id, (byTitle.get(c.title_id) ?? 0) + 1);
+  }
+  const ranked = [...byTitle.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, count]) => ({ title: store.titles.find((t) => t.id === id), count }))
+    .filter((x) => !!x.title);
+  const top = ranked.slice(0, 2);
+  const shown = top.reduce((n, x) => n + x.count, 0);
+  return { top, left: ranked.length > 2 ? connectionCount.value - shown : 0 };
+});
 const internetCount = computed(
   () => store.interfaces.filter((iface) => !!iface.Name).length
 );
@@ -65,6 +82,15 @@ const quiting = ref(false)
 const { checking: updateChecking, checkForUpdate } = useUpdateCheck(t)
 const tickets = useTicketsStore()
 const bugFeedbackOpen = ref(false)
+function toggleHelpCenter() {
+  if (tickets.popupOpen) tickets.minimizeTicketPopup()
+  else if (tickets.popupVisible) tickets.expandTicketPopup()
+  else tickets.openTicketsPopup()
+}
+// The open chat's subject, or Help Center on the list.
+const helpTitle = computed(() =>
+  (tickets.popupShowingChat && tickets.activeTicket?.subject) || t('$vuetify.tickets.helpCenter')
+)
 // Admin accounts get Admin Tools here on every build, production included.
 const { admin: isAdmin } = usePlanAccess()
 
@@ -204,7 +230,7 @@ async function confirmExit(restart: boolean) {
             </v-list-item>
             <v-list-item @click="tickets.openTicketsPopup()">
               <template #prepend>
-                <v-icon icon="mdi-lifebuoy" />
+                <v-icon icon="mdi-chat" />
               </template>
               <template #title>
                 <span class="text-caption">{{ t('$vuetify.tickets.helpCenter') }}</span>
@@ -295,12 +321,45 @@ async function confirmExit(restart: boolean) {
         density="compact"
       >
         <template v-if="connectionCount > 0" #append>
-          <span class="nav-count">{{ localDigits(connectionCount) }}</span>
+          <!-- The busiest titles' icons, overlapping; the rest as "+n". -->
+          <span v-if="connectionTitles.top.length" class="nav-titles">
+            <span v-for="x in connectionTitles.top" :key="x.title?.id" class="nav-titles__icon">
+              <TitleIcon :image="x.title?.icon_url" :size="22" rounded="circle" />
+            </span>
+            <span v-if="connectionTitles.left > 0" class="nav-titles__more">
+              +{{ localDigits(connectionTitles.left) }}
+            </span>
+          </span>
+          <span v-else class="nav-count">{{ localDigits(connectionCount) }}</span>
         </template>
       </v-list-item>
     </v-list>
 
     <QuickAccess />
+
+    <!-- While the Help Center is in use, or support has written something
+         unread, a shortcut to it sits at the bottom of the drawer (where no
+         page's floating button can cover it): it opens the popup, hides it,
+         or brings it back on its chat. Closing the popup with its X removes
+         it once nothing is unread; the logo menu always opens it. -->
+    <template v-if="tickets.popupVisible || tickets.navBadgeCount > 0" #append>
+      <v-list nav :lines="false" variant="text" color="tertiary" class="pt-0">
+        <v-divider class="mb-1" />
+        <v-list-item
+          class="nav-help"
+          :title="helpTitle"
+          prepend-icon="mdi-chat"
+          rounded="xl"
+          density="compact"
+          :active="tickets.popupOpen"
+          @click="toggleHelpCenter"
+        >
+          <template v-if="tickets.navBadgeCount > 0" #append>
+            <v-badge :content="tickets.navBadgeCount" color="info" inline />
+          </template>
+        </v-list-item>
+      </v-list>
+    </template>
 
     <DialogBugFeedback v-model="bugFeedbackOpen" />
 
@@ -354,5 +413,52 @@ async function confirmExit(restart: boolean) {
   color: inherit;
   text-decoration: none;
   display: inline-flex;
+}
+
+/* Connections: the busiest titles' icons, overlapping like avatars. Each
+   is a 22px circle; where the next one overlaps it, a 2px gap is cut out
+   of it (a mask, so it shows whatever is behind, hovered or not). The
+   "+n" bubble is the same height. */
+.nav-titles {
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-titles__icon,
+.nav-titles__more {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 22px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.nav-titles__icon {
+  width: 22px;
+}
+
+/* The next item's left edge is a circle centred 5px past this one's right
+   edge (22px - 6px overlap + 11px radius); cut it out 2px wider. */
+.nav-titles__icon:not(:last-child) {
+  -webkit-mask-image: radial-gradient(circle at calc(100% + 5px) 50%, transparent 12.5px, #000 13px);
+  mask-image: radial-gradient(circle at calc(100% + 5px) 50%, transparent 12.5px, #000 13px);
+}
+
+.nav-titles__icon + .nav-titles__icon,
+.nav-titles__icon + .nav-titles__more {
+  margin-inline-start: -6px;
+}
+
+.nav-titles__more {
+  min-width: 22px;
+  padding: 0 5px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  background: rgb(var(--v-theme-surface-container-high));
+  color: rgb(var(--v-theme-on-surface));
 }
 </style>
