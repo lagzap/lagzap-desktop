@@ -19,7 +19,7 @@ import {
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
-const { titleBlocked, titleUnavailable } = usePlanAccess();
+const { titleUnavailable } = usePlanAccess();
 const titles = computed(() => store.getTitles);
 const requestOpen = ref(false);
 
@@ -170,7 +170,7 @@ function railScale(letter: string) {
 }
 
 const toggleDisabled = (titleId: string) =>
-  !store.appReady || store.planBlocked || titleBlocked(titleId) || store.titleComingSoon(titleId);
+  !store.appReady || titleUnavailable(titleId) || store.titleComingSoon(titleId);
 const onToggle = (title: (typeof titles.value)[number]) => {
   if (!toggleDisabled(title.id)) {
     void store.toggleTitleState(title);
@@ -274,7 +274,7 @@ const onToggle = (title: (typeof titles.value)[number]) => {
                           <TitleFavoriteButton :title-id="item.raw.id" />
                         </span>
                         <ComingSoonMark v-if="store.titleComingSoon(item.raw.id)" />
-                        <PlanLock v-else-if="titleBlocked(item.raw.id)" :unavailable="titleUnavailable(item.raw.id)" />
+                        <PlanLock v-else-if="titleUnavailable(item.raw.id)" unavailable />
                         <v-tooltip
                           v-else
                           :text="

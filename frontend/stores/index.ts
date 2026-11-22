@@ -845,14 +845,17 @@ export const useStore = defineStore("index", () => {
    * on. Unknown until the profiles have loaded. */
   const titleComingSoon = (id: string): boolean =>
     profiles.value.length > 0 && !profiles.value.some((profile) => profile.title_id === id);
+  // The plan locks locations, not titles or profiles: anyone can turn them
+  // on (a profile with every location locked goes direct). Only what no
+  // plan offers yet stays off.
   const isTitleActive = (id: string): boolean => {
-    if (planBlocked.value || planAccess.titleBlocked(id)) {
+    if (planAccess.titleUnavailable(id)) {
       return false;
     }
     return titleStates.value[id]?.active === true;
   };
   const isProfileActive = (profileId: string): boolean => {
-    if (planBlocked.value || planAccess.profileBlocked(profileId)) {
+    if (planAccess.profileUnavailable(profileId)) {
       return false;
     }
     return (
@@ -860,10 +863,10 @@ export const useStore = defineStore("index", () => {
       profileStates.value[profileId].active
     );
   };
-  // Not in the user's plan: never turned on (the lock offers the plans).
+  // No plan offers it yet: never turned on.
   const planLocked = (locked: boolean) => {
     if (locked) {
-      displayAlert(locale.t("$vuetify.plan.lockedAlert"), "warning", 3000);
+      displayAlert(locale.t("$vuetify.plan.unavailableTip"), "warning", 3000);
     }
     return locked;
   };
@@ -894,7 +897,7 @@ export const useStore = defineStore("index", () => {
     activeTitleIds.value.length >= activeTitleLimit.value;
 
   const activateTitle = async (id: string) => {
-    if (planLocked(planAccess.titleBlocked(id))) {
+    if (planLocked(planAccess.titleUnavailable(id))) {
       return;
     }
     if (atTitleLimit(id)) {
@@ -943,7 +946,7 @@ export const useStore = defineStore("index", () => {
     }
   };
   const activateProfile = async (profileId: string) => {
-    if (planLocked(planAccess.profileBlocked(profileId))) {
+    if (planLocked(planAccess.profileUnavailable(profileId))) {
       return;
     }
     if (profileStates.value[profileId]) {

@@ -15,7 +15,7 @@ const props = defineProps<{
 }>();
 
 const store = useStore();
-const { titleBlocked, titleUnavailable } = usePlanAccess();
+const { titleUnavailable } = usePlanAccess();
 const { t } = useLocale();
 const { connections } = useMonitoringStore();
 
@@ -186,7 +186,7 @@ const inactiveTooltip = computed(() => {
   return t("$vuetify.status.active");
 });
 
-const toggleDisabled = computed(() => !store.appReady || store.planBlocked);
+const toggleDisabled = computed(() => !store.appReady);
 
 async function onToggle() {
   await store.toggleTitleState(props.title);
@@ -197,8 +197,8 @@ async function onToggle() {
   <span v-if="store.titleComingSoon(props.title.id)" class="tat">
     <ComingSoonMark />
   </span>
-  <span v-else-if="titleBlocked(props.title.id)" class="tat">
-    <PlanLock :unavailable="titleUnavailable(props.title.id)" />
+  <span v-else-if="titleUnavailable(props.title.id)" class="tat">
+    <PlanLock unavailable />
   </span>
   <!-- The dot or chip turns into a switch while the row is hovered, in
        the same box: the row does not move. -->
