@@ -12,25 +12,29 @@ type MaterialShade = 800 | 700 | 600 | 500 | 400 | 300 | 200;
 type MaterialInterfacePalette = Record<MaterialShade, string>;
 
 /**
- * Interface hues in display order: gold → blue → pink → purple → cyan
- * (then extras if more adapters are present). No green or amber: green is
- * the route quality area's "good", and amber would read as the gold.
+ * Interface hues in display order: cyan → pink → blue → purple → deep
+ * orange (then blue grey). No green or amber: green is the route quality
+ * area's "good", and lines never use the gold primary (it is for actions).
  */
 const MATERIAL_INTERFACE_PALETTES: readonly MaterialInterfacePalette[] = [
-  // 1 — Gold, the theme's primary (dark #E6D785 at 400, light #B8860B at 700)
-  { 800: "#8B6508", 700: "#B8860B", 600: "#C9A227", 500: "#D9C060", 400: "#E6D785", 300: "#EEE09F", 200: "#F3EAC0" },
-  // 2 — Blue
-  { 800: "#1565C0", 700: "#1976D2", 600: "#1E88E5", 500: "#2196F3", 400: "#42A5F5", 300: "#64B5F6", 200: "#90CAF9" },
-  // 3 — Pink
+  // 1 — Cyan, the charts' own line color (CHART_LINE)
+  { 800: "#00838F", 700: "#0097A7", 600: "#00ACC1", 500: "#00BCD4", 400: "#26C6DA", 300: "#4DD0E1", 200: "#80DEEA" },
+  // 2 — Pink
   { 800: "#AD1457", 700: "#C2185B", 600: "#D81B60", 500: "#E91E63", 400: "#EC407A", 300: "#F06292", 200: "#F48FB1" },
+  // 3 — Blue
+  { 800: "#1565C0", 700: "#1976D2", 600: "#1E88E5", 500: "#2196F3", 400: "#42A5F5", 300: "#64B5F6", 200: "#90CAF9" },
   // 4 — Purple (Deep Purple)
   { 800: "#4527A0", 700: "#512DA8", 600: "#5E35B1", 500: "#673AB7", 400: "#7E57C2", 300: "#9575CD", 200: "#B39DDB" },
-  // 5 — Cyan
-  { 800: "#00838F", 700: "#0097A7", 600: "#00ACC1", 500: "#00BCD4", 400: "#26C6DA", 300: "#4DD0E1", 200: "#80DEEA" },
-  // Extras
-  { 800: "#D84315", 700: "#E64A19", 600: "#F4511E", 500: "#FF5722", 400: "#FF7043", 300: "#FF8A65", 200: "#FFAB91" }, // Deep Orange
+  // 5 — Deep Orange
+  { 800: "#D84315", 700: "#E64A19", 600: "#F4511E", 500: "#FF5722", 400: "#FF7043", 300: "#FF8A65", 200: "#FFAB91" },
+  // Extra
   { 800: "#37474F", 700: "#455A64", 600: "#546E7A", 500: "#607D8B", 400: "#78909C", 300: "#90A4AE", 200: "#B0BEC5" }, // Blue Grey
 ] as const;
+
+/** The line color of a chart with one series (a total, one profile's ping):
+ * cyan, never the gold primary. Dark theme the soft 400, light the 700. */
+export const CHART_LINE = { dark: "#26C6DA", light: "#0097A7" } as const;
+export const chartLineColor = (dark: boolean) => (dark ? CHART_LINE.dark : CHART_LINE.light);
 
 /** Connection 1 → 4 shades. Dark theme uses the soft end, light the deep end. */
 const MATERIAL_CONNECTION_SHADES: readonly MaterialShade[] = [
@@ -73,8 +77,8 @@ function parseSeriesInterfaceKey(seriesKey: string): {
 }
 
 /**
- * Unique adapter names in first-seen order so profile group 0 (main) is gold,
- * group 1 blue, etc. ICMP overview follows series order the same way.
+ * Unique adapter names in first-seen order so profile group 0 (main) is cyan,
+ * group 1 pink, etc. ICMP overview follows series order the same way.
  */
 function uniqueInterfaceOrder(seriesKeys: string[]): string[] {
   const order: string[] = [];
@@ -162,15 +166,23 @@ export function getScoreColorClass(score: number | null): string {
   }
 }
 
+/** A ping's colour: green to 100ms, then light green, lime, amber and
+ * deep orange at 120, 130, 150 and 200ms; red above that. */
 export function getLatencyColorClass(latencyMs: number): string {
-  if (latencyMs <= 50) {
+  if (latencyMs <= 100) {
     return "green";
   }
-  if (latencyMs <= 100) {
+  if (latencyMs <= 120) {
+    return "light-green";
+  }
+  if (latencyMs <= 130) {
     return "lime";
   }
   if (latencyMs <= 150) {
     return "amber";
+  }
+  if (latencyMs <= 200) {
+    return "deep-orange";
   }
   return "red";
 }

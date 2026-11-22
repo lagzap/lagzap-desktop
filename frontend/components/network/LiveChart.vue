@@ -34,10 +34,18 @@ const props = withDefaults(
     rangeTabs?: boolean;
     /** Controlled tab (v-model:view); internal when omitted. */
     view?: "latency" | "traffic" | "both";
+    /** A cursor shared with another chart: the time (Unix ms) it points at
+     * there, shown here too; null hides it. */
+    cursorAt?: number | null;
   }>(),
   { chartHeight: 200, sessionStart: 0, compact: false, fixedView: undefined, hideStats: false, view: undefined, sessionDivider: false }
 );
-const emit = defineEmits<{ "update:range": [string]; "update:view": ["latency" | "traffic" | "both"] }>();
+const emit = defineEmits<{
+  "update:range": [string];
+  "update:view": ["latency" | "traffic" | "both"];
+  /** The time (Unix ms) under the pointer, null when it leaves. */
+  hover: [number | null];
+}>();
 
 const { t } = useLocale();
 const theme = useTheme();
@@ -257,6 +265,29 @@ function area(color: string, top: number) {
 
 const gap = (v: number) => (v > 0 ? v : null);
 
+/** A route's ping line: a timeout (0) cuts it; a stretch with no sample
+ * (below 0: a session that paused reporting) is bridged straight across
+ * between the pings on either side. */
+function pingLine(points: number[]): (number | null)[] {
+  const out: (number | null)[] = points.map((v) => (v > 0 ? v : null));
+  let i = 0;
+  while (i < points.length) {
+    if (points[i] >= 0) {
+      i++;
+      continue;
+    }
+    let end = i;
+    while (end < points.length && points[end] < 0) end++;
+    const before = i > 0 ? points[i - 1] : 0;
+    const after = end < points.length ? points[end] : 0;
+    if (before > 0 && after > 0) {
+      for (let k = i; k < end; k++) out[k] = before + ((after - before) * (k - i + 1)) / (end - i + 1);
+    }
+    i = end;
+  }
+  return out;
+}
+
 // The actual ping (the game's own round trip) is green.
 const ACTUAL_COLOR = { dark: "#4ADE80", light: "#16A34A" };
 function seriesColor(s: LiveLatencySeries) {
@@ -398,6 +429,28 @@ function loneDots(name: string, values: (number | null)[], color: string) {
 const pointCount = () =>
   (latencyLed.value ? latency.value?.series?.[0]?.points.length : traffic.value?.series?.[0]?.download.length) ?? 0;
 
+/** A point's time (Unix ms) and back, for the shared cursor. */
+function pointTime(idx: number) {
+  const c = latencyLed.value ? latency.value : traffic.value;
+  return c ? c.end - (pointCount() - 1 - idx) * c.step : 0;
+}
+function pointAt(at: number) {
+  const c = latencyLed.value ? latency.value : traffic.value;
+  if (!c?.step) return -1;
+  const idx = Math.round((at - c.end) / c.step) + pointCount() - 1;
+  return idx >= 0 && idx < pointCount() ? idx : -1;
+}
+
+/** Shows the cursor another chart points at (only while this one is not
+ * hovered, so the two never chase each other). */
+let hovered = false;
+function showCursor() {
+  if (!instance || hovered) return;
+  const idx = props.cursorAt == null ? -1 : pointAt(props.cursorAt);
+  if (idx < 0) instance.dispatchAction({ type: "hideTip" });
+  else instance.dispatchAction({ type: "showTip", seriesIndex: 0, dataIndex: idx });
+}
+
 // One red dot per route timeout (on that route's line); a full-height bar only
 // when every route that was sampled timed out at the same moment.
 /** Rounded tops for the latency axis (as Go's niceLatencyCeiling). */
@@ -436,16 +489,17 @@ function latencySeries() {
       if (v > 0) last = v;
       return v === 0 && allLost[i] === null ? last || yMax * 0.04 : null;
     });
-    const values = s.points.map(gap);
-    // Stretches with no sample (a session that paused reporting) are drawn
-    // straight across, not left as holes; timeouts keep their own dots.
+    // A timeout cuts the line (and keeps its own dot); a stretch with no
+    // sample is bridged (pingLine). A ping between two timeouts is a dot.
+    const values = pingLine(s.points);
+    dots.push(loneDots(s.id, values, color));
     lines.push({
       id: `line:${s.id}`,
       name: s.id,
       type: "line",
       data: values,
       showSymbol: false,
-      connectNulls: true,
+      connectNulls: false,
       // The actual ping is colored by its value (green … red, purple).
       lineStyle: { width: s.actual ? 1.75 : 1.25, color: (s.actual && pingGradient(s.points)) || color },
       // Line with a soft fill under it, like the traffic lines.
@@ -831,11 +885,23 @@ function render() {
     resizeObserver = new ResizeObserver(() => instance?.resize());
     resizeObserver.observe(chartEl.value);
     layoutKey = "";
+    const zr = instance.getZr();
+    zr.on("mousemove", (e: { offsetX: number; offsetY: number }) => {
+      hovered = true;
+      const idx = instance?.convertFromPixel({ xAxisIndex: 0 }, [e.offsetX, e.offsetY]);
+      const i = Array.isArray(idx) ? idx[0] : idx;
+      emit("hover", typeof i === "number" && i >= 0 && i < pointCount() ? pointTime(Math.round(i)) : null);
+    });
+    zr.on("globalout", () => {
+      hovered = false;
+      emit("hover", null);
+    });
   }
   const key = currentLayoutKey();
   if (key !== layoutKey) {
     layoutKey = key;
     instance.setOption(option(), { notMerge: true, lazyUpdate: false });
+    showCursor();
     return;
   }
   // replaceMerge by id: overlays that emptied out are removed, not left stale.
@@ -843,7 +909,9 @@ function render() {
     { series: latencyLed.value ? [...(view.value === "both" ? trafficOverlay() : []), ...latencySeries()] : trafficSeries() },
     { replaceMerge: ["series"], lazyUpdate: false }
   );
+  if (props.cursorAt != null) showCursor();
 }
+watch(() => props.cursorAt, showCursor);
 
 const now = ref(Date.now());
 let clock: ReturnType<typeof setInterval> | null = null;
@@ -982,10 +1050,9 @@ onBeforeUnmount(() => {
       <div ref="chartEl" :style="{ width: '100%', height: `${props.chartHeight}px` }" />
       <div v-if="pendingBand" class="live-chart__pending" :style="pendingBand" />
     </div>
-    <div v-else class="text-center text-grey py-4">
-      <v-icon icon="mdi-chart-line-variant" size="large" class="mb-2" />
-      <div class="text-caption">{{ t("$vuetify.networkLatency.noData") }}</div>
-    </div>
+    <!-- Nothing to draw yet: the chart's empty grid at its height, no line
+         and no "No data". -->
+    <div v-else class="live-chart__empty" aria-hidden="true" :style="{ height: `${props.chartHeight}px` }" />
     <!-- The legend sits under the chart, on the right; footer-start (the
          profile's speed and usage) on the left of its first row. -->
     <div v-if="!compact && hasData" class="live-chart__legend">
@@ -1064,6 +1131,18 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 12px;
   align-self: stretch;
+}
+
+.live-chart__empty {
+  margin: 8px 0 4px 40px;
+  border-bottom: 1px dashed rgba(var(--v-theme-on-surface), 0.25);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 44px,
+    rgba(var(--v-theme-on-surface), 0.08) 44px,
+    rgba(var(--v-theme-on-surface), 0.08) 45px
+  );
 }
 
 .live-chart__footer-start {

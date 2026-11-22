@@ -1,13 +1,7 @@
 <script lang="ts" setup>
 import type { RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
-import {
-  displayPingMsForRelay,
-  displayScoreForRelay,
-} from "~/composables/relayPingDisplay";
-import {
-  getLatencyColorClass,
-  getScoreColorClass,
-} from "~/composables/useLatencyMetrics";
+import { displayPingMsForRelay } from "~/composables/relayPingDisplay";
+import { getLatencyColorClass } from "~/composables/useLatencyMetrics";
 
 const props = defineProps<{
   tag?: string;
@@ -58,15 +52,11 @@ const displayLatencyMs = computed(() => {
   );
 });
 
-const displayScore = computed(() => displayScoreForRelay(relayRoute.value));
-
 const colorClass = computed(() => {
   if (displayLatencyMs.value == null) {
     return "text-grey";
   }
-  if (displayScore.value != null && displayScore.value > 0) {
-    return toTextColor(getScoreColorClass(displayScore.value));
-  }
+  // By the ms alone, on the same steps as every ping in the app.
   return toTextColor(getLatencyColorClass(displayLatencyMs.value));
 });
 </script>
