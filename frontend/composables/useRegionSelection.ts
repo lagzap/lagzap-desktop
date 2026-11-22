@@ -44,15 +44,16 @@ export function useRegionSelection(profile: Profile) {
   const searchQuery = ref('');
   const loadingInterfaces = ref(false);
   
-  // Helper function to check if a node should be shown based on profile flags
-  const shouldShowNode = (node: Node): boolean => {
+  // A server this profile can be routed through, and the plan allows.
+  // Servers outside the plan cannot be picked: the pickers list their
+  // cities locked (lockedCityMap), offering the plans.
+  const shouldShowNode = (node: Node): boolean =>
+    !planAccess.nodeLocked(node.id) && fitsProfile(node);
+
+  // Helper function to check if a node fits the profile's flags (plan aside)
+  const fitsProfile = (node: Node): boolean => {
     // Exclude nodes in maintenance mode - this is the strictest filter, applied first
     if ((node.flags & NodeFlag.NodeFlag_NODE_FLAG_MAINTENANCE) !== 0) {
-      return false;
-    }
-    // Servers outside the user's plan cannot be picked; the list says better
-    // plans have more.
-    if (planAccess.nodeLocked(node.id)) {
       return false;
     }
     // Only the relays the profile's node groups allow (their include and
@@ -193,6 +194,29 @@ export function useRegionSelection(profile: Profile) {
   });
   
   
+  /** Cities (and countries) the profile could use but the plan locks
+   * entirely: shown with a lock, never picked. */
+  const lockedNodes = computed(() =>
+    Object.values(store.nodes).filter((n) => planAccess.nodeLocked(n.id) && fitsProfile(n)),
+  );
+  const lockedCityMap = computed(() => {
+    const map: Record<string, Node[]> = {};
+    for (const n of lockedNodes.value) {
+      const cityKey = nodeCityGroupKey(n);
+      if (cityMap.value[cityKey]) continue;
+      (map[cityKey] ??= []).push(n);
+    }
+    return map;
+  });
+  const lockedAreas = computed(() => {
+    const map: Record<string, Node[]> = {};
+    for (const n of lockedNodes.value) {
+      if (areas.value[n.country]) continue;
+      (map[n.country] ??= []).push(n);
+    }
+    return map;
+  });
+
   // Search functionality
   const matchesSearch = (text: string, query: string): boolean => {
     if (!query) return true;
@@ -1299,6 +1323,9 @@ export function useRegionSelection(profile: Profile) {
     areas,
     regionCountryMap,
     cityMap,
+    lockedNodes,
+    lockedCityMap,
+    lockedAreas,
     
     // Node selection mode
     isNodeSelectionMode,

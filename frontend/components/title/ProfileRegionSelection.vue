@@ -13,6 +13,7 @@ import { localDigits } from "~/utils/localeFormat";
 import { DEFAULT_TCP_ROUTES, DEFAULT_UDP_ROUTES, resolveProfileRouteCounts } from "~/composables/routeCountUtils";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 import SplitTunnelOptions from "~/components/title/SplitTunnelOptions.vue";
+import LockedPlaces, { type LockedPlace } from "~/components/title/LockedPlaces.vue";
 import ProfileWireGuard from "~/components/title/ProfileWireGuard.vue";
 import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
 import LoadBalanceOptions, { type LoadBalanceMode } from "~/components/title/LoadBalanceOptions.vue";
@@ -21,7 +22,15 @@ import type { LoadBalanceShare } from "~/bindings/github.com/lagzap/lagzap/adapt
 
 const props = defineProps<{
   profile: Profile;
+  /** No button of its own: opened through v-model:open, shown at target
+   * (Play from's "More options"). */
+  bare?: boolean;
+  target?: Element | null;
+  /** Another copy of this profile's selector (Play from's More options):
+   * a tip's Set up opens the card's own one, not this. */
+  ignoreSetup?: boolean;
 }>();
+const openModel = defineModel<boolean>("open", { default: false });
 
 const locale = useLocale();
 const { t } = locale;
@@ -120,7 +129,32 @@ const {
   
   // Ping data
   bestPingMsForCurrentSelection,
+
+  // Places the plan locks
+  lockedNodes,
+  lockedCityMap,
+  lockedAreas,
 } = useRegionSelection(props.profile);
+
+// Locked places end each list, with a purchase icon (LockedPlaces.vue).
+const lockedSearch = (places: LockedPlace[]) => {
+  const q = searchQuery.value.trim().toLowerCase();
+  const out = q ? places.filter((p) => p.label.toLowerCase().includes(q) || countryName(p.country).toLowerCase().includes(q)) : places;
+  return out.sort((a, b) => countryName(a.country).localeCompare(countryName(b.country)) || a.label.localeCompare(b.label));
+};
+const lockedCountryPlaces = computed(() =>
+  lockedSearch(Object.keys(lockedAreas.value).map((code) => ({ key: code, label: countryName(code) || code, country: code }))),
+);
+const lockedCityPlaces = computed(() =>
+  lockedSearch(
+    Object.entries(lockedCityMap.value).map(([key, nodes]) => ({ key, label: getCityLabel(key), country: nodes[0]?.country ?? "" })),
+  ),
+);
+const lockedServerPlaces = computed(() =>
+  lockedSearch(lockedNodes.value.map((n) => ({ key: n.id, label: n.name, country: n.country }))),
+);
+watch(openModel, (v) => (dialogOpen.value = v));
+watch(dialogOpen, (v) => (openModel.value = v));
 
 const modes = computed(() => [
   { value: "global", icon: "mdi-auto-fix", text: t("$vuetify.title.profile.server.automatic") },
@@ -382,6 +416,7 @@ const internetsRequest = useInternetsMenuRequest(() => props.profile.id);
 const highlightInternets = ref(false);
 let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 watch(internetsRequest, (at) => {
+  if (props.ignoreSetup) return;
   if (!at) return;
   dialogOpen.value = true;
   highlightInternets.value = true;
@@ -402,10 +437,11 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
     :open-delay="0"
     :close-delay="0"
     scrollable
-    location="left center"
+    :location="bare ? 'bottom start' : 'left center'"
     :close-on-content-click="false"
+    :target="bare ? target ?? undefined : undefined"
   >
-    <template v-slot:activator="{ props }">
+    <template v-if="!bare" v-slot:activator="{ props }">
       <template
         v-if="
           profile.route_action == 'route' &&
@@ -848,6 +884,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
             </span>
           </template>
         </v-list-item>
+        <LockedPlaces :places="lockedCountryPlaces" @upgrade="dialogOpen = false" />
       </v-list>
 
       <!-- City Selector -->
@@ -968,6 +1005,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
             </span>
           </template>
         </v-list-item>
+        <LockedPlaces :places="lockedCityPlaces" @upgrade="dialogOpen = false" />
       </v-list>
 
       <!-- Direct: split tunneling — the adapter this profile's games go
@@ -1229,6 +1267,7 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
             </span>
           </template>
         </v-list-item>
+        <LockedPlaces :places="lockedServerPlaces" @upgrade="dialogOpen = false" />
       </v-list>
     </v-card>
   </v-menu>
