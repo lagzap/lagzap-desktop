@@ -127,6 +127,17 @@ export function CloseLatencyOverlay() {
 }
 
 /**
+ * CloseTicket closes one of the user's open tickets.
+ * @param {string} ticketID
+ * @returns {$CancellablePromise<data$0.Ticket | null>}
+ */
+export function CloseTicket(ticketID) {
+    return $Call.ByID(765953931, ticketID).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType5($result);
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<void>}
  */
 export function Connect() {
@@ -980,6 +991,20 @@ export function RateSession(sessionID, stars, reasons, comment) {
 }
 
 /**
+ * ReactTicketMessage sets the user's reaction on a message; an empty emoji
+ * removes it.
+ * @param {string} ticketID
+ * @param {string} messageID
+ * @param {string} emoji
+ * @returns {$CancellablePromise<data$0.Ticket | null>}
+ */
+export function ReactTicketMessage(ticketID, messageID, emoji) {
+    return $Call.ByID(2939959263, ticketID, messageID, emoji).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType5($result);
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<void>}
  */
 export function ReloadService() {
@@ -1007,12 +1032,16 @@ export function RemoveWireGuardConfig(configID) {
 }
 
 /**
+ * ReplyTicket sends a message; replyToID quotes one of the ticket's messages
+ * (empty: none) and clientID lets a retry return the stored copy.
  * @param {string} ticketID
  * @param {string} body
+ * @param {string} replyToID
+ * @param {string} clientID
  * @returns {$CancellablePromise<data$0.Ticket | null>}
  */
-export function ReplyTicket(ticketID, body) {
-    return $Call.ByID(3432348823, ticketID, body).then(/** @type {($result: any) => any} */(($result) => {
+export function ReplyTicket(ticketID, body, replyToID, clientID) {
+    return $Call.ByID(3432348823, ticketID, body, replyToID, clientID).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType5($result);
     }));
 }
@@ -1336,6 +1365,16 @@ export function SetSyncTransportMode(mode) {
  */
 export function SetSystray(systray) {
     return $Call.ByID(3821694336, systray);
+}
+
+/**
+ * SetTicketTyping tells support the user is typing in a ticket, or stopped.
+ * @param {string} ticketID
+ * @param {boolean} typing
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetTicketTyping(ticketID, typing) {
+    return $Call.ByID(3937015700, ticketID, typing);
 }
 
 /**

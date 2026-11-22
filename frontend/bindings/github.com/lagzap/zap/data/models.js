@@ -904,6 +904,15 @@ export class NodeRoute {
              */
             this["icmp_available"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * The latency routes are compared by (min, a percentile or the average of
+             * the probes; the client picks which). 0: not set, use avg_latency.
+             * @member
+             * @type {number | undefined}
+             */
+            this["rank_latency"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -2282,6 +2291,15 @@ export class Ticket {
              */
             this["has_older"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * Messages staff deleted since the last update: drop them from the thread
+             * (BROADCAST_TICKET_UPDATE, POLL_TICKET_CHANGES).
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["deleted_message_ids"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -2293,9 +2311,13 @@ export class Ticket {
      */
     static createFrom($$source = {}) {
         const $$createField11_0 = $$createType27;
+        const $$createField18_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messages" in $$parsedSource) {
             $$parsedSource["messages"] = $$createField11_0($$parsedSource["messages"]);
+        }
+        if ("deleted_message_ids" in $$parsedSource) {
+            $$parsedSource["deleted_message_ids"] = $$createField18_0($$parsedSource["deleted_message_ids"]);
         }
         return new Ticket(/** @type {Partial<Ticket>} */($$parsedSource));
     }
@@ -2363,6 +2385,24 @@ export class TicketMessage {
              */
             this["received_at"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * Set when this message replies to another (TicketMessageQuote).
+             * @member
+             * @type {TicketMessageQuote | null | undefined}
+             */
+            this["reply_to"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Ordered by first use. A reacted message comes back in
+             * BROADCAST_TICKET_UPDATE / POLL_TICKET_CHANGES like a new one: update it
+             * in place.
+             * @member
+             * @type {(TicketReaction | null)[] | undefined}
+             */
+            this["reactions"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -2373,8 +2413,177 @@ export class TicketMessage {
      * @returns {TicketMessage}
      */
     static createFrom($$source = {}) {
+        const $$createField8_0 = $$createType29;
+        const $$createField9_0 = $$createType32;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("reply_to" in $$parsedSource) {
+            $$parsedSource["reply_to"] = $$createField8_0($$parsedSource["reply_to"]);
+        }
+        if ("reactions" in $$parsedSource) {
+            $$parsedSource["reactions"] = $$createField9_0($$parsedSource["reactions"]);
+        }
         return new TicketMessage(/** @type {Partial<TicketMessage>} */($$parsedSource));
+    }
+}
+
+/**
+ * The message a reply quotes. Once the original is deleted or made internal
+ * only id and deleted = true are set.
+ */
+export class TicketMessageQuote {
+    /**
+     * Creates a new TicketMessageQuote instance.
+     * @param {Partial<TicketMessageQuote>} [$$source = {}] - The source object to create the TicketMessageQuote.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["display_name"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["is_staff"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * The first 200 characters, whitespace collapsed.
+             * @member
+             * @type {string | undefined}
+             */
+            this["body"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["deleted"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TicketMessageQuote instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TicketMessageQuote}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TicketMessageQuote(/** @type {Partial<TicketMessageQuote>} */($$parsedSource));
+    }
+}
+
+/**
+ * One emoji on a message: how many reacted with it, whether the viewer did,
+ * and who (the first 3, oldest first) for the small avatars.
+ */
+export class TicketReaction {
+    /**
+     * Creates a new TicketReaction instance.
+     * @param {Partial<TicketReaction>} [$$source = {}] - The source object to create the TicketReaction.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["emoji"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["count"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["mine"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {(TicketReactor | null)[] | undefined}
+             */
+            this["users"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TicketReaction instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TicketReaction}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType35;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("users" in $$parsedSource) {
+            $$parsedSource["users"] = $$createField3_0($$parsedSource["users"]);
+        }
+        return new TicketReaction(/** @type {Partial<TicketReaction>} */($$parsedSource));
+    }
+}
+
+export class TicketReactor {
+    /**
+     * Creates a new TicketReactor instance.
+     * @param {Partial<TicketReactor>} [$$source = {}] - The source object to create the TicketReactor.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * Staff display name or the subscriber's gamer tag (never an email).
+             * @member
+             * @type {string | undefined}
+             */
+            this["name"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["is_staff"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | undefined}
+             */
+            this["me"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TicketReactor instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TicketReactor}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TicketReactor(/** @type {Partial<TicketReactor>} */($$parsedSource));
     }
 }
 
@@ -2468,7 +2677,7 @@ export class Title {
     static createFrom($$source = {}) {
         const $$createField3_0 = $$createType9;
         const $$createField8_0 = $$createType18;
-        const $$createField9_0 = $$createType30;
+        const $$createField9_0 = $$createType38;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("name" in $$parsedSource) {
             $$parsedSource["name"] = $$createField3_0($$parsedSource["name"]);
@@ -2615,7 +2824,7 @@ export class UpdatePayload {
      * @returns {UpdatePayload}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType32;
+        const $$createField0_0 = $$createType40;
         const $$createField1_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("last_update_at" in $$parsedSource) {
@@ -2657,8 +2866,16 @@ const $$createType24 = $Create.Array($Create.Any);
 const $$createType25 = TicketMessage.createFrom;
 const $$createType26 = $Create.Nullable($$createType25);
 const $$createType27 = $Create.Array($$createType26);
-const $$createType28 = TitleCategory.createFrom;
+const $$createType28 = TicketMessageQuote.createFrom;
 const $$createType29 = $Create.Nullable($$createType28);
-const $$createType30 = $Create.Array($$createType29);
-const $$createType31 = timestamppb$0.Timestamp.createFrom;
-const $$createType32 = $Create.Nullable($$createType31);
+const $$createType30 = TicketReaction.createFrom;
+const $$createType31 = $Create.Nullable($$createType30);
+const $$createType32 = $Create.Array($$createType31);
+const $$createType33 = TicketReactor.createFrom;
+const $$createType34 = $Create.Nullable($$createType33);
+const $$createType35 = $Create.Array($$createType34);
+const $$createType36 = TitleCategory.createFrom;
+const $$createType37 = $Create.Nullable($$createType36);
+const $$createType38 = $Create.Array($$createType37);
+const $$createType39 = timestamppb$0.Timestamp.createFrom;
+const $$createType40 = $Create.Nullable($$createType39);
