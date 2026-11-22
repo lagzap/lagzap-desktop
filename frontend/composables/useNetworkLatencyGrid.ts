@@ -9,6 +9,7 @@ import {
   lookupIfaceEntryRttMs,
   nodeIdForHopIp,
   nodeRoutePathKey,
+  probeLatencyMs,
   routeHopFloorMs,
   routeRelayLatency,
   type IfaceEntryRttIndex,
@@ -153,7 +154,7 @@ function routeLatencyForInterface(
       const ms = hop.latency ?? 0;
       return sum + (ms > 0 ? ms : 0);
     }, 0);
-  const measured = Number(route.avg_latency || route.min_latency || 0);
+  const measured = probeLatencyMs(route);
   const measuredOk =
     isPlausibleEntryRttMs(measured) && (hop0 <= 0 || measured >= hop0 + 15);
 

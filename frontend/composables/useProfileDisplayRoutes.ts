@@ -1,5 +1,10 @@
 import type { NodeRoute, RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
 
+/** A route's probed latency as shown: its lowest probe, else the average. */
+export function probeLatencyMs(route: NodeRoute): number {
+  return route.min_latency || route.avg_latency || 0;
+}
+
 const MAX_ROUTE_SLOTS = 4;
 
 export function nodeRoutePathKey(route: NodeRoute): string {
@@ -53,7 +58,7 @@ export function routeHopFloorMs(route: NodeRoute | null | undefined): number {
   const hop0 = hops[0]?.latency ?? 0;
   // Unknown (−1) or direct (0) entry: path-matrix exit stubs (0–7ms) are NOT a floor.
   if (!(hop0 > 0)) {
-    const measured = route.avg_latency || route.min_latency || 0;
+    const measured = probeLatencyMs(route);
     return measured > 0 ? measured : 0;
   }
   // Prefer the largest measured hop leg — entry cities (~100ms) beat exit stubs (0–7ms).
@@ -253,7 +258,7 @@ export function routeRelayLatency(route: NodeRoute | null | undefined): number {
     hops.length > 0 &&
     (hop0Raw == null || Number.isNaN(hop0Raw) || hop0Raw < 0);
   if (hop0Unknown) {
-    const measured = route.avg_latency || route.min_latency || 0;
+    const measured = probeLatencyMs(route);
     if (measured > 0 && isPlausibleProbeForRoute(measured, route, 0)) {
       return Math.round(measured);
     }
@@ -261,7 +266,7 @@ export function routeRelayLatency(route: NodeRoute | null | undefined): number {
   }
 
   const floor = routeHopFloorMs(route);
-  const measured = route.avg_latency || route.min_latency || 0;
+  const measured = probeLatencyMs(route);
   const clampToFloor = (ms: number) => {
     if (!(ms > 0)) {
       return floor > 0 ? Math.round(floor) : 0;
