@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTitleMenu } from "~/composables/useTitleMenu";
 import TitleIcon from "~/components/title/TitleIcon.vue";
 import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
@@ -6,12 +7,11 @@ import type { Title } from "~/bindings/github.com/lagzap/zap/data";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
 import TitleActiveToggle from "~/components/title/TitleActiveToggle.vue";
 import TitleAvatar from "~/components/plan/TitleAvatar.vue";
-import { usePlanAccess } from "~/composables/usePlanAccess";
 
 const { t } = useLocale();
 const store = useStore();
-const { titleLocked } = usePlanAccess();
 const router = useRouter();
+const titleMenu = useTitleMenu();
 const route = useRoute();
 const {
   favoriteTitles,
@@ -223,6 +223,7 @@ onBeforeUnmount(() => {
             lines="one"
             @pointerdown="onRowPointerDown(index, $event)"
             @click="onFavoriteClick(title, $event)"
+            @contextmenu="titleMenu.openAt($event, title.id)"
           >
             <template #prepend>
               <TitleAvatar :size="32" :image="title.icon_url" class="me-4" />
@@ -272,6 +273,7 @@ onBeforeUnmount(() => {
         :title="store.titleName(title.name)"
         :to="{ name: 'title-id', params: { id: title.id } }"
         rounded="xl"
+        @contextmenu="titleMenu.openAt($event, title.id)"
         lines="one"
       >
         <template #prepend>

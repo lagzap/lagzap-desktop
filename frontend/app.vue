@@ -191,6 +191,8 @@ async function close() {
   <DialogUpdateCheck v-if="!isOverlayWindow" />
 
   <OptimizeParticles v-if="!isOverlayWindow" />
+  <TitleContextMenu v-if="!isOverlayWindow" />
+
 </template>
 
 <style lang="scss">

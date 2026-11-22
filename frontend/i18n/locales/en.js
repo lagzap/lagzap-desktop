@@ -1213,6 +1213,7 @@
         highTrafficHint: 'Each launcher and download LagZap routes',
         highTrafficCapTitle: 'Cap high-traffic apps',
         highTrafficShared: 'Each launcher or download that LagZap routes (like game updates) gets this cap of its own. An app can set its own cap or turn it off in its route settings. Games are never capped.',
+        openPage: 'Open',
         highTrafficSetting: 'Cap high-traffic apps',
         highTrafficSettingHint: 'Launchers and downloads LagZap routes slow down to this speed so your games keep their bandwidth.',
         highTrafficOff: 'Not capped',

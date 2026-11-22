@@ -43,8 +43,8 @@ async function onClick(event: MouseEvent) {
     <template #activator="{ props: tipProps }">
       <v-btn
         v-bind="tipProps"
-        :icon="favorited ? 'mdi-star' : 'mdi-star-outline'"
-        :color="favorited ? 'amber' : 'secondary'"
+        :icon="favorited ? 'mdi-pin' : 'mdi-pin-outline'"
+        :color="favorited ? 'primary' : 'secondary'"
         variant="text"
         :size="size"
         :disabled="disabled"

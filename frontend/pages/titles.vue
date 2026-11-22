@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTitleMenu } from "~/composables/useTitleMenu";
 import { useLocale } from "vuetify";
 import Container from "~/components/layout/Container.vue";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
@@ -15,6 +16,8 @@ import {
   titleCategoryIcon,
   useTitleCategories,
 } from "~/composables/useTitleCategories";
+
+const titleMenu = useTitleMenu();
 
 const locale = useLocale();
 const { t } = locale;
@@ -258,6 +261,7 @@ const onToggle = (title: (typeof titles.value)[number]) => {
               >
                 <v-card
                   :to="{ name: 'title-id', params: { id: item.raw.id } }"
+                  @contextmenu="titleMenu.openAt($event, item.raw.id)"
                   class="py-1 mb-1 titles-card"
                 >
                   <v-list-item :title="store.titleName(item.raw.name)">

@@ -1,14 +1,15 @@
 <script setup lang="ts">
+import { useTitleMenu } from "~/composables/useTitleMenu";
 import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 import TitleAvatar from "~/components/plan/TitleAvatar.vue";
-import { usePlanAccess } from "~/composables/usePlanAccess";
+
+const titleMenu = useTitleMenu();
 
 const { t } = useLocale();
 const store = useStore();
-const { titleLocked } = usePlanAccess();
 const { overviewSource, overviewTitles } = useFavoriteTitles();
 
 const sectionLabel = computed(() => {
@@ -39,6 +40,7 @@ const sectionLabel = computed(() => {
         <NuxtLink
           :to="{ name: 'title-id', params: { id: title.id } }"
           class="overview-titles__tile text-decoration-none"
+          @contextmenu="titleMenu.openAt($event, title.id)"
         >
           <div class="overview-titles__icon">
             <TitleAvatar :size="40" :image="title.icon_url" />
