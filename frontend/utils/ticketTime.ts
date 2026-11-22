@@ -1,13 +1,10 @@
 /**
  * Normalize ticket timestamps for display.
  *
- * The tickets API mixes formats: some messages include a trailing Z, others are
- * naive "YYYY-MM-DD HH:mm:ss". Both usually carry the same wall-clock value, but
- * JS treats "…Z" as UTC (+3:30 in Tehran) and naive strings as local — so the
- * same instant renders differently.
- *
- * Rule: use the date/time numbers as local wall-clock for naive and Z values.
- * Honor explicit ±HH:MM offsets when present.
+ * The servers store ticket times in UTC: the coordinator sends them with a
+ * trailing Z, and some older values are naive "YYYY-MM-DD HH:mm:ss" with the
+ * same UTC numbers. Both are read as UTC and shown in the user's local time,
+ * as on the website. Explicit ±HH:MM offsets are honored.
  */
 export function parseTicketTimestamp(value?: string | null): Date | null {
   if (!value) {
@@ -41,8 +38,8 @@ export function parseTicketTimestamp(value?: string | null): Date | null {
       return new Date(utcMs);
     }
 
-    // Naive or Z: show the wall-clock in the user's local timezone.
-    return new Date(year, month - 1, day, hour, minute, second);
+    // Naive or Z: UTC numbers, shown in the user's local time.
+    return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
   }
 
   if (/^\d+$/.test(trimmed)) {
@@ -93,7 +90,8 @@ export function formatTicketClockTime(value?: string | null): string {
   if (!date) {
     return "";
   }
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  // "05:49 PM", as on the website
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 /** Local calendar day key YYYY-MM-DD for grouping. */

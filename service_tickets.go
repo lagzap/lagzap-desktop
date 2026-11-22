@@ -58,9 +58,35 @@ func (s *Service) SetHelpCenterView(view string) {
 	}
 }
 
-func (s *Service) ReplyTicket(ticketID, body string) (*D.Ticket, error) {
+// ReplyTicket sends a message; replyToID quotes one of the ticket's messages
+// (empty: none) and clientID lets a retry return the stored copy.
+func (s *Service) ReplyTicket(ticketID, body, replyToID, clientID string) (*D.Ticket, error) {
 	if !s.IsReady() {
 		return nil, E.New("coordinator_not_ready")
 	}
-	return s.coordinator.ReplyTicket(ticketID, body)
+	return s.coordinator.ReplyTicket(ticketID, body, replyToID, clientID)
+}
+
+// ReactTicketMessage sets the user's reaction on a message; an empty emoji
+// removes it.
+func (s *Service) ReactTicketMessage(ticketID, messageID, emoji string) (*D.Ticket, error) {
+	if !s.IsReady() {
+		return nil, E.New("coordinator_not_ready")
+	}
+	return s.coordinator.ReactTicketMessage(ticketID, messageID, emoji)
+}
+
+// CloseTicket closes one of the user's open tickets.
+func (s *Service) CloseTicket(ticketID string) (*D.Ticket, error) {
+	if !s.IsReady() {
+		return nil, E.New("coordinator_not_ready")
+	}
+	return s.coordinator.CloseTicket(ticketID)
+}
+
+// SetTicketTyping tells support the user is typing in a ticket, or stopped.
+func (s *Service) SetTicketTyping(ticketID string, typing bool) {
+	if s.IsReady() {
+		_ = s.coordinator.SetTicketTyping(ticketID, typing)
+	}
 }

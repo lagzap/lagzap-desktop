@@ -37,12 +37,12 @@ async function onClick(event: MouseEvent) {
 </script>
 
 <template>
-  <v-tooltip :text="tooltip">
+  <v-tooltip :text="tooltip" location="bottom">
     <template #activator="{ props: tipProps }">
       <v-btn
         v-bind="tipProps"
-        :icon="favorited ? 'mdi-star' : 'mdi-star-outline'"
-        :color="favorited ? 'amber' : 'secondary'"
+        :icon="favorited ? 'mdi-pin' : 'mdi-pin-outline'"
+        :color="favorited ? 'primary' : 'on-background'"
         variant="text"
         :size="size"
         :disabled="disabled"

@@ -1,11 +1,14 @@
 import { defineStore, acceptHMRUpdate } from "pinia";
 import { Events } from "@wailsio/runtime";
 import {
+  CloseTicket,
   CreateTicket,
   GetTicketWindow,
   ListMyTickets,
+  ReactTicketMessage,
   ReplyTicket,
   SetHelpCenterView,
+  SetTicketTyping,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import type { Ticket } from "~/bindings/github.com/lagzap/zap/data";
 
@@ -118,8 +121,34 @@ function normalizeTicket(raw: unknown): Ticket | null {
     unread_messages: unreadMessages,
     messages: (source.messages as Ticket["messages"]) ?? [],
   } as Ticket;
+  // Messages staff deleted since the last update, to drop from the thread.
+  ticket.deleted_message_ids = deletedIdsOf(source);
 
   return ticket;
+}
+
+/** Messages staff deleted, sent with a ticket update so they can be dropped. */
+function deletedIdsOf(source: Record<string, unknown>): string[] {
+  const raw =
+    source.deleted_message_ids ?? source.deletedMessageIds ?? source.DeletedMessageIds;
+  return Array.isArray(raw)
+    ? raw.filter((id): id is string => typeof id === "string" && !!id)
+    : [];
+}
+
+/** Drops deleted messages and marks quotes of them as deleted. */
+function withoutDeleted(
+  messages: Ticket["messages"] | undefined,
+  gone: Set<string>,
+): TicketMessageRow[] {
+  return (messages ?? [])
+    .filter((m) => !!m && !gone.has(m.id))
+    .map((m) => {
+      const quote = (m as { reply_to?: { id?: string } | null }).reply_to;
+      return quote?.id && gone.has(quote.id)
+        ? ({ ...m, reply_to: { id: quote.id, deleted: true } } as TicketMessageRow)
+        : m;
+    });
 }
 
 function clearLocalUnread(ticket: Ticket) {
@@ -178,6 +207,9 @@ export const useTicketsStore = defineStore("tickets", () => {
   /** Whether a chat has messages before those loaded (scroll up for more). */
   const hasOlder = ref<Record<string, boolean>>({});
   const loadingOlder = ref(false);
+  /** Chats whose newest page was loaded. A list row's preview message alone
+   * doesn't count: catching up from it would skip the whole thread. */
+  const threadLoaded = new Set<string>();
   /** Whole tickets popup session (list and/or chat). */
   const popupActive = ref(false);
   const popupTicketId = ref<string | null>(null);
@@ -196,9 +228,13 @@ export const useTicketsStore = defineStore("tickets", () => {
       return;
     }
     const prev = ticketById.value[ticket.id];
+    const deleted = ticket.deleted_message_ids;
+    const gone = new Set(deleted ?? []);
     const next = {
       ...ticket,
-      messages: mergeMessages(prev?.messages, ticket.messages),
+      messages: gone.size
+        ? withoutDeleted(mergeMessages(prev?.messages, ticket.messages), gone)
+        : mergeMessages(prev?.messages, ticket.messages),
     } as Ticket;
     ticketById.value = { ...ticketById.value, [ticket.id]: cloneTicket(next) };
     if (mergeList) {
@@ -326,7 +362,9 @@ export const useTicketsStore = defineStore("tickets", () => {
     try {
       // Loaded before: only what came after its newest message. First open:
       // the newest page; older ones load when scrolled up to (loadOlder).
-      const newest = ticketById.value[id]?.messages?.at(-1)?.id ?? "";
+      const newest = threadLoaded.has(id)
+        ? ticketById.value[id]?.messages?.at(-1)?.id ?? ""
+        : "";
       const raw = await GetTicketWindow(id, "", newest, newest ? 0 : MESSAGE_PAGE);
       const ticket = normalizeTicket(raw);
       if (seq !== openRequestSeq) {
@@ -335,6 +373,7 @@ export const useTicketsStore = defineStore("tickets", () => {
       if (ticket) {
         if (!newest) {
           hasOlder.value = { ...hasOlder.value, [id]: !!raw?.has_older };
+          threadLoaded.add(id);
         }
         // GET_TICKET marks seen server-side; clear local badge immediately.
         clearLocalUnread(ticket);
@@ -375,8 +414,17 @@ export const useTicketsStore = defineStore("tickets", () => {
     }
   };
 
-  const replyTicket = async (id: string, body: string) => {
-    const ticket = normalizeTicket(await ReplyTicket(id, body));
+  /** replyToId quotes a message; clientId lets a retry get the stored copy
+   * back instead of sending it twice. */
+  const replyTicket = async (
+    id: string,
+    body: string,
+    replyToId = "",
+    clientId = "",
+  ) => {
+    const ticket = normalizeTicket(
+      await ReplyTicket(id, body, replyToId, clientId),
+    );
     if (!ticket) {
       throw new Error("ticket_reply_failed");
     }
@@ -386,6 +434,128 @@ export const useTicketsStore = defineStore("tickets", () => {
     upsertTicket(ticket);
     refreshUnreadFromList();
     return ticket;
+  };
+
+  /** One message of a ticket, changed in the chat and the cache. */
+  const patchMessage = (
+    ticketId: string,
+    messageId: string,
+    change: (message: TicketMessageRow) => TicketMessageRow,
+  ) => {
+    const known = ticketById.value[ticketId] ?? tickets.value.find((t) => t.id === ticketId);
+    if (!known) {
+      return;
+    }
+    upsertTicket({
+      ...known,
+      messages: (known.messages ?? []).map((m) => (m?.id === messageId ? change(m) : m)),
+    } as Ticket);
+  };
+
+  /** My reaction on a message, Telegram style: one per message, the same
+   * emoji again takes it away. Shown at once; the server's copy follows. */
+  const reactTicketMessage = async (ticketId: string, messageId: string, emoji: string) => {
+    const known = ticketById.value[ticketId] ?? tickets.value.find((t) => t.id === ticketId);
+    const message = known?.messages?.find((m) => m?.id === messageId);
+    if (!message) {
+      return;
+    }
+    const before = message.reactions ?? [];
+    const removing = before.some((r) => r?.mine && r.emoji === emoji);
+    const next = before
+      .map((r) => (r?.mine ? { ...r, mine: false, count: (r.count ?? 1) - 1, users: (r.users ?? []).filter((u) => !u?.me) } : r))
+      .filter((r) => r && (r.count ?? 0) > 0);
+    if (!removing) {
+      const at = next.findIndex((r) => r?.emoji === emoji);
+      const me = { name: "", is_staff: false, me: true };
+      if (at >= 0) {
+        next[at] = { ...next[at], mine: true, count: (next[at].count ?? 0) + 1, users: [...(next[at].users ?? []), me] };
+      } else {
+        next.push({ emoji, count: 1, mine: true, users: [me] });
+      }
+    }
+    patchMessage(ticketId, messageId, (m) => ({ ...m, reactions: next }) as TicketMessageRow);
+    try {
+      const ticket = normalizeTicket(
+        await ReactTicketMessage(ticketId, messageId, removing ? "" : emoji),
+      );
+      if (ticket) {
+        clearLocalUnread(ticket);
+        upsertTicket(ticket);
+      }
+    } catch (error) {
+      patchMessage(ticketId, messageId, (m) => ({ ...m, reactions: before }) as TicketMessageRow);
+      throw error;
+    }
+  };
+
+  /** Closes one of my open tickets. */
+  const closeTicket = async (id: string) => {
+    const ticket = normalizeTicket(await CloseTicket(id));
+    if (!ticket) {
+      throw new Error("ticket_close_failed");
+    }
+    clearLocalUnread(ticket);
+    upsertTicket(ticket);
+    return ticket;
+  };
+
+  /* ----- Typing: support's shows in the chat header; mine goes to support,
+   * at most every 3s while typing, and false once cleared, sent or left. */
+  const staffTyping = ref<Record<string, string>>({});
+  const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const stopStaffTyping = (ticketId: string) => {
+    clearTimeout(typingTimers.get(ticketId));
+    typingTimers.delete(ticketId);
+    if (ticketId in staffTyping.value) {
+      const { [ticketId]: _gone, ...rest } = staffTyping.value;
+      staffTyping.value = rest;
+    }
+  };
+  const onTicketTyping = (payload: unknown) => {
+    const unwrapped =
+      payload && typeof payload === "object" && "data" in payload
+        ? (payload as { data: unknown }).data
+        : payload;
+    const raw = (Array.isArray(unwrapped) ? unwrapped[0] : unwrapped) as Record<string, unknown> | null;
+    if (!raw || typeof raw !== "object") {
+      return;
+    }
+    const ticketId = pickString(raw, "ticket_id", "ticketId", "TicketId");
+    if (!ticketId) {
+      return;
+    }
+    if (!pickBool(raw, "typing", "Typing")) {
+      stopStaffTyping(ticketId);
+      return;
+    }
+    staffTyping.value = {
+      ...staffTyping.value,
+      [ticketId]: pickString(raw, "display_name", "displayName", "DisplayName"),
+    };
+    // Dropped after 6s without a refresh.
+    clearTimeout(typingTimers.get(ticketId));
+    typingTimers.set(ticketId, setTimeout(() => stopStaffTyping(ticketId), 6000));
+  };
+
+  let typingSentAt = 0;
+  let typingTicket = "";
+  const setMyTyping = (ticketId: string, typing: boolean) => {
+    const now = Date.now();
+    if (typing) {
+      if (typingTicket === ticketId && now - typingSentAt < 3000) {
+        return;
+      }
+      typingTicket = ticketId;
+      typingSentAt = now;
+    } else {
+      if (typingTicket !== ticketId) {
+        return;
+      }
+      typingTicket = "";
+      typingSentAt = 0;
+    }
+    void SetTicketTyping(ticketId, typing).catch(() => undefined);
   };
 
   const clearActive = () => {
@@ -462,6 +632,10 @@ export const useTicketsStore = defineStore("tickets", () => {
     const ticket = normalizeTicket(payload);
     if (!ticket) {
       return;
+    }
+    // A message from support ends their typing.
+    if (ticket.messages?.some((m) => m?.is_staff)) {
+      stopStaffTyping(ticket.id);
     }
     // Viewing this ticket: keep messages, do not bump unread badge.
     if (viewingId() === ticket.id) {
@@ -545,6 +719,7 @@ export const useTicketsStore = defineStore("tickets", () => {
     listening = true;
     Events.On("ticket-updated", ({ data }) => onTicketUpdated(data));
     Events.On("ticket-receipts", ({ data }) => onTicketReceipts(data));
+    Events.On("ticket-typing", ({ data }) => onTicketTyping(data));
     watch([popupOpen, popupTicketId], tellHelpCenterView, { immediate: true });
   };
 
@@ -580,6 +755,10 @@ export const useTicketsStore = defineStore("tickets", () => {
     createTicket,
     openTicket,
     replyTicket,
+    reactTicketMessage,
+    closeTicket,
+    staffTyping,
+    setMyTyping,
     clearActive,
     openTicketsPopup,
     openTicketPopup,
