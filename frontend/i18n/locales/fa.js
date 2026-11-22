@@ -125,6 +125,14 @@ export default {
         },
     },
     plan: {
+        upgraded: {
+            title: 'حالا {0} دارید',
+            subtitle: 'تعرفه شما ارتقا یافت',
+            routeLevel: 'سطح مسیر {0}',
+            locations: '{0} مکان برای شما باز است',
+            internets: 'تا {0} اینترنت با هم',
+            start: 'شروع بازی',
+        },
         unavailableTip: 'فعلاً در دسترس نیست.',
         moreAccess: 'تعرفه‌های بهتر سرورها و مسیرهای بیشتری را باز می‌کنند.',
         upgrade: 'ارتقا',

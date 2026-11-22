@@ -2,6 +2,7 @@
 import { useDisplay, useTheme, useLocale } from "vuetify";
 import { useMessagesStore } from "~/stores/messages";
 import OptimizeParticles from "~/components/effects/OptimizeParticles.vue";
+import PlanUpgradeCelebration from "~/components/effects/PlanUpgradeCelebration.vue";
 import InterfaceReconnectOverlay from "~/components/network/InterfaceReconnectOverlay.vue";
 import DefaultFallbackNotice from "~/components/network/DefaultFallbackNotice.vue";
 import TrafficTakeoverNotice from "~/components/network/TrafficTakeoverNotice.vue";
@@ -190,9 +191,11 @@ async function close() {
 
   <DialogUpdateCheck v-if="!isOverlayWindow" />
 
-  <OptimizeParticles v-if="!isOverlayWindow" />
   <TitleContextMenu v-if="!isOverlayWindow" />
 
+  <OptimizeParticles v-if="!isOverlayWindow" />
+
+  <PlanUpgradeCelebration v-if="!isOverlayWindow" />
 </template>
 
 <style lang="scss">

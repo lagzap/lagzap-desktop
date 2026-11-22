@@ -125,6 +125,14 @@
         },
     },
     plan: {
+        upgraded: {
+            title: "You're on {0}",
+            subtitle: 'Plan upgraded',
+            routeLevel: '{0} route level',
+            locations: '{0} locations open to you',
+            internets: 'Up to {0} internets together',
+            start: 'Start playing',
+        },
         unavailableTip: 'Not available yet.',
         moreAccess: 'Better plans unlock more servers and routes.',
         upgrade: 'Upgrade',
