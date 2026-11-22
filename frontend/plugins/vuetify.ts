@@ -136,7 +136,27 @@ export default defineNuxtPlugin({
           {},
           {
             primary: false ? '#ffc107' : '#e6d785',
+            // The admin panel's neutral greys: a #121212 frame, #1a1a1a
+            // panels and cards, and untinted greys (the gold-seeded scheme
+            // tints them warm) at the scheme's own lightness.
             background: "#121212",
+            "on-background": "#e6e6e6",
+            surface: "#1a1a1a",
+            // The page's panel, a step under its cards (#1a1a1a).
+            "surface-panel": "#161616",
+            "surface-dim": "#121212",
+            "surface-bright": "#444444",
+            "surface-variant": "#474747",
+            "on-surface-variant": "#d2d2d2",
+            "surface-container-lowest": "#0e0e0e",
+            "surface-container-low": "#1e1e1e",
+            "surface-container": "#232323",
+            "surface-container-high": "#2e2e2e",
+            "surface-container-highest": "#3a3a3a",
+            "inverse-surface": "#e6e6e6",
+            "inverse-on-surface": "#303030",
+            outline: "#aaaaaa",
+            "outline-variant": "#848484",
             ...statusColors.dark,
           }
         ),
@@ -150,8 +170,13 @@ export default defineNuxtPlugin({
             "medium-emphasis-opacity": 0.62,
           },
           {
-            // Richer gold — more chroma than the muted olive
-            primary: false ? '#ffc107' : '#B8860B',
+            // Light: the brand gold #e6d785 (hue 51°) darkened until it reads
+            // on white (5.3:1) and on the grey frame (4.6:1); the accent a dark
+            // olive with a touch of that gold, its text the gold itself.
+            primary: "#7B6C19",
+            "on-primary": "#FFFFFF",
+            secondary: "#4A4528",
+            "on-secondary": "#E6D785",
             // Neutral light frame — readable contrast vs white content
             background: "#F0F1F3",
             "on-background": "#171717",

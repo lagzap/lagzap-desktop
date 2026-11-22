@@ -194,12 +194,6 @@ async function close() {
 </template>
 
 <style lang="scss">
-.v-application.v-layout.v-layout--full-height.v-theme--dark {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(230 215 133 / 0.03), transparent),
-    linear-gradient(180deg, #141414 0%, #0a0a0a 100%);
-}
-
 .overlay-layout.v-application {
   background: transparent !important;
 }

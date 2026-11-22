@@ -81,7 +81,13 @@ button,
 
 .v-card {
   &:not(.v-overlay .v-card):not(.v-theme--light) {
-    background-color: rgba(var(--v-theme-surface-variant), 0.1);
+    background-color: rgb(var(--v-theme-surface-panel));
+
+    // A card inside a card (list rows on a panel): the plain surface, a
+    // step lighter than the panel it sits on.
+    .v-card {
+      background-color: rgb(var(--v-theme-surface));
+    }
   }
 
   &.v-theme--light {
