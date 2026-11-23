@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI read
 
 ### Changed
 - The syncing notice now just says syncing has problems and is retrying.
+- Fixes and improvements while the beta is still in development.
 
 ### Fixed
 - LagZap could crash while installing an update and reopening its windows.
