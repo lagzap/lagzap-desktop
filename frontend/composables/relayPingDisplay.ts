@@ -7,6 +7,7 @@ import {
   routeRelayLatency,
 } from "~/composables/useProfileDisplayRoutes";
 import type { RouteProbeEvent } from "~/types/monitoring";
+import { toRaw } from "vue";
 
 /** Prefer hop-floor-safe RTT from routeRelayLatency. */
 export function routeDisplayLatency(route: NodeRoute | null | undefined): number {
@@ -102,3 +103,45 @@ export function displayScoreForRelay(
   const best = bestRouteDisplayLatency(relayRoute?.routes);
   return best.score > 0 ? best.score : null;
 }
+
+/** The lowest ping a relay showed recently: the best plausible probe of
+ * each probe round still kept, so the number holds still between rounds.
+ * Without probes, the same fallback as displayPingMsForRelay. */
+export function recentMinPingMsForRelay(
+  tag: string | null | undefined,
+  relayRoute: RelayRoute | null | undefined,
+  routeProbeHistory: Record<string, RouteProbeEvent[]>
+): number | null {
+  if (!tag) {
+    return null;
+  }
+  const key = [tag, `${tag}-ipv4-udp`, `${tag}-ipv4-tcp`].find((k) => routeProbeHistory[k]?.length);
+  // Plain objects: every read through Vue's proxies was tracked, and this
+  // runs for every place on every probe update.
+  const route = relayRoute ? toRaw(relayRoute) : relayRoute;
+  let min: number | null = null;
+  for (const proxied of key ? routeProbeHistory[key]! : []) {
+    const event = toRaw(proxied);
+    // A probe round never changes once it arrived: its best ping is worked
+    // out once (per relay route it was judged against), not on every update.
+    let byRoute = probeRoundBest.get(event);
+    if (!byRoute) {
+      byRoute = new WeakMap();
+      probeRoundBest.set(event, byRoute);
+    }
+    const routeKey = (route ?? NO_ROUTE) as object;
+    let ms = byRoute.get(routeKey);
+    if (ms === undefined) {
+      ms = bestLiveProbeMsForRelay(key, route, { [key!]: [event] });
+      byRoute.set(routeKey, ms);
+    }
+    if (ms != null && ms > 0) {
+      min = min == null ? ms : Math.min(min, ms);
+    }
+  }
+  return min ?? displayPingMsForRelay(tag, relayRoute, routeProbeHistory);
+}
+
+/** Each probe round's best ping, by the relay route it was judged with. */
+const probeRoundBest = new WeakMap<object, WeakMap<object, number | null>>();
+const NO_ROUTE = {};
