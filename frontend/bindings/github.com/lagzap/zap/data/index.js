@@ -22,6 +22,7 @@ export {
     OptimizeProtocol,
     OptimizeSelection,
     PingPoint,
+    PreferredTransport,
     Profile,
     ProfileState,
     Region,

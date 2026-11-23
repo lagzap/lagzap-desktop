@@ -339,6 +339,15 @@ export class ClientSettings {
              */
             this["backup_interfaces"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * Prevent-disconnect profiles: which transport their leg uses (Auto picks
+             * the better one). A profile's own preferred_transport overrides it.
+             * @member
+             * @type {PreferredTransport | null | undefined}
+             */
+            this["preferred_transport"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -1191,6 +1200,22 @@ export class PingPoint {
     }
 }
 
+/**
+ * PreferredTransport: the transport a prevent-disconnect profile's leg uses.
+ * @readonly
+ * @enum {number}
+ */
+export const PreferredTransport = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: 0,
+
+    PreferredTransport_PREFERRED_TRANSPORT_AUTO: 0,
+    PreferredTransport_PREFERRED_TRANSPORT_TCP: 1,
+    PreferredTransport_PREFERRED_TRANSPORT_UDP: 2,
+};
+
 export class Profile {
     /**
      * Creates a new Profile instance.
@@ -1327,6 +1352,16 @@ export class Profile {
     }
 }
 
+/**
+ * A profile's own route choices. Each group of route fields left unset
+ * follows the title's (TitleState), and the defaults after that:
+ * 
+ * 	location  mode set: mode, regions, countries, cities, node_id
+ * 	internet  default_interface set: default_interface, network_interfaces
+ * 	routes    any set: tcp_connections, udp_connections, route_connections
+ * 	and allow_local_routes, relay_transport_fallback, preferred_transport
+ * 	one by one.
+ */
 export class ProfileState {
     /**
      * Creates a new ProfileState instance.
@@ -1357,7 +1392,7 @@ export class ProfileState {
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {RoutingMode | undefined}
+             * @type {RoutingMode | null | undefined}
              */
             this["mode"] = undefined;
         }
@@ -1405,15 +1440,16 @@ export class ProfileState {
         }
         if (/** @type {any} */(false)) {
             /**
+             * Unset: the title's, then ClientSettings.allow_local_routes.
              * @member
-             * @type {boolean | undefined}
+             * @type {boolean | null | undefined}
              */
             this["allow_local_routes"] = undefined;
         }
         if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {string | undefined}
+             * @type {string | null | undefined}
              */
             this["default_interface"] = undefined;
         }
@@ -1440,12 +1476,12 @@ export class ProfileState {
         }
         if (/** @type {any} */(false)) {
             /**
-             * The profile uses the global domestic-route setting
-             * (ClientSettings.allow_local_routes) instead of allow_local_routes.
+             * Prevent-disconnect: this profile's transport; unset follows the
+             * title's, then ClientSettings.preferred_transport.
              * @member
-             * @type {boolean | undefined}
+             * @type {PreferredTransport | null | undefined}
              */
-            this["follow_global_local_routes"] = undefined;
+            this["preferred_transport"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -2752,6 +2788,11 @@ export class TitleCategory {
     }
 }
 
+/**
+ * A title's state, and the route choices all its profiles follow unless a
+ * profile sets its own (the same groups as on ProfileState). Changing a
+ * group here clears it on the title's profiles.
+ */
 export class TitleState {
     /**
      * Creates a new TitleState instance.
@@ -2779,6 +2820,97 @@ export class TitleState {
              */
             this["visited_at"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {RoutingMode | null | undefined}
+             */
+            this["mode"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["regions"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["countries"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["cities"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["node_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["tcp_connections"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["udp_connections"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["route_connections"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["network_interfaces"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["default_interface"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["allow_local_routes"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {boolean | null | undefined}
+             */
+            this["relay_transport_fallback"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {PreferredTransport | null | undefined}
+             */
+            this["preferred_transport"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -2789,7 +2921,23 @@ export class TitleState {
      * @returns {TitleState}
      */
     static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType0;
+        const $$createField5_0 = $$createType0;
+        const $$createField6_0 = $$createType0;
+        const $$createField11_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("regions" in $$parsedSource) {
+            $$parsedSource["regions"] = $$createField4_0($$parsedSource["regions"]);
+        }
+        if ("countries" in $$parsedSource) {
+            $$parsedSource["countries"] = $$createField5_0($$parsedSource["countries"]);
+        }
+        if ("cities" in $$parsedSource) {
+            $$parsedSource["cities"] = $$createField6_0($$parsedSource["cities"]);
+        }
+        if ("network_interfaces" in $$parsedSource) {
+            $$parsedSource["network_interfaces"] = $$createField11_0($$parsedSource["network_interfaces"]);
+        }
         return new TitleState(/** @type {Partial<TitleState>} */($$parsedSource));
     }
 }
