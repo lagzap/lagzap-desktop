@@ -170,11 +170,10 @@ export default defineNuxtPlugin({
             "medium-emphasis-opacity": 0.62,
           },
           {
-            // Light: the brand gold #e6d785 (hue 51°) darkened until it reads
-            // on white (5.3:1) and on the grey frame (4.6:1); the accent a dark
-            // olive with a touch of that gold, its text the gold itself.
-            primary: "#7B6C19",
-            "on-primary": "#FFFFFF",
+            // Light: the logo's amber (the Z's #FFC107), dark text on it;
+            // the accent a dark olive, its text the brand gold.
+            primary: "#FFC107",
+            "on-primary": "#171717",
             secondary: "#4A4528",
             "on-secondary": "#E6D785",
             // Neutral light frame — readable contrast vs white content

@@ -285,3 +285,30 @@ textarea,
   unicode-bidi: plaintext;
   text-align: start;
 }
+
+/* Light: card subtitles fade to the medium-emphasis level, which washed
+   coloured status text (green, red, amber, teal) out to a pale tint. A
+   coloured subtitle shows its colour in full. */
+.v-theme--light .v-card-subtitle {
+  &.text-success,
+  &.text-error,
+  &.text-warning,
+  &.text-info {
+    --v-card-subtitle-opacity: 1;
+  }
+}
+
+/* Light: the primary is the logo's bright amber, unreadable as text on its
+   own pale tint. Anything tonal in primary (chips, buttons, alerts...) keeps
+   an amber fill and takes dark text. */
+.v-theme--light {
+  .v-chip.text-primary,
+  [class*="--variant-tonal"].text-primary {
+    color: rgb(var(--v-theme-on-surface)) !important;
+
+    > [class$="__underlay"] {
+      background: rgb(var(--v-theme-primary));
+      opacity: 0.35;
+    }
+  }
+}
