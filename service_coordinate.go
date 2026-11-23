@@ -72,6 +72,16 @@ func (s *Service) DisconnectProfile(id string) {
 	s.coordinator.CloseByProfile(id)
 }
 
+// DropConnections closes the connections with these IDs: after the main
+// region changed, the TCP connections still on the old one (UDP moves on
+// its own). Returns how many it closed.
+func (s *Service) DropConnections(ids []string) int {
+	if s.coordinator == nil || len(ids) == 0 {
+		return 0
+	}
+	return s.coordinator.CloseConnections(ids)
+}
+
 func (s *Service) Status() adapter.ConnectionStatus {
 	if s.coordinator == nil {
 		return adapter.StatusDisconnected

@@ -220,6 +220,17 @@ export function DisconnectTitle(id) {
 }
 
 /**
+ * DropConnections closes the connections with these IDs: after the main
+ * region changed, the TCP connections still on the old one (UDP moves on
+ * its own). Returns how many it closed.
+ * @param {string[]} ids
+ * @returns {$CancellablePromise<number>}
+ */
+export function DropConnections(ids) {
+    return $Call.ByID(1514879757, ids);
+}
+
+/**
  * @returns {$CancellablePromise<void>}
  */
 export function FindAvailableInterfaces() {
@@ -889,12 +900,23 @@ export function OpenLatencyOverlay() {
 }
 
 /**
+ * PingWireGuardConfigs is each saved config's ping in ms (0: no answer),
+ * one ICMP echo to its WireGuard server.
+ * @returns {$CancellablePromise<{ [_ in string]?: number }>}
+ */
+export function PingWireGuardConfigs() {
+    return $Call.ByID(2440168896).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType72($result);
+    }));
+}
+
+/**
  * PlanLimits is what the subscriber's plan allows (zero: no limit).
  * @returns {$CancellablePromise<adapter$0.PlanLimits>}
  */
 export function PlanLimits() {
     return $Call.ByID(3723209718).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType72($result);
+        return $$createType73($result);
     }));
 }
 
@@ -906,7 +928,7 @@ export function PlanLimits() {
  */
 export function PricingPlans(currency) {
     return $Call.ByID(2672787099, currency).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType73($result);
+        return $$createType74($result);
     }));
 }
 
@@ -920,7 +942,7 @@ export function PricingPlans(currency) {
  */
 export function ProbeNodeRoutes(routes, iface) {
     return $Call.ByID(980278603, routes, iface).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType76($result);
+        return $$createType77($result);
     }));
 }
 
@@ -961,7 +983,7 @@ export function QuitApp() {
  */
 export function Quote(req) {
     return $Call.ByID(3940694183, req).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType77($result);
+        return $$createType78($result);
     }));
 }
 
@@ -1137,7 +1159,7 @@ export function SetAppRoutes(rules) {
  */
 export function SetAppTrafficWatch(watcher, watch) {
     return $Call.ByID(2230539954, watcher, watch).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType79($result);
+        return $$createType80($result);
     }));
 }
 
@@ -1176,7 +1198,7 @@ export function SetDiscordPresence(p) {
  */
 export function SetGamerTag(name) {
     return $Call.ByID(442699695, name).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType80($result);
+        return $$createType81($result);
     }));
 }
 
@@ -1219,7 +1241,7 @@ export function SetHelpCenterView(view) {
  */
 export function SetInterfaceMonitorRange(watcher, iface, key, lang) {
     return $Call.ByID(3480031081, watcher, iface, key, lang).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType82($result);
+        return $$createType83($result);
     }));
 }
 
@@ -1281,7 +1303,7 @@ export function SetLoadBalanceWeights(weights) {
  */
 export function SetLocationMonitor(watcher, key, rangeKey, lang, manual) {
     return $Call.ByID(1266297978, watcher, key, rangeKey, lang, manual).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType84($result);
+        return $$createType85($result);
     }));
 }
 
@@ -1313,7 +1335,7 @@ export function SetMeteredInterfaces(names) {
  */
 export function SetNetworkMonitorRange(watcher, key) {
     return $Call.ByID(1699016496, watcher, key).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType86($result);
+        return $$createType87($result);
     }));
 }
 
@@ -1326,7 +1348,7 @@ export function SetNetworkMonitorRange(watcher, key) {
  */
 export function SetOverviewRange(watcher, key) {
     return $Call.ByID(1243669937, watcher, key).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType88($result);
+        return $$createType89($result);
     }));
 }
 
@@ -1420,16 +1442,8 @@ export function StartBootstrapLocalProxy() {
  */
 export function StartDiscordTrial() {
     return $Call.ByID(3750442219).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType89($result);
+        return $$createType90($result);
     }));
-}
-
-/**
- * @param {string} target
- * @returns {$CancellablePromise<void>}
- */
-export function StartLocalProxy(target) {
-    return $Call.ByID(3630488842, target);
 }
 
 /**
@@ -1526,7 +1540,7 @@ export function VisitTitle(titleId) {
  */
 export function WatchProfileChart(profileID, rangeKey, iface, connectionID) {
     return $Call.ByID(969705923, profileID, rangeKey, iface, connectionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType91($result);
+        return $$createType92($result);
     }));
 }
 
@@ -1603,23 +1617,24 @@ const $$createType68 = $models.MyTicketsResult.createFrom;
 const $$createType69 = $Create.Nullable($$createType68);
 const $$createType70 = adapter$0.PathPingRow.createFrom;
 const $$createType71 = $Create.Array($$createType70);
-const $$createType72 = adapter$0.PlanLimits.createFrom;
-const $$createType73 = adapter$0.PricingPlansResult.createFrom;
-const $$createType74 = data$0.NodeRoute.createFrom;
-const $$createType75 = $Create.Nullable($$createType74);
-const $$createType76 = $Create.Array($$createType75);
-const $$createType77 = adapter$0.QuoteResult.createFrom;
-const $$createType78 = adapter$0.AppTrafficSnapshot.createFrom;
-const $$createType79 = $Create.Nullable($$createType78);
-const $$createType80 = adapter$0.NameResult.createFrom;
-const $$createType81 = adapter$0.InterfaceMonitorDetail.createFrom;
-const $$createType82 = $Create.Nullable($$createType81);
-const $$createType83 = adapter$0.LocationMonitor.createFrom;
-const $$createType84 = $Create.Nullable($$createType83);
-const $$createType85 = adapter$0.NetworkMonitor.createFrom;
-const $$createType86 = $Create.Nullable($$createType85);
-const $$createType87 = adapter$0.OverviewChart.createFrom;
-const $$createType88 = $Create.Nullable($$createType87);
-const $$createType89 = adapter$0.DiscordTrialStart.createFrom;
-const $$createType90 = adapter$0.ProfileChart.createFrom;
-const $$createType91 = $Create.Nullable($$createType90);
+const $$createType72 = $Create.Map($Create.Any, $Create.Any);
+const $$createType73 = adapter$0.PlanLimits.createFrom;
+const $$createType74 = adapter$0.PricingPlansResult.createFrom;
+const $$createType75 = data$0.NodeRoute.createFrom;
+const $$createType76 = $Create.Nullable($$createType75);
+const $$createType77 = $Create.Array($$createType76);
+const $$createType78 = adapter$0.QuoteResult.createFrom;
+const $$createType79 = adapter$0.AppTrafficSnapshot.createFrom;
+const $$createType80 = $Create.Nullable($$createType79);
+const $$createType81 = adapter$0.NameResult.createFrom;
+const $$createType82 = adapter$0.InterfaceMonitorDetail.createFrom;
+const $$createType83 = $Create.Nullable($$createType82);
+const $$createType84 = adapter$0.LocationMonitor.createFrom;
+const $$createType85 = $Create.Nullable($$createType84);
+const $$createType86 = adapter$0.NetworkMonitor.createFrom;
+const $$createType87 = $Create.Nullable($$createType86);
+const $$createType88 = adapter$0.OverviewChart.createFrom;
+const $$createType89 = $Create.Nullable($$createType88);
+const $$createType90 = adapter$0.DiscordTrialStart.createFrom;
+const $$createType91 = adapter$0.ProfileChart.createFrom;
+const $$createType92 = $Create.Nullable($$createType91);
