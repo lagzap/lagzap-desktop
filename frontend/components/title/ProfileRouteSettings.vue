@@ -3,21 +3,22 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useStore } from "@/stores";
 import { useLocale } from "vuetify";
 import { FindAvailableInterfaces } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
+import type { Profile, ProfileState } from "~/bindings/github.com/lagzap/zap/data";
+import { hasGroup, type RouteGroup } from "~/utils/profileRoute";
 import { ProfileFlag } from "~/constants/profile";
 import { debounce } from "es-toolkit";
-import {
-  MAX_ROUTES,
-  DEFAULT_TCP_ROUTES,
-  DEFAULT_UDP_ROUTES,
-  normalizeRouteCounts,
-  resolveProfileRouteCounts,
-} from "~/composables/routeCountUtils";
-import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
+import { MAX_ROUTES, normalizeRouteCounts } from "~/composables/routeCountUtils";
+import { useProfileRouteCounts } from "~/composables/useProfileRouteCounts";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import PlanLock from "~/components/plan/PlanLock.vue";
 import RouteLevelText from "~/components/plan/RouteLevelText.vue";
 import GlobalOverride from "~/components/common/GlobalOverride.vue";
+import PillToggle from "~/components/common/PillToggle.vue";
+import {
+  preferredTransportSetting,
+  preferredTransportValue,
+  type PreferredTransportSetting,
+} from "~/composables/useSettings";
 import ProfileDownloadCap from "~/components/title/ProfileDownloadCap.vue";
 import MultipathOffHint from "~/components/title/MultipathOffHint.vue";
 import { profileLimit } from "~/composables/useBandwidthControl";
@@ -28,17 +29,67 @@ const props = defineProps<{
    * (Simple view opens it from the card's ⋮ menu). */
   bare?: boolean;
   target?: Element | null;
+  /** On the title page: the settings can be the whole title's too. */
+  titleScope?: boolean;
 }>();
 
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
 const plan = usePlanAccess();
-/** The plan's route limit, within what the inputs offer anyway. */
-const routeMax = computed(() => {
-  const max = plan.limits.value?.max_routes ?? 0;
-  return max > 0 ? Math.min(MAX_ROUTES, max) : MAX_ROUTES;
+
+/** Whose settings: the profile's, or the title's (all its profiles follow
+ * those unless one sets its own). */
+type Scope = "profile" | "title";
+const scope = ref<Scope>("profile");
+const titleId = computed(() => props.profile.title_id ?? "");
+const titleState = computed(() => store.titleStates[titleId.value]);
+const titleName = computed(() => {
+  const title = store.titles.find((x) => x.id === titleId.value);
+  return title ? String(store.localized(title.name) || "") : "";
 });
+const scopeItems = computed(() => [
+  { value: "profile" as Scope, title: String(store.localized(props.profile.name) || "") },
+  { value: "title" as Scope, title: t("$vuetify.title.profile.scopeAll", titleName.value) },
+]);
+/** What the settings read and write: the profile's view (its own choices,
+ * the title's where it has none), or the title's. */
+const state = computed<ProfileState>(
+  () => (scope.value === "title" ? titleState.value : store.profileStates[props.profile.id]) as ProfileState,
+);
+/** Only what is set here (not followed): the profile's own, or the title's. */
+const own = computed<Partial<ProfileState> | undefined>(() =>
+  scope.value === "title" ? (titleState.value as Partial<ProfileState> | undefined) : store.ownProfileStates[props.profile.id],
+);
+/** A profile's value that follows the title: the title's, when it sets one. */
+function fromTitle<K extends "allow_local_routes" | "relay_transport_fallback" | "preferred_transport">(k: K) {
+  if (scope.value !== "profile" || !props.titleScope) return null;
+  const v = (titleState.value as Partial<ProfileState> | undefined)?.[k];
+  return v === null || v === undefined ? null : v;
+}
+/** Groups Route Settings sets (the place is the picker's). */
+const SETTING_GROUPS: RouteGroup[] = ["internet", "routes", "domestic", "fallback", "transport"];
+const ownsSettings = computed(
+  () => scope.value === "profile" && SETTING_GROUPS.some((g) => hasGroup(store.ownProfileStates[props.profile.id], g)),
+);
+async function useTitleSettings() {
+  await store.followTitle(props.profile.id, SETTING_GROUPS);
+  syncAdvancedRouteVisibility();
+}
+const {
+  routeMax,
+  ensureLoaded: ensureNetworkSettingsLoaded,
+  profileUsesCustomRoutes,
+  applySimpleRouteCap,
+  resolvedCounts,
+  tcpRoutes,
+  udpRoutes,
+  tcpRoutesMin,
+  udpRoutesMin,
+} = useProfileRouteCounts(
+  () => props.profile.id,
+  () => state.value,
+);
 const planRoutesCapped = computed(() => routeMax.value < MAX_ROUTES);
 /** The plan's route level (max_hops; 0 is no limit). */
 const planLevel = computed(() => {
@@ -46,87 +97,7 @@ const planLevel = computed(() => {
   return hops > 0 && hops < 3 ? hops : 3;
 });
 
-const {
-  resolvedGlobalTcp,
-  resolvedGlobalUdp,
-  ensureLoaded: ensureNetworkSettingsLoaded,
-} = useNetworkAdapterSettings();
-
-const defaultTcpRoutes = resolvedGlobalTcp;
-const defaultUdpRoutes = resolvedGlobalUdp;
-
 const showAdvancedRouteOptions = ref(false);
-
-const profileUsesCustomRoutes = computed(() => {
-  const state = store.profileStates[props.profile.id];
-  return (
-    state?.route_connections != null ||
-    state?.tcp_connections != null ||
-    state?.udp_connections != null
-  );
-});
-
-/** Simple mode: persist unified cap; coordinator allocates TCP/UDP. */
-function applySimpleRouteCap(total: number | null) {
-  const state = store.profileStates[props.profile.id];
-  if (!state) return;
-
-  delete state.tcp_connections;
-  delete state.udp_connections;
-  delete state.relay_transport_fallback;
-
-  if (total === null) {
-    delete state.route_connections;
-    return;
-  }
-
-  state.route_connections = Math.max(
-    1,
-    Math.min(MAX_ROUTES, Math.round(total) || 1)
-  );
-}
-
-const applyRouteCounts = (
-  tcp: number | null,
-  udp: number | null,
-  changed: "tcp" | "udp",
-) => {
-  const state = store.profileStates[props.profile.id];
-  if (!state) return;
-
-  // Advanced explicit split replaces unified cap.
-  delete state.route_connections;
-
-  if (changed === "tcp" && tcp === null) {
-    delete state.tcp_connections;
-    return;
-  }
-  if (changed === "udp" && udp === null) {
-    delete state.udp_connections;
-    return;
-  }
-
-  const nextTcp = tcp ?? state.tcp_connections ?? defaultTcpRoutes.value;
-  const nextUdp = udp ?? state.udp_connections ?? defaultUdpRoutes.value;
-  const normalized = normalizeRouteCounts(nextTcp, nextUdp, changed);
-  if (normalized.tcp !== null) {
-    state.tcp_connections = normalized.tcp;
-  } else {
-    delete state.tcp_connections;
-  }
-  if (normalized.udp !== null) {
-    state.udp_connections = normalized.udp;
-  } else {
-    delete state.udp_connections;
-  }
-};
-
-const resolvedCounts = computed(() =>
-  resolveProfileRouteCounts(store.profileStates[props.profile.id], {
-    tcp: defaultTcpRoutes.value ?? DEFAULT_TCP_ROUTES,
-    udp: defaultUdpRoutes.value ?? DEFAULT_UDP_ROUTES,
-  })
-);
 
 /** Simple mode: one cap backed by route_connections. */
 const totalRouteCap = computed({
@@ -136,44 +107,8 @@ const totalRouteCap = computed({
   },
 });
 
-/** Always show effective counts (profile override or settings default). */
-const tcpRoutes = computed({
-  get: () => resolvedCounts.value.tcp,
-  set: (value: number | null) => {
-    if (value === null) {
-      applyRouteCounts(null, store.profileStates[props.profile.id]?.udp_connections ?? null, "tcp");
-      return;
-    }
-    const udp =
-      store.profileStates[props.profile.id]?.udp_connections ??
-      defaultUdpRoutes.value;
-    applyRouteCounts(value, udp, "tcp");
-  },
-});
-
-const udpRoutes = computed({
-  get: () => resolvedCounts.value.udp,
-  set: (value: number | null) => {
-    if (value === null) {
-      applyRouteCounts(store.profileStates[props.profile.id]?.tcp_connections ?? null, null, "udp");
-      return;
-    }
-    const tcp =
-      store.profileStates[props.profile.id]?.tcp_connections ??
-      defaultTcpRoutes.value;
-    applyRouteCounts(tcp, value, "udp");
-  },
-});
-
 const resolvedTcpDisplay = computed(() => tcpRoutes.value);
 const resolvedUdpDisplay = computed(() => udpRoutes.value);
-
-const tcpRoutesMin = computed(() =>
-  profileUsesCustomRoutes.value && udpRoutes.value === 0 ? 1 : 0,
-);
-const udpRoutesMin = computed(() =>
-  profileUsesCustomRoutes.value && tcpRoutes.value === 0 ? 1 : 0,
-);
 
 const totalRoutes = computed(() => resolvedCounts.value.total);
 
@@ -181,14 +116,14 @@ const totalRoutes = computed(() => resolvedCounts.value.total);
 // Manual is saved as an explicit TCP/UDP split (no unified cap): picking it
 // stores the split shown right away, so it is still Manual next time.
 function enterAdvancedRouteOptions() {
-  const state = store.profileStates[props.profile.id];
-  if (state) {
+  const st = state.value;
+  if (st) {
     // Without the Smart cap the split is the profile's own counts or the
     // defaults: what Manual shows.
-    delete state.route_connections;
     const normalized = normalizeRouteCounts(tcpRoutes.value, udpRoutes.value, "tcp");
-    state.tcp_connections = normalized.tcp ?? 0;
-    state.udp_connections = normalized.udp ?? 0;
+    st.route_connections = null;
+    st.tcp_connections = normalized.tcp ?? 0;
+    st.udp_connections = normalized.udp ?? 0;
   }
   showAdvancedRouteOptions.value = true;
 }
@@ -199,42 +134,79 @@ function exitAdvancedRouteOptions() {
 }
 
 function syncAdvancedRouteVisibility() {
-  const state = store.profileStates[props.profile.id];
   // Manual unless Smart was picked (a unified cap), as Go reads it: with no
   // counts of its own a profile uses the adapters' (1 TCP, 1 UDP by default).
-  showAdvancedRouteOptions.value = state?.route_connections == null;
+  showAdvancedRouteOptions.value = state.value?.route_connections == null;
 }
 
 watch(
   () => props.profile.id,
-  () => syncAdvancedRouteVisibility(),
+  () => {
+    scope.value = "profile";
+    syncAdvancedRouteVisibility();
+  },
   { immediate: true }
 );
+watch(scope, () => syncAdvancedRouteVisibility());
 
 const { settings } = useSettings();
 
 // Settings with a global value: null follows it, true/false is this app's own.
+// (A profile's null follows its title's, when the title sets one.)
 const transportFallback = computed<boolean | null>({
-  get: () => store.profileStates[props.profile.id]?.relay_transport_fallback ?? null,
+  get: () => own.value?.relay_transport_fallback ?? null,
   set: (value) => {
-    const state = store.profileStates[props.profile.id];
-    if (!state) return;
-    if (value === null) delete state.relay_transport_fallback;
-    else state.relay_transport_fallback = value;
+    const st = own.value;
+    if (st) st.relay_transport_fallback = value;
   },
 });
 
-const domesticRoutes = computed<boolean | null>({
+/** Prevent disconnect (without Multi Internet): its one leg's transport,
+ * Auto (the better one), TCP or UDP; "global" follows the setting on Route
+ * Options. */
+const preventOnly = computed(
+  () =>
+    (props.profile.flags & ProfileFlag.PREVENT_DISCONNECT) !== 0 &&
+    (props.profile.flags & ProfileFlag.MULTIPATH) === 0 &&
+    props.profile.route_action == "route",
+);
+type TransportChoice = "global" | PreferredTransportSetting;
+const preferredTransport = computed<TransportChoice>({
   get: () => {
-    const state = store.profileStates[props.profile.id];
-    if (!state || state.follow_global_local_routes) return null;
-    return !!state.allow_local_routes;
+    const v = own.value?.preferred_transport;
+    return v === undefined || v === null ? "global" : preferredTransportSetting(v);
   },
+  set: (next) => {
+    const st = own.value;
+    if (st) st.preferred_transport = next === "global" ? null : preferredTransportValue(next);
+  },
+});
+const transportName = (v: PreferredTransportSetting) => t(`$vuetify.settings.route.transport.${v}`);
+const transportItems = computed(() => [
+  (() => {
+    const titles = fromTitle("preferred_transport");
+    return titles !== null
+      ? {
+          value: "global" as TransportChoice,
+          title: `${titleName.value} · ${transportName(preferredTransportSetting(titles))}`,
+          icon: "mdi-link-variant",
+        }
+      : {
+          value: "global" as TransportChoice,
+          title: t("$vuetify.title.profile.followGlobal", transportName(settings.value.preferredTransport ?? "auto")),
+          icon: "mdi-earth",
+        };
+  })(),
+  { value: "auto" as TransportChoice, title: transportName("auto") },
+  { value: "tcp" as TransportChoice, title: transportName("tcp") },
+  { value: "udp" as TransportChoice, title: transportName("udp") },
+]);
+
+const domesticRoutes = computed<boolean | null>({
+  get: () => own.value?.allow_local_routes ?? null,
   set: (value) => {
-    const state = store.profileStates[props.profile.id];
-    if (!state) return;
-    state.follow_global_local_routes = value === null;
-    if (value !== null) state.allow_local_routes = value;
+    const st = own.value;
+    if (st) st.allow_local_routes = value;
   },
 });
 
@@ -255,11 +227,28 @@ const hasCustomSettings = computed(
     (highTraffic.value && profileLimit(props.profile.id) !== null),
 );
 
+// Saved a moment after a change: the profile's own state, or the title's
+// (its profiles then follow it).
 watch(
-  () => store.profileStates[props.profile.id],
+  () => store.ownProfileStates[props.profile.id],
   debounce(() => {
     store.saveProfileState(props.profile.id);
   }, 1000),
+  { deep: true },
+);
+let titleEdited = false;
+const saveTitleSoon = debounce(() => {
+  if (!titleEdited) return;
+  titleEdited = false;
+  void store.saveTitleState(titleId.value);
+}, 1000);
+watch(
+  titleState,
+  () => {
+    if (scope.value !== "title") return;
+    titleEdited = true;
+    saveTitleSoon();
+  },
   { deep: true },
 );
 
@@ -292,7 +281,7 @@ const interfaces = computed(() => store.availableInterfaces);
 
 const availableInterfaceNames = computed(() => store.availableInterfaceNames);
 const selectedInterfaces = computed(
-  () => store.profileStates[props.profile.id]?.network_interfaces || []
+  () => state.value?.network_interfaces || []
 );
 const orphanedInterfaces = computed(() =>
   store.getUnavailableInterfaces(props.profile.id)
@@ -309,17 +298,18 @@ const interfaceSelectItems = computed(() => {
 });
 
 const removeOrphanedInterface = async (interfaceName: string) => {
-  const state = store.profileStates[props.profile.id];
-  if (!state) {
+  const st = state.value;
+  if (!st) {
     return;
   }
-  const current = state.network_interfaces || [];
-  state.network_interfaces = current.filter((name) => name !== interfaceName);
-  if (state.default_interface === interfaceName) {
-    state.default_interface = "";
+  const current = st.network_interfaces || [];
+  st.network_interfaces = current.filter((name) => name !== interfaceName);
+  if (st.default_interface === interfaceName) {
+    st.default_interface = "";
   }
   store.updateProfileUnavailableInterfaces(props.profile.id);
-  await store.saveProfileState(props.profile.id);
+  if (scope.value === "title") await store.saveTitleState(titleId.value);
+  else await store.saveProfileState(props.profile.id);
 };
 
 const clearOrphanedInterfaces = async () => {
@@ -387,7 +377,17 @@ onMounted(async () => {
       </v-card-title>
 
       <v-card-text>
+        <!-- The title page: this profile's settings, or the whole title's. -->
+        <PillToggle v-if="titleScope" v-model="scope" :items="scopeItems" class="mb-3" />
+        <!-- The title page's own options for this profile (Login connections). -->
+        <slot name="top" />
         <v-row dense class="mt-2">
+          <!-- Prevent disconnect: the transport its leg uses. -->
+          <v-col v-if="preventOnly" cols="12">
+            <div class="text-body-2 mb-1">{{ t("$vuetify.settings.route.preferredTransport") }}</div>
+            <PillToggle v-model="preferredTransport" :items="transportItems" :disabled="!store.appReady" />
+            <div class="text-caption text-medium-emphasis mt-1">{{ t("$vuetify.settings.route.preferredTransportHint") }}</div>
+          </v-col>
           <template
             v-if="
               (profile.flags & ProfileFlag.MULTIPATH) !== 0 &&
@@ -499,7 +499,8 @@ onMounted(async () => {
                       v-model="transportFallback"
                       :label="t('$vuetify.title.profile.transportFallback')"
                       :hint="t('$vuetify.title.profile.transportFallbackHint')"
-                      :global="!!settings.relayTransportFallback"
+                      :global="fromTitle('relay_transport_fallback') ?? !!settings.relayTransportFallback"
+                      :follow-name="fromTitle('relay_transport_fallback') !== null ? titleName : undefined"
                       :disabled="!store.appReady"
                     />
                   </v-col>
@@ -522,7 +523,7 @@ onMounted(async () => {
             <template v-if="(profile.flags & ProfileFlag.MULTIPATH) !== 0">
               <v-select
                 v-model:model-value="
-                  store.profileStates[profile.id].network_interfaces
+                  state.network_interfaces
                 "
                 :label="t('$vuetify.title.profile.multiInternet')"
                 :hint="t('$vuetify.title.profile.networkAdaptersHint')"
@@ -575,7 +576,7 @@ onMounted(async () => {
             >
               <v-select
                 v-model:model-value="
-                  store.profileStates[profile.id].default_interface
+                  state.default_interface
                 "
                 :label="t('$vuetify.title.profile.networkAdapter')"
                 :hint="t('$vuetify.title.profile.networkAdaptersHint')"
@@ -597,7 +598,7 @@ onMounted(async () => {
               />
               <v-select
                 v-model:model-value="
-                  store.profileStates[profile.id].network_interfaces
+                  state.network_interfaces
                 "
                 :label="t('$vuetify.title.profile.backupInterfaces')"
                 :hint="t('$vuetify.title.profile.backupInterfacesHint')"
@@ -648,7 +649,7 @@ onMounted(async () => {
             <template v-else-if="(profile.flags & ProfileFlag.GAME_PACKET) !== 0">
               <v-select
                 v-model:model-value="
-                  store.profileStates[profile.id].network_interfaces
+                  state.network_interfaces
                 "
                 :label="t('$vuetify.title.profile.multiInternet')"
                 :hint="t('$vuetify.title.profile.networkAdaptersHint')"
@@ -703,7 +704,7 @@ onMounted(async () => {
           >
             <v-select
               v-model:model-value="
-                store.profileStates[profile.id].default_interface
+                state.default_interface
               "
               :label="t('$vuetify.title.profile.networkAdapter')"
               :hint="t('$vuetify.title.profile.networkAdaptersHint')"
@@ -753,9 +754,23 @@ onMounted(async () => {
           class="mt-4"
           :label="t('$vuetify.title.profile.allowLocalRoutes')"
           :hint="t('$vuetify.title.profile.allowLocalRoutesHint')"
-          :global="settings.allowLocalRoutes ?? true"
+          :global="fromTitle('allow_local_routes') ?? settings.allowLocalRoutes ?? true"
+          :follow-name="fromTitle('allow_local_routes') !== null ? titleName : undefined"
           :disabled="!store.appReady"
         />
+
+        <!-- The profile has settings of its own: back to the title's. -->
+        <v-btn
+          v-if="titleScope && ownsSettings"
+          variant="text"
+          color="on-surface"
+          prepend-icon="mdi-link-variant"
+          class="text-none mt-3"
+          :disabled="!store.appReady"
+          @click="useTitleSettings"
+        >
+          {{ t("$vuetify.title.profile.useTitleSettings", titleName) }}
+        </v-btn>
       </v-card-text>
     </v-card>
   </v-menu>

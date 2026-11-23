@@ -8,8 +8,10 @@ import PillToggle from "~/components/common/PillToggle.vue";
 const props = defineProps<{
   label: string;
   hint?: string;
-  /** The global value right now. */
+  /** The global value right now (or the title's, with followName). */
   global: boolean;
+  /** Follows the title (this name), not the global setting. */
+  followName?: string;
   disabled?: boolean;
 }>();
 const value = defineModel<boolean | null>({ default: null });
@@ -27,8 +29,10 @@ const choice = computed<Choice>({
 const items = computed(() => [
   {
     value: "global" as Choice,
-    title: p("followGlobal", props.global ? p("overrideOn") : p("overrideOff")),
-    icon: "mdi-earth",
+    title: props.followName
+      ? `${props.followName} · ${props.global ? p("overrideOn") : p("overrideOff")}`
+      : p("followGlobal", props.global ? p("overrideOn") : p("overrideOff")),
+    icon: props.followName ? "mdi-link-variant" : "mdi-earth",
   },
   { value: "on" as Choice, title: p("overrideOn") },
   { value: "off" as Choice, title: p("overrideOff") },

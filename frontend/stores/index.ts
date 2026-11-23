@@ -46,6 +46,7 @@ import {
   ClientInfo,
 } from "~/bindings/github.com/lagzap/zap/data";
 import { Events } from "@wailsio/runtime";
+import { clearGroup, profileView, type RouteGroup } from "~/utils/profileRoute";
 import { displayAlert, displayError } from "~/composables/alert";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import { getToken } from "~/utils/indexedDB";
@@ -210,7 +211,25 @@ export const useStore = defineStore("index", () => {
   const regions = ref<Record<string, Region>>({});
   const nodes = ref<Record<string, Node>>({});
   const titleStates = ref<Record<string, TitleState>>({});
-  const profileStates = ref<Record<string, ProfileState>>({});
+  /** Each profile's own state as saved (what the app service keeps); a
+   * route group it leaves unset follows its title (utils/profileRoute). */
+  const ownProfileStates = ref<Record<string, ProfileState>>({});
+  const views = new WeakMap<ProfileState, ProfileState>();
+  /** What each profile reads: its own choices, its title's where it has
+   * none. Writing a field makes that group the profile's own; save with
+   * saveProfileState. The title's choices are edited on titleStates. */
+  const profileStates = computed<Record<string, ProfileState>>(() => {
+    const out: Record<string, ProfileState> = {};
+    for (const [id, own] of Object.entries(ownProfileStates.value)) {
+      let view = views.get(own);
+      if (!view) {
+        view = profileView(own, () => titleStates.value[own.titleId ?? ""]);
+        views.set(own, view);
+      }
+      out[id] = view;
+    }
+    return out;
+  });
   const routes = ref<Record<string, RelayRoute>>({});
   /** Optimize client→entry RTT per NIC: key = `${iface}|${ip}|${tcp|udp|icmp}`. */
   const ifaceEntryRtt = ref<Record<string, number>>({});
@@ -482,8 +501,8 @@ export const useStore = defineStore("index", () => {
       titleStates.value = titleStatesData as Record<string, TitleState>;
     }
     if (profileStatesData && typeof profileStatesData === "object") {
-      profileStates.value = {
-        ...profileStates.value,
+      ownProfileStates.value = {
+        ...ownProfileStates.value,
         ...(profileStatesData as Record<string, ProfileState>),
       };
     }
@@ -962,10 +981,17 @@ export const useStore = defineStore("index", () => {
   };
   const saveProfileState = async (profileId: string) => {
     try {
-      await SaveProfileState(profileStates.value[profileId]);
+      await SaveProfileState(ownProfileStates.value[profileId]);
     } catch (e) {
       displayError(e, locale);
     }
+  };
+  /** The profile follows its title for these groups again. */
+  const followTitle = async (profileId: string, groups: RouteGroup[]) => {
+    const own = ownProfileStates.value[profileId];
+    if (!own) return;
+    for (const g of groups) clearGroup(own, g);
+    await saveProfileState(profileId);
   };
   const visitTitle = async (id: string) => {
     await VisitTitle(id);
@@ -1012,7 +1038,7 @@ export const useStore = defineStore("index", () => {
   const upsertProfileStates = (states: Record<string, ProfileState>) => {
     if (!states) return;
     for (const profileState of Object.values(states)) {
-      profileStates.value[profileState.profileId] = profileState;
+      ownProfileStates.value[profileState.profileId] = profileState;
       updateProfileUnavailableInterfaces(profileState.profileId);
     }
   };
@@ -1457,6 +1483,8 @@ export const useStore = defineStore("index", () => {
     nodes,
     titleStates,
     profileStates,
+    ownProfileStates,
+    followTitle,
     clientInfo,
     routes,
     ifaceEntryRtt,

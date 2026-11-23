@@ -59,7 +59,7 @@ onMounted(async () => {
   {
     const data = await GetProfileStates();
     if (data && typeof data === "object") {
-      store.profileStates = { ...store.profileStates, ...data };
+      store.ownProfileStates = { ...store.ownProfileStates, ...data };
     }
   }
 

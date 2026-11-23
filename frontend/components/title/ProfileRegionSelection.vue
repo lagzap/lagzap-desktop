@@ -15,10 +15,8 @@ import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettin
 import SplitTunnelOptions from "~/components/title/SplitTunnelOptions.vue";
 import LockedPlaces, { type LockedPlace } from "~/components/title/LockedPlaces.vue";
 import ProfileWireGuard from "~/components/title/ProfileWireGuard.vue";
-import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
-import LoadBalanceOptions, { type LoadBalanceMode } from "~/components/title/LoadBalanceOptions.vue";
-import { GetLoadBalanceShares } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import type { LoadBalanceShare } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import LoadBalanceOptions from "~/components/title/LoadBalanceOptions.vue";
+import { useProfileInternets } from "~/composables/useProfileInternets";
 
 const props = defineProps<{
   profile: Profile;
@@ -41,6 +39,7 @@ const moreWithBetterPlan = computed(() =>
   Object.values(plan.access.value?.nodes ?? {}).some((a) => a === "locked"),
 );
 
+const regionSelection = useRegionSelection(props.profile);
 const {
   // State
   dialogOpen,
@@ -134,7 +133,7 @@ const {
   lockedNodes,
   lockedCityMap,
   lockedAreas,
-} = useRegionSelection(props.profile);
+} = regionSelection;
 
 // Locked places end each list, with a purchase icon (LockedPlaces.vue).
 const lockedSearch = (places: LockedPlace[]) => {
@@ -229,166 +228,31 @@ watch(
   { immediate: true },
 );
 
-// Split Tunnel: send this profile out through one adapter, with any server
-// choice (a country, a city, Automatic). The core binds the profile's relay
-// and direct traffic to default_interface (the profile's Network adapter
-// setting); empty = the system's adapter.
-const splitAdapter = computed(() => selectedDefaultInterface.value);
-/** Adapters to offer, plus saved ones that are gone now (shown in warning). */
-const splitAdapters = computed(() => {
-  const names = (interfaces.value ?? []).map((iface) => iface.Name);
-  const saved = [splitAdapter.value, ...(store.profileStates[props.profile.id]?.network_interfaces ?? [])];
-  // "*" and "-" are settings (follow Multi Internet / load balancing off),
-  // not adapters.
-  for (const name of saved) if (name && name !== "*" && name !== LOAD_BALANCE_OFF && !names.includes(name)) names.push(name);
-  return names;
-});
-function setSplitAdapter(name: string) {
-  store.profileStates[props.profile.id].default_interface = name;
-}
-/** Turning it on picks the adapter the system uses now, so nothing changes
- * until another one is chosen; off goes back to the system's choice. */
-function toggleSplitTunnel() {
-  if (splitAdapter.value) {
-    setSplitAdapter("");
-    return;
-  }
-  const names = splitAdapters.value;
-  const current = store.defaultInterface && names.includes(store.defaultInterface) ? store.defaultInterface : names[0];
-  if (current) setSplitAdapter(current);
-}
-
-// Multi Internet profiles: the same switch edits the profile's Multi Internet
-// adapters (network_interfaces) instead. Empty follows the Multi Internet
-// settings; one adapter is Multi Internet off for this profile.
-const isMultiInternetProfile = computed(() => (props.profile.flags & ProfileFlag.MULTIPATH) !== 0);
-const ownInternets = computed(() =>
-  (store.profileStates[props.profile.id]?.network_interfaces ?? []).filter(Boolean),
-);
-const settingsInternets = computed(() => multiInternet.selection.value);
-const multiOn = computed(() => ownInternets.value.length > 1);
-/** Not set on the profile, and the settings already join several internets. */
-const multiInherited = computed(() => ownInternets.value.length === 0 && settingsInternets.value.length > 1);
-const multiSelected = computed(() =>
-  ownInternets.value.length > 0 ? ownInternets.value : settingsInternets.value,
-);
-function setOwnInternets(names: string[]) {
-  store.profileStates[props.profile.id].network_interfaces = names;
-}
-function toggleMultiInternet() {
-  if (multiOn.value) {
-    // Off: one internet. Clearing would fall back to the settings, which may
-    // have Multi Internet on.
-    const keep = multiSelected.value[0];
-    setOwnInternets(settingsInternets.value.length > 1 && keep ? [keep] : []);
-    return;
-  }
-  const pool = settingsInternets.value.length > 1 ? settingsInternets.value : splitAdapters.value;
-  setOwnInternets([...pool]);
-}
-function pickInternet(name: string) {
-  // Off (radios): the one internet the profile uses.
-  if (!multiOn.value && !multiInherited.value) {
-    setOwnInternets([name]);
-    return;
-  }
-  // On (checkboxes): two or more ticked is Multi Internet; unticking down to
-  // one turns it off on that internet.
-  const current = multiSelected.value;
-  const next = current.includes(name) ? current.filter((n) => n !== name) : [...current, name];
-  if (next.length >= 1) setOwnInternets(next);
-}
-
-// Load balancing (High traffic profiles: downloads, CDNs): new connections
-// are spread over the profile's internets by weight, through a server or
-// direct. Same field as Multi Internet (network_interfaces); two or more
-// internets turn it on, none is off.
-const isLoadBalanceProfile = computed(() => {
-  const flags = props.profile.flags;
-  return (
-    (flags & ProfileFlag.HIGH_TRAFFIC) !== 0 &&
-    (flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET | ProfileFlag.PREVENT_DISCONNECT)) === 0
-  );
-});
-// network_interfaces: empty or "*" = the Load balance internets from the
-// Multi Internet page (the default), "-" = off, names = the profile's own.
-const LOAD_BALANCE_POOL = "*";
-const LOAD_BALANCE_OFF = "-";
-const balanceMarkers = [LOAD_BALANCE_POOL, LOAD_BALANCE_OFF];
-const { loadBalance: loadBalancePool, isMetered } = useNetworkAdapterSettings();
-const balancePicked = computed(() => ownInternets.value.filter((n) => !balanceMarkers.includes(n)));
-const balanceMode = computed<LoadBalanceMode>(() => {
-  if (ownInternets.value.includes(LOAD_BALANCE_OFF)) return "off";
-  return balancePicked.value.length > 0 ? "pick" : "pool";
-});
-const presentAdapters = computed(() => splitAdapters.value.filter((n) => !orphanedInterfaces.value.includes(n)));
-/** Every internet that can be load balanced (metered ones never are). */
-const balanceAdapters = computed(() => splitAdapters.value.filter((n) => !isMetered(n)));
-/** Ticked: the profile's own internets, or the ones flagged Load balance on
- * the Multi Internet page while it has none of its own. */
-const balanceSelected = computed(() =>
-  balanceMode.value === "pick"
-    ? balancePicked.value
-    : loadBalancePool.selection.value.filter((n) => presentAdapters.value.includes(n) && !isMetered(n)),
-);
-const balanceOn = computed(() => balanceMode.value !== "off" && balanceSelected.value.length > 1);
-function setBalanceMode(next: LoadBalanceMode) {
-  if (next === balanceMode.value) return;
-  setOwnInternets(next === "off" ? [LOAD_BALANCE_OFF] : []);
-}
-/** Ticking an internet makes the ticked ones the profile's own; unticking
- * down to one turns load balancing off on that one. */
-function pickBalanceInternet(name: string) {
-  const current = balanceSelected.value;
-  const next = current.includes(name) ? current.filter((n) => n !== name) : [...current, name];
-  if (next.length >= 2) setOwnInternets(next);
-  else if (next.length === 1) pickSingleBalance(next[0]);
-}
-/** Off on one internet: Go balances only over two or more, else it uses the
- * profile's Default, so the one internet is that Default. */
-function pickSingleBalance(name: string) {
-  setSplitAdapter(name);
-  setOwnInternets([LOAD_BALANCE_OFF]);
-}
-// A Dedicated IP is one tunnel on one internet: load balancing is off and
-// one internet is picked (the core ignores load balancing for it too).
-const { summary: profileWireGuard } = useProfileWireGuard(props.profile.id);
-const dedicatedIpOn = computed(() => profileWireGuard.value.enabled && !!profileWireGuard.value.selected);
-const { settings, setLoadBalanceWeight } = useSettings();
-// Each internet's weight and share, while the menu is open.
-const balanceShares = ref<Record<string, LoadBalanceShare>>({});
-async function refreshBalanceShares() {
-  if (!balanceOn.value) return;
-  try {
-    const names = balanceSelected.value;
-    const list = (await GetLoadBalanceShares(names)) ?? [];
-    balanceShares.value = Object.fromEntries(list.map((share) => [share.name, share]));
-  } catch {
-    // service not running yet
-  }
-}
-let sharesTimer: ReturnType<typeof setInterval> | undefined;
-watch(
-  () => dialogOpen.value && isLoadBalanceProfile.value && balanceOn.value,
-  (live) => {
-    clearInterval(sharesTimer);
-    if (!live) return;
-    void refreshBalanceShares();
-    sharesTimer = setInterval(refreshBalanceShares, 2000);
-  },
-  { immediate: true },
-);
-watch(() => [...ownInternets.value, JSON.stringify(settings.value.loadBalanceWeights ?? {})].join("|"), () => {
-  void refreshBalanceShares();
-});
-onBeforeUnmount(() => clearInterval(sharesTimer));
-
-function adapterIcon(name: string) {
-  const n = name.toLowerCase();
-  if (/wi-?fi|wlan|wireless/.test(n)) return "mdi-wifi";
-  if (/cellular|mobile|wwan|lte|5g/.test(n)) return "mdi-signal-cellular-3";
-  return "mdi-ethernet";
-}
+// Its internets: Split Tunnel, Multi Internet, load balancing, Dedicated IP.
+const {
+  splitAdapter,
+  splitAdapters,
+  setSplitAdapter,
+  toggleSplitTunnel,
+  isMultiInternetProfile,
+  multiOn,
+  multiInherited,
+  multiSelected,
+  toggleMultiInternet,
+  pickInternet,
+  isLoadBalanceProfile,
+  balanceMode,
+  balanceAdapters,
+  balanceSelected,
+  balanceOn,
+  setBalanceMode,
+  pickBalanceInternet,
+  pickSingleBalance,
+  dedicatedIpOn,
+  setLoadBalanceWeight,
+  balanceShares,
+  adapterIcon,
+} = useProfileInternets(props.profile, regionSelection, dialogOpen);
 // The button says which adapter Split Tunnel goes out through, or that
 // Multi Internet is on.
 const buttonText = computed(() => {

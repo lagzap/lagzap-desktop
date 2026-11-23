@@ -1304,8 +1304,9 @@ export function useRegionSelection(profile: Profile) {
   });
 
   // Auto-save functionality
+  // The own state: the title's changes are saved with the title.
   watch(
-    () => store.profileStates[profile.id],
+    () => store.ownProfileStates[profile.id],
     debounce((newState) => {
       console.trace(store.profileStates[profile.id])
       store.saveProfileState(profile.id);
