@@ -60,7 +60,7 @@ function networkFailureMessage(
     return locale.t("$vuetify.startService.serverUnreachable");
   }
   if (kind === "timeout") {
-    return "Can't reach LagZap servers (timed out). Check your internet and try again.";
+    return "LagZap servers are slow to respond right now. Try again in a moment.";
   }
   if (kind === "proxy") {
     return "Local connection helper is not ready. Retry in a moment.";

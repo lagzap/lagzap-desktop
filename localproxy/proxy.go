@@ -2,6 +2,7 @@ package localproxy
 
 import (
 	"bytes"
+	"errors"
 	"context"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lagzap/lagzap-desktop/constant"
@@ -34,6 +36,14 @@ const (
 	readHeaderTimeout   = 10 * time.Second
 )
 
+// A read request whose upstream sends no answer in upstreamWait goes to the
+// next upstream; on the last one it waits lastUpstreamWait, then answers 504
+// ("slow to respond"). Both fit in the app's own 15s limit.
+var (
+	upstreamWait     = 6 * time.Second
+	lastUpstreamWait = 8 * time.Second
+)
+
 type clientCorsInfo struct {
 	origin  string
 	referer string
@@ -44,8 +54,10 @@ type corsContextKey struct{}
 var corsInfoKey corsContextKey
 
 type Config struct {
-	Listen    string
-	Target    string
+	Listen string
+	// Targets are the API's addresses, the one to use first first; a request
+	// that fails on one goes to the next, which later requests then use.
+	Targets   []string
 	Context   context.Context
 	DNS       adapter.DNSRouter
 	// BindIface names the adapter for each new upstream connection ("" = OS
@@ -83,19 +95,26 @@ func (p *Proxy) Start(cfg Config) error {
 	if listen == "" {
 		listen = DefaultListen
 	}
-	want := runningConfig{listen: listen, target: cfg.Target, ctx: cfg.Context, dns: cfg.DNS}
+	want := runningConfig{listen: listen, target: strings.Join(cfg.Targets, ","), ctx: cfg.Context, dns: cfg.DNS}
 	if p.server != nil && p.running == want {
 		return nil
 	}
 	if err := p.stopLocked(); err != nil {
 		return err
 	}
-	target, err := url.Parse(cfg.Target)
-	if err != nil {
-		return E.Cause(err, "parse target")
+	if len(cfg.Targets) == 0 {
+		return E.New("no upstream")
+	}
+	targets := make([]*url.URL, 0, len(cfg.Targets))
+	for _, raw := range cfg.Targets {
+		target, err := url.Parse(raw)
+		if err != nil {
+			return E.Cause(err, "parse target ", raw)
+		}
+		targets = append(targets, target)
 	}
 	handler := newHandler(handlerConfig{
-		target:    target,
+		targets:   targets,
 		ctx:       cfg.Context,
 		dns:       cfg.DNS,
 		bindIface: cfg.BindIface,
@@ -116,7 +135,7 @@ func (p *Proxy) Start(cfg Config) error {
 			fmt.Printf("localproxy: serve error: %v\n", err)
 		}
 	}()
-	fmt.Printf("localproxy: listening on %s -> %s\n", listen, target.String())
+	fmt.Printf("localproxy: listening on %s -> %s\n", listen, strings.Join(cfg.Targets, ", "))
 	return nil
 }
 
@@ -146,41 +165,89 @@ func (p *Proxy) stopLocked() error {
 }
 
 type handlerConfig struct {
-	target    *url.URL
+	targets   []*url.URL
 	ctx       context.Context
 	dns       adapter.DNSRouter
 	bindIface func() string
 }
 
+// attempt is one try of a request on one upstream.
+type attempt struct {
+	// Another upstream may take the request: its error is kept, not sent.
+	retry    bool
+	err      error
+	timedOut atomic.Bool
+	timer    *time.Timer
+}
+
+type attemptKey struct{}
+
+func attemptOf(r *http.Request) *attempt {
+	a, _ := r.Context().Value(attemptKey{}).(*attempt)
+	return a
+}
+
+// mayRetry: a read request may go to another upstream after any failure; a
+// write only when it never reached this one (the dial failed), so it is
+// never done twice.
+func mayRetry(r *http.Request, err error) bool {
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return true
+	}
+	var op *net.OpError
+	return errors.As(err, &op) && op.Op == "dial"
+}
+
+// upstreams serves each request through the upstream in use, and moves to
+// the next one when it fails (no answer in upstreamWait for a read).
+type upstreams struct {
+	targets []*url.URL
+	proxies []*httputil.ReverseProxy
+	current atomic.Int32
+}
+
+func (u *upstreams) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	n := len(u.proxies)
+	start := int(u.current.Load())
+	for i := 0; i < n; i++ {
+		idx := (start + i) % n
+		a := &attempt{retry: i < n-1}
+		ctx, cancel := context.WithCancel(r.Context())
+		if mayRetry(r, nil) {
+			wait := upstreamWait
+			if !a.retry {
+				wait = lastUpstreamWait
+			}
+			a.timer = time.AfterFunc(wait, func() {
+				a.timedOut.Store(true)
+				cancel()
+			})
+		}
+		u.proxies[idx].ServeHTTP(w, r.WithContext(context.WithValue(ctx, attemptKey{}, a)))
+		if a.timer != nil {
+			a.timer.Stop()
+		}
+		cancel()
+		if a.err == nil || r.Context().Err() != nil {
+			return
+		}
+		next := (idx + 1) % n
+		u.current.CompareAndSwap(int32(idx), int32(next))
+		fmt.Printf("localproxy: %s %s failed on %s (%v); moving to %s\n",
+			r.Method, r.URL.Path, u.targets[idx].Host, a.err, u.targets[next].Host)
+	}
+}
+
 func newHandler(cfg handlerConfig) http.Handler {
-	target := cfg.target
-	rp := &httputil.ReverseProxy{
-		Transport: newTransport(transportConfig{
-			ctx:       cfg.ctx,
-			dns:       cfg.dns,
-			bindIface: cfg.bindIface,
-		}),
-		Rewrite: func(pr *httputil.ProxyRequest) {
-			pr.SetURL(target)
-			pr.SetXForwarded()
-			requestHeaders{target: target}.apply(pr.Out, pr.In)
-			copyOutboundBody(pr.Out, pr.In)
-			if info, ok := pr.In.Context().Value(corsInfoKey).(clientCorsInfo); ok {
-				pr.Out = pr.Out.WithContext(context.WithValue(pr.Out.Context(), corsInfoKey, info))
-			}
-		},
-		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			fmt.Printf("localproxy: upstream error: %s %s -> %v\n", r.Method, r.URL.String(), err)
-			cors.writeHeaders(w, r)
-			http.Error(w, "Upstream error", http.StatusBadGateway)
-		},
-		ModifyResponse: func(res *http.Response) error {
-			if res.StatusCode >= 400 {
-				fmt.Printf("localproxy: upstream %d for %s %s\n", res.StatusCode, res.Request.Method, res.Request.URL.String())
-			}
-			cors.applyResponse(res)
-			return nil
-		},
+	transport := newTransport(transportConfig{
+		ctx:       cfg.ctx,
+		dns:       cfg.dns,
+		bindIface: cfg.bindIface,
+	})
+	u := &upstreams{targets: cfg.targets}
+	for _, target := range cfg.targets {
+		u.proxies = append(u.proxies, newReverseProxy(target, transport))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if cors.handlePreflight(w, r) {
@@ -196,8 +263,52 @@ func newHandler(cfg handlerConfig) http.Handler {
 			http.Error(w, "Bad request body", http.StatusBadRequest)
 			return
 		}
-		rp.ServeHTTP(w, r)
+		u.ServeHTTP(w, r)
 	})
+}
+
+func newReverseProxy(target *url.URL, transport http.RoundTripper) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Transport: transport,
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(target)
+			pr.SetXForwarded()
+			requestHeaders{target: target}.apply(pr.Out, pr.In)
+			copyOutboundBody(pr.Out, pr.In)
+			if info, ok := pr.In.Context().Value(corsInfoKey).(clientCorsInfo); ok {
+				pr.Out = pr.Out.WithContext(context.WithValue(pr.Out.Context(), corsInfoKey, info))
+			}
+		},
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			a := attemptOf(r)
+			if a != nil && a.timedOut.Load() {
+				err = E.New("no answer in time")
+			}
+			// Another upstream takes it (the caller still waits).
+			if a != nil && a.retry && mayRetry(r, err) {
+				a.err = err
+				return
+			}
+			fmt.Printf("localproxy: upstream error: %s %s -> %v\n", r.Method, r.URL.String(), err)
+			cors.writeHeaders(w, r)
+			if a != nil && a.timedOut.Load() {
+				http.Error(w, "LagZap servers are slow to respond", http.StatusGatewayTimeout)
+				return
+			}
+			http.Error(w, "Upstream error", http.StatusBadGateway)
+		},
+		ModifyResponse: func(res *http.Response) error {
+			// An answer came: no moving on now.
+			if a := attemptOf(res.Request); a != nil && a.timer != nil {
+				a.timer.Stop()
+			}
+			if res.StatusCode >= 400 {
+				fmt.Printf("localproxy: upstream %d for %s %s\n", res.StatusCode, res.Request.Method, res.Request.URL.String())
+			}
+			cors.applyResponse(res)
+			return nil
+		},
+	}
 }
 
 func bufferRequestBody(r *http.Request) error {

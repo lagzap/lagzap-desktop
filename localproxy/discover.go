@@ -158,15 +158,19 @@ func channelTXTLookup(dns adapter.DNSRouter) txtLookup {
 	}
 }
 
-func DiscoverUpstream(ctx context.Context, dns adapter.DNSRouter, version string, coordinatorHosts []string) (string, error) {
+// DiscoverUpstream lists the API's addresses: the first one that answers,
+// then the others in order. The proxy moves on to the next one when a
+// request fails on the one it uses.
+func DiscoverUpstream(ctx context.Context, dns adapter.DNSRouter, version string, coordinatorHosts []string) ([]string, error) {
 	endpoints, txtErr := channelEndpoints(ctx, channelTXTLookup(dns), version)
 	candidates := upstreamCandidates(coordinatorHosts, append(buildEndpoints(), endpoints...))
-	for _, ep := range candidates {
+	for i, ep := range candidates {
 		if probeURL(ctx, ep) {
-			return ep, txtErr
+			rest := append(append([]string(nil), candidates[:i]...), candidates[i+1:]...)
+			return append([]string{ep}, rest...), txtErr
 		}
 	}
-	return candidates[0], txtErr
+	return candidates, txtErr
 }
 
 func upstreamCandidates(coordinatorHosts, endpoints []string) []string {

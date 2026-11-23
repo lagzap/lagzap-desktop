@@ -151,7 +151,6 @@ func init() {
 	application.RegisterBindingMethodID((*Service).Start, 1681485135)
 	application.RegisterBindingMethodID((*Service).StartBootstrapLocalProxy, 1815741710)
 	application.RegisterBindingMethodID((*Service).StartDiscordTrial, 3750442219)
-	application.RegisterBindingMethodID((*Service).StartLocalProxy, 3630488842)
 	application.RegisterBindingMethodID((*Service).StartOptimizing, 1400408683)
 	application.RegisterBindingMethodID((*Service).StartProxy, 218733177)
 	application.RegisterBindingMethodID((*Service).Status, 3414141343)

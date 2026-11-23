@@ -18,7 +18,7 @@ func TestStartSkipsRestartWhenTargetUnchanged(t *testing.T) {
 	t.Cleanup(upstream.Close)
 
 	// An ephemeral port, so a running app holding DefaultListen doesn't fail the test.
-	cfg := Config{Listen: "127.0.0.1:0", Target: upstream.URL}
+	cfg := Config{Listen: "127.0.0.1:0", Targets: []string{upstream.URL}}
 	proxy := New()
 	if err := proxy.Start(cfg); err != nil {
 		t.Fatalf("first start: %v", err)
@@ -81,7 +81,7 @@ func TestProxyCorsResponseUsesClientOrigin(t *testing.T) {
 		t.Fatalf("parse upstream url: %v", err)
 	}
 
-	proxy := httptest.NewServer(newHandler(handlerConfig{target: target}))
+	proxy := httptest.NewServer(newHandler(handlerConfig{targets: []*url.URL{target}}))
 	t.Cleanup(proxy.Close)
 
 	req, err := http.NewRequest(http.MethodPost, proxy.URL+"/check", strings.NewReader(`{"entry":"a@b.com"}`))
@@ -127,7 +127,7 @@ func TestProxyForwardsRequestBody(t *testing.T) {
 		t.Fatalf("parse upstream url: %v", err)
 	}
 
-	proxy := httptest.NewServer(newHandler(handlerConfig{target: target}))
+	proxy := httptest.NewServer(newHandler(handlerConfig{targets: []*url.URL{target}}))
 	t.Cleanup(proxy.Close)
 
 	resp, err := http.Post(proxy.URL+"/check", "application/json", strings.NewReader(wantBody))

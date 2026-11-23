@@ -240,7 +240,9 @@ async function start() {
     const status = getHttpStatus(e);
     const networkKind = getNetworkFailureKind(e);
     errorStatusCode.value = status;
-    if (networkKind === "timeout") {
+    // A timeout, or the local proxy's 504 (no server answered in time):
+    // the servers are reached but slow.
+    if (networkKind === "timeout" || status === 504) {
       errorStatusText.value = t("$vuetify.startService.serverUnreachableTimeout");
     } else if (networkKind === "proxy") {
       errorStatusText.value = t("$vuetify.startService.localProxyNotReady");
@@ -299,7 +301,9 @@ async function initApp() {
     const status = getHttpStatus(e);
     const networkKind = getNetworkFailureKind(e);
     errorStatusCode.value = status;
-    if (networkKind === "timeout") {
+    // A timeout, or the local proxy's 504 (no server answered in time):
+    // the servers are reached but slow.
+    if (networkKind === "timeout" || status === 504) {
       errorStatusText.value = t("$vuetify.startService.serverUnreachableTimeout");
     } else if (networkKind === "proxy") {
       errorStatusText.value = t("$vuetify.startService.localProxyNotReady");

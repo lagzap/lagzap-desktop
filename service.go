@@ -353,11 +353,11 @@ func (s *Service) StartBootstrapLocalProxy() error {
 	if s.localProxy != nil && s.localProxy.Running() {
 		return nil
 	}
-	target, err := localproxy.DiscoverUpstream(s.ctx, nil, constant.Version, nil)
+	targets, err := localproxy.DiscoverUpstream(s.ctx, nil, constant.Version, nil)
 	if err != nil {
-		fmt.Printf("localproxy bootstrap upstream: %v (using %s)\n", err, target)
+		fmt.Printf("localproxy bootstrap upstream: %v (using %v)\n", err, targets)
 	}
-	return s.StartLocalProxy(target)
+	return s.startLocalProxy(targets)
 }
 
 func (s *Service) IsLocalProxyRunning() bool {
@@ -386,21 +386,23 @@ func (s *Service) rediscoverLocalProxyUpstream() error {
 	if s.coordinator != nil {
 		coordEndpoints = s.coordinator.Endpoints()
 	}
-	target, err := localproxy.DiscoverUpstream(s.ctx, s.dnsRouter, constant.Version, coordEndpoints)
+	targets, err := localproxy.DiscoverUpstream(s.ctx, s.dnsRouter, constant.Version, coordEndpoints)
 	if err != nil {
-		fmt.Printf("localproxy: upstream discovery note: %v (using %s)\n", err, target)
+		fmt.Printf("localproxy: upstream discovery note: %v (using %v)\n", err, targets)
 	} else {
-		fmt.Printf("localproxy: upstream %s (%s channel)\n", target, localproxy.ChannelHost(constant.Version))
+		fmt.Printf("localproxy: upstreams %v (%s channel)\n", targets, localproxy.ChannelHost(constant.Version))
 	}
-	return s.StartLocalProxy(target)
+	return s.startLocalProxy(targets)
 }
 
-func (s *Service) StartLocalProxy(target string) error {
+// startLocalProxy serves the API through the first of targets; the others
+// take over when it fails.
+func (s *Service) startLocalProxy(targets []string) error {
 	if s.localProxy == nil {
 		s.localProxy = localproxy.New()
 	}
 	return s.localProxy.Start(localproxy.Config{
-		Target:    target,
+		Targets:   targets,
 		Context:   s.ctx,
 		DNS:       s.dnsRouter,
 		BindIface: func() string { return localproxy.BindInterface(s.coordinator) },
