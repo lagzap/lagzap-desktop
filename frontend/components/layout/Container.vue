@@ -66,6 +66,14 @@ onMounted(() => {
 
           <slot name="toolbar" />
 
+          <!-- Home: Settings beside search. -->
+          <v-btn
+            v-if="route.name === 'index'"
+            icon="mdi-cog-outline"
+            :density="mobile ? 'comfortable' : 'default'"
+            :to="{ name: 'settings' }"
+            :aria-label="t('$vuetify.navigation.settings')"
+          />
           <v-btn
             icon="mdi-magnify"
             :density="mobile ? 'comfortable' : 'default'"
