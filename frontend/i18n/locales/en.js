@@ -965,7 +965,7 @@
                 private: 'Your config stays on this PC. Nothing from it is sent to LagZap.',
             },
             server: {
-                server: 'Server',
+                server: 'Specific Server',
                 selectServer: 'Select Server',
                 automatic: 'Global',
                 selectAll: 'Select All',

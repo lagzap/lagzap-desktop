@@ -977,7 +977,7 @@ export default {
                 private: 'کانفیگ شما فقط روی همین کامپیوتر می‌ماند و چیزی از آن به LagZap ارسال نمی‌شود.',
             },
             server: {
-                server: 'سرور',
+                server: 'سرور مشخص',
                 selectServer: 'انتخاب سرور',
                 automatic: 'خودکار',
                 selectAll: 'انتخاب همه',
