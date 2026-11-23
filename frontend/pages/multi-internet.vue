@@ -4,6 +4,7 @@ import { System } from "@wailsio/runtime";
 import Container from "~/components/layout/Container.vue";
 import MultiInternetAdapterCard from "~/components/network/multi/MultiInternetAdapterCard.vue";
 import HelpTip from "~/components/settings/HelpTip.vue";
+import PillToggle from "~/components/common/PillToggle.vue";
 import { localDigits } from "~/utils/localeFormat";
 import { MAX_ROUTES } from "~/composables/routeCountUtils";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
@@ -33,7 +34,11 @@ const {
   setInterfaceTcp,
   setInterfaceUdp,
 } = useNetworkAdapterSettings();
-const { settings, setRelayTransportFallback, setVirtualAdapter, setAdapterOrder } = useSettings();
+const { settings, setRelayTransportFallback, setPreferredTransport, setVirtualAdapter, setAdapterOrder } = useSettings();
+/** Preferred Transport Protocol: Auto, TCP or UDP for prevent-disconnect apps. */
+const transportChoices = computed(() =>
+  (["auto", "tcp", "udp"] as const).map((v) => ({ value: v, title: t(`$vuetify.settings.route.transport.${v}`) })),
+);
 const { monitor, colorOf, scale } = useNetworkMonitor();
 /** The moment any adapter's ping chart is hovered: every card shows it. */
 const pingHoverAt = ref<number | null>(null);
@@ -403,6 +408,18 @@ const routeSteppers = computed(() => [
                 inset
                 class="flex-grow-0"
                 @update:model-value="(on) => setRelayTransportFallback(!!on)"
+              />
+            </div>
+            <v-divider />
+            <div class="mi-route">
+              <div class="mi-route__text">
+                <div class="text-body-2 font-weight-medium">{{ t("$vuetify.settings.route.preferredTransport") }}</div>
+                <div class="text-caption text-medium-emphasis">{{ t("$vuetify.settings.route.preferredTransportHint") }}</div>
+              </div>
+              <PillToggle
+                :model-value="settings.preferredTransport ?? 'auto'"
+                :items="transportChoices"
+                @update:model-value="(v: 'auto' | 'tcp' | 'udp') => setPreferredTransport(v)"
               />
             </div>
             <template v-for="item in pools" :key="item.key">

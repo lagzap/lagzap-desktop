@@ -1,7 +1,7 @@
 import { ref, readonly, shallowRef, toRaw } from 'vue'
 import { Events, System } from '@wailsio/runtime'
 import type { ThemeInstance } from 'vuetify'
-import { ClientSettings } from '~/bindings/github.com/lagzap/zap/data/models'
+import { ClientSettings, PreferredTransport } from '~/bindings/github.com/lagzap/zap/data/models'
 import {
   GetClientSettings,
   GetInternetPingTarget,
@@ -19,6 +19,23 @@ import { getSettingsValue, putSettingsValue } from '~/utils/settingsDB'
 export type RouteAccuracySetting = 'veryLow' | 'low' | 'medium' | 'high'
 export type RouteProtocolSetting = 'tcpUdp' | 'icmp' | 'tcp' | 'udp'
 export type RouteIPSetting = 'dualstack' | 'ipv4' | 'ipv6'
+/** Prevent-disconnect profiles' transport: Auto picks the better one. */
+export type PreferredTransportSetting = 'auto' | 'tcp' | 'udp'
+
+const PREFERRED_TRANSPORT: Record<PreferredTransportSetting, PreferredTransport> = {
+  auto: PreferredTransport.PreferredTransport_PREFERRED_TRANSPORT_AUTO,
+  tcp: PreferredTransport.PreferredTransport_PREFERRED_TRANSPORT_TCP,
+  udp: PreferredTransport.PreferredTransport_PREFERRED_TRANSPORT_UDP,
+}
+/** The setting for a stored value (unset or unknown: Auto). */
+export function preferredTransportSetting(value: PreferredTransport | null | undefined): PreferredTransportSetting {
+  if (value === PreferredTransport.PreferredTransport_PREFERRED_TRANSPORT_TCP) return 'tcp'
+  if (value === PreferredTransport.PreferredTransport_PREFERRED_TRANSPORT_UDP) return 'udp'
+  return 'auto'
+}
+export function preferredTransportValue(setting: PreferredTransportSetting): PreferredTransport {
+  return PREFERRED_TRANSPORT[setting]
+}
 import { DEFAULT_INTERNET_PING_TARGET, type InternetPingTargetId } from '~/composables/internetPingTargets'
 
 export const MAX_FAVORITE_TITLES = 10
@@ -55,6 +72,8 @@ interface AppSettings {
   loadBalanceWeights?: Record<string, number>
   internetPingTarget?: InternetPingTargetId
   relayTransportFallback?: boolean
+  /** Prevent-disconnect profiles that do not set their own. */
+  preferredTransport?: PreferredTransportSetting
   /** Domestic route paths for every profile that does not set its own. */
   allowLocalRoutes?: boolean
   /** Show game and app names in English while the UI is in another language. */
@@ -120,6 +139,7 @@ const defaultRoutingSettings: Required<
     | 'gamingPriority'
     | 'internetPingTarget'
     | 'relayTransportFallback'
+    | 'preferredTransport'
     | 'allowLocalRoutes'
   >
 > = {
@@ -131,6 +151,7 @@ const defaultRoutingSettings: Required<
   gamingPriority: true,
   internetPingTarget: DEFAULT_INTERNET_PING_TARGET,
   relayTransportFallback: false,
+  preferredTransport: 'auto',
   allowLocalRoutes: true,
 }
 
@@ -265,6 +286,9 @@ export const useSettings = (locale?: any, theme?: any) => {
     if (clientSettings.relay_transport_fallback !== undefined) {
       patch.relayTransportFallback = !!clientSettings.relay_transport_fallback
     }
+    if (clientSettings.preferred_transport !== undefined) {
+      patch.preferredTransport = preferredTransportSetting(clientSettings.preferred_transport)
+    }
     if (clientSettings.allow_local_routes !== undefined && clientSettings.allow_local_routes !== null) {
       patch.allowLocalRoutes = !!clientSettings.allow_local_routes
     }
@@ -293,6 +317,7 @@ export const useSettings = (locale?: any, theme?: any) => {
     next.active_on_start = settings.value.activeOnStart ?? true
     next.gpu_acceleration = settings.value.gpuAcceleration ?? true
     next.relay_transport_fallback = settings.value.relayTransportFallback ?? false
+    next.preferred_transport = preferredTransportValue(settings.value.preferredTransport ?? 'auto')
     next.allow_local_routes = settings.value.allowLocalRoutes ?? true
     next.internet_ping_target = settings.value.internetPingTarget ?? DEFAULT_INTERNET_PING_TARGET
     next.proxy_dns_requests = settings.value.proxyDnsRequests ?? true
@@ -480,6 +505,10 @@ export const useSettings = (locale?: any, theme?: any) => {
 
   const setRelayTransportFallback = async (relayTransportFallback: boolean) => {
     await saveSettings({ relayTransportFallback })
+  }
+
+  const setPreferredTransport = async (preferredTransport: PreferredTransportSetting) => {
+    await saveSettings({ preferredTransport })
   }
 
   const setAllowLocalRoutes = async (allowLocalRoutes: boolean) => {
@@ -690,6 +719,7 @@ export const useSettings = (locale?: any, theme?: any) => {
     setProxyDnsRequests,
     setGamingPriority,
     setRelayTransportFallback,
+    setPreferredTransport,
     setAllowLocalRoutes,
     setEnglishTitleNames,
     setLatinNumbers,
