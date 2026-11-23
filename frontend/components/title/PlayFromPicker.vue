@@ -3,7 +3,7 @@ import FlagImg from "~/components/common/FlagImg.vue";
 import ContinentIcon from "~/components/icons/ContinentIcon.vue";
 import ProfileCard from "~/components/title/ProfileCard.vue";
 import { useProfileConnectionStats } from "~/composables/useProfileConnectionStats";
-import { DropConnections } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { DropConnections, SelectProfileWireGuard } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.vue";
 import ProfileRouteSettings from "~/components/title/ProfileRouteSettings.vue";
 import ProfileInternetOptions from "~/components/title/ProfileInternetOptions.vue";
@@ -263,13 +263,45 @@ async function setLoginFollows(on: boolean | null) {
   if (!login) return;
   if (on) {
     await store.followTitle(login.profile.id, ["location"]);
-    return;
+  } else {
+    const st = store.profileStates[login.profile.id];
+    if (!st) return;
+    st.node_id = null;
+    st.mode = M.RoutingMode_ROUTING_MODE_GLOBAL;
+    await store.saveProfileState(login.profile.id);
   }
-  const st = store.profileStates[login.profile.id];
-  if (!st) return;
-  st.node_id = null;
-  st.mode = M.RoutingMode_ROUTING_MODE_GLOBAL;
-  await store.saveProfileState(login.profile.id);
+  if (on) await syncLoginWireGuard();
+}
+
+/** Login connections that follow the title's place take its Dedicated IP
+ * too, the same config (they connect first: without it the game's account
+ * is seen from the user's own IP), and lose it with it. Only when it is
+ * changed here (the title's choice): turned off on one row on its own, it
+ * stays off. The game's region keeps picking the tunnel's relay. */
+const loginWireGuard = login ? useProfileWireGuard(login.profile.id) : null;
+let wireGuardSync: Promise<void> = Promise.resolve();
+function syncLoginWireGuard(): Promise<void> {
+  const run = async () => {
+    if (!login || !loginWireGuard || !loginFollows.value) return;
+    const want = dedicatedOn.value && loginFollows.value ? wireguard.value.selected : "";
+    const own = loginWireGuard.summary.value;
+    if (want === (own.enabled ? own.selected : "")) return;
+    try {
+      if (want) {
+        await SelectProfileWireGuard(login.profile.id, want);
+        // The game's profile owns the tunnel again (its region, its relay).
+        await setWireGuard(true);
+      } else {
+        await loginWireGuard.setEnabled(false);
+      }
+    } catch {
+      // service not running; the watch tries again on the next change
+    }
+    await loginWireGuard.reload();
+  };
+  // One at a time: the watch and an Apply may both ask.
+  wireGuardSync = wireGuardSync.then(run, run);
+  return wireGuardSync;
 }
 
 /** A quick pick in progress: saved and applied once it settles. */
@@ -291,7 +323,10 @@ function quickPick(key: string) {
   // The drop (if asked for) waits for this: dropped before the new place
   // is applied, they would just reconnect to the old one.
   applying = (async () => {
-    if (wireGuardOff) await setWireGuard(false);
+    if (wireGuardOff) {
+      await setWireGuard(false);
+      await syncLoginWireGuard();
+    }
     await saveChoice(id);
   })();
   quickOpen.value = false;
@@ -518,7 +553,8 @@ function commit(): Promise<void> {
   const from = JSON.parse(draftFrom.value || "{}") as Partial<Draft>;
   // Dedicated IP is the title's main profile's (the picker hides it for
   // another one).
-  const wireGuard = editingPrimary.value && d.dedicated !== dedicatedOn.value ? d.dedicated : null;
+  const primaryEdit = editingPrimary.value;
+  const wireGuard = primaryEdit && d.dedicated !== dedicatedOn.value ? d.dedicated : null;
   if (st) {
     st.regions = [...d.regions];
     st.countries = [...d.countries];
@@ -535,6 +571,9 @@ function commit(): Promise<void> {
   return (async () => {
     if (st) await saveChoice(id);
     if (wireGuard !== null) await setWireGuard(wireGuard);
+    // Dedicated IP turned on or off, or applied again (maybe another
+    // config): the login connections take it too.
+    if (primaryEdit && (wireGuard !== null || d.dedicated)) await syncLoginWireGuard();
   })();
 }
 

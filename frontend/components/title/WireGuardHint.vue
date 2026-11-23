@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useLocale } from "vuetify";
 import CountryFlag from "vue-country-flag-next";
 import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
+import { useStore } from "@/stores";
 import { formatMs } from "~/utils/localeFormat";
 
 /** Under the profile while its Dedicated IP (WireGuard) is in use: the
@@ -28,10 +29,36 @@ const right = computed(() => {
   }
 });
 
-async function disable() {
+/** The title's other profiles with their Dedicated IP on: Disable asks
+ * whether it is this one only or all of them. */
+const store = useStore();
+const profile = computed(() => store.profiles.find((p) => p.id === props.profileId));
+const others = computed(() =>
+  store.profiles
+    .filter((p) => p.title_id === profile.value?.title_id && p.id !== props.profileId)
+    .map((p) => ({ profile: p, wg: useProfileWireGuard(p.id) }))
+    .filter((o) => o.wg.summary.value.enabled),
+);
+const titleName = computed(() => {
+  const title = store.titles.find((x) => x.id === profile.value?.title_id);
+  return title ? String(store.localized(title.name) || "") : "";
+});
+const ask = ref(false);
+
+function disable() {
+  if (others.value.length) {
+    ask.value = true;
+    return;
+  }
+  void turnOff(false);
+}
+/** Off here, or on every profile of the title using it. */
+async function turnOff(all: boolean) {
+  ask.value = false;
   busy.value = true;
   try {
     await setEnabled(false);
+    if (all) await Promise.all(others.value.map((o) => o.wg.setEnabled(false)));
   } finally {
     busy.value = false;
   }
@@ -64,6 +91,25 @@ async function disable() {
       </v-btn>
     </div>
   </v-scale-transition>
+  <!-- Another of the title's profiles uses it too: this one, or all. -->
+  <v-dialog v-model="ask" max-width="420">
+    <v-card rounded="lg">
+      <v-card-title>{{ t("$vuetify.title.profile.wireguard.disableAsk") }}</v-card-title>
+      <v-card-text>
+        {{ t("$vuetify.title.profile.wireguard.disableAskBody", String(store.localized(profile?.name ?? {}) || ""), titleName) }}
+      </v-card-text>
+      <v-card-actions>
+        <v-btn class="text-none" @click="ask = false">{{ t("$vuetify.title.profile.wireguard.disableKeep") }}</v-btn>
+        <v-spacer />
+        <v-btn class="text-none" @click="turnOff(false)">
+          {{ t("$vuetify.title.profile.wireguard.disableOnly", String(store.localized(profile?.name ?? {}) || "")) }}
+        </v-btn>
+        <v-btn class="text-none" color="error" variant="flat" @click="turnOff(true)">
+          {{ t("$vuetify.title.profile.wireguard.disableAll") }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
