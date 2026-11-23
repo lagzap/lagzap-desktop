@@ -4,26 +4,38 @@ import { useLocale } from "vuetify";
 import CountryFlag from "vue-country-flag-next";
 import {
   AddProfileWireGuard,
+  PingWireGuardConfigs,
   RemoveWireGuardConfig,
   SelectProfileWireGuard,
   SetProfileWireGuardEnabled,
 } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
-import { formatMs, localDigits } from "~/utils/localeFormat";
+import { localDigits } from "~/utils/localeFormat";
 import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
 import { useProfileWireGuard, type WireGuardConfig as Config } from "~/composables/useProfileWireGuard";
+import Ping from "~/components/network/Ping.vue";
 
 /** Dedicated IP (WireGuard), under Split tunnel / Load balancing: the traffic
  * goes you -> LagZap relay -> the user's WireGuard -> destination, leaving
  * from the WireGuard server's IP. Collapsed to one row until opened. The
  * saved configs are one list on this PC that every profile picks from; each
  * is dropped or pasted here. */
-const props = defineProps<{ profileId: string; disabled?: boolean }>();
+const props = defineProps<{
+  profileId: string;
+  disabled?: boolean;
+  /** The title picker's Dedicated IP page: no row, the content always
+   * shown, and picking a config turns it on (it is a choice there). */
+  panel?: boolean;
+}>();
+const emit = defineEmits<{ picked: [] }>();
+// The picker's page has its own Add config button (top right).
+defineExpose({ startAdding: () => (adding.value = true) });
 const { t } = useLocale();
 const store = useStore();
 const { getNodeLabel } = useNodeLocationLabel();
 const { summary, status, selected, reload: load } = useProfileWireGuard(props.profileId);
 
-const expanded = ref(false);
+const expanded = ref(!!props.panel);
+if (props.panel) void load();
 const adding = ref(false);
 const text = ref("");
 const fileName = ref("");
@@ -44,6 +56,29 @@ onMounted(() => {
 onUnmounted(() => clearInterval(clock));
 // Opened: the list as saved now (another profile may have added one).
 watch(expanded, (open) => open && void load());
+
+/** Each config's ping (ms, 0: no answer), measured while the list shows. */
+const pings = ref<Record<string, number>>({});
+async function measurePings() {
+  try {
+    pings.value = (await PingWireGuardConfigs()) ?? {};
+  } catch {
+    // service not running
+  }
+}
+let pingTimer: ReturnType<typeof setInterval> | undefined;
+watch(
+  expanded,
+  (open) => {
+    clearInterval(pingTimer);
+    if (!open) return;
+    void measurePings();
+    pingTimer = setInterval(measurePings, 10000);
+  },
+  { immediate: true },
+);
+onUnmounted(() => clearInterval(pingTimer));
+watch(() => summary.value.configs.length, () => expanded.value && void measurePings());
 
 function errorText(err: unknown): string {
   return String((err as Error)?.message ?? err);
@@ -81,9 +116,14 @@ async function toggle() {
 }
 
 async function select(id: string) {
-  if (id === summary.value.selected && summary.value.enabled) return;
+  if (id === summary.value.selected && (summary.value.enabled || props.panel)) {
+    if (props.panel) emit("picked");
+    return;
+  }
   try {
     await SelectProfileWireGuard(props.profileId, id);
+    // The picker's page: picking one is choosing Dedicated IP (on Apply).
+    if (props.panel) emit("picked");
   } catch (err) {
     saveError.value = errorText(err);
   }
@@ -183,7 +223,7 @@ const handshakeAgo = computed(() => {
 </script>
 
 <template>
-  <v-list-item :class="['wireguard', { 'wireguard--on': on }]" :disabled="disabled" @click="toggle">
+  <v-list-item v-if="!panel" :class="['wireguard', { 'wireguard--on': on }]" :disabled="disabled" @click="toggle">
     <template #prepend>
       <v-checkbox-btn class="me-2 state-only" density="compact" color="primary" :model-value="on" />
     </template>
@@ -213,7 +253,7 @@ const handshakeAgo = computed(() => {
   </v-list-item>
 
   <v-expand-transition>
-    <div v-if="expanded" class="wireguard__body">
+    <div v-if="expanded" class="wireguard__body" :class="{ 'wireguard__body--panel': panel }">
       <div class="text-caption text-medium-emphasis mb-2">{{ t("$vuetify.title.profile.wireguard.about") }}</div>
 
       <!-- The configs kept; the picked one is used -->
@@ -241,6 +281,18 @@ const handshakeAgo = computed(() => {
               {{ t("$vuetify.title.profile.wireguard.alsoUsedBy", usedElsewhere(config)) }}
             </span>
           </div>
+          <!-- The one in use: whether it works; every one: its ping. -->
+          <v-chip
+            v-if="on && config.id === summary.selected"
+            size="x-small"
+            variant="tonal"
+            :color="chip.color"
+            class="flex-shrink-0"
+          >
+            {{ chip.text }}
+          </v-chip>
+          <Ping v-if="pings[config.id]" :latency-ms="pings[config.id]" class="flex-shrink-0" />
+          <span v-else-if="config.id in pings" class="text-caption text-medium-emphasis flex-shrink-0">—</span>
           <v-btn
             :icon="confirmRemove === config.id ? 'mdi-delete-alert-outline' : 'mdi-delete-outline'"
             size="x-small"
@@ -254,32 +306,28 @@ const handshakeAgo = computed(() => {
         </div>
       </div>
 
-      <!-- Whether the picked one works -->
-      <div v-if="on && selected" class="wireguard__facts mt-2">
-        <div v-if="status.direct">
-          <span class="text-medium-emphasis">{{ t("$vuetify.title.profile.wireguard.relay") }}</span>
-          {{ t("$vuetify.title.profile.wireguard.relayDirect") }}
+      <!-- Whether the picked one works: its relay, handshake and ping. -->
+      <div v-if="on && selected" class="wireguard__facts mt-3">
+        <div v-if="status.direct || relayName" class="wireguard__fact">
+          <span class="wireguard__fact-label">{{ t("$vuetify.title.profile.wireguard.relay") }}</span>
+          <span class="wireguard__fact-value">{{ status.direct ? t("$vuetify.title.profile.wireguard.relayDirect") : relayName }}</span>
         </div>
-        <div v-else-if="relayName">
-          <span class="text-medium-emphasis">{{ t("$vuetify.title.profile.wireguard.relay") }}</span>
-          {{ relayName }}
+        <div v-if="handshakeAgo" class="wireguard__fact">
+          <span class="wireguard__fact-label">{{ t("$vuetify.title.profile.wireguard.handshake") }}</span>
+          <span class="wireguard__fact-value">{{ handshakeAgo }}</span>
         </div>
-        <div v-if="ownerName" class="text-medium-emphasis">
-          {{ t("$vuetify.title.profile.wireguard.ownerNote", ownerName) }}
+        <div v-if="status.state === 'working' && status.ping" class="wireguard__fact">
+          <span class="wireguard__fact-label">{{ t("$vuetify.title.profile.wireguard.ping") }}</span>
+          <span class="wireguard__fact-value"><Ping :latency-ms="status.ping" /></span>
         </div>
-        <div v-if="handshakeAgo">
-          <span class="text-medium-emphasis">{{ t("$vuetify.title.profile.wireguard.handshake") }}</span>
-          {{ handshakeAgo }}
-        </div>
-        <div v-if="status.state === 'working' && status.ping">
-          <span class="text-medium-emphasis">{{ t("$vuetify.title.profile.wireguard.ping") }}</span>
-          {{ formatMs(status.ping) }}
-        </div>
-        <div v-if="status.error" class="text-error">{{ status.error }}</div>
       </div>
+      <div v-if="on && selected && ownerName" class="text-caption text-medium-emphasis mt-2">
+        {{ t("$vuetify.title.profile.wireguard.ownerNote", ownerName) }}
+      </div>
+      <div v-if="on && selected && status.error" class="text-caption text-error mt-2">{{ status.error }}</div>
 
       <v-btn
-        v-if="hasConfigs && !adding"
+        v-if="hasConfigs && !adding && !panel"
         size="small"
         variant="tonal"
         prepend-icon="mdi-plus"
@@ -320,7 +368,8 @@ const handshakeAgo = computed(() => {
         </div>
       </div>
       <div v-if="saveError" class="text-caption text-error mt-1">{{ saveError }}</div>
-      <div class="text-caption text-medium-emphasis mt-2">
+      <!-- Where the config goes: said while one is being added. -->
+      <div v-if="showInput" class="text-caption text-medium-emphasis mt-2">
         <v-icon size="14" class="me-1">mdi-shield-lock-outline</v-icon>{{ t("$vuetify.title.profile.wireguard.private") }}
       </div>
     </div>
@@ -342,6 +391,9 @@ const handshakeAgo = computed(() => {
 }
 .wireguard__body {
   padding: 4px 16px 12px 48px;
+}
+.wireguard__body--panel {
+  padding: 0;
 }
 .wireguard__list {
   display: flex;
@@ -365,14 +417,25 @@ const handshakeAgo = computed(() => {
   background: rgba(var(--v-theme-primary), 0.06);
 }
 .wireguard__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+.wireguard__fact {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 0.8rem;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(var(--v-theme-on-surface), 0.04);
 }
-.wireguard__facts span.text-medium-emphasis {
-  display: inline-block;
-  min-width: 96px;
+.wireguard__fact-label {
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+.wireguard__fact-value {
+  font-size: 0.9375rem;
+  font-weight: 500;
 }
 .wireguard__drop {
   border: 1px dashed rgba(var(--v-theme-on-surface), 0.25);

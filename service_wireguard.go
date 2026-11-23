@@ -53,3 +53,12 @@ func (s *Service) GetWireGuardStatus(profileID string) adapter.WireGuardStatus {
 	}
 	return s.coordinator.WireGuardStatus(profileID)
 }
+
+// PingWireGuardConfigs is each saved config's ping in ms (0: no answer),
+// one ICMP echo to its WireGuard server.
+func (s *Service) PingWireGuardConfigs() map[string]int {
+	if !s.IsReady() {
+		return map[string]int{}
+	}
+	return s.coordinator.WireGuardConfigPings()
+}
