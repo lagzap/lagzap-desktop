@@ -44,7 +44,7 @@ async function onClick(event: MouseEvent) {
       <v-btn
         v-bind="tipProps"
         :icon="favorited ? 'mdi-pin' : 'mdi-pin-outline'"
-        :color="favorited ? 'primary' : 'secondary'"
+        color="on-surface"
         variant="text"
         :size="size"
         :disabled="disabled"

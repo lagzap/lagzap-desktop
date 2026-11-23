@@ -29,6 +29,8 @@ const props = withDefaults(
     /** A divider line above the chart with the session timer at its start
      * (instead of the timer among the controls). */
     sessionDivider?: boolean;
+    /** No session yet: said where the session's timer goes. */
+    noSessionText?: string;
     /** Show the 1m … 60m pills even with a fixed view (they hide with one,
      * where the page has its own range control). */
     rangeTabs?: boolean;
@@ -80,8 +82,30 @@ const chartEl = ref<HTMLDivElement>();
 let instance: echarts.ECharts | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
-const latency = computed(() => props.latency);
-const traffic = computed(() => props.traffic);
+/** No data (yet): the chart is drawn anyway, its axes over the range,
+ * from a blank series that draws nothing and is not in the legend. */
+const BLANK_POINTS = 60;
+const RANGE_MS: Record<string, number> = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "60m": 3_600_000 };
+const blankStep = computed(() => (RANGE_MS[props.range] ?? 60_000) / BLANK_POINTS);
+const blankLatency = computed<LiveLatencyChart>(() => ({
+  step: blankStep.value,
+  end: Date.now(),
+  y_max: 100,
+  stats: { min: 0, max: 0, avg: 0, loss: 0 } as LiveLatencyChart["stats"],
+  series: [{ id: "__blank__", label: "", points: Array(BLANK_POINTS).fill(-1) }],
+}));
+const blankTraffic = computed(
+  () =>
+    ({
+      step: blankStep.value,
+      end: Date.now(),
+      y_max: 1024,
+      stats: { avg_download: 0, peak_download: 0, avg_upload: 0, peak_upload: 0, live_download: 0, live_upload: 0 },
+      series: [{ name: "__blank__", download: Array(BLANK_POINTS).fill(0), upload: Array(BLANK_POINTS).fill(0) }],
+    }) as unknown as OverviewTrafficChart,
+);
+const latency = computed(() => (props.latency?.series?.length ? props.latency : blankLatency.value));
+const traffic = computed(() => (props.traffic?.series?.length ? props.traffic : blankTraffic.value));
 
 const { getNodeLabelByIp } = useNodeLocationLabel();
 
@@ -131,16 +155,22 @@ type LegendItem = { id: string; label: string; color: string; visible: boolean; 
 type LegendGroup = { iface: string; items: LegendItem[] };
 
 /** Legend and tooltip rows, grouped by adapter for profile routes. */
+/** A series that only gives an empty chart its axes (no data yet): not in
+ * the legend. */
+const isBlank = (id: string) => id.startsWith("__blank");
 const legendGroups = computed<LegendGroup[]>(() => {
   if (!latencyLed.value) {
     return [{
       iface: "",
-      items: (traffic.value?.series ?? []).map((s) => ({ id: s.name, label: s.name, color: props.trafficColor(s.name), visible: !hidden.value.has(s.name) })),
+      items: (traffic.value?.series ?? [])
+        .filter((s) => !isBlank(s.name))
+        .map((s) => ({ id: s.name, label: s.name, color: props.trafficColor(s.name), visible: !hidden.value.has(s.name) })),
     }];
   }
   const groups: LegendGroup[] = [];
   const byIface = new Map<string, LegendGroup>();
   for (const s of latency.value?.series ?? []) {
+    if (isBlank(s.id)) continue;
     const iface = s.iface ?? "";
     let group = byIface.get(iface);
     if (!group) {
@@ -959,6 +989,7 @@ onBeforeUnmount(() => {
       <span v-if="sessionElapsed" class="live-chart__session text-caption">
         {{ t("$vuetify.networkLatency.session") }} {{ localDigits(sessionElapsed) }}
       </span>
+      <span v-else-if="noSessionText" class="live-chart__session text-caption">{{ noSessionText }}</span>
       <span class="live-chart__divider-line" />
     </div>
     <div v-if="!compact" class="live-chart__header mb-3">
@@ -1050,9 +1081,7 @@ onBeforeUnmount(() => {
       <div ref="chartEl" :style="{ width: '100%', height: `${props.chartHeight}px` }" />
       <div v-if="pendingBand" class="live-chart__pending" :style="pendingBand" />
     </div>
-    <!-- Nothing to draw yet: the chart's empty grid at its height, no line
-         and no "No data". -->
-    <div v-else class="live-chart__empty" aria-hidden="true" :style="{ height: `${props.chartHeight}px` }" />
+
     <!-- The legend sits under the chart, on the right; footer-start (the
          profile's speed and usage) on the left of its first row. -->
     <div v-if="!compact && hasData" class="live-chart__legend">
@@ -1131,18 +1160,6 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 12px;
   align-self: stretch;
-}
-
-.live-chart__empty {
-  margin: 8px 0 4px 40px;
-  border-bottom: 1px dashed rgba(var(--v-theme-on-surface), 0.25);
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent 44px,
-    rgba(var(--v-theme-on-surface), 0.08) 44px,
-    rgba(var(--v-theme-on-surface), 0.08) 45px
-  );
 }
 
 .live-chart__footer-start {

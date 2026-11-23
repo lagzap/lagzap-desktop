@@ -11,7 +11,16 @@ import { localDigits } from "~/utils/localeFormat";
 const props = defineProps<{
   profileId: string;
   limit?: number;
+  /** The title's card: every one of these profiles' connections, with a
+   * Profile column. */
+  profileIds?: string[];
 }>();
+const ids = computed(() => new Set(props.profileIds?.length ? props.profileIds : [props.profileId]));
+const showProfile = computed(() => (props.profileIds?.length ?? 0) > 1);
+function profileName(id: string): string {
+  const p = store.profiles.find((x) => x.id === id);
+  return p ? String(store.localized(p.name) || "") : "";
+}
 
 const store = useStore();
 const locale = useLocale();
@@ -40,7 +49,7 @@ function connectionTraffic(connection: {
 /** Every connection of the profile, busiest first. */
 const allConnections = computed(() =>
   (connections.value ?? [])
-    .filter((connection) => connection.profile_id === props.profileId)
+    .filter((connection) => ids.value.has(connection.profile_id))
     .sort((a, b) => (connectionTraffic(a) > connectionTraffic(b) ? -1 : 1))
 );
 
@@ -79,6 +88,7 @@ function onRowClick(connectionId: string) {
     <thead>
       <tr>
         <th class="col-network" />
+        <th v-if="showProfile">{{ t("$vuetify.connections.profile") }}</th>
         <th>{{ t("$vuetify.connections.gameServer") }}</th>
         <th>{{ t("$vuetify.connections.lagzapServer") }}</th>
         <th class="text-center col-latency">{{ t("$vuetify.connections.latency") }}</th>
@@ -95,7 +105,6 @@ function onRowClick(connectionId: string) {
           'profile-connections-table__row--selected':
             selectedConnectionId === connection.id,
         }"
-        v-tooltip="t('$vuetify.connections.showOnLatencyChart')"
         tabindex="0"
         role="button"
         @click="onRowClick(connection.id)"
@@ -105,6 +114,9 @@ function onRowClick(connectionId: string) {
         <!-- Same transport tag as the Connections page. -->
         <td class="col-network">
           <NetworkLabel :network="connection.network" />
+        </td>
+        <td v-if="showProfile" class="text-no-wrap">
+          <span class="text-caption">{{ profileName(connection.profile_id) }}</span>
         </td>
         <td class="text-no-wrap">
           <div class="d-flex align-center">
@@ -138,7 +150,7 @@ function onRowClick(connectionId: string) {
         </td>
       </tr>
       <tr v-if="hiddenCount > 0 || canCollapse" class="profile-connections-table__more">
-        <td colspan="6">
+        <td :colspan="showProfile ? 7 : 6">
           <button type="button" class="profile-connections-table__more-btn" @click="expanded = !expanded">
             {{
               expanded

@@ -45,5 +45,5 @@ export function useTitleMenu() {
     return true;
   }
 
-  return { state, pending, openAt, request, take, requestProfile, takeProfile };
+  return { state, pending, pendingProfile, openAt, request, take, requestProfile, takeProfile };
 }

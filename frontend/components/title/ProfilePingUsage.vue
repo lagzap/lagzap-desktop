@@ -17,7 +17,15 @@ const props = defineProps<{
   popup?: boolean;
   /** A divider above the chart, shown and animated with it. */
   divided?: boolean;
+  /** The title's main card: the chart's own fixed height (the card is its
+   * top, the diagram and this, so its size is known ahead). */
+  fill?: boolean;
 }>();
+
+/** The plot's height: fixed, a size up on the main card. */
+const MAIN_PLOT = 170;
+const chartHeight = computed(() => (props.fill ? MAIN_PLOT : 180));
+
 
 const { chart, view, latency, traffic, range, setRange, latencyColor, trafficColor } = useProfileChart(props.profileId);
 
@@ -37,10 +45,13 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
 </script>
 
 <template>
+  <div>
   <!-- The chart is a session's own: it grows in when one starts, and nothing
        shows while only the route preview is there. -->
   <Transition name="chart-grow">
-    <div v-if="hasData" class="ping-usage">
+    <!-- With a session, its chart; on the main card before one, the same
+         chart, all of it, with no data in it yet. -->
+    <div v-if="hasData || fill || always" class="ping-usage">
       <LiveChart
         :id="popup ? undefined : `profile-chart-${profileId}`"
         v-model:view="view"
@@ -51,9 +62,10 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
         :range="range"
         :latency-color="latencyColor"
         :traffic-color="trafficColor"
-        :chart-height="180"
-        :session-start="chart?.session_start ?? 0"
-        :session-divider="divided"
+        :chart-height="chartHeight"
+        :session-start="hasData ? chart?.session_start ?? 0 : 0"
+        :session-divider="divided || (fill && !hasData)"
+        :no-session-text="t('$vuetify.title.playFrom.noConnection')"
         @update:range="(r) => setRange(r as OverviewRange)"
       >
         <!-- A game's live speeds, under the chart on the left (its data
@@ -66,23 +78,20 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
           </div>
         </template>
       </LiveChart>
-      <QuickRating v-if="!popup" :profile-id="profileId" :game="isGamePacket" />
-    </div>
-    <!-- Shown before any data (a title's only profile): the chart's empty
-         grid, no line and no "No data", so the card is never bare. -->
-    <div v-else-if="always" class="ping-usage ping-usage--empty" aria-hidden="true">
-      <div class="ping-usage__grid" />
+      <QuickRating v-if="!popup && hasData" :profile-id="profileId" :game="isGamePacket" />
     </div>
     <div v-else-if="popup" class="text-center text-medium-emphasis py-8 text-body-2">
       {{ t("$vuetify.title.profile.noTrafficYet") }}
     </div>
   </Transition>
+  </div>
 </template>
 
 <style scoped>
 .ping-usage {
   position: relative;
 }
+
 
 .chart-grow-enter-active,
 .chart-grow-leave-active {
@@ -102,19 +111,6 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
 .chart-grow-leave-from {
   max-height: 640px;
   opacity: 1;
-}
-
-.ping-usage__grid {
-  height: 180px;
-  margin: 8px 0 12px 40px;
-  border-bottom: 1px dashed rgba(var(--v-theme-on-surface), 0.25);
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent 44px,
-    rgba(var(--v-theme-on-surface), 0.08) 44px,
-    rgba(var(--v-theme-on-surface), 0.08) 45px
-  );
 }
 
 .ping-usage__footer {

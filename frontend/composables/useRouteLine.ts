@@ -56,6 +56,5 @@ export function useRouteLine(profileId: string) {
 
   /** Where the game's traffic leaves LagZap: the last server's city. */
   const exitCity = computed(() => stops.value[stops.value.length - 1]?.label ?? "");
-
   return { stops, internets, exitCity, transport, routeCount };
 }
