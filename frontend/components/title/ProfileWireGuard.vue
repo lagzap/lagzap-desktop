@@ -27,8 +27,9 @@ const props = defineProps<{
   panel?: boolean;
 }>();
 const emit = defineEmits<{ picked: [] }>();
-// The picker's page has its own Add config button (top right).
-defineExpose({ startAdding: () => (adding.value = true) });
+// The picker's page takes a config dropped anywhere on it, and asks for
+// fresh numbers when it moves the tunnel to another relay.
+defineExpose({ addFile: (file: File) => addFile(file), refresh: () => refresh(), expectMove: () => expectMove() });
 const { t } = useLocale();
 const store = useStore();
 const { getNodeLabel } = useNodeLocationLabel();
@@ -45,7 +46,9 @@ const dragging = ref(false);
 
 const hasConfigs = computed(() => summary.value.configs.length > 0);
 const on = computed(() => hasConfigs.value && summary.value.enabled);
-const showInput = computed(() => !hasConfigs.value || adding.value);
+/** The paste box: always on the picker's page; in a row, until there is a
+ * config or while adding one. */
+const showInput = computed(() => props.panel || !hasConfigs.value || adding.value);
 
 /** Ticks the "handshake ago" text along. */
 const now = ref(Date.now());
@@ -79,6 +82,42 @@ watch(
 );
 onUnmounted(() => clearInterval(pingTimer));
 watch(() => summary.value.configs.length, () => expanded.value && void measurePings());
+/** Fresh numbers: the tunnel's status (its relay, handshake and ping) and
+ * the configs' pings. */
+function refresh() {
+  void load();
+  if (expanded.value) void measurePings();
+}
+/** The tunnel is moving (another relay or config): its numbers wait for
+ * the new ones instead of showing the old relay's. Over when the relay
+ * changes, or at the next report after a probe round (it may stay on the
+ * same relay), or after 15s at most. */
+const moving = ref(false);
+let movingSince = 0;
+let movingTimer: ReturnType<typeof setTimeout> | undefined;
+function expectMove() {
+  moving.value = true;
+  movingSince = Date.now();
+  clearTimeout(movingTimer);
+  movingTimer = setTimeout(() => (moving.value = false), 15000);
+}
+function moved() {
+  moving.value = false;
+  clearTimeout(movingTimer);
+}
+onUnmounted(() => clearTimeout(movingTimer));
+// The tunnel moved to another relay: show whether it works there.
+watch(
+  () => status.value.relay,
+  (relay, before) => {
+    if (relay === before) return;
+    moved();
+    refresh();
+  },
+);
+watch(status, () => {
+  if (moving.value && Date.now() - movingSince > 5500) moved();
+});
 
 function errorText(err: unknown): string {
   return String((err as Error)?.message ?? err);
@@ -121,6 +160,8 @@ async function select(id: string) {
     return;
   }
   try {
+    // On already: the tunnel moves to the new config.
+    if (summary.value.enabled) expectMove();
     await SelectProfileWireGuard(props.profileId, id);
     // The picker's page: picking one is choosing Dedicated IP (on Apply).
     if (props.panel) emit("picked");
@@ -170,17 +211,41 @@ const ownerName = computed(() => {
   return titleName(owner);
 });
 
+/** A .conf file (dropped or browsed): put in the box to look over and
+ * change; Save adds it. */
+async function addFile(file: File) {
+  fileName.value = file.name;
+  text.value = await file.text();
+  saveError.value = "";
+  adding.value = true;
+}
+/** Over the drop box. Handled here, not passed up: the app's runtime
+ * otherwise marks every file drag "no drop" (its own file drop is off). */
+function onDragOver(event: DragEvent) {
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  dragging.value = true;
+}
 async function onDrop(event: DragEvent) {
   dragging.value = false;
   const file = event.dataTransfer?.files?.[0];
   if (file) {
-    fileName.value = file.name;
-    text.value = await file.text();
-    await save();
+    await addFile(file);
     return;
   }
   const dropped = event.dataTransfer?.getData("text/plain");
   if (dropped) text.value = dropped;
+}
+// The box emptied: a file's name no longer names what is pasted next.
+watch(text, (value) => {
+  if (!value.trim()) fileName.value = "";
+});
+/** Browse: a file picker for the .conf. */
+const fileInput = ref<HTMLInputElement | null>(null);
+async function onBrowsed(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (file) await addFile(file);
 }
 
 /** The row's chip: works, or what is wrong, at a glance. */
@@ -282,16 +347,27 @@ const handshakeAgo = computed(() => {
             </span>
           </div>
           <!-- The one in use: whether it works; every one: its ping. -->
+          <!-- Just the state here: its ping through LagZap is Ping below. -->
           <v-chip
             v-if="on && config.id === summary.selected"
             size="x-small"
             variant="tonal"
-            :color="chip.color"
+            :color="moving ? 'info' : chip.color"
             class="flex-shrink-0"
           >
-            {{ chip.text }}
+            {{
+              moving
+                ? t("$vuetify.title.profile.wireguard.switching")
+                : status.state === "working"
+                  ? t("$vuetify.title.profile.wireguard.working")
+                  : chip.text
+            }}
           </v-chip>
-          <Ping v-if="pings[config.id]" :latency-ms="pings[config.id]" class="flex-shrink-0" />
+          <v-tooltip v-if="pings[config.id]" :text="t('$vuetify.title.profile.wireguard.directPingTip')" location="top">
+            <template #activator="{ props: tip }">
+              <span v-bind="tip" class="flex-shrink-0"><Ping :latency-ms="pings[config.id]" /></span>
+            </template>
+          </v-tooltip>
           <span v-else-if="config.id in pings" class="text-caption text-medium-emphasis flex-shrink-0">—</span>
           <v-btn
             :icon="confirmRemove === config.id ? 'mdi-delete-alert-outline' : 'mdi-delete-outline'"
@@ -307,7 +383,25 @@ const handshakeAgo = computed(() => {
       </div>
 
       <!-- Whether the picked one works: its relay, handshake and ping. -->
-      <div v-if="on && selected" class="wireguard__facts mt-3">
+      <div v-if="on && selected && moving" class="wireguard__facts mt-3">
+        <div class="wireguard__fact">
+          <span class="wireguard__fact-label">{{ t("$vuetify.title.profile.wireguard.relay") }}</span>
+          <span class="wireguard__fact-value d-flex align-center ga-2">
+            <v-progress-circular indeterminate size="14" width="2" />{{ t("$vuetify.title.profile.wireguard.switching") }}
+          </span>
+        </div>
+        <div class="wireguard__fact">
+          <span class="wireguard__fact-label">{{ t("$vuetify.title.profile.wireguard.handshake") }}</span>
+          <span class="wireguard__fact-value text-medium-emphasis">—</span>
+        </div>
+        <div class="wireguard__fact">
+          <span class="wireguard__fact-label">{{ t("$vuetify.title.profile.wireguard.ping") }}</span>
+          <span class="wireguard__fact-value d-flex align-center ga-2">
+            <v-progress-circular indeterminate size="14" width="2" />{{ t("$vuetify.title.profile.wireguard.pinging") }}
+          </span>
+        </div>
+      </div>
+      <div v-else-if="on && selected" class="wireguard__facts mt-3">
         <div v-if="status.direct || relayName" class="wireguard__fact">
           <span class="wireguard__fact-label">{{ t("$vuetify.title.profile.wireguard.relay") }}</span>
           <span class="wireguard__fact-value">{{ status.direct ? t("$vuetify.title.profile.wireguard.relayDirect") : relayName }}</span>
@@ -342,9 +436,10 @@ const handshakeAgo = computed(() => {
         v-if="showInput"
         class="wireguard__drop mt-2"
         :class="{ 'wireguard__drop--over': dragging }"
-        @dragover.prevent="dragging = true"
+        @dragenter.prevent.stop="onDragOver"
+        @dragover.prevent.stop="onDragOver"
         @dragleave="dragging = false"
-        @drop.prevent="onDrop"
+        @drop.prevent.stop="onDrop"
       >
         <v-textarea
           v-model="text"
@@ -359,7 +454,11 @@ const handshakeAgo = computed(() => {
         />
         <div class="d-flex align-center ga-2 mt-2">
           <span class="text-caption text-medium-emphasis flex-grow-1">{{ t("$vuetify.title.profile.wireguard.dropHint") }}</span>
-          <v-btn v-if="adding" size="small" variant="text" @click="adding = false">
+          <input ref="fileInput" type="file" accept=".conf,text/plain" hidden @change="onBrowsed" />
+          <v-btn size="small" variant="tonal" prepend-icon="mdi-folder-open-outline" class="text-none" @click="fileInput?.click()">
+            {{ t("$vuetify.title.profile.wireguard.browse") }}
+          </v-btn>
+          <v-btn v-if="adding && !panel" size="small" variant="text" @click="adding = false">
             {{ t("$vuetify.title.profile.wireguard.cancel") }}
           </v-btn>
           <v-btn size="small" color="primary" variant="flat" :loading="saving" :disabled="!text.trim()" @click="save">
@@ -368,8 +467,9 @@ const handshakeAgo = computed(() => {
         </div>
       </div>
       <div v-if="saveError" class="text-caption text-error mt-1">{{ saveError }}</div>
-      <!-- Where the config goes: said while one is being added. -->
-      <div v-if="showInput" class="text-caption text-medium-emphasis mt-2">
+      <!-- Where the config goes: said while one is being added (always in a
+           row's box; on the page once something is pasted). -->
+      <div v-if="showInput && (!panel || text.trim())" class="text-caption text-medium-emphasis mt-2">
         <v-icon size="14" class="me-1">mdi-shield-lock-outline</v-icon>{{ t("$vuetify.title.profile.wireguard.private") }}
       </div>
     </div>

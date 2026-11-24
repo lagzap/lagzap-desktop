@@ -105,6 +105,12 @@ async function saveChoice(profileId: string) {
 
 const { routeProbeHistory } = useMonitoringStore();
 const { getNodeLabel } = useNodeLocationLabel();
+/** A tile's name split before its number ("Amsterdam", "01"): a long name
+ * is cut ("Amste…") but the number always shows, on one line. */
+function labelParts(label: string): { head: string; num: string } {
+  const m = /^(.*\S)\s+(\d+)$/.exec(label);
+  return m ? { head: m[1]!, num: m[2]! } : { head: label, num: "" };
+}
 /** A server by its city and number (the digits its name ends in). */
 function serverLabel(node: Node): string {
   const city = String(store.localized(node.city) || "") || getNodeLabel(node);
@@ -251,7 +257,25 @@ const fastest = computed(() =>
 /** Dedicated IP: a choice of its own in the picker. On, it is what the
  * game uses (the relay goes toward the WireGuard server); any other choice
  * applied turns it off. */
-const { summary: wireguard, selected: wireguardPicked, setEnabled: setWireGuard } = useProfileWireGuard(main.profile.id);
+const {
+  summary: wireguard,
+  selected: wireguardPicked,
+  setEnabled: setWireGuard,
+  reload: reloadWireGuard,
+} = useProfileWireGuard(main.profile.id);
+/** The tunnel follows the game's place again: the place is saved on the
+ * title, so the game's profile claims its tunnel (the core moves it when
+ * the relay that place picks is not the one in use). */
+async function followTunnel() {
+  if (dedicatedOn.value) await setWireGuard(true);
+}
+/** A config picked on the page: Dedicated IP is that one now (on Apply),
+ * and while it is already on, the login connections take it right away. */
+async function onConfigPicked() {
+  draft.value.dedicated = true;
+  await reloadWireGuard();
+  if (dedicatedOn.value) await syncLoginWireGuard();
+}
 const dedicatedOn = computed(() => wireguard.value.enabled && !!wireguardPicked.value);
 /** The choice in use: Dedicated IP while it is on, else the mode. */
 const inUse = computed<Tab>(() => (dedicatedOn.value ? "dedicated" : mode.value));
@@ -486,6 +510,23 @@ function pickRelay(node: string | null) {
     d.mode = "global";
   }
   pickDedicated();
+  // Dedicated IP already on: the tunnel moves right away, so its relay,
+  // handshake and ping show whether the new relay works.
+  if (editingPrimary.value && dedicatedOn.value) void applyRelayNow();
+}
+async function applyRelayNow() {
+  const st = state.value;
+  const d = draft.value;
+  if (!st) return;
+  st.node_id = d.mode === "server" ? d.node : null;
+  st.mode = MODE_VALUE[d.mode];
+  // Applied: not a change to ask about when leaving.
+  const applied = JSON.parse(draftFrom.value || "{}") as Partial<Draft>;
+  draftFrom.value = JSON.stringify({ ...applied, mode: d.mode, node: d.node, dedicated: true });
+  wgPanel.value?.expectMove();
+  await saveChoice(primary.profile.id);
+  await followTunnel();
+  wgPanel.value?.refresh();
 }
 /** Region, Country, City: a click adds or takes away. */
 function toggle(kind: "region" | "country" | "city", item: Item) {
@@ -574,6 +615,8 @@ function commit(): Promise<void> {
     // Dedicated IP turned on or off, or applied again (maybe another
     // config): the login connections take it too.
     if (primaryEdit && (wireGuard !== null || d.dedicated)) await syncLoginWireGuard();
+    // Still on, maybe somewhere else now: the tunnel follows the new place.
+    if (primaryEdit && wireGuard === null && d.dedicated) await followTunnel();
   })();
 }
 
@@ -587,7 +630,44 @@ defineExpose({ closePlaces: () => closePlaces(), openFor });
 watch(placesOpen, (open) => emit("picking", open));
 /** The internets menu on the picker's card. */
 const internetsOpen = ref(false);
-const wgPanel = ref<{ startAdding: () => void } | null>(null);
+const wgPanel = ref<{ addFile: (file: File) => Promise<void>; refresh: () => void; expectMove: () => void } | null>(
+  null,
+);
+/** Dedicated IP: a WireGuard config file dropped anywhere on its card is
+ * added. The drag is handled here, not passed up: the app's runtime
+ * otherwise marks every file drag "no drop". */
+const configOver = ref(false);
+let configDepth = 0;
+function isFileDrag(event: DragEvent) {
+  return tab.value === "dedicated" && !!event.dataTransfer?.types.includes("Files");
+}
+function onConfigDragEnter(event: DragEvent) {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  configDepth++;
+  configOver.value = true;
+}
+function onConfigDragOver(event: DragEvent) {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+}
+function onConfigDragLeave(event: DragEvent) {
+  if (!isFileDrag(event)) return;
+  configDepth = Math.max(0, configDepth - 1);
+  if (!configDepth) configOver.value = false;
+}
+async function onConfigDrop(event: DragEvent) {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  configDepth = 0;
+  configOver.value = false;
+  const file = event.dataTransfer?.files?.[0];
+  if (file) await wgPanel.value?.addFile(file);
+}
 /** The left column's choice: what the tiles on the right are. */
 const tab = ref<Tab>("global");
 const modes = computed(() => [
@@ -811,7 +891,16 @@ onMounted(() => {
 
         <!-- What to pick, on its own card: its title, then the sort and
              the internets at the top right. -->
-        <v-card variant="flat" rounded="lg" class="pick-page__main">
+        <v-card
+          variant="flat"
+          rounded="lg"
+          class="pick-page__main"
+          :class="{ 'pick-page__main--drop': configOver }"
+          @dragenter="onConfigDragEnter"
+          @dragover="onConfigDragOver"
+          @dragleave="onConfigDragLeave"
+          @drop="onConfigDrop"
+        >
           <div class="pick-main__head">
             <span class="pick-main__title">{{ modes.find((m) => m.value === tab)?.title }}</span>
             <v-spacer />
@@ -827,17 +916,6 @@ onMounted(() => {
                 {{ opt.title }}
               </v-chip>
             </div>
-            <!-- Dedicated IP: add a config. -->
-            <v-btn
-              v-if="tab === 'dedicated'"
-              color="primary"
-              variant="tonal"
-              prepend-icon="mdi-plus"
-              class="text-none"
-              @click="wgPanel?.startAdding()"
-            >
-              {{ t("$vuetify.title.profile.wireguard.add") }}
-            </v-btn>
             <!-- Its internets (Multi Internet, load balancing or Split
                  Tunnel), in a menu. -->
             <v-menu v-if="tab !== 'direct'" v-model="internetsOpen" location="bottom end" :close-on-content-click="false">
@@ -883,7 +961,7 @@ onMounted(() => {
             </div>
             <!-- Dedicated IP: its configs; picking one turns it on. -->
             <div v-else-if="tab === 'dedicated'" key="dedicated">
-              <ProfileWireGuard ref="wgPanel" panel :profile-id="main.profile.id" :disabled="!store.appReady" @picked="draft.dedicated = true" />
+              <ProfileWireGuard ref="wgPanel" panel :profile-id="main.profile.id" :disabled="!store.appReady" @picked="onConfigPicked" />
               <!-- The relay the tunnel rides: picked toward the WireGuard
                    server, or one server. -->
               <v-divider class="my-5" />
@@ -927,7 +1005,7 @@ onMounted(() => {
                 >
                   <span class="pick-tile__row">
                     <FlagImg v-if="item.country" :country="item.country" :height="14" />
-                    <span class="pick-tile__name">{{ item.label }}</span>
+                    <span class="pick-tile__name"><span class="pick-tile__label"><span class="pick-tile__head">{{ labelParts(item.label).head }}</span><span v-if="labelParts(item.label).num" class="pick-tile__num">{{ labelParts(item.label).num }}</span></span></span>
                     <Ping :tag="item.tag" :latency-ms="item.ms" />
                     <v-icon v-if="draft.mode === 'server' && draft.node === item.key" icon="mdi-check-circle" size="18" color="primary" />
                   </span>
@@ -970,7 +1048,7 @@ onMounted(() => {
                   <span class="pick-tile__row">
                     <FlagImg v-if="item.country" :country="item.country" :height="14" />
                     <span class="pick-tile__name">
-                      {{ item.label }}
+                      <span class="pick-tile__label"><span class="pick-tile__head">{{ labelParts(item.label).head }}</span><span v-if="labelParts(item.label).num" class="pick-tile__num">{{ labelParts(item.label).num }}</span></span>
                       <span v-if="item.sub" class="pick-tile__sub">{{ item.sub }}</span>
                     </span>
                     <v-icon v-if="item.locked" icon="mdi-cart-outline" size="16" color="amber" />
@@ -1179,6 +1257,12 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* A WireGuard config dragged over the Dedicated IP card. */
+.pick-page__main--drop {
+  outline: 2px dashed rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+  background: rgba(var(--v-theme-primary), 0.06);
+}
 /* The drop card's details wrap (a subtitle is one line by default). */
 .drop-card__sub {
   white-space: normal;
@@ -1489,6 +1573,25 @@ onMounted(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* One line: the name is cut with "…", its number never (labelParts). */
+.pick-tile__label {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+.pick-tile__head {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pick-tile__num {
+  flex: none;
+  margin-inline-start: 0.3em;
+}
+.pick-tile__row > :not(.pick-tile__name) {
+  flex: none;
 }
 
 .pick-tile__sub {
