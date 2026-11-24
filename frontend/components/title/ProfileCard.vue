@@ -34,7 +34,8 @@ import MultiInternetHint from "~/components/title/MultiInternetHint.vue";
 import MultipathOffHint from "~/components/title/MultipathOffHint.vue";
 import BetterInternetHint from "~/components/title/BetterInternetHint.vue";
 import AdminLogDialog from "~/components/admin/AdminLogDialog.vue";
-import { formatSpeed } from "~/utils/localeFormat";
+import { formatMs, formatSpeed } from "~/utils/localeFormat";
+import { getLatencyColorClass } from "~/composables/useLatencyMetrics";
 import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
 import { useProfileRouteCounts } from "~/composables/useProfileRouteCounts";
 
@@ -132,8 +133,32 @@ const emit = defineEmits<{ pickLocation: [] }>();
 
 /** Its Dedicated IP is on: the tunnel uses one internet, so "connect
  * another internet" would only mislead. */
-const { summary: wireGuardSummary, selected: wireGuardSelected } = useProfileWireGuard(props.profile.id);
+const {
+  summary: wireGuardSummary,
+  selected: wireGuardSelected,
+  status: wireGuardStatus,
+} = useProfileWireGuard(props.profile.id);
 const dedicatedIpOn = computed(() => wireGuardSummary.value.enabled && !!wireGuardSelected.value);
+/** The ping through its Dedicated IP (you -> relay -> WireGuard server ->
+ * back) while the tunnel works: the title shows it big, and the relay's
+ * own ping small under it (just "Direct" without a relay). */
+const wireGuardPing = computed(() =>
+  dedicatedIpOn.value && wireGuardStatus.value.state === "working" && wireGuardStatus.value.ping > 0
+    ? wireGuardStatus.value.ping
+    : 0,
+);
+const wireGuardPingClass = computed(() => {
+  const name = getLatencyColorClass(wireGuardPing.value);
+  return name === "grey" ? "text-grey" : `text-${name}`;
+});
+/** The relay the tunnel goes through: its city (and number). */
+const wireGuardRelay = computed(() => {
+  const node = store.nodes?.[wireGuardStatus.value.relay];
+  if (!node) return "";
+  const city = String(store.localized(node.city) || "") || node.name || "";
+  const num = /(\d+)$/.exec(node.name ?? "")?.[1];
+  return num ? `${city} ${num.padStart(2, "0")}` : city;
+});
 
 /** A row's icon: what the profile carries. */
 const rowIcon = computed(() => {
@@ -435,8 +460,32 @@ const routeSettingsText = computed(() => {
 
 <template>
   <DefineBigPing>
-        <div class="profile-bigping">
+        <div class="profile-bigping" :class="{ 'profile-bigping--wg': !!wireGuardPing }">
+          <!-- Dedicated IP working: the ping through it, big; the relay's
+               under it (below), small. -->
+          <div v-if="wireGuardPing" class="profile-bigping__wg">
+            <span class="profile-bigping__wg-value" :class="wireGuardPingClass">{{ formatMs(wireGuardPing) }}</span>
+            <v-chip size="x-small" variant="tonal" prepend-icon="mdi-tunnel-outline" class="profile-bigping__wg-tag">
+              {{ t("$vuetify.title.profile.wireguard.short") }}
+            </v-chip>
+          </div>
+          <div v-if="wireGuardPing && wireGuardStatus.direct" class="profile-bigping__relay">
+            {{ t("$vuetify.title.profile.wireguard.relayDirect") }}
+          </div>
+          <div v-else-if="wireGuardPing" class="profile-bigping__relay">
+            <span>{{ t("$vuetify.title.profile.wireguard.relay") }}{{ wireGuardRelay ? ` ${wireGuardRelay}` : "" }}</span>
+            <ProfileEstimatedPing
+              bare
+              :profile-id="props.profile.id"
+              :views="showInterfaceSelector && !smartRoutes ? interfaceSelectItems : []"
+              :can-fix-lag="canFixLag"
+              :fixing-lag="fixingLag"
+              @fix-lag="fixLag"
+              @show-latency="showLatency"
+            />
+          </div>
           <ProfileEstimatedPing
+            v-else
             bare
             :profile-id="props.profile.id"
             :views="showInterfaceSelector && !smartRoutes ? interfaceSelectItems : []"
@@ -1105,6 +1154,33 @@ const routeSettingsText = computed(() => {
   flex-direction: column;
   align-items: flex-end;
   margin-inline-end: 4px;
+}
+
+/* Dedicated IP: its ping big with a tag; the relay's small under it. */
+.profile-bigping__wg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.profile-bigping__wg-value {
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+.profile-card-title--ping .profile-bigping__wg-value {
+  font-size: 2.25rem;
+}
+.profile-bigping__relay {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+.profile-bigping--wg .profile-bigping__relay :deep(.est-ping__value),
+.profile-card-title--ping .profile-bigping--wg .profile-bigping__relay :deep(.est-ping__value) {
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .profile-bigping :deep(.est-ping) {
