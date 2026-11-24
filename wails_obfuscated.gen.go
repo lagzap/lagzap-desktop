@@ -113,6 +113,7 @@ func init() {
 	application.RegisterBindingMethodID((*Service).ReloadService, 4124270383)
 	application.RegisterBindingMethodID((*Service).RemoveTeamMember, 1649192374)
 	application.RegisterBindingMethodID((*Service).RemoveWireGuardConfig, 199558583)
+	application.RegisterBindingMethodID((*Service).RetryPlan, 1190952150)
 	application.RegisterBindingMethodID((*Service).ReplyTicket, 3432348823)
 	application.RegisterBindingMethodID((*Service).RestartApp, 1441006079)
 	application.RegisterBindingMethodID((*Service).RevokeTeamInvite, 1164768171)

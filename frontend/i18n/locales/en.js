@@ -143,6 +143,7 @@
         expired: "Your plan has expired, so your apps go straight through your own internet. Renew it to use LagZap's locations again.",
         unavailable: "Couldn't load your plan. LagZap keeps trying; apps aren't routed until it loads.",
         getPlan: 'Get a plan',
+        retry: 'Retry',
         routesLimit: 'Your plan allows up to {0} routes.',
         deepRouting: 'Advanced deep routing',
     },

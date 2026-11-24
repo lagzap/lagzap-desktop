@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useLocale } from "vuetify";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import { useAccessOffer } from "~/composables/useAccessOffer";
+import { RetryPlan } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 
 /** Shown at the top of every page when no game can be routed: no active
  * plan, an expired one, or one that could not be loaded. A full-width
@@ -26,6 +27,19 @@ const show = computed(
     offerShown.value ||
     (!offerBannerClosed.value && !!access.value && !active.value && status.value !== "loading"),
 );
+/** The plan could not be loaded: Retry asks for it again now (LagZap also
+ * keeps trying by itself). */
+const retrying = ref(false);
+async function retry() {
+  retrying.value = true;
+  try {
+    await RetryPlan();
+  } catch {
+    // still unavailable: the banner stays
+  } finally {
+    retrying.value = false;
+  }
+}
 const text = computed(() => {
   if (rejoin.value) return offer.value?.kind === "trial" ? t("$vuetify.accessOffer.rejoinTrial") : t("$vuetify.accessOffer.rejoinBeta");
   if (offerShown.value) return offer.value?.kind === "trial" ? t("$vuetify.accessOffer.bannerTrial") : t("$vuetify.accessOffer.bannerBeta");
@@ -71,7 +85,12 @@ const text = computed(() => {
           @click="offerBannerClosed = true"
         />
       </template>
-      <template v-else-if="canUpgrade && status !== 'unavailable'" #actions>
+      <template v-else-if="status === 'unavailable'" #actions>
+        <v-btn variant="tonal" prepend-icon="mdi-refresh" :loading="retrying" @click="retry">
+          {{ t("$vuetify.plan.retry") }}
+        </v-btn>
+      </template>
+      <template v-else-if="canUpgrade" #actions>
         <v-btn variant="tonal" prepend-icon="mdi-cart-outline" @click="openUpgrade">
           {{ t("$vuetify.plan.getPlan") }}
         </v-btn>

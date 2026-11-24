@@ -72,6 +72,15 @@ func (s *Service) DisconnectProfile(id string) {
 	s.coordinator.CloseByProfile(id)
 }
 
+// RetryPlan loads the account (plan and access) again now: the banner's
+// Retry when the plan could not be loaded.
+func (s *Service) RetryPlan() error {
+	if s.coordinator == nil {
+		return E.New("coordinator_not_ready")
+	}
+	return s.coordinator.RetryAccount()
+}
+
 // DropConnections closes the connections with these IDs: after the main
 // region changed, the TCP connections still on the old one (UDP moves on
 // its own). Returns how many it closed.

@@ -1077,6 +1077,15 @@ export function RestartApp() {
 }
 
 /**
+ * RetryPlan loads the account (plan and access) again now: the banner's
+ * Retry when the plan could not be loaded.
+ * @returns {$CancellablePromise<void>}
+ */
+export function RetryPlan() {
+    return $Call.ByID(1190952150);
+}
+
+/**
  * @param {string} id
  * @returns {$CancellablePromise<adapter$0.TeamResult>}
  */
