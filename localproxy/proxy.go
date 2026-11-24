@@ -207,8 +207,15 @@ type upstreams struct {
 	current atomic.Int32
 }
 
+// raceWidth: how many upstreams a read goes to at once.
+const raceWidth = 3
+
 func (u *upstreams) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	n := len(u.proxies)
+	if n > 1 && mayRetry(r, nil) {
+		u.race(w, r)
+		return
+	}
 	start := int(u.current.Load())
 	for i := 0; i < n; i++ {
 		idx := (start + i) % n
@@ -237,6 +244,117 @@ func (u *upstreams) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("localproxy: %s %s failed on %s (%v); moving to %s\n",
 			r.Method, r.URL.Path, u.targets[idx].Host, a.err, u.targets[next].Host)
 	}
+}
+
+// race sends a read to up to raceWidth upstreams at once (the one in use
+// first) and answers with the first that does not fail; the others are
+// cancelled, and the winner is used next (writes too). A slow upstream then
+// costs nothing as long as another answers.
+func (u *upstreams) race(w http.ResponseWriter, r *http.Request) {
+	n := len(u.proxies)
+	width := min(raceWidth, n)
+	start := int(u.current.Load())
+	type result struct {
+		idx      int
+		rec      *bufferedResponse
+		failed   bool
+		timedOut bool
+		err      error
+	}
+	results := make(chan result, width)
+	cancels := make(map[int]context.CancelFunc, width)
+	for k := 0; k < width; k++ {
+		idx := (start + k) % n
+		ctx, cancel := context.WithCancel(r.Context())
+		cancels[idx] = cancel
+		// retry: its error is kept, not written (the race answers).
+		a := &attempt{retry: true}
+		a.timer = time.AfterFunc(lastUpstreamWait, func() {
+			a.timedOut.Store(true)
+			cancel()
+		})
+		go func() {
+			rec := newBufferedResponse()
+			u.proxies[idx].ServeHTTP(rec, r.WithContext(context.WithValue(ctx, attemptKey{}, a)))
+			a.timer.Stop()
+			results <- result{idx: idx, rec: rec, failed: a.err != nil || rec.status >= 500, timedOut: a.timedOut.Load(), err: a.err}
+		}()
+	}
+	var lost []result
+	for k := 0; k < width; k++ {
+		res := <-results
+		if res.failed {
+			lost = append(lost, res)
+			continue
+		}
+		for idx, cancel := range cancels {
+			if idx != res.idx {
+				cancel()
+			}
+		}
+		defer cancels[res.idx]()
+		if before := int(u.current.Swap(int32(res.idx))); before != res.idx {
+			fmt.Printf("localproxy: %s %s answered first by %s\n", r.Method, r.URL.Path, u.targets[res.idx].Host)
+		}
+		res.rec.writeTo(w)
+		return
+	}
+	for _, cancel := range cancels {
+		cancel()
+	}
+	timedOut := false
+	for _, res := range lost {
+		fmt.Printf("localproxy: upstream error: %s %s on %s -> %v (status %d)\n", r.Method, r.URL.Path, u.targets[res.idx].Host, res.err, res.rec.status)
+		timedOut = timedOut || res.timedOut
+	}
+	if len(lost) > 0 && lost[len(lost)-1].rec.status >= 500 {
+		lost[len(lost)-1].rec.writeTo(w)
+		return
+	}
+	cors.writeHeaders(w, r)
+	if timedOut {
+		http.Error(w, "LagZap servers are slow to respond", http.StatusGatewayTimeout)
+		return
+	}
+	http.Error(w, "Upstream error", http.StatusBadGateway)
+}
+
+// bufferedResponse holds one raced answer until it is known to win.
+type bufferedResponse struct {
+	header http.Header
+	status int
+	body   bytes.Buffer
+}
+
+func newBufferedResponse() *bufferedResponse {
+	return &bufferedResponse{header: make(http.Header)}
+}
+
+func (b *bufferedResponse) Header() http.Header { return b.header }
+
+func (b *bufferedResponse) WriteHeader(status int) {
+	if b.status == 0 {
+		b.status = status
+	}
+}
+
+func (b *bufferedResponse) Write(p []byte) (int, error) {
+	if b.status == 0 {
+		b.status = http.StatusOK
+	}
+	return b.body.Write(p)
+}
+
+func (b *bufferedResponse) writeTo(w http.ResponseWriter) {
+	for k, v := range b.header {
+		w.Header()[k] = v
+	}
+	status := b.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	w.WriteHeader(status)
+	_, _ = w.Write(b.body.Bytes())
 }
 
 func newHandler(cfg handlerConfig) http.Handler {

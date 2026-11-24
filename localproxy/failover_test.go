@@ -29,9 +29,9 @@ func parseURLs(t *testing.T, raw ...string) []*url.URL {
 	return out
 }
 
-// An upstream that takes the request but never answers: a read moves to the
-// next upstream, and later requests go there first.
-func TestReadMovesToNextUpstreamWhenOneHangs(t *testing.T) {
+// An upstream that takes the request but never answers: reads go to every
+// upstream at once and the one that answers wins, without waiting.
+func TestReadIsAnsweredByTheFastestUpstream(t *testing.T) {
 	shortWaits(t)
 	release := make(chan struct{})
 	var hung atomic.Int32
@@ -54,6 +54,7 @@ func TestReadMovesToNextUpstreamWhenOneHangs(t *testing.T) {
 	t.Cleanup(proxy.Close)
 
 	for i := 0; i < 2; i++ {
+		started := time.Now()
 		res, err := http.Get(proxy.URL + "/data")
 		if err != nil {
 			t.Fatal(err)
@@ -63,9 +64,57 @@ func TestReadMovesToNextUpstreamWhenOneHangs(t *testing.T) {
 		if res.StatusCode != http.StatusOK || string(body) != "ok" {
 			t.Fatalf("request %d: %d %q", i, res.StatusCode, body)
 		}
+		if took := time.Since(started); took >= upstreamWait {
+			t.Fatalf("request %d waited for the hanging upstream: %v", i, took)
+		}
 	}
-	if hung.Load() != 1 || served.Load() != 2 {
-		t.Fatalf("hanging upstream got %d, good one %d; want 1 and 2", hung.Load(), served.Load())
+	if served.Load() != 2 || hung.Load() == 0 {
+		t.Fatalf("hanging upstream got %d, good one %d", hung.Load(), served.Load())
+	}
+}
+
+// A read goes to at most raceWidth upstreams; the winner takes the next
+// write.
+func TestReadRacesAtMostThreeAndTheWinnerTakesWrites(t *testing.T) {
+	shortWaits(t)
+	var hits [4]atomic.Int32
+	var posts [4]atomic.Int32
+	var servers []string
+	for i := range hits {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				posts[i].Add(1)
+				return
+			}
+			hits[i].Add(1)
+			// The second one answers first.
+			if i != 1 {
+				time.Sleep(80 * time.Millisecond)
+			}
+			_, _ = io.WriteString(w, "ok")
+		}))
+		t.Cleanup(srv.Close)
+		servers = append(servers, srv.URL)
+	}
+	proxy := httptest.NewServer(newHandler(handlerConfig{targets: parseURLs(t, servers...)}))
+	t.Cleanup(proxy.Close)
+
+	res, err := http.Get(proxy.URL + "/data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	time.Sleep(150 * time.Millisecond)
+	if hits[3].Load() != 0 {
+		t.Fatal("a read went to more than three upstreams")
+	}
+	res, err = http.Post(proxy.URL+"/token", "application/json", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	if posts[1].Load() != 1 {
+		t.Fatalf("the write did not go to the read's winner: %v %v %v %v", posts[0].Load(), posts[1].Load(), posts[2].Load(), posts[3].Load())
 	}
 }
 
