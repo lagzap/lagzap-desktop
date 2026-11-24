@@ -3,6 +3,7 @@ package localproxy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -162,10 +163,15 @@ func channelTXTLookup(dns adapter.DNSRouter) txtLookup {
 // then the others in order. The proxy moves on to the next one when a
 // request fails on the one it uses.
 func DiscoverUpstream(ctx context.Context, dns adapter.DNSRouter, version string, coordinatorHosts []string) ([]string, error) {
+	txtStarted := time.Now()
 	endpoints, txtErr := channelEndpoints(ctx, channelTXTLookup(dns), version)
+	fmt.Printf("startup: proxy upstreams (DNS) %dms\n", time.Since(txtStarted).Milliseconds())
 	candidates := upstreamCandidates(coordinatorHosts, append(buildEndpoints(), endpoints...))
 	for i, ep := range candidates {
-		if probeURL(ctx, ep) {
+		probeStarted := time.Now()
+		ok := probeURL(ctx, ep)
+		fmt.Printf("startup: probe %s %dms ok=%v\n", ep, time.Since(probeStarted).Milliseconds(), ok)
+		if ok {
 			rest := append(append([]string(nil), candidates[:i]...), candidates[i+1:]...)
 			return append([]string{ep}, rest...), txtErr
 		}

@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/lagzap/lagzap"
 	"github.com/lagzap/lagzap-desktop/constant"
@@ -66,6 +68,17 @@ func (s *Service) New(ctx context.Context, app *application.App) {
 }
 
 func (s *Service) ReloadService() error {
+	// "Connecting" on the start screen: what each part took, in one line.
+	started := time.Now()
+	mark := started
+	var took []string
+	lap := func(name string) {
+		took = append(took, fmt.Sprintf("%s %dms", name, time.Since(mark).Milliseconds()))
+		mark = time.Now()
+	}
+	defer func() {
+		fmt.Printf("startup: connecting %dms: %s\n", time.Since(started).Milliseconds(), strings.Join(took, ", "))
+	}()
 	lagzapConstant.SetShellVersion(constant.SemVer())
 	if s.lagzap != nil {
 		_ = s.StopProxy()
@@ -74,6 +87,7 @@ func (s *Service) ReloadService() error {
 	ctx, cancel := context.WithCancel(s.ctx)
 	s.cancel = cancel
 
+	lap("stop old")
 	options := s.generateConfig()
 	instance, err := lagzap.New(lagzap.Options{
 		Context: ctx,
@@ -83,11 +97,13 @@ func (s *Service) ReloadService() error {
 		cancel()
 		return E.Cause(err, "create service")
 	}
+	lap("create")
 	err = instance.Start()
 	if err != nil {
 		s.StopService()
 		return E.Cause(err, "start service")
 	}
+	lap("start")
 	device.WarmDeviceHash()
 	s.runtimeCtx = ctx
 	s.dnsRouter = service.FromContext[adapter.DNSRouter](ctx)
@@ -109,10 +125,12 @@ func (s *Service) ReloadService() error {
 	}
 	s.lagzap = instance
 
+	lap("setup")
 	if err := s.discoverAndStartLocalProxy(); err != nil {
 		_ = s.StopService()
 		return E.Cause(err, "discover and start local proxy")
 	}
+	lap("find servers")
 	s.app.Event.Emit("service-started")
 
 	go s.startMonitoring()
@@ -366,7 +384,9 @@ func (s *Service) IsLocalProxyRunning() bool {
 
 func (s *Service) discoverAndStartLocalProxy() error {
 	if s.coordinator != nil {
+		hostsStarted := time.Now()
 		hostnames, hostErr := localproxy.DiscoverCoordinatorHosts(s.ctx, s.dnsRouter, constant.Version)
+		fmt.Printf("startup: coordinator hosts (DNS) %dms\n", time.Since(hostsStarted).Milliseconds())
 		if len(hostnames) > 0 {
 			s.coordinator.AppendDiscoveredEndpoints(hostnames)
 			if hostErr != nil {
