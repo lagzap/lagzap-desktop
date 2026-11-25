@@ -2,6 +2,7 @@
 import FlagImg from "~/components/common/FlagImg.vue";
 import ContinentIcon from "~/components/icons/ContinentIcon.vue";
 import ProfileCard from "~/components/title/ProfileCard.vue";
+import AdminLogDialog from "~/components/admin/AdminLogDialog.vue";
 import { useProfileConnectionStats } from "~/composables/useProfileConnectionStats";
 import { DropConnections, SelectProfileWireGuard } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import ProfileConnectionsTable from "~/components/title/ProfileConnectionsTable.vue";
@@ -12,7 +13,7 @@ import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
 import { countryName, localDigits } from "~/utils/localeFormat";
 import Ping from "~/components/network/Ping.vue";
 import { useTitleMenu } from "~/composables/useTitleMenu";
-import { useLocalStorage } from "@vueuse/core";
+import { useLocalStorage, useNow } from "@vueuse/core";
 import { useLocale } from "vuetify";
 import type { Node, Profile, RelayRoute } from "~/bindings/github.com/lagzap/zap/data";
 import { RoutingMode } from "~/bindings/github.com/lagzap/zap/data";
@@ -42,7 +43,7 @@ const props = defineProps<{
   allProfiles?: Profile[];
 }>();
 
-const { t } = useLocale();
+const { t, current: currentLocale } = useLocale();
 const store = useStore();
 const plan = usePlanAccess();
 
@@ -50,8 +51,11 @@ type Pick = { profile: Profile; sel: ReturnType<typeof useRegionSelection> };
 const picks: Pick[] = props.profiles.map((profile) => ({ profile, sel: useRegionSelection(profile) }));
 const isGame = (p: Pick) => (p.profile.flags & ProfileFlag.GAME_PACKET) !== 0;
 const byOrder = [...picks].sort((a, b) => (a.profile.order ?? 0) - (b.profile.order ?? 0));
-/** The game's profile, else the first: its places, ping, route and chart. */
-const primary = byOrder.find(isGame) ?? byOrder[0]!;
+/** The game's profile; without one, the first plain one (Login
+ * connections, not downloads or voice); else the first. Its places, ping,
+ * route and chart. */
+const isPlain = (p: Pick) => (p.profile.flags & (ProfileFlag.HIGH_TRAFFIC | ProfileFlag.MULTIPATH)) === 0;
+const primary = byOrder.find(isGame) ?? byOrder.find(isPlain) ?? byOrder[0]!;
 /** The profile the picker sets: the title's main one, or another one's
  * (a row's Location under Advanced) while the picker is open for it. */
 const main = shallowReactive<Pick>({ profile: primary.profile, sel: primary.sel });
@@ -104,18 +108,15 @@ async function saveChoice(profileId: string) {
 // ---- what can be picked, with the ping each shows ----
 
 const { routeProbeHistory } = useMonitoringStore();
-const { getNodeLabel } = useNodeLocationLabel();
+const { getNodeNumberedLabel, cityGroupMap } = useNodeLocationLabel();
 /** A tile's name split before its number ("Amsterdam", "01"): a long name
  * is cut ("Amste…") but the number always shows, on one line. */
 function labelParts(label: string): { head: string; num: string } {
   const m = /^(.*\S)\s+(\d+)$/.exec(label);
   return m ? { head: m[1]!, num: m[2]! } : { head: label, num: "" };
 }
-/** A server by its city and number (the digits its name ends in). */
 function serverLabel(node: Node): string {
-  const city = String(store.localized(node.city) || "") || getNodeLabel(node);
-  const num = /(\d+)$/.exec(node.name ?? "")?.[1];
-  return num ? `${city} ${num.padStart(2, "0")}` : city;
+  return getNodeNumberedLabel(node);
 }
 /** The lowest of the recent probes: steady between probe rounds. */
 function bestMs(route: RelayRoute | null): number {
@@ -254,27 +255,25 @@ const fastest = computed(() =>
 
 // ---- picking ----
 
-/** Dedicated IP: a choice of its own in the picker. On, it is what the
- * game uses (the relay goes toward the WireGuard server); any other choice
- * applied turns it off. */
-const {
-  summary: wireguard,
-  selected: wireguardPicked,
-  setEnabled: setWireGuard,
-  reload: reloadWireGuard,
-} = useProfileWireGuard(main.profile.id);
-/** The tunnel follows the game's place again: the place is saved on the
- * title, so the game's profile claims its tunnel (the core moves it when
- * the relay that place picks is not the one in use). */
-async function followTunnel() {
-  if (dedicatedOn.value) await setWireGuard(true);
+/** Dedicated IP: a choice of its own in the picker, for the profile it
+ * edits (the game's, or a row's). On, it is what that profile uses (the
+ * relay goes toward the WireGuard server); any other choice applied turns
+ * it off. */
+const editedWireGuard = computed(() => useProfileWireGuard(main.profile.id));
+const wireguard = computed(() => editedWireGuard.value.summary.value);
+const wireguardPicked = computed(() => editedWireGuard.value.selected.value);
+const setWireGuard = (on: boolean) => editedWireGuard.value.setEnabled(on);
+const reloadWireGuard = () => editedWireGuard.value.reload();
+/** The tunnel follows the profile's place again: the place is saved (on
+ * the title for the game), so the profile claims its tunnel (the core
+ * moves it when the relay that place picks is not the one in use). */
+async function followTunnel(wg = editedWireGuard.value) {
+  if (wg.summary.value.enabled && wg.selected.value) await wg.setEnabled(true);
 }
-/** A config picked on the page: Dedicated IP is that one now (on Apply),
- * and while it is already on, the login connections take it right away. */
-async function onConfigPicked() {
+/** A config picked on the page: Dedicated IP with that one, on Apply. */
+function onConfigPicked(id: string) {
   draft.value.dedicated = true;
-  await reloadWireGuard();
-  if (dedicatedOn.value) await syncLoginWireGuard();
+  draft.value.wgConfig = id;
 }
 const dedicatedOn = computed(() => wireguard.value.enabled && !!wireguardPicked.value);
 /** The choice in use: Dedicated IP while it is on, else the mode. */
@@ -448,8 +447,56 @@ function askFor(a: Ask) {
   ask.value = a;
 }
 const quickOpen = ref(false);
-/** The quick pick's list: the open cities, in the picker's order. */
-const quickCities = computed(() => cities.value.filter((c) => !c.locked));
+/** The quick pick's Top: the five open cities with the lowest ping (the
+ * list stays short; the rest are in the picker). */
+const quickCities = computed(() =>
+  cities.value
+    .filter((c) => !c.locked)
+    .sort((a, b) => (a.ms ?? Infinity) - (b.ms ?? Infinity))
+    .slice(0, 5),
+);
+/** Dedicated IP configs picked lately on this PC, newest first. */
+const recentConfigs = useLocalStorage<string[]>("lz-recent-wireguard", []);
+function noteRecentConfig(configId: string) {
+  recentConfigs.value = [configId, ...recentConfigs.value.filter((x) => x !== configId)].slice(0, 5);
+}
+/** The quick pick's Dedicated IP configs: the one in use, then the ones
+ * picked lately, then any other profile uses; up to three. */
+const quickConfigs = computed(() => {
+  const configs = wireguard.value.configs;
+  const order = [
+    ...(dedicatedOn.value ? [wireguard.value.selected] : []),
+    ...recentConfigs.value,
+    ...configs.filter((c) => c.profiles.length).map((c) => c.id),
+    ...configs.map((c) => c.id),
+  ];
+  const seen = new Set<string>();
+  const list: typeof configs = [];
+  for (const id of order) {
+    const config = configs.find((c) => c.id === id);
+    if (!config || seen.has(id)) continue;
+    seen.add(id);
+    list.push(config);
+    if (list.length === 3) break;
+  }
+  return list;
+});
+/** The quick pick of a Dedicated IP config: on with it, right away. */
+function quickPickConfig(configId: string) {
+  quickOpen.value = false;
+  noteRecentConfig(configId);
+  if (dedicatedOn.value && wireguard.value.selected === configId) return;
+  const before = oldRegionTcp();
+  const id = main.profile.id;
+  const wg = editedWireGuard.value;
+  const primaryEdit = editingPrimary.value;
+  applying = (async () => {
+    await SelectProfileWireGuard(id, configId);
+    await wg.reload();
+    if (primaryEdit) await syncLoginWireGuard();
+  })();
+  if (before.ids.length) askFor({ leaving: false, old: before, quick: true });
+}
 
 /** The picker's choice, kept apart until Apply. */
 type Draft = {
@@ -460,6 +507,8 @@ type Draft = {
   node: string | null;
   adapter: string;
   dedicated: boolean;
+  /** Dedicated IP's config. */
+  wgConfig: string;
 };
 function currentChoice(): Draft {
   const st = state.value;
@@ -471,6 +520,7 @@ function currentChoice(): Draft {
     node: st?.node_id ?? null,
     adapter: st?.default_interface ?? "",
     dedicated: dedicatedOn.value,
+    wgConfig: wireguard.value.selected ?? "",
   };
 }
 const draft = ref<Draft>(currentChoice());
@@ -495,7 +545,7 @@ function pickAdapter(name: string) {
 /** Dedicated IP: its saved config picked (the panel), or the sidebar
  * while one is picked already. */
 function pickDedicated() {
-  if (wireguardPicked.value) draft.value.dedicated = true;
+  if (draft.value.wgConfig) draft.value.dedicated = true;
 }
 /** Dedicated IP's relay: toward the WireGuard server (Automatic) or one
  * server; the tunnel rides what the game's own choice picks. */
@@ -510,23 +560,6 @@ function pickRelay(node: string | null) {
     d.mode = "global";
   }
   pickDedicated();
-  // Dedicated IP already on: the tunnel moves right away, so its relay,
-  // handshake and ping show whether the new relay works.
-  if (editingPrimary.value && dedicatedOn.value) void applyRelayNow();
-}
-async function applyRelayNow() {
-  const st = state.value;
-  const d = draft.value;
-  if (!st) return;
-  st.node_id = d.mode === "server" ? d.node : null;
-  st.mode = MODE_VALUE[d.mode];
-  // Applied: not a change to ask about when leaving.
-  const applied = JSON.parse(draftFrom.value || "{}") as Partial<Draft>;
-  draftFrom.value = JSON.stringify({ ...applied, mode: d.mode, node: d.node, dedicated: true });
-  wgPanel.value?.expectMove();
-  await saveChoice(primary.profile.id);
-  await followTunnel();
-  wgPanel.value?.refresh();
 }
 /** Region, Country, City: a click adds or takes away. */
 function toggle(kind: "region" | "country" | "city", item: Item) {
@@ -592,10 +625,14 @@ function commit(): Promise<void> {
   const d = draft.value;
   const id = main.profile.id;
   const from = JSON.parse(draftFrom.value || "{}") as Partial<Draft>;
-  // Dedicated IP is the title's main profile's (the picker hides it for
-  // another one).
+  // Dedicated IP of the profile edited: taken now, as closing goes back to
+  // the game's profile.
   const primaryEdit = editingPrimary.value;
-  const wireGuard = primaryEdit && d.dedicated !== dedicatedOn.value ? d.dedicated : null;
+  const wg = editedWireGuard.value;
+  // Dedicated IP on with another config (or turned on), or turned off.
+  const useConfig =
+    d.dedicated && !!d.wgConfig && (!dedicatedOn.value || d.wgConfig !== wg.summary.value.selected) ? d.wgConfig : "";
+  const turnOff = !d.dedicated && dedicatedOn.value;
   if (st) {
     st.regions = [...d.regions];
     st.countries = [...d.countries];
@@ -611,12 +648,18 @@ function commit(): Promise<void> {
   // tunnel's relay) moves right away.
   return (async () => {
     if (st) await saveChoice(id);
-    if (wireGuard !== null) await setWireGuard(wireGuard);
-    // Dedicated IP turned on or off, or applied again (maybe another
-    // config): the login connections take it too.
-    if (primaryEdit && (wireGuard !== null || d.dedicated)) await syncLoginWireGuard();
+    if (useConfig) {
+      noteRecentConfig(useConfig);
+      await SelectProfileWireGuard(id, useConfig);
+      await wg.reload();
+    } else if (turnOff) {
+      await wg.setEnabled(false);
+    }
+    // Dedicated IP turned on or off, or applied again: the login
+    // connections take it too.
+    if (primaryEdit && (useConfig || turnOff || d.dedicated)) await syncLoginWireGuard();
     // Still on, maybe somewhere else now: the tunnel follows the new place.
-    if (primaryEdit && wireGuard === null && d.dedicated) await followTunnel();
+    if (!useConfig && d.dedicated) await followTunnel(wg);
   })();
 }
 
@@ -625,8 +668,12 @@ function commit(): Promise<void> {
 const placesOpen = ref(false);
 /** The page shows only the picker meanwhile. */
 const emit = defineEmits<{ picking: [boolean] }>();
-// The page's title bar has the picker's Back.
-defineExpose({ closePlaces: () => closePlaces(), openFor });
+// The page's title bar has the picker's Back, and says what it sets: the
+// whole game's Location, or one profile's name.
+const editingLabel = computed(() =>
+  editingPrimary.value ? t("$vuetify.title.profile.location") : String(store.localized(main.profile.name) || ""),
+);
+defineExpose({ closePlaces: () => closePlaces(), openFor, editingLabel });
 watch(placesOpen, (open) => emit("picking", open));
 /** The internets menu on the picker's card. */
 const internetsOpen = ref(false);
@@ -678,14 +725,13 @@ const modes = computed(() => [
   { value: "server" as Mode, icon: "mdi-server-outline", title: t("$vuetify.title.profile.server.server") },
   { value: "dedicated" as Tab, icon: "mdi-tunnel-outline", title: t("$vuetify.title.profile.wireguard.title") },
   { value: "direct" as Mode, icon: "mdi-call-split", title: t("$vuetify.title.profile.server.directWithoutServer") },
-].filter((m) => m.value !== "dedicated" || editingPrimary.value));
+]);
 /** Slides: forward into the picker and down the modes, back out of it. */
 const slide = ref<"fwd" | "back">("fwd");
 function openPlaces() {
   draft.value = currentChoice();
-  if (!editingPrimary.value) draft.value.dedicated = false;
   draftFrom.value = JSON.stringify(draft.value);
-  tab.value = editingPrimary.value ? inUse.value : mode.value;
+  tab.value = inUse.value;
   slide.value = "fwd";
   placesOpen.value = true;
 }
@@ -788,7 +834,7 @@ const selected = computed(() => {
     }
     case "server": {
       const node = st?.node_id ? store.nodes[st.node_id] : undefined;
-      return { icon: node?.country ? "" : "mdi-server-outline", country: node?.country ?? "", label: node ? serverLabel(node) : "" };
+      return { icon: node?.country ? "" : "mdi-server-outline", country: node?.country ?? "", label: node ? serverLabel(node) : t("$vuetify.title.profile.server.pickServer") };
     }
     case "direct":
       return { icon: "mdi-call-split", country: "", label: t("$vuetify.title.profile.server.directWithoutServer") };
@@ -808,20 +854,202 @@ const selectedMs = computed(() => {
 /** The card is the title's: it shows the profile in use, by kind (the
  * game's first, then downloads, then voice and other multi-path ones, then
  * the rest), else the main one; the next one in use shows under it. */
+/** Downloads and updates: High traffic, and not a call, a game or an app
+ * kept connected (Discord's voice is High traffic too, but a call). */
+function isDownloadKind(p: Profile): boolean {
+  return (
+    (p.flags & ProfileFlag.HIGH_TRAFFIC) !== 0 &&
+    (p.flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET | ProfileFlag.PREVENT_DISCONNECT)) === 0
+  );
+}
 function kindRank(p: Profile): number {
   if ((p.flags & ProfileFlag.GAME_PACKET) !== 0) return 0;
-  if ((p.flags & ProfileFlag.HIGH_TRAFFIC) !== 0) return 1;
+  if (isDownloadKind(p)) return 1;
   if ((p.flags & ProfileFlag.MULTIPATH) !== 0) return 2;
   return 3;
 }
-const candidates = [...(props.allProfiles?.length ? props.allProfiles : props.profiles)].sort(
-  (a, b) => kindRank(a) - kindRank(b) || (a.order ?? 0) - (b.order ?? 0),
+/** A download really going: a High traffic profile's idle connection (one
+ * left open after an update) does not take the card. It keeps the card a
+ * while after the speed drops, so a pause does not make it flicker. */
+const DOWNLOADING_BPS = 64 * 1024;
+const DOWNLOAD_HOLD_MS = 30_000;
+const lastDownloading = reactive<Record<string, number>>({});
+/** Voice and other multi-path profiles: last seen moving any data, held the
+ * same while so a quiet moment in a call does not drop it. */
+const lastTalking = reactive<Record<string, number>>({});
+/** The title's profiles, read live: the list can still be filling in when
+ * the page opens, and a profile picked for the card must be found once it
+ * is there. */
+const candidates = computed(() =>
+  [...(props.allProfiles?.length ? props.allProfiles : props.profiles)].sort(
+    (a, b) => kindRank(a) - kindRank(b) || (a.order ?? 0) - (b.order ?? 0),
+  ),
 );
-const candidateStats = candidates.map((p) => ({ profile: p, stats: useProfileConnectionStats(() => p.id) }));
-const usedProfiles = computed(() =>
-  candidateStats.filter((c) => store.isProfileActive(c.profile.id) && c.stats.connected.value).map((c) => c.profile),
+/** Each profile's live connections, made once per profile in the page's
+ * own scope (stopped with it). */
+const pageScope = getCurrentScope();
+const statsById = new Map<string, ReturnType<typeof useProfileConnectionStats>>();
+function statsOf(p: Profile) {
+  let stats = statsById.get(p.id);
+  if (!stats) {
+    stats = pageScope!.run(() => {
+      const made = useProfileConnectionStats(() => p.id);
+      // A download going: noted, for the hold below.
+      if (isDownloadKind(p)) {
+        watch(made.downloadSpeed, (bps) => {
+          if (bps >= DOWNLOADING_BPS) lastDownloading[p.id] = Date.now();
+        });
+      }
+      // A call going: any data moving, noted the same.
+      if ((p.flags & ProfileFlag.MULTIPATH) !== 0) {
+        watch(
+          () => made.downloadSpeed.value + made.uploadSpeed.value,
+          (bps) => {
+            if (bps > 0) lastTalking[p.id] = Date.now();
+          },
+          { immediate: true },
+        );
+      }
+      return made;
+    })!;
+    statsById.set(p.id, stats);
+  }
+  return stats;
+}
+const candidateStats = computed(() => candidates.value.map((p) => ({ profile: p, stats: statsOf(p) })));
+const now = useNow({ interval: 5_000 });
+function cardWorthy(c: { profile: Profile; stats: ReturnType<typeof statsOf> }): boolean {
+  if (!store.isProfileActive(c.profile.id) || !c.stats.connected.value) return false;
+  if (!isDownloadKind(c.profile)) return true;
+  if (c.stats.downloadSpeed.value >= DOWNLOADING_BPS) return true;
+  return now.value.getTime() - (lastDownloading[c.profile.id] ?? 0) < DOWNLOAD_HOLD_MS;
+}
+const usedProfiles = computed(() => candidateStats.value.filter(cardWorthy).map((c) => c.profile));
+/** The card by itself: the game's own profile while it is in use; else
+ * downloads while one is really downloading; else a call (voice and video)
+ * with data moving; else the main profile while it has connections; else
+ * any other in use; else the main one. */
+const autoShown = computed<Profile>(() => {
+  const used = usedProfiles.value;
+  const isUsed = (id: string) => used.some((p) => p.id === id);
+  const mainId = primary.profile.id;
+  const mainIsGame = (primary.profile.flags & ProfileFlag.GAME_PACKET) !== 0;
+  if (mainIsGame && isUsed(mainId)) return primary.profile;
+  const downloading = used.find(isDownloadKind);
+  if (downloading) return downloading;
+  // A call (voice and video) with data moving comes before the main one.
+  const talking = used.find(
+    (p) =>
+      p.id !== mainId &&
+      (p.flags & ProfileFlag.MULTIPATH) !== 0 &&
+      now.value.getTime() - (lastTalking[p.id] ?? 0) < DOWNLOAD_HOLD_MS,
+  );
+  if (talking) return talking;
+  if (isUsed(mainId)) return primary.profile;
+  return used[0] ?? primary.profile;
+});
+/** A profile picked for the card by hand, while the page stays open:
+ * leaving the game turns "Switch to what's in use" back on. Empty: the card
+ * follows what is in use. */
+const pinnedShown = ref("");
+const pinnedProfile = computed(() => candidates.value.find((p) => p.id === pinnedShown.value) ?? null);
+const shown = computed<Profile>(() => pinnedProfile.value ?? autoShown.value);
+const profileName = (p: Profile) => String(store.localized(p.name) || "");
+/** The profiles as the page lists them (Advanced): the main one first,
+ * then the rest in their order. */
+const listedProfiles = computed(() =>
+  [...candidates.value].sort(
+    (a, b) =>
+      Number(b.id === primary.profile.id) - Number(a.id === primary.profile.id) || (a.order ?? 0) - (b.order ?? 0),
+  ),
 );
-const shown = computed<Profile>(() => usedProfiles.value[0] ?? main.profile);
+/** A row of the card's menu: in use (taking the card when it switches by
+ * itself), idle (on, nothing going) or off. */
+function cardStatus(p: Profile): string {
+  const c = candidateStats.value.find((x) => x.profile.id === p.id);
+  if (!c || !store.isProfileActive(p.id)) return t("$vuetify.title.profile.statusOff");
+  return cardWorthy(c) ? t("$vuetify.title.playFrom.cardInUse") : t("$vuetify.title.playFrom.cardIdle");
+}
+/** The card's profile menu. */
+const cardMenuOpen = ref(false);
+/** Profiles off while the game is on: said above the card (until "I'm
+ * aware", remembered on this PC until the profile is on again). */
+const offAware = useLocalStorage<string[]>("lz-profile-off-aware", []);
+const offProfiles = computed(() =>
+  store.isTitleActive(titleId) ? listedProfiles.value.filter((p) => !store.isProfileActive(p.id)) : [],
+);
+watch(
+  () => listedProfiles.value.filter((p) => store.isProfileActive(p.id)).map((p) => p.id),
+  (on) => {
+    if (on.some((id) => offAware.value.includes(id))) offAware.value = offAware.value.filter((id) => !on.includes(id));
+  },
+  { immediate: true },
+);
+const offShown = computed(() => offProfiles.value.filter((p) => !offAware.value.includes(p.id)));
+const offText = computed(() => {
+  const list = offShown.value;
+  if (!list.length) return "";
+  const names = new Intl.ListFormat(currentLocale.value, { type: "conjunction" }).format(list.map(profileName));
+  return list.length === 1 ? t("$vuetify.title.playFrom.profileOff", [names]) : t("$vuetify.title.playFrom.profilesOff", [names]);
+});
+const turningOn = ref(false);
+async function turnOffProfilesOn() {
+  turningOn.value = true;
+  try {
+    for (const p of offShown.value) await setProfileOn(p, true);
+  } finally {
+    turningOn.value = false;
+  }
+}
+function beAware() {
+  offAware.value = [...new Set([...offAware.value, ...offShown.value.map((p) => p.id)])];
+}
+/** A profile's options (the Advanced row's ⋮), from its card's chevron or a
+ * right-click on it. */
+const optionsFor = ref<Profile | null>(null);
+const optionsTarget = ref<Element | [number, number] | undefined>(undefined);
+const optionsOpen = ref(false);
+function openOptions(p: Profile, target: Element | [number, number]) {
+  optionsFor.value = p;
+  optionsTarget.value = target;
+  optionsOpen.value = true;
+}
+const isAdmin = computed(() => plan.admin.value);
+const { settings: appSettings } = useSettings();
+const { rateProfile } = useSessionRating();
+const canRateFor = (p: Profile) => appSettings.value.allowSendAnonymousData === true && store.isProfileActive(p.id);
+const hasLocation = (p: Profile) => picks.some((x) => x.profile.id === p.id);
+async function setProfileOn(p: Profile, on: boolean) {
+  if (!store.appReady || on === store.isProfileActive(p.id)) return;
+  if (on) await store.activateProfile(p.id);
+  else await store.deactivateProfile(p.id);
+}
+function closeCardMenus() {
+  optionsOpen.value = false;
+  cardMenuOpen.value = false;
+}
+function openLocationFor(p: Profile) {
+  closeCardMenus();
+  openFor(p.id);
+}
+/** Route Settings opened for this profile (else the card's). */
+const routeOpenFor = ref("");
+function openSettingsFor(p: Profile) {
+  closeCardMenus();
+  routeOpenFor.value = p.id;
+  routeSettingsOpen.value = true;
+}
+const reportFor = ref<Profile | null>(null);
+const reportOpen = ref(false);
+const logFor = ref<Profile | null>(null);
+const logOpen = ref(false);
+/** "Switch to what's in use": on unless a profile was picked by hand. */
+const cardFollows = computed({
+  get: () => !pinnedProfile.value,
+  set: (on: boolean) => {
+    pinnedShown.value = on ? "" : shown.value.id;
+  },
+});
 /** The next profile in use, said under the card's status: a game's,
  * downloads or voice (not login connections and the like). */
 const alsoInUse = computed<Profile | null>(
@@ -839,12 +1067,121 @@ const connectionCount = computed(
 /** Route Settings, from its button in the bar (Login connections on top). */
 const routeSettingsOpen = ref(false);
 const routeBtn = ref<{ $el: Element } | null>(null);
+/** Its profile chips: the title's routed profiles; it opens on the card's. */
+const routeProfiles = computed(() => listedProfiles.value.filter((p) => p.route_action === "route" || p.id === shown.value.id));
+const routeProfileId = ref("");
+/** A profile picked for the card, not the main one: its own location is
+ * in the panel too (the Server button is the game's). */
+const pinnedOther = computed(() =>
+  pinnedProfile.value && pinnedProfile.value.id !== primary.profile.id && picks.some((x) => x.profile.id === pinnedProfile.value!.id)
+    ? pinnedProfile.value
+    : null,
+);
+/** Where a profile plays from: its Dedicated IP, else its location (the
+ * game's, unless it has its own). */
+type Place = { country: string; icon: string; label: string };
+function placeOf(p: Profile): Place {
+  const wg = useProfileWireGuard(p.id);
+  if (wg.summary.value.enabled && wg.selected.value) {
+    const c = wg.selected.value;
+    return { country: c.country ?? "", icon: "mdi-tunnel-outline", label: c.name || t("$vuetify.title.profile.wireguard.title") };
+  }
+  const st = store.profileStates[p.id];
+  const sel = picks.find((x) => x.profile.id === p.id)?.sel ?? main.sel;
+  const more = (n: number) => (n > 1 ? ` +${localDigits(n - 1)}` : "");
+  switch (modeOf(st)) {
+    case "region": {
+      const list = st?.regions ?? [];
+      return { country: "", icon: "mdi-earth", label: `${list[0] ? sel.getRegionLocalizedName(list[0]) : ""}${more(list.length)}` };
+    }
+    case "country": {
+      const list = st?.countries ?? [];
+      return { country: list[0] ?? "", icon: "mdi-earth", label: `${countryName(list[0] ?? "") || list[0] || ""}${more(list.length)}` };
+    }
+    case "city": {
+      const list = st?.cities ?? [];
+      const city = list[0] ? cityGroupMap.value.get(list[0]) : undefined;
+      return {
+        country: city?.[0]?.country ?? "",
+        icon: "mdi-city-variant-outline",
+        label: `${list[0] ? sel.getCityLabel(list[0]) : ""}${more(list.length)}`,
+      };
+    }
+    case "server": {
+      const node = st?.node_id ? store.nodes[st.node_id] : undefined;
+      return { country: node?.country ?? "", icon: "mdi-server-outline", label: node ? serverLabel(node) : t("$vuetify.title.profile.server.pickServer") };
+    }
+    case "direct":
+      return { country: "", icon: "mdi-call-split", label: t("$vuetify.title.profile.server.directWithoutServer") };
+    default:
+      return { country: "", icon: "mdi-lightning-bolt", label: t("$vuetify.title.profile.server.automatic") };
+  }
+}
+/** Each listed profile's place, for the card's menu and its pill. */
+const places = computed<Record<string, Place>>(() => Object.fromEntries(listedProfiles.value.map((p) => [p.id, placeOf(p)])));
+/** The pinned profile's place, for the panel's Location row. */
+const pinnedPlace = computed(() => (pinnedOther.value ? placeOf(pinnedOther.value) : null));
+/** A profile's icon in the card's menu: what it carries. */
+function kindIcon(p: Profile): string {
+  if ((p.flags & ProfileFlag.GAME_PACKET) !== 0) return "mdi-gamepad-variant-outline";
+  if ((p.flags & ProfileFlag.MULTIPATH) !== 0) return "mdi-headset";
+  if (isDownloadKind(p)) return "mdi-download-outline";
+  return "mdi-earth";
+}
+/** In use, idle or off: the dot's look. */
+function cardStatusKind(p: Profile): "on" | "idle" | "off" {
+  const c = candidateStats.value.find((x) => x.profile.id === p.id);
+  if (!c || !store.isProfileActive(p.id)) return "off";
+  return cardWorthy(c) ? "on" : "idle";
+}
+/** Settings for downloads (a load-balancing profile): their internets,
+ * load balancing included, at the top. */
+const routeBalance = computed(() => {
+  const p = routeProfile.value;
+  const pick = picks.find((x) => x.profile.id === p.id);
+  return isDownloadKind(p) && p.route_action === "route" && pick ? pick : null;
+});
+function changePinnedLocation() {
+  const p = pinnedOther.value;
+  if (!p) return;
+  routeSettingsOpen.value = false;
+  openFor(p.id);
+}
+const routeProfile = computed<Profile>(() => routeProfiles.value.find((p) => p.id === routeProfileId.value) ?? shown.value);
+watch(routeSettingsOpen, (open) => {
+  if (!open) return;
+  routeProfileId.value = routeOpenFor.value || shown.value.id;
+  routeOpenFor.value = "";
+});
 
-// A title's right-click menu asked for its location: the picker.
+// A title's right-click menu asked for its location (the picker) or its
+// settings (Settings); Bandwidth Control for a profile's settings or its
+// download cap (the card shows that profile, its cap button opens it).
 const titleMenu = useTitleMenu();
 onMounted(() => {
   if (titleMenu.take(titleId, "location")) openPlaces();
 });
+watch(
+  () => [titleMenu.pending.titleId, titleMenu.pending.what, titleMenu.pendingProfile.profileId, titleMenu.pendingProfile.what] as const,
+  () => {
+    if (titleMenu.take(titleId, "settings")) {
+      setTimeout(() => (routeSettingsOpen.value = true), 150);
+      return;
+    }
+    const id = titleMenu.pendingProfile.profileId;
+    if (!id || !candidates.value.some((p) => p.id === id)) return;
+    if (titleMenu.pendingProfile.what === "cap") {
+      // Its cap button is on the card once the card shows it.
+      pinnedShown.value = id;
+      return;
+    }
+    if (titleMenu.takeProfile(id, "settings")) {
+      routeOpenFor.value = id;
+      setTimeout(() => (routeSettingsOpen.value = true), 150);
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -862,7 +1199,7 @@ onMounted(() => {
       </div>
       <div class="pick-page__cols">
         <!-- How to pick: a sidebar; the dot marks the way it picks now. -->
-        <v-card variant="flat" rounded="lg" class="pick-page__side">
+        <v-card variant="flat" rounded="lg" class="pick-page__side title-outlined">
           <v-list nav density="comfortable" bg-color="transparent">
             <v-list-item
               v-for="m in modes"
@@ -894,7 +1231,7 @@ onMounted(() => {
         <v-card
           variant="flat"
           rounded="lg"
-          class="pick-page__main"
+          class="pick-page__main title-outlined"
           :class="{ 'pick-page__main--drop': configOver }"
           @dragenter="onConfigDragEnter"
           @dragover="onConfigDragOver"
@@ -961,7 +1298,14 @@ onMounted(() => {
             </div>
             <!-- Dedicated IP: its configs; picking one turns it on. -->
             <div v-else-if="tab === 'dedicated'" key="dedicated">
-              <ProfileWireGuard ref="wgPanel" panel :profile-id="main.profile.id" :disabled="!store.appReady" @picked="onConfigPicked" />
+              <ProfileWireGuard
+                ref="wgPanel"
+                panel
+                :profile-id="main.profile.id"
+                :draft-id="draft.wgConfig"
+                :disabled="!store.appReady"
+                @picked="onConfigPicked"
+              />
               <!-- The relay the tunnel rides: picked toward the WireGuard
                    server, or one server. -->
               <v-divider class="my-5" />
@@ -1069,42 +1413,50 @@ onMounted(() => {
            connects from) at the start; Login connections and the route
            counts at the end. -->
       <div class="play-from__bar">
-        <!-- Hover: the quick pick (Global or a city); click: the picker. -->
-        <v-menu v-model="quickOpen" open-on-hover :open-delay="0" :close-delay="150" location="bottom start" max-height="420">
+        <!-- Where the game connects from, a small card labelled
+             Location. Hover: the quick pick (Automatic, a top city or a
+             recent Dedicated IP config); click: the picker. -->
+        <v-menu v-model="quickOpen" open-on-hover :open-delay="0" :close-delay="150" location="bottom start" :offset="8">
           <template #activator="{ props: menuProps }">
-            <v-btn
+            <v-card
               v-bind="menuProps"
               variant="flat"
-              color="surface-container-high"
-              size="large"
-              class="text-none play-from__server"
+              rounded="lg"
+              class="play-from__loc flex-grow-0"
               @click="quickOpen = false; openPlaces()"
             >
-              <FlagImg v-if="selected.country" :country="selected.country" :height="16" class="me-2" />
-              <v-icon v-else :icon="selected.icon" start />
-              {{ selected.label }}
-              <Ping v-if="selectedMs" :latency-ms="selectedMs" class="ms-3" />
-              <v-icon icon="mdi-chevron-right" end />
-            </v-btn>
+              <div class="d-flex align-center ga-4 ps-4 pe-2 py-2">
+                <div style="min-width: 0">
+                  <div class="text-caption text-medium-emphasis">{{ t("$vuetify.title.profile.location") }}</div>
+                  <div class="d-flex align-center text-no-wrap">
+                    <FlagImg v-if="selected.country" :country="selected.country" :height="14" class="me-2" />
+                    <v-icon v-else :icon="selected.icon" size="18" class="me-2" />
+                    <span class="font-weight-medium text-truncate">{{ selected.label }}</span>
+                    <Ping v-if="selectedMs" :latency-ms="selectedMs" class="ms-3" />
+                  </div>
+                </div>
+                <v-icon icon="mdi-chevron-right" class="ms-auto text-medium-emphasis" />
+              </div>
+            </v-card>
           </template>
-          <v-card min-width="260" max-width="320">
+          <v-card min-width="260" max-width="340">
             <v-list density="compact" class="py-1">
               <v-list-item
-                :active="mode === 'global'"
-                color="primary"
+                :active="!dedicatedOn && mode === 'global'"
                 prepend-icon="mdi-lightning-bolt"
                 :title="t('$vuetify.title.profile.server.automatic')"
                 @click="quickPick('')"
               >
-                <template v-if="fastest" #append>
-                  <Ping :tag="fastest.tag" :latency-ms="fastest.ms" />
+                <!-- Automatic takes the best place: said, not a ping. -->
+                <template #append>
+                  <span class="text-caption text-medium-emphasis">{{ t("$vuetify.title.playFrom.quickBest") }}</span>
                 </template>
               </v-list-item>
+              <v-list-subheader v-if="quickCities.length">{{ t("$vuetify.title.playFrom.quickTop") }}</v-list-subheader>
               <v-list-item
                 v-for="city in quickCities"
                 :key="city.key"
-                :active="mode === 'city' && (state?.cities ?? []).length === 1 && state?.cities?.[0] === city.key"
-                color="primary"
+                :active="!dedicatedOn && mode === 'city' && (state?.cities ?? []).length === 1 && state?.cities?.[0] === city.key"
                 @click="quickPick(city.key)"
               >
                 <template #prepend>
@@ -1116,6 +1468,27 @@ onMounted(() => {
                 </template>
               </v-list-item>
             </v-list>
+            <template v-if="quickConfigs.length">
+              <v-divider />
+              <v-list density="compact" class="py-1">
+                <v-list-subheader>{{ t("$vuetify.title.profile.wireguard.title") }}</v-list-subheader>
+                <v-list-item
+                  v-for="config in quickConfigs"
+                  :key="config.id"
+                  :active="dedicatedOn && wireguard.selected === config.id"
+                  @click="quickPickConfig(config.id)"
+                >
+                  <template #prepend>
+                    <FlagImg v-if="config.country" :country="config.country" :height="14" class="me-3" />
+                    <v-icon v-else icon="mdi-tunnel-outline" size="18" class="me-3" />
+                  </template>
+                  <v-list-item-title>{{ config.name }}</v-list-item-title>
+                  <template v-if="dedicatedOn && wireguard.selected === config.id && editedWireGuard.status.value.ping > 0" #append>
+                    <Ping :latency-ms="editedWireGuard.status.value.ping" />
+                  </template>
+                </v-list-item>
+              </v-list>
+            </template>
             <v-divider />
             <v-list density="compact" class="py-1">
               <v-list-item
@@ -1131,9 +1504,38 @@ onMounted(() => {
         <slot />
       </div>
 
+      <!-- A profile off while the game is on: said here, with Turn on. -->
+      <v-expand-transition>
+        <v-alert
+          v-if="offShown.length"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          rounded="lg"
+          class="play-from__off"
+        >
+          <div class="d-flex align-center flex-wrap ga-2">
+            <span class="flex-grow-1">{{ offText }}</span>
+            <v-btn variant="text" color="on-surface" size="small" class="text-none" @click="beAware">
+              {{ t("$vuetify.title.playFrom.offAware") }}
+            </v-btn>
+            <v-btn
+              variant="tonal"
+              color="on-surface"
+              size="small"
+              class="text-none"
+              :loading="turningOn"
+              :disabled="!store.appReady"
+              @click="turnOffProfilesOn"
+            >
+              {{ t("$vuetify.title.playFrom.offTurnOn") }}
+            </v-btn>
+          </div>
+        </v-alert>
+      </v-expand-transition>
       <!-- How it goes: the game's own card, full width (its ping, route
            diagram, chart and hints). -->
-      <div class="play-from">
+      <div class="play-from title-outlined">
         <ProfileCard
           :key="shown.id"
           :profile="shown"
@@ -1145,6 +1547,140 @@ onMounted(() => {
           :game-name="String(store.localized(shown.name) || gameName || '')"
           :game-icon="gameIcon"
         >
+          <!-- Above the ping: which profile the card shows. -->
+          <template #above>
+          <!-- Which profile the card shows: Automatic (the one in use), or one
+               picked by hand, which stays. -->
+          <div v-if="candidates.length > 1" class="play-from__card-pick">
+            <!-- The switch keeps it open; picking a profile closes it. -->
+            <v-menu v-model="cardMenuOpen" location="bottom start" :close-on-content-click="false">
+              <template #activator="{ props: menuProps }">
+                <v-btn
+                  v-bind="menuProps"
+                  variant="text"
+                  color="on-surface"
+                  size="small"
+                  class="text-none px-2"
+                  append-icon="mdi-menu-down"
+                >
+                  <FlagImg v-if="places[shown.id]?.country" :country="places[shown.id]!.country" :height="12" class="me-2" />
+                  {{ profileName(shown) }}
+                </v-btn>
+              </template>
+              <v-card min-width="380" max-width="460" class="card-pick pa-2">
+                <!-- Off once a profile is picked; on, the card goes to the
+                     one in use by itself. -->
+                <div class="d-flex align-center ga-3 ps-2">
+                  <span class="text-body-2 flex-grow-1 d-flex align-center ga-1">
+                    {{ t("$vuetify.title.playFrom.cardFollow") }}
+                    <v-tooltip :text="t('$vuetify.title.playFrom.cardFollowHint')" location="top" max-width="280">
+                      <template #activator="{ props: tipProps }">
+                        <v-icon v-bind="tipProps" icon="mdi-help-circle-outline" size="16" class="text-medium-emphasis" />
+                      </template>
+                    </v-tooltip>
+                  </span>
+                  <v-switch
+                    :model-value="cardFollows"
+                    inset
+                    hide-details
+                    density="compact"
+                    color="cyan"
+                    class="flex-grow-0"
+                    @update:model-value="cardFollows = !!$event"
+                  />
+                </div>
+                <!-- A card per profile: what it carries, where it plays from
+                     and whether it is in use. Picking one keeps the card on
+                     it. -->
+                <div class="d-flex flex-column ga-2 mt-1">
+                  <v-card
+                    v-for="p in listedProfiles"
+                    :key="p.id"
+                    variant="flat"
+                    rounded="lg"
+                    class="card-pick__item"
+                    :class="{ 'card-pick__item--on': shown.id === p.id, 'card-pick__item--auto': shown.id === p.id && cardFollows }"
+                    @click="pinnedShown = p.id; cardMenuOpen = false"
+                    @contextmenu.prevent="openOptions(p, [$event.clientX, $event.clientY])"
+                  >
+                    <div class="d-flex align-center ga-3 pa-3">
+                      <v-icon :icon="kindIcon(p)" size="20" class="text-medium-emphasis" />
+                      <div class="flex-grow-1" style="min-width: 0">
+                        <div class="text-body-2 font-weight-medium text-truncate">{{ profileName(p) }}</div>
+                        <div class="d-flex align-center ga-1 text-caption text-medium-emphasis">
+                          <FlagImg v-if="places[p.id]?.country" :country="places[p.id]!.country" :height="11" />
+                          <v-icon v-else :icon="places[p.id]?.icon" size="13" />
+                          <span class="text-truncate">{{ places[p.id]?.label }}</span>
+                        </div>
+                      </div>
+                      <div class="d-flex align-center ga-1 text-caption text-no-wrap" :class="{ 'text-medium-emphasis': cardStatusKind(p) !== 'on' }">
+                        <span class="card-pick__dot" :class="'card-pick__dot--' + cardStatusKind(p)" />
+                        {{ cardStatus(p) }}
+                      </div>
+                      <!-- Clicking the card picks it; right-click has its
+                           options. -->
+                      <v-icon icon="mdi-chevron-right" size="20" class="text-medium-emphasis" />
+                    </div>
+                  </v-card>
+                </div>
+                <!-- A profile's options, beside its card. -->
+                <v-menu v-model="optionsOpen" :target="optionsTarget" location="end top">
+                  <v-list v-if="optionsFor" density="compact" min-width="230">
+                    <v-list-item
+                      prepend-icon="mdi-power"
+                      :title="profileName(optionsFor)"
+                      :subtitle="t(store.isProfileActive(optionsFor.id) ? '$vuetify.title.profile.statusOnShort' : '$vuetify.title.profile.statusOff')"
+                      :disabled="!store.appReady"
+                      @click="setProfileOn(optionsFor, !store.isProfileActive(optionsFor.id))"
+                    >
+                      <template #append>
+                        <v-switch
+                          :model-value="store.isProfileActive(optionsFor.id)"
+                          inset
+                          hide-details
+                          density="compact"
+                          color="cyan"
+                          class="ms-3"
+                          @click.stop
+                          @update:model-value="setProfileOn(optionsFor!, !!$event)"
+                        />
+                      </template>
+                    </v-list-item>
+                    <v-list-item
+                      v-if="hasLocation(optionsFor)"
+                      prepend-icon="mdi-map-marker-outline"
+                      :title="t('$vuetify.title.profile.location')"
+                      @click="openLocationFor(optionsFor)"
+                    />
+                    <v-list-item
+                      prepend-icon="mdi-cog-outline"
+                      :title="t('$vuetify.title.profile.settings')"
+                      @click="openSettingsFor(optionsFor)"
+                    />
+                    <v-divider class="my-1" />
+                    <v-list-item
+                      v-if="canRateFor(optionsFor)"
+                      prepend-icon="mdi-star-outline"
+                      :title="t('$vuetify.sessionRating.rateButton')"
+                      @click="rateProfile(optionsFor.id, optionsFor.title_id, t('$vuetify.sessionRating.noSession'))"
+                    />
+                    <v-list-item
+                      prepend-icon="mdi-bug-outline"
+                      :title="t('$vuetify.tickets.reportProblem')"
+                      @click="reportFor = optionsFor; reportOpen = true; closeCardMenus()"
+                    />
+                    <v-list-item
+                      v-if="isAdmin"
+                      prepend-icon="mdi-console"
+                      :title="t('$vuetify.consoleLog.open')"
+                      @click="logFor = optionsFor; logOpen = true; closeCardMenus()"
+                    />
+                  </v-list>
+                </v-menu>
+              </v-card>
+            </v-menu>
+          </div>
+          </template>
           <!-- Beside ⋮: the game's Route Settings (Login connections on top). -->
           <template #switch>
             <v-btn
@@ -1155,31 +1691,66 @@ onMounted(() => {
               class="text-none play-from__server me-1"
               @click="routeSettingsOpen = true"
             >
-              {{ t("$vuetify.title.profile.routeSettings") }}
+              {{ pinnedOther ? t("$vuetify.title.playFrom.locationSettings") : t("$vuetify.title.profile.settings") }}
             </v-btn>
             <ProfileRouteSettings
               v-model:open="routeSettingsOpen"
               bare
               :target="routeBtn?.$el ?? null"
-              :profile="shown"
+              :profile="routeProfile"
+              :profiles="pinnedProfile ? undefined : routeProfiles"
+              :edits-title="routeProfile.id === primary.profile.id"
+              :hide-adapter="!!routeBalance"
               title-scope
+              @pick="routeProfileId = $event"
             >
-              <template v-if="login" #top>
-                <v-checkbox
-                  :model-value="loginFollows"
-                  :label="t('$vuetify.title.playFrom.loginConnections')"
-                  color="primary"
-                  density="compact"
-                  hide-details
-                  @update:model-value="setLoginFollows"
-                />
+              <template v-if="pinnedPlace || routeBalance" #top>
+                <!-- Downloads: load balancing over the internets. -->
+                <div v-if="routeBalance" class="route-balance mb-3">
+                  <ProfileInternetOptions
+                    :key="routeBalance.profile.id"
+                    :profile="routeBalance.profile"
+                    :sel="routeBalance.sel"
+                    :live="routeSettingsOpen"
+                    no-dedicated-ip
+                  />
+                </div>
+                <!-- A profile picked for the card: its own location. -->
+                <div v-if="pinnedPlace" class="d-flex align-center ga-2 mb-2">
+                  <div class="flex-grow-1" style="min-width: 0">
+                    <div class="text-body-2">{{ t("$vuetify.title.profile.location") }}</div>
+                    <div class="d-flex align-center text-caption text-medium-emphasis">
+                      <FlagImg v-if="pinnedPlace.country" :country="pinnedPlace.country" :height="12" class="me-1" />
+                      <span class="text-truncate">{{ pinnedPlace.label }}</span>
+                    </div>
+                  </div>
+                  <v-btn variant="tonal" color="on-surface" size="small" class="text-none" @click="changePinnedLocation">
+                    {{ t("$vuetify.connectionRejected.changeLocation") }}
+                  </v-btn>
+                </div>
               </template>
             </ProfileRouteSettings>
           </template>
         </ProfileCard>
       </div>
+      <!-- The card's chart, on a card of its own under it (the card puts it
+           here). -->
+      <div :id="`play-from-chart-${titleId}`" class="play-from__chart title-outlined" />
+      <!-- A profile's Report a problem and (admins) console, from its
+           options in the card's menu. -->
+      <DialogBugFeedback
+        v-model="reportOpen"
+        :subject="t('$vuetify.tickets.reportSubject', reportFor ? profileName(reportFor) : '')"
+      />
+      <AdminLogDialog
+        v-if="isAdmin && logFor"
+        v-model="logOpen"
+        kind="profile"
+        :id="logFor.id"
+        :name="profileName(logFor)"
+      />
       <!-- The game's connections, on a card of their own under it. -->
-      <v-card v-if="connectionCount > 0" variant="flat" rounded="lg" class="play-from__conns">
+      <v-card v-if="connectionCount > 0" variant="flat" rounded="lg" class="play-from__conns title-outlined">
         <v-card-item>
           <v-card-title class="d-flex align-center ga-2 text-subtitle-1">
             {{ t("$vuetify.title.profile.connections") }}
@@ -1187,7 +1758,13 @@ onMounted(() => {
           </v-card-title>
         </v-card-item>
         <v-card-text class="pt-0">
-          <ProfileConnectionsTable :profile-id="main.profile.id" :profile-ids="titleProfileIds" :limit="5" />
+          <!-- A connection clicked: its profile on the card above. -->
+          <ProfileConnectionsTable
+            :profile-id="main.profile.id"
+            :profile-ids="titleProfileIds"
+            :limit="5"
+            @pick="(id) => candidates.some((p) => p.id === id) && (pinnedShown = id)"
+          />
         </v-card-text>
       </v-card>
     </div>
@@ -1278,7 +1855,14 @@ onMounted(() => {
 
 .pick-root {
   position: relative;
-  overflow-x: hidden;
+  /* Clip, not hidden: hidden makes a scroll box of its own, and the
+     picker's title row and sidebar could not stay in place. */
+  overflow-x: clip;
+}
+
+/* The page's cards: a thin outline, as on Network Status. */
+.title-outlined {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 
 /* The page leaving lies over the one arriving while they move. */
@@ -1364,8 +1948,72 @@ onMounted(() => {
   background: rgb(var(--v-theme-surface));
 }
 
+/* Not pulled out past the card's edge: the title clips anything outside. */
+/* The Location card: as wide as what it says; it opens the picker. */
+.play-from__loc {
+  min-width: 200px;
+  max-width: 360px;
+  background: rgb(var(--v-theme-surface-container-high));
+}
+
+/* Load balancing in Settings: its own block, edge to edge. */
+.route-balance {
+  margin-inline: -16px;
+}
+
+.play-from__card-pick {
+  margin-inline-start: 0;
+}
+
+/* The card's profile menu: a card per profile. */
+.card-pick__item {
+  background: rgb(var(--v-theme-surface-container-high));
+  border: 1px solid transparent;
+}
+
+.card-pick__item--on {
+  border-color: rgba(var(--v-theme-on-surface), 0.5);
+}
+
+/* Picked by itself (Switch to what's in use on): a dashed border. */
+.card-pick__item--auto {
+  border-style: dashed;
+  border-width: 2px;
+}
+
+.card-pick__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(var(--v-theme-on-surface), 0.3);
+}
+
+.card-pick__dot--on {
+  background: rgb(var(--v-theme-success));
+}
+
+.card-pick__dot--off {
+  background: transparent;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.4);
+}
+
 .v-theme--light .play-from,
 .v-theme--light .play-from__conns {
+  background: rgb(var(--v-theme-background));
+}
+
+/* The chart's card: the same surface as the game's card above it. */
+.play-from__chart {
+  border-radius: 12px;
+  background: rgb(var(--v-theme-surface));
+  padding-top: 12px;
+}
+
+.play-from__chart:not(:has(*)) {
+  display: none;
+}
+
+.v-theme--light .play-from__chart {
   background: rgb(var(--v-theme-background));
 }
 
@@ -1383,11 +2031,13 @@ onMounted(() => {
 }
 
 /* The picker page. */
+/* The picker fills the page exactly: the page itself never scrolls, only
+   the choices on the right do. */
 .pick-page {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: calc(100vh - 100px);
+  height: calc(100vh - 100px);
 }
 
 .pick-page__top {
@@ -1404,13 +2054,18 @@ onMounted(() => {
 
 .pick-page__cols {
   flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 12px;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .pick-page__side {
+  align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
   background: rgb(var(--v-theme-surface));
 }
 
@@ -1424,6 +2079,8 @@ onMounted(() => {
 
 .pick-page__main {
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   padding: 14px 16px 16px;
   background: rgb(var(--v-theme-surface));
 }

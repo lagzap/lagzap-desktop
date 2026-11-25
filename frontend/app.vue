@@ -10,6 +10,7 @@ import SyncNotice from "~/components/network/SyncNotice.vue";
 import RouteProtectedNotice from "~/components/network/RouteProtectedNotice.vue";
 import SessionIntervalRecorder from "~/components/network/SessionIntervalRecorder.vue";
 import DialogUpdateCheck from "~/components/dialog/UpdateCheck.vue";
+import { listenConnectionRejected } from "~/composables/useConnectionRejected";
 import {
   syncThemeFromSetting,
   type AppThemeSetting,
@@ -52,6 +53,7 @@ const isOverlayWindow = computed(
 );
 
 onMounted(async () => {
+  if (!isOverlayWindow.value) listenConnectionRejected();
   // Before any await: it reads Nuxt composables from this component.
   void store.resumeSession();
   const { Events, Window } = await import("@wailsio/runtime");
@@ -183,7 +185,6 @@ async function close() {
 
   <DialogSessionRating v-if="!isOverlayWindow" />
 
-  <DialogConnectionRejected v-if="!isOverlayWindow" />
 
   <RouteProtectedNotice v-if="!isOverlayWindow" />
 

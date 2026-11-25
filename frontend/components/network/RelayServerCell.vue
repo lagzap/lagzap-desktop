@@ -67,7 +67,7 @@ const dedicatedIp = computed(() => {
     <template v-if="dedicatedIp">
       <v-icon icon="mdi-arrow-right" size="14" class="mx-1" />
       <CountryFlag v-if="dedicatedIp.country" :country="dedicatedIp.country" size="small" />
-      <span :class="[textClass, 'ms-1']">{{ t("$vuetify.connections.dedicatedIp") }}</span>
+      <span v-tooltip="dedicatedIp.name" :class="[textClass, 'ms-1 relay-server-cell__wg']">{{ dedicatedIp.name || t("$vuetify.connections.dedicatedIp") }}</span>
     </template>
   </div>
   <div v-else class="d-flex align-center flex-nowrap">
@@ -77,7 +77,7 @@ const dedicatedIp = computed(() => {
     <template v-if="dedicatedIp">
       <v-icon icon="mdi-arrow-right" size="14" class="mx-1" />
       <CountryFlag v-if="dedicatedIp.country" :country="dedicatedIp.country" size="small" />
-      <span :class="[textClass, 'ms-1']" v-tooltip="dedicatedIp.ip">{{ t("$vuetify.connections.dedicatedIp") }}</span>
+      <span v-tooltip="dedicatedIp.name" :class="[textClass, 'ms-1 relay-server-cell__wg']">{{ dedicatedIp.name || t("$vuetify.connections.dedicatedIp") }}</span>
     </template>
   </div>
 </template>
@@ -85,5 +85,13 @@ const dedicatedIp = computed(() => {
 <style scoped>
 .relay-server-cell--issue {
   cursor: help;
+}
+
+/* The Dedicated IP's config name, cut to fit (its full name on hover). */
+.relay-server-cell__wg {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

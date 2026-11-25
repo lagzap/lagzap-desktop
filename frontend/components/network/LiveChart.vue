@@ -29,6 +29,8 @@ const props = withDefaults(
     /** A divider line above the chart with the session timer at its start
      * (instead of the timer among the controls). */
     sessionDivider?: boolean;
+    /** The session line as a subtitle: no rule beside it. */
+    sessionPlain?: boolean;
     /** No session yet: said where the session's timer goes. */
     noSessionText?: string;
     /** Show the 1m … 60m pills even with a fixed view (they hide with one,
@@ -985,12 +987,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <div v-if="sessionDivider" class="live-chart__divider">
+    <div v-if="sessionDivider" class="live-chart__divider" :class="{ 'live-chart__divider--plain': sessionPlain }">
       <span v-if="sessionElapsed" class="live-chart__session text-caption">
         {{ t("$vuetify.networkLatency.session") }} {{ localDigits(sessionElapsed) }}
       </span>
       <span v-else-if="noSessionText" class="live-chart__session text-caption">{{ noSessionText }}</span>
-      <span class="live-chart__divider-line" />
+      <span v-if="!sessionPlain" class="live-chart__divider-line" />
     </div>
     <div v-if="!compact" class="live-chart__header mb-3">
       <div class="live-chart__controls">
@@ -1253,6 +1255,11 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   margin: 16px 0;
+}
+
+/* A subtitle over the chart's controls. */
+.live-chart__divider--plain {
+  margin: 0 0 10px;
 }
 
 /* One line box the height of the text, so its middle is the line's. */

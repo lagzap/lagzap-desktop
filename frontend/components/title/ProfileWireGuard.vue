@@ -5,6 +5,7 @@ import CountryFlag from "vue-country-flag-next";
 import {
   AddProfileWireGuard,
   PingWireGuardConfigs,
+  CheckWireGuardConfig,
   RemoveWireGuardConfig,
   SelectProfileWireGuard,
   SetProfileWireGuardEnabled,
@@ -25,8 +26,11 @@ const props = defineProps<{
   /** The title picker's Dedicated IP page: no row, the content always
    * shown, and picking a config turns it on (it is a choice there). */
   panel?: boolean;
+  /** On the picker's page: the config picked in its draft (shown picked;
+   * Apply Route uses it). */
+  draftId?: string;
 }>();
-const emit = defineEmits<{ picked: [] }>();
+const emit = defineEmits<{ picked: [id: string] }>();
 // The picker's page takes a config dropped anywhere on it, and asks for
 // fresh numbers when it moves the tunnel to another relay.
 defineExpose({ addFile: (file: File) => addFile(file), refresh: () => refresh(), expectMove: () => expectMove() });
@@ -67,6 +71,21 @@ async function measurePings() {
     pings.value = (await PingWireGuardConfigs()) ?? {};
   } catch {
     // service not running
+  }
+}
+/** A config checked again by hand (its ping clicked): its ping now, and
+ * the tunnel's check right away when it is the one in use. */
+const checking = ref<Record<string, boolean>>({});
+async function checkNow(configId: string) {
+  if (checking.value[configId]) return;
+  checking.value = { ...checking.value, [configId]: true };
+  try {
+    const ms = await CheckWireGuardConfig(configId);
+    pings.value = { ...pings.value, [configId]: ms ?? 0 };
+  } catch {
+    // service not running
+  } finally {
+    checking.value = { ...checking.value, [configId]: false };
   }
 }
 let pingTimer: ReturnType<typeof setInterval> | undefined;
@@ -154,17 +173,19 @@ async function toggle() {
   }
 }
 
+/** The config shown picked: the picker's draft on its page. */
+const shownId = computed(() => (props.panel ? (props.draftId ?? summary.value.selected) : summary.value.selected));
 async function select(id: string) {
-  if (id === summary.value.selected && (summary.value.enabled || props.panel)) {
-    if (props.panel) emit("picked");
+  // The picker's page: a pick is part of its draft, applied by Apply Route.
+  if (props.panel) {
+    emit("picked", id);
     return;
   }
+  if (id === summary.value.selected && summary.value.enabled) return;
   try {
     // On already: the tunnel moves to the new config.
     if (summary.value.enabled) expectMove();
     await SelectProfileWireGuard(props.profileId, id);
-    // The picker's page: picking one is choosing Dedicated IP (on Apply).
-    if (props.panel) emit("picked");
   } catch (err) {
     saveError.value = errorText(err);
   }
@@ -327,7 +348,7 @@ const handshakeAgo = computed(() => {
           v-for="config in summary.configs"
           :key="config.id"
           class="wireguard__config"
-          :class="{ 'wireguard__config--picked': config.id === summary.selected }"
+          :class="{ 'wireguard__config--picked': config.id === shownId }"
           @click="select(config.id)"
         >
           <v-radio
@@ -335,7 +356,7 @@ const handshakeAgo = computed(() => {
             density="compact"
             color="primary"
             class="state-only flex-grow-0"
-            :model-value="config.id === summary.selected"
+            :model-value="config.id === shownId"
           />
           <CountryFlag v-if="config.country" :country="config.country" size="small" />
           <v-icon v-else size="16" class="text-medium-emphasis">mdi-earth</v-icon>
@@ -363,12 +384,26 @@ const handshakeAgo = computed(() => {
                   : chip.text
             }}
           </v-chip>
-          <v-tooltip v-if="pings[config.id]" :text="t('$vuetify.title.profile.wireguard.directPingTip')" location="top">
+          <!-- Its ping: click to check again now. -->
+          <v-tooltip
+            v-if="config.id in pings || checking[config.id]"
+            :text="`${t('$vuetify.title.profile.wireguard.directPingTip')}. ${t('$vuetify.title.profile.wireguard.checkAgain')}`"
+            location="top"
+          >
             <template #activator="{ props: tip }">
-              <span v-bind="tip" class="flex-shrink-0"><Ping :latency-ms="pings[config.id]" /></span>
+              <button
+                v-bind="tip"
+                type="button"
+                class="wg-ping flex-shrink-0"
+                :disabled="checking[config.id]"
+                @click.stop="checkNow(config.id)"
+              >
+                <v-progress-circular v-if="checking[config.id]" indeterminate size="14" width="2" />
+                <Ping v-else-if="pings[config.id]" :latency-ms="pings[config.id]" />
+                <span v-else class="text-caption text-medium-emphasis">—</span>
+              </button>
             </template>
           </v-tooltip>
-          <span v-else-if="config.id in pings" class="text-caption text-medium-emphasis flex-shrink-0">—</span>
           <v-btn
             :icon="confirmRemove === config.id ? 'mdi-delete-alert-outline' : 'mdi-delete-outline'"
             size="x-small"
@@ -550,5 +585,23 @@ const handshakeAgo = computed(() => {
 .wireguard__text :deep(textarea) {
   font-family: ui-monospace, monospace;
   font-size: 0.75rem;
+}
+
+/* A config's ping, clicked to check again. */
+.wg-ping {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.wg-ping:hover:not(:disabled) {
+  background: rgba(var(--v-theme-on-surface), 0.08);
 }
 </style>

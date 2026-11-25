@@ -13,7 +13,6 @@ import PlanLock from "~/components/plan/PlanLock.vue";
 import ComingSoonMark from "~/components/title/ComingSoonMark.vue";
 import AdminLogDialog from "~/components/admin/AdminLogDialog.vue";
 import { useLocalStorage } from "@vueuse/core";
-import { useTitleMenu } from "~/composables/useTitleMenu";
 
 const { t } = useLocale();
 const store = useStore();
@@ -26,6 +25,19 @@ const data = useSanctumUser<DataResponse>();
 
 const title = computed(() =>
   store.titles.find((t) => t.id === (route.params.id as string))
+);
+/** Titles turned on at least once on this PC: until a title is, a ring
+ * pulses around its switch (no popup) to show where to turn it on. */
+const turnedOnBefore = useLocalStorage<string[]>("lz-titles-turned-on", []);
+watch(
+  () => (title.value && store.isTitleActive(title.value.id) ? title.value.id : ""),
+  (id) => {
+    if (id && !turnedOnBefore.value.includes(id)) turnedOnBefore.value = [...turnedOnBefore.value, id];
+  },
+  { immediate: true },
+);
+const nudgeSwitch = computed(
+  () => !!title.value && !store.isTitleActive(title.value.id) && !turnedOnBefore.value.includes(title.value.id),
 );
 const profiles = computed(() =>
   store.profiles
@@ -49,9 +61,13 @@ const locationProfiles = computed(() =>
 );
 /** The picker follows the profiles it covers (a new set, a new picker). */
 const locationKey = computed(() => locationProfiles.value.map((p) => p.id).join(","));
-/** The game's own profile (its packets optimized), else the first. */
+/** The game's own profile (its packets optimized); without one, the first
+ * plain one (Login connections, not downloads or voice); else the first. */
 const featuredId = computed(
-  () => (profiles.value.find((p) => (p.flags & ProfileFlag.GAME_PACKET) !== 0) ?? profiles.value[0])?.id,
+  () =>
+    (profiles.value.find((p) => (p.flags & ProfileFlag.GAME_PACKET) !== 0) ??
+      profiles.value.find((p) => (p.flags & (ProfileFlag.HIGH_TRAFFIC | ProfileFlag.MULTIPATH)) === 0) ??
+      profiles.value[0])?.id,
 );
 /** The featured profile first, the rest in their order. */
 const orderedProfiles = computed(() => {
@@ -68,23 +84,9 @@ const busyProfiles = computed(() => {
   if (!profiles.value.some(isGame)) return [];
   return orderedProfiles.value.filter((p) => (p.flags & ProfileFlag.HIGH_TRAFFIC) !== 0 && !isGame(p));
 });
-/** Each profile's own row, folded away (remembered per title). */
 /** The server picker has the page. */
 const picking = ref(false);
-const picker = ref<{ closePlaces: () => void; openFor: (profileId: string) => void } | null>(null);
-const advancedOpen = useLocalStorage(() => `lz-title-advanced-${route.params.id as string}`, false);
-// A shortcut asked for a profile's settings or cap (the title's right-click
-// menu, Bandwidth Control): its row is under Advanced, so open it.
-const titleMenu = useTitleMenu();
-watch(
-  () => [route.params.id, titleMenu.pending.what, titleMenu.pendingProfile.profileId] as const,
-  ([id]) => {
-    const forTitle = titleMenu.pending.titleId === id && titleMenu.pending.what === "settings";
-    const forProfile = profiles.value.some((p) => p.id === titleMenu.pendingProfile.profileId);
-    if (forTitle || forProfile) advancedOpen.value = true;
-  },
-  { immediate: true },
-);
+const picker = ref<{ closePlaces: () => void; openFor: (profileId: string) => void; editingLabel: string } | null>(null);
 
 /** No profiles yet: nothing to turn on (Coming soon). */
 const comingSoon = computed(() => !!title.value && store.titleComingSoon(title.value.id));
@@ -145,7 +147,14 @@ watch(
           class="text-subtitle-1"
           @click="router.push({ name: 'title-id', params: { id: title.id } })"
         >
-          {{ title ? store.titleName(title.name) : "" }}
+          <!-- The picker open: what it sets, after the game (as Network
+               Status / an internet). -->
+          <template v-if="picking && picker?.editingLabel">
+            <span class="text-medium-emphasis">{{ title ? store.titleName(title.name) : "" }}</span>
+            <span class="text-medium-emphasis mx-1">/</span>
+            {{ picker.editingLabel }}
+          </template>
+          <template v-else>{{ title ? store.titleName(title.name) : "" }}</template>
         </v-app-bar-title>
 
         <v-spacer />
@@ -215,9 +224,9 @@ watch(
             inset
             hide-details
             color="cyan"
-            density="compact"
             :disabled="!store.appReady"
-            class="flex-grow-0 ms-1"
+            class="title-switch--bar flex-grow-0 ms-1"
+            :class="{ 'title-switch--nudge': nudgeSwitch }"
             @click="store.toggleTitleState(title)"
           />
         </PlayFromPicker>
@@ -230,35 +239,6 @@ watch(
           :game-name="store.titleName(title.name)"
           :game-icon="title.icon_url"
         />
-        <!-- One profile: the main card is all of it, nothing to fold. -->
-        <div v-if="profiles.length > 1 && !picking">
-          <v-btn
-            variant="text"
-            color="on-surface"
-            size="small"
-            class="text-none"
-            :append-icon="advancedOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-            @click="advancedOpen = !advancedOpen"
-          >
-            {{ t("$vuetify.title.playFrom.advanced") }}
-          </v-btn>
-          <v-expand-transition>
-            <v-card v-if="advancedOpen" variant="flat" rounded="lg" class="title-rows mt-2">
-              <ProfileCard
-                v-for="profile in orderedProfiles"
-                :key="profile.id"
-                :profile="profile"
-                :changelog-since="changelogSince"
-                row
-                :featured="profile.id === featuredId"
-                @pick-location="picker?.openFor(profile.id)"
-                :single="profiles.length === 1"
-                :game-name="store.titleName(title.name)"
-                :game-icon="title.icon_url"
-              />
-            </v-card>
-          </v-expand-transition>
-        </div>
       </div>
       <!-- No location to pick: each profile its own card, as before. -->
       <div v-else-if="title" class="d-flex flex-column ga-3 pa-3">
@@ -278,6 +258,49 @@ watch(
 </template>
 
 <style scoped>
+/* The game's switch beside its Location: bigger, the page's main control. */
+.title-switch--bar {
+  transform: scale(1.35);
+  transform-origin: right center;
+  margin-inline-end: 4px;
+}
+
+/* Never turned on yet: a ring pulses out of the switch, nothing more. */
+.title-switch--nudge :deep(.v-switch__track) {
+  position: relative;
+  overflow: visible;
+}
+.title-switch--nudge :deep(.v-switch__track)::before,
+.title-switch--nudge :deep(.v-switch__track)::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 2px solid rgb(var(--v-theme-cyan, 0, 188, 212));
+  pointer-events: none;
+  animation: switch-nudge 2s ease-out infinite;
+}
+.title-switch--nudge :deep(.v-switch__track)::after {
+  animation-delay: 1s;
+}
+@keyframes switch-nudge {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.6, 1.9);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-switch--nudge :deep(.v-switch__track)::before,
+  .title-switch--nudge :deep(.v-switch__track)::after {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
 /* The game's own switch: the profiles' style, a size up. */
 .title-switch {
   transform: scale(1.2);

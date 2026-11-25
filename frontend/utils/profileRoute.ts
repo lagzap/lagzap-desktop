@@ -59,6 +59,20 @@ export function clearGroup(st: RouteState, g: RouteGroup) {
   Object.assign(st, emptyGroup(g));
 }
 
+/** Moves the profile's own values for these groups up to its title (the
+ * title's are replaced), and the profile follows the title for them again.
+ * The groups moved. */
+export function liftGroups(own: ProfileState, title: TitleState, groups: RouteGroup[]): RouteGroup[] {
+  const moved: RouteGroup[] = [];
+  for (const g of groups) {
+    if (!hasGroup(own, g)) continue;
+    Object.assign(title, groupValues(own, g));
+    clearGroup(own, g);
+    moved.push(g);
+  }
+  return moved;
+}
+
 /** The group's values of one state, copied. */
 function groupValues(st: RouteState | undefined, g: RouteGroup): Record<string, unknown> {
   const s = (st ?? {}) as Record<string, unknown>;

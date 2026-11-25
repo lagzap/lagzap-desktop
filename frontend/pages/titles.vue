@@ -159,6 +159,25 @@ watch(
   { immediate: true },
 );
 watch(sections, () => nextTick(updateCurrentLetter));
+// Back from a game: the list is where it was left.
+const pageRoot = ref<HTMLElement | null>(null);
+const pageScroller = () => pageRoot.value?.querySelector<HTMLElement>(".overflow-y-auto") ?? null;
+onBeforeRouteLeave(() => {
+  savedScrollTop = pageScroller()?.scrollTop ?? 0;
+});
+onMounted(() => {
+  const target = savedScrollTop;
+  if (!target) return;
+  // The list may still be filling in: try for a moment, until it is tall
+  // enough to scroll there.
+  const until = performance.now() + 1500;
+  const step = () => {
+    const el = pageScroller();
+    if (el) el.scrollTop = target;
+    if ((!el || Math.abs(el.scrollTop - target) > 1) && performance.now() < until) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+});
 onBeforeUnmount(() => {
   scroller?.removeEventListener("scroll", onScroll);
   if (scrollFrame) cancelAnimationFrame(scrollFrame);
@@ -182,7 +201,7 @@ const onToggle = (title: (typeof titles.value)[number]) => {
 </script>
 
 <template>
-  <div>
+  <div ref="pageRoot">
     <Container>
       <template #header>
         <v-app-bar-title class="text-subtitle-1">
@@ -552,3 +571,9 @@ const onToggle = (title: (typeof titles.value)[number]) => {
   transform: translate(-50%, -50%) scale(0.6);
 }
 </style>
+
+<script lang="ts">
+/** Where the list was scrolled when the page was left (for the app's
+ * lifetime). */
+let savedScrollTop = 0;
+</script>

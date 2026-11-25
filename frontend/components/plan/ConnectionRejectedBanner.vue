@@ -1,26 +1,14 @@
 <script setup lang="ts">
-import { Events } from "@wailsio/runtime";
 import { useLocale } from "vuetify";
+import { useConnectionRejected } from "~/composables/useConnectionRejected";
 
-/** A profile's connection was rejected: no LagZap server in its location
- * selection could carry it, and LagZap never moves a game outside the user's
- * pick or straight to the game server ("connection-rejected"; Go tells once in
- * a while per profile). The user turns the profile off or picks another
- * location. */
-interface Rejection {
-  profile_id: string;
-  title_id: string;
-  code: string;
-  selection?: string;
-  network: string;
-}
-
+/** A profile's connection was rejected (see useConnectionRejected): a banner
+ * at the top of the page, under the plan banner, instead of a popup. */
 const { t } = useLocale();
 const store = useStore();
 const router = useRouter();
+const { rejection, dismiss } = useConnectionRejected();
 
-const open = ref(false);
-const rejection = ref<Rejection | null>(null);
 const turningOff = ref(false);
 
 const gameName = computed(() => {
@@ -53,7 +41,7 @@ async function turnOff() {
   turningOff.value = true;
   try {
     if (store.isProfileActive(id)) await store.deactivateProfile(id);
-    open.value = false;
+    dismiss();
   } finally {
     turningOff.value = false;
   }
@@ -61,43 +49,47 @@ async function turnOff() {
 
 function changeLocation() {
   const id = rejection.value?.title_id;
-  open.value = false;
+  dismiss();
   if (id) void router.push({ name: "title-id", params: { id } });
 }
-
-let off: (() => void) | undefined;
-onMounted(() => {
-  off = Events.On("connection-rejected", ({ data }: any) => {
-    const next = (Array.isArray(data) ? data[0] : data) as Rejection | undefined;
-    if (!next?.profile_id) return;
-    rejection.value = next;
-    open.value = true;
-  });
-});
-onUnmounted(() => off?.());
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="460">
-    <v-card :title="title" prepend-icon="mdi-shield-alert-outline">
-      <v-card-text class="pt-1">
-        <div class="text-body-2 mb-2">{{ reason }}</div>
-        <div class="text-body-2 text-medium-emphasis">
+  <v-expand-transition>
+    <v-banner v-if="rejection" color="error" class="rejected-banner">
+      <template #prepend>
+        <v-avatar color="error" variant="tonal" icon="mdi-shield-alert-outline" />
+      </template>
+      <v-banner-text>
+        <div class="font-weight-medium">{{ title }}</div>
+        <div class="text-body-2">{{ reason }}</div>
+        <div class="text-caption text-medium-emphasis">
           {{ t("$vuetify.connectionRejected.hint") }}
         </div>
-      </v-card-text>
-      <v-card-actions>
-        <v-btn variant="text" @click="open = false">
-          {{ t("$vuetify.connectionRejected.close") }}
-        </v-btn>
-        <v-spacer />
-        <v-btn variant="tonal" :loading="turningOff" @click="turnOff">
+      </v-banner-text>
+      <template #actions>
+        <v-btn variant="tonal" color="on-surface" :loading="turningOff" @click="turnOff">
           {{ t("$vuetify.connectionRejected.turnOff") }}
         </v-btn>
-        <v-btn color="primary" variant="flat" @click="changeLocation">
+        <v-btn variant="tonal" color="on-surface" @click="changeLocation">
           {{ t("$vuetify.connectionRejected.changeLocation") }}
         </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          color="on-surface"
+          size="small"
+          class="ms-1"
+          :aria-label="t('$vuetify.connectionRejected.close')"
+          @click="dismiss"
+        />
+      </template>
+    </v-banner>
+  </v-expand-transition>
 </template>
+
+<style scoped>
+.rejected-banner :deep(.v-banner-text) {
+  padding-inline-end: 8px;
+}
+</style>

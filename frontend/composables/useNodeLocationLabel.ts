@@ -43,7 +43,7 @@ export function buildNodeLocationLabelMap(
 
   const labelByNodeId = new Map<string, string>();
   for (const cityNodes of byCity.values()) {
-    cityNodes.sort((a, b) => a.name.localeCompare(b.name));
+    cityNodes.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
     const cityLabel = localize(cityNodes[0].city);
     cityNodes.forEach((node, index) => {
       labelByNodeId.set(
@@ -74,7 +74,7 @@ export function useNodeLocationLabel() {
       map.set(key, list);
     }
     for (const nodes of map.values()) {
-      nodes.sort((a, b) => a.name.localeCompare(b.name));
+      nodes.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
     }
     return map;
   });
@@ -166,6 +166,16 @@ export function useNodeLocationLabel() {
     return labelByNodeName.value.get(nodeOrId) ?? "Server";
   }
 
+  /** A server by its city and its place among that city's servers, always
+   * numbered ("Frankfurt 01", "Frankfurt 02"): two servers in one city never
+   * share a number, even when their names end in the same digits. */
+  function getNodeNumberedLabel(node: Node): string {
+    const city = getLocalizedCityName(node) || node.name || "";
+    const nodes = cityGroupMap.value.get(nodeCityGroupKey(node)) ?? [];
+    const index = nodes.findIndex((item) => item.id === node.id);
+    return `${city} ${formatLocationSuffix(index < 0 ? 0 : index)}`;
+  }
+
   function getNodeLabelByIp(ip: string | null | undefined): string {
     if (!ip) {
       return "Server";
@@ -190,6 +200,7 @@ export function useNodeLocationLabel() {
     getCityGroupNodes,
     cityKeyForNode,
     getNodeLabel,
+    getNodeNumberedLabel,
     getNodeLabelByIp,
     getNodeLabelByName,
   };

@@ -15,6 +15,8 @@ const props = defineProps<{
    * Profile column. */
   profileIds?: string[];
 }>();
+/** A row clicked: its profile (the title's card shows that one). */
+const emit = defineEmits<{ pick: [profileId: string] }>();
 const ids = computed(() => new Set(props.profileIds?.length ? props.profileIds : [props.profileId]));
 const showProfile = computed(() => (props.profileIds?.length ?? 0) > 1);
 function profileName(id: string): string {
@@ -75,6 +77,8 @@ watch(
 
 function onRowClick(connectionId: string) {
   toggleConnectionForChart(connectionId);
+  const profileId = allConnections.value.find((c) => c.id === connectionId)?.profile_id;
+  if (profileId) emit("pick", profileId);
 }
 </script>
 
@@ -88,8 +92,8 @@ function onRowClick(connectionId: string) {
     <thead>
       <tr>
         <th class="col-network" />
-        <th v-if="showProfile">{{ t("$vuetify.connections.profile") }}</th>
-        <th>{{ t("$vuetify.connections.gameServer") }}</th>
+        <th v-if="showProfile" class="col-profile">{{ t("$vuetify.connections.profile") }}</th>
+        <th :class="{ 'col-fill': !showProfile }">{{ t("$vuetify.connections.gameServer") }}</th>
         <th>{{ t("$vuetify.connections.lagzapServer") }}</th>
         <th class="text-center col-latency">{{ t("$vuetify.connections.latency") }}</th>
         <th class="col-speed">{{ t("$vuetify.connections.download") }}</th>
@@ -115,10 +119,12 @@ function onRowClick(connectionId: string) {
         <td class="col-network">
           <NetworkLabel :network="connection.network" />
         </td>
-        <td v-if="showProfile" class="text-no-wrap">
-          <span class="text-caption">{{ profileName(connection.profile_id) }}</span>
+        <td v-if="showProfile" class="text-no-wrap col-profile">
+          <div class="text-caption col-profile__name" :title="profileName(connection.profile_id)">
+            {{ profileName(connection.profile_id) }}
+          </div>
         </td>
-        <td class="text-no-wrap">
+        <td class="text-no-wrap" :class="{ 'col-fill': !showProfile }">
           <div class="d-flex align-center">
             <CountryFlag
               :country="connection.country_code ?? 'XX'"
@@ -188,9 +194,27 @@ function onRowClick(connectionId: string) {
 }
 
 .col-speed {
-  width: 112px;
-  min-width: 112px;
-  max-width: 112px;
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+/* The profile takes the room left and is cut when there is none, down to
+   a minimum; without it, the game server takes the room. */
+.col-profile {
+  width: 100%;
+  min-width: 96px;
+  max-width: 0;
+}
+
+.col-profile__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-fill {
+  width: 100%;
 }
 
 .col-latency {

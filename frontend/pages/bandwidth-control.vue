@@ -1133,8 +1133,14 @@ function openRoutedProfile(app: AppTraffic) {
 }
 
 /* Cards a step above the page, no border: LagZap's flat look. */
+/* The game page's cards: its surface and a thin outline. */
 .bw-card {
-  background: rgba(var(--v-theme-on-surface), 0.04);
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.v-theme--light .bw-card {
+  background: rgb(var(--v-theme-background));
 }
 
 .bw-num {

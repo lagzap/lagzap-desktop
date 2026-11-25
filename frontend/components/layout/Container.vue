@@ -3,6 +3,7 @@ import TitleIcon from "~/components/title/TitleIcon.vue";
 import { useDisplay, useLocale } from "vuetify";
 import { useFuzzySearch } from "~/composables/useFuzzySearch";
 import PlanBanner from "~/components/plan/PlanBanner.vue";
+import ConnectionRejectedBanner from "~/components/plan/ConnectionRejectedBanner.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -158,6 +159,7 @@ onMounted(() => {
         :class="props.flush ? 'overflow-hidden' : 'overflow-y-auto'"
       >
         <PlanBanner v-if="showPlanBanner" />
+        <ConnectionRejectedBanner v-if="showPlanBanner" />
         <slot />
       </div>
     </v-card>

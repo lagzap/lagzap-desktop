@@ -11,7 +11,6 @@ import { MAX_ROUTES, normalizeRouteCounts } from "~/composables/routeCountUtils"
 import { useProfileRouteCounts } from "~/composables/useProfileRouteCounts";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import PlanLock from "~/components/plan/PlanLock.vue";
-import RouteLevelText from "~/components/plan/RouteLevelText.vue";
 import GlobalOverride from "~/components/common/GlobalOverride.vue";
 import PillToggle from "~/components/common/PillToggle.vue";
 import {
@@ -31,50 +30,61 @@ const props = defineProps<{
   target?: Element | null;
   /** On the title page: the settings can be the whole title's too. */
   titleScope?: boolean;
+  /** The title's profiles, as chips on top: picking one shows its
+   * settings (emits pick). */
+  profiles?: Profile[];
+  /** The game's main profile on its page: its settings are the whole
+   * game's (the title's), which its other profiles follow. */
+  editsTitle?: boolean;
+  /** Its internets are set above (load balancing): no Network Adapter here. */
+  hideAdapter?: boolean;
 }>();
+const emit = defineEmits<{ pick: [id: string] }>();
 
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
 const plan = usePlanAccess();
 
-/** Whose settings: the profile's, or the title's (all its profiles follow
- * those unless one sets its own). */
-type Scope = "profile" | "title";
-const scope = ref<Scope>("profile");
+/** The settings are the profile's own; a setting it does not set follows
+ * its title's (shown as "<title> · …"). */
 const titleId = computed(() => props.profile.title_id ?? "");
 const titleState = computed(() => store.titleStates[titleId.value]);
 const titleName = computed(() => {
   const title = store.titles.find((x) => x.id === titleId.value);
   return title ? String(store.localized(title.name) || "") : "";
 });
-const scopeItems = computed(() => [
-  { value: "profile" as Scope, title: String(store.localized(props.profile.name) || "") },
-  { value: "title" as Scope, title: t("$vuetify.title.profile.scopeAll", titleName.value) },
-]);
 /** What the settings read and write: the profile's view (its own choices,
- * the title's where it has none), or the title's. */
+ * the title's where it has none). */
 const state = computed<ProfileState>(
-  () => (scope.value === "title" ? titleState.value : store.profileStates[props.profile.id]) as ProfileState,
+  () => (props.editsTitle ? titleState.value : store.profileStates[props.profile.id]) as ProfileState,
 );
-/** Only what is set here (not followed): the profile's own, or the title's. */
+/** Only what the profile sets itself (not followed); the game's own for
+ * its main profile. */
 const own = computed<Partial<ProfileState> | undefined>(() =>
-  scope.value === "title" ? (titleState.value as Partial<ProfileState> | undefined) : store.ownProfileStates[props.profile.id],
+  props.editsTitle ? (titleState.value as Partial<ProfileState> | undefined) : store.ownProfileStates[props.profile.id],
 );
 /** A profile's value that follows the title: the title's, when it sets one. */
 function fromTitle<K extends "allow_local_routes" | "relay_transport_fallback" | "preferred_transport">(k: K) {
-  if (scope.value !== "profile" || !props.titleScope) return null;
+  if (!props.titleScope || props.editsTitle) return null;
   const v = (titleState.value as Partial<ProfileState> | undefined)?.[k];
   return v === null || v === undefined ? null : v;
 }
 /** Groups Route Settings sets (the place is the picker's). */
 const SETTING_GROUPS: RouteGroup[] = ["internet", "routes", "domestic", "fallback", "transport"];
-const ownsSettings = computed(
-  () => scope.value === "profile" && SETTING_GROUPS.some((g) => hasGroup(store.ownProfileStates[props.profile.id], g)),
+// The main profile's own settings (from before) become the game's: what
+// the page shows is what the game uses.
+watch(
+  () => (props.editsTitle ? props.profile.id : ""),
+  async (id) => {
+    if (id) await store.liftToTitle(id, SETTING_GROUPS);
+  },
+  { immediate: true },
 );
-async function useTitleSettings() {
-  await store.followTitle(props.profile.id, SETTING_GROUPS);
-  syncAdvancedRouteVisibility();
+/** Saves what the panel edits: the game's settings, or the profile's own. */
+function saveEdited(id: string) {
+  if (props.editsTitle && id === props.profile.id) return store.saveTitleState(titleId.value);
+  return store.saveProfileState(id);
 }
 const {
   routeMax,
@@ -91,11 +101,6 @@ const {
   () => state.value,
 );
 const planRoutesCapped = computed(() => routeMax.value < MAX_ROUTES);
-/** The plan's route level (max_hops; 0 is no limit). */
-const planLevel = computed(() => {
-  const hops = plan.limits.value?.max_hops ?? 0;
-  return hops > 0 && hops < 3 ? hops : 3;
-});
 
 const showAdvancedRouteOptions = ref(false);
 
@@ -142,12 +147,10 @@ function syncAdvancedRouteVisibility() {
 watch(
   () => props.profile.id,
   () => {
-    scope.value = "profile";
     syncAdvancedRouteVisibility();
   },
   { immediate: true }
 );
-watch(scope, () => syncAdvancedRouteVisibility());
 
 const { settings } = useSettings();
 
@@ -228,30 +231,22 @@ const hasCustomSettings = computed(
 );
 
 // Saved a moment after a change: the profile's own state, or the title's
-// (its profiles then follow it).
-watch(
-  () => store.ownProfileStates[props.profile.id],
-  debounce(() => {
-    store.saveProfileState(props.profile.id);
-  }, 1000),
-  { deep: true },
-);
-let titleEdited = false;
-const saveTitleSoon = debounce(() => {
-  if (!titleEdited) return;
-  titleEdited = false;
-  void store.saveTitleState(titleId.value);
+// (its profiles then follow it). Switching to another profile's chip is no
+// change; each profile changed is saved.
+const unsaved = new Set<string>();
+const saveChanged = debounce(() => {
+  for (const id of unsaved) saveEdited(id);
+  unsaved.clear();
 }, 1000);
 watch(
-  titleState,
-  () => {
-    if (scope.value !== "title") return;
-    titleEdited = true;
-    saveTitleSoon();
+  () => ({ id: props.profile.id, st: own.value }),
+  (next, prev) => {
+    if (next.id !== prev?.id) return;
+    unsaved.add(next.id);
+    saveChanged();
   },
   { deep: true },
 );
-
 watch(
   () => store.profileStates[props.profile.id]?.network_interfaces,
   () => {
@@ -308,8 +303,7 @@ const removeOrphanedInterface = async (interfaceName: string) => {
     st.default_interface = "";
   }
   store.updateProfileUnavailableInterfaces(props.profile.id);
-  if (scope.value === "title") await store.saveTitleState(titleId.value);
-  else await store.saveProfileState(props.profile.id);
+  await saveEdited(props.profile.id);
 };
 
 const clearOrphanedInterfaces = async () => {
@@ -371,14 +365,24 @@ onMounted(async () => {
     </template>
     <v-card>
       <v-card-title class="d-flex align-center ga-2">
-        <span>{{ t("$vuetify.title.profile.settings") }}</span>
-        <v-spacer />
-        <RouteLevelText :level="planLevel" />
+        <!-- On the title page: whose settings these are, a chip each to
+             switch between them. -->
+        <v-chip-group
+          v-if="profiles && profiles.length > 1"
+          :model-value="profile.id"
+          mandatory
+          selected-class="text-primary"
+          class="route-settings__profiles"
+          @update:model-value="(id: unknown) => id && emit('pick', String(id))"
+        >
+          <v-chip v-for="p in profiles" :key="p.id" :value="p.id" variant="tonal" size="small">
+            {{ store.localized(p.name) }}
+          </v-chip>
+        </v-chip-group>
+        <span v-else>{{ titleScope ? String(store.localized(profile.name) || "") : t("$vuetify.title.profile.settings") }}</span>
       </v-card-title>
 
       <v-card-text>
-        <!-- The title page: this profile's settings, or the whole title's. -->
-        <PillToggle v-if="titleScope" v-model="scope" :items="scopeItems" class="mb-3" />
         <!-- The title page's own options for this profile (Login connections). -->
         <slot name="top" />
         <v-row dense class="mt-2">
@@ -699,7 +703,7 @@ onMounted(async () => {
             </template>
           </v-col>
           <v-col
-            v-else-if="profile.route_action != 'block'"
+            v-else-if="profile.route_action != 'block' && !hideAdapter"
             cols="12"
           >
             <v-select
@@ -759,19 +763,14 @@ onMounted(async () => {
           :disabled="!store.appReady"
         />
 
-        <!-- The profile has settings of its own: back to the title's. -->
-        <v-btn
-          v-if="titleScope && ownsSettings"
-          variant="text"
-          color="on-surface"
-          prepend-icon="mdi-link-variant"
-          class="text-none mt-3"
-          :disabled="!store.appReady"
-          @click="useTitleSettings"
-        >
-          {{ t("$vuetify.title.profile.useTitleSettings", titleName) }}
-        </v-btn>
       </v-card-text>
     </v-card>
   </v-menu>
 </template>
+
+<style scoped>
+.route-settings__profiles {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+</style>

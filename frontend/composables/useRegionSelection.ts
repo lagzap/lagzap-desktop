@@ -81,12 +81,8 @@ export function useRegionSelection(profile: Profile) {
       return false; // Edge-only node, don't show
     }
     
-    // CDN nodes should only be shown if profile has HIGH_TRAFFIC flag
-    if (hasCdn && !hasHighTrafficProfile) {
-      return false; // CDN node but profile doesn't have HIGH_TRAFFIC, don't show
-    }
-    
-    // If profile has no special routing flags, show all RELAY nodes (CDN already filtered above)
+    // A CDN server is a relay like any other (no longer for High traffic
+    // profiles only). If profile has no special routing flags, show all RELAY nodes
     if (!hasGamePacketProfile && !hasProxyProfile && !hasBypassSanctionsProfile && !hasHighTrafficProfile) {
       return hasRelay; // Show RELAY nodes only
     }

@@ -155,17 +155,22 @@ function openCity(key: string) {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-radius: 12px;
+  /* The Apps & Games cards' look: the surface, a light shadow. */
+  border-radius: 8px;
   text-align: start;
   color: inherit;
-  background: rgba(var(--v-theme-on-surface), 0.04);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  background: rgb(var(--v-theme-surface));
+  border: none;
+  box-shadow:
+    0 2px 1px -1px rgba(0, 0, 0, 0.2),
+    0 1px 1px 0 rgba(0, 0, 0, 0.14),
+    0 1px 3px 0 rgba(0, 0, 0, 0.12);
   transition: background 0.15s ease, transform 0.15s ease;
   cursor: pointer;
 }
 
 .city-card:hover {
-  background: rgba(var(--v-theme-on-surface), 0.08);
+  background-image: linear-gradient(rgba(var(--v-theme-on-surface), 0.04), rgba(var(--v-theme-on-surface), 0.04));
   transform: translateY(-1px);
 }
 

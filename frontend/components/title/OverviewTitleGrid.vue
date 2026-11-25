@@ -33,6 +33,17 @@ const sectionLabel = computed(() => {
       show-arrows="hover"
       :mobile-breakpoint="0"
     >
+      <!-- First: add another, from Apps & Games. -->
+      <v-slide-group-item>
+        <NuxtLink :to="{ name: 'titles' }" class="overview-titles__tile text-decoration-none">
+          <div class="overview-titles__icon overview-titles__add">
+            <v-icon icon="mdi-plus" size="22" />
+          </div>
+          <span class="overview-titles__name text-caption text-truncate">
+            {{ t("$vuetify.overview.addTitle") }}
+          </span>
+        </NuxtLink>
+      </v-slide-group-item>
       <v-slide-group-item
         v-for="title in overviewTitles"
         :key="title.id"
@@ -81,6 +92,21 @@ const sectionLabel = computed(() => {
   position: relative;
   width: 40px;
   height: 40px;
+}
+
+/* The add tile: a dashed circle with a plus, the size of an icon. */
+.overview-titles__add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(var(--v-theme-on-surface), 0.35);
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+.overview-titles__tile:hover .overview-titles__add {
+  border-color: rgba(var(--v-theme-on-surface), 0.6);
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .overview-titles__fav {

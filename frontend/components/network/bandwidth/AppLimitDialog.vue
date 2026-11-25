@@ -123,7 +123,9 @@ watch(open, (isOpen) => {
   if (props.fixed) {
     kind.value = props.fixed;
     showCap(props.limit && props.limit.download > 0 ? props.limit.download : 5 * MB);
-    onlyWhileGaming.value = props.limit?.only_while_gaming ?? true;
+    // A profile's own cap (set from its card): applies right away unless
+    // asked otherwise; the shared high-traffic one keeps waiting for games.
+    onlyWhileGaming.value = props.limit?.only_while_gaming ?? props.fixed !== "profile";
     return;
   }
   if (props.limit) {

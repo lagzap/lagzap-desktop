@@ -65,6 +65,7 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
         :chart-height="chartHeight"
         :session-start="hasData ? chart?.session_start ?? 0 : 0"
         :session-divider="divided || (fill && !hasData)"
+        :session-plain="fill"
         :no-session-text="t('$vuetify.title.playFrom.noConnection')"
         @update:range="(r) => setRange(r as OverviewRange)"
       >

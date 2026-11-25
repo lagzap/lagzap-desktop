@@ -46,7 +46,7 @@ import {
   ClientInfo,
 } from "~/bindings/github.com/lagzap/zap/data";
 import { Events } from "@wailsio/runtime";
-import { clearGroup, profileView, type RouteGroup } from "~/utils/profileRoute";
+import { clearGroup, liftGroups, profileView, type RouteGroup } from "~/utils/profileRoute";
 import { displayAlert, displayError } from "~/composables/alert";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import { getToken } from "~/utils/indexedDB";
@@ -986,6 +986,17 @@ export const useStore = defineStore("index", () => {
       displayError(e, locale);
     }
   };
+  /** The profile's own values for these groups become its title's, and
+   * the profile follows the title again (the game's main profile: what it
+   * sets is the whole game's). */
+  const liftToTitle = async (profileId: string, groups: RouteGroup[]) => {
+    const own = ownProfileStates.value[profileId];
+    const title = titleStates.value[own?.titleId ?? ""];
+    if (!own || !title) return;
+    if (!liftGroups(own, title, groups).length) return;
+    await saveTitleState(title.titleId!);
+    await saveProfileState(profileId);
+  };
   /** The profile follows its title for these groups again. */
   const followTitle = async (profileId: string, groups: RouteGroup[]) => {
     const own = ownProfileStates.value[profileId];
@@ -1485,6 +1496,7 @@ export const useStore = defineStore("index", () => {
     profileStates,
     ownProfileStates,
     followTitle,
+    liftToTitle,
     clientInfo,
     routes,
     ifaceEntryRtt,

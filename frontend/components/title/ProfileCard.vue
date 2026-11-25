@@ -4,8 +4,10 @@ import { createReusableTemplate, useLocalStorage, useResizeObserver } from "@vue
 import { useProfileEstimate } from "~/composables/useProfileChart";
 import { useRouteLine } from "~/composables/useRouteLine";
 import { useTitleMenu } from "~/composables/useTitleMenu";
+import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
 import QuickLocation from "~/components/title/QuickLocation.vue";
 import ProfileCapButton from "~/components/title/ProfileCapButton.vue";
+import LoadBalanceNote from "~/components/title/LoadBalanceNote.vue";
 import LinkQualityIndicator from "~/components/title/LinkQualityIndicator.vue";
 import { useStore } from "@/stores";
 import type { Profile } from "~/bindings/github.com/lagzap/zap/data";
@@ -137,6 +139,8 @@ const {
   summary: wireGuardSummary,
   selected: wireGuardSelected,
   status: wireGuardStatus,
+  checking: wireGuardChecking,
+  checkNow: wireGuardCheckNow,
 } = useProfileWireGuard(props.profile.id);
 const dedicatedIpOn = computed(() => wireGuardSummary.value.enabled && !!wireGuardSelected.value);
 /** The ping through its Dedicated IP (you -> relay -> WireGuard server ->
@@ -151,13 +155,11 @@ const wireGuardPingClass = computed(() => {
   const name = getLatencyColorClass(wireGuardPing.value);
   return name === "grey" ? "text-grey" : `text-${name}`;
 });
-/** The relay the tunnel goes through: its city (and number). */
+const { getNodeNumberedLabel } = useNodeLocationLabel();
+/** The relay the tunnel goes through: its city and number. */
 const wireGuardRelay = computed(() => {
   const node = store.nodes?.[wireGuardStatus.value.relay];
-  if (!node) return "";
-  const city = String(store.localized(node.city) || "") || node.name || "";
-  const num = /(\d+)$/.exec(node.name ?? "")?.[1];
-  return num ? `${city} ${num.padStart(2, "0")}` : city;
+  return node ? getNodeNumberedLabel(node) : "";
 });
 
 /** A row's icon: what the profile carries. */
@@ -340,6 +342,8 @@ const qualityOpen = ref(false);
 // the page has no Play from): the game's card opens them.
 const titleMenu = useTitleMenu();
 onMounted(() => {
+  // The title page's main card: the page answers these (its Settings).
+  if (props.pingTitle) return;
   // Bandwidth Control's "Through LagZap" asked for this profile's settings.
   if (titleMenu.takeProfile(props.profile.id, "settings")) {
     setTimeout(() => (settingsOpen.value = true), 150);
@@ -464,7 +468,18 @@ const routeSettingsText = computed(() => {
           <!-- Dedicated IP working: the ping through it, big; the relay's
                under it (below), small. -->
           <div v-if="wireGuardPing" class="profile-bigping__wg">
-            <span class="profile-bigping__wg-value" :class="wireGuardPingClass">{{ formatMs(wireGuardPing) }}</span>
+            <!-- Click: check the tunnel again now. -->
+            <button
+              v-tooltip:top="t('$vuetify.title.profile.wireguard.checkAgain')"
+              type="button"
+              class="profile-bigping__wg-value profile-bigping__wg-check"
+              :class="[wireGuardPingClass, { 'profile-bigping__wg-check--busy': wireGuardChecking }]"
+              :disabled="wireGuardChecking"
+              @click.stop="wireGuardCheckNow"
+            >
+              {{ formatMs(wireGuardPing) }}
+              <v-progress-circular v-if="wireGuardChecking" indeterminate size="18" width="2" class="ms-2" />
+            </button>
             <v-chip size="x-small" variant="tonal" prepend-icon="mdi-tunnel-outline" class="profile-bigping__wg-tag">
               {{ t("$vuetify.title.profile.wireguard.short") }}
             </v-chip>
@@ -498,7 +513,7 @@ const routeSettingsText = computed(() => {
           <!-- Loss or bursts right now take this line; else how it feels,
                the routes and internets. -->
           <div
-            v-if="linkNote"
+            v-if="linkNote && !pingTitle"
             class="profile-bigping__word"
             :class="{ 'profile-bigping__word--link': !!profileChart?.link }"
             @click="profileChart?.link && (qualityOpen = true)"
@@ -513,7 +528,7 @@ const routeSettingsText = computed(() => {
             </span>
           </div>
           <div
-            v-else-if="estimate"
+            v-else-if="estimate && !pingTitle"
             class="profile-bigping__word"
             :class="{ 'profile-bigping__word--link': !!profileChart?.link }"
             @click="profileChart?.link && (qualityOpen = true)"
@@ -548,6 +563,8 @@ const routeSettingsText = computed(() => {
       <!-- The main card's status where the name was: a game's ping, a high
            traffic profile's speed, else Connected and over what. -->
       <div v-if="pingTitle" class="profile-card-title profile-card-title--ping">
+        <!-- The page's own line above the ping (which profile it shows). -->
+        <slot name="above" />
         <template v-if="active && !direct">
           <BigPing v-if="isGameProfile ? hasPing : !isHighTrafficProfile && hasPing" />
           <div v-else-if="isHighTrafficProfile" class="profile-bigstat">
@@ -557,6 +574,8 @@ const routeSettingsText = computed(() => {
             <span class="profile-bigstat__sub">
               <v-icon icon="mdi-arrow-up" size="14" />{{ formatSpeed(uploadSpeed) }}
             </span>
+            <!-- Load balancing on: said under the speed. -->
+            <LoadBalanceNote v-if="pingTitle" :profile="props.profile" />
           </div>
           <div v-else-if="!isGameProfile" class="profile-bigstat">
             <!-- Green while its traffic goes through LagZap. -->
@@ -740,6 +759,15 @@ const routeSettingsText = computed(() => {
       />
       <!-- The rarer actions: rate the session, report a problem, the
            admins' console. -->
+      <!-- The main card showing a launcher or downloads: its download cap,
+           beside the data used. -->
+      <ProfileCapButton
+        v-if="pingTitle && isDownloadProfile && !unavailable"
+        :profile-id="props.profile.id"
+        :name="store.localized(props.profile.name)"
+        regular
+        class="me-1"
+      />
       <!-- The data used: a green chip beside ⋮ (click: its traffic). -->
       <span
         v-if="!row && active && !isGameProfile && (showProfileSections ? gameUsageShown : showUsageInSubtitle)"
@@ -939,6 +967,8 @@ const routeSettingsText = computed(() => {
       :profile-id="props.profile.id"
     />
 
+    <!-- The main card: its chart goes on a card of its own, under it. -->
+    <Teleport defer :disabled="!pingTitle" :to="pingTitle ? `#play-from-chart-${props.profile.title_id}` : 'body'">
     <v-card-text
       v-if="!row && active && (showProfileSections || isHighTrafficProfile || single || pingTitle)"
       class="pt-0 profile-sections"
@@ -968,9 +998,38 @@ const routeSettingsText = computed(() => {
         :divided="routeShown"
         :always="single && !pingTitle"
         :fill="pingTitle"
-        class="mb-2"
+        :class="pingTitle ? 'profile-chart-usage' : 'mb-2'"
       >
-        <template v-if="!pingTitle && routeShown && hasProfileConnections" #footer>
+        <!-- The main card: how it feels (or loss and bursts), the routes
+             and internets, on the chart's bottom-left corner. -->
+        <template v-if="pingTitle && (linkNote || estimate)" #footer>
+          <div
+            class="profile-bigping__word profile-chart-status"
+            :class="{ 'profile-bigping__word--link': !!profileChart?.link }"
+            @click="profileChart?.link && (qualityOpen = true)"
+          >
+            <template v-if="linkNote">
+              <span v-if="linkNote.loss" :class="linkNote.lossBad ? 'text-error' : 'text-warning'">
+                {{ t("$vuetify.networkLatency.loss") }} {{ linkNote.loss }}
+              </span>
+              <template v-if="linkNote.loss"> · {{ t("$vuetify.networkLatency.lossRecovered") }}</template>
+              <template v-if="linkNote.loss && linkNote.burst"> · </template>
+              <span v-if="linkNote.burst" :class="linkNote.burstBad ? 'text-error' : 'text-warning'">
+                {{ t("$vuetify.networkLatency.burst") }} {{ linkNote.burst }}
+              </span>
+            </template>
+            <template v-else>
+              {{ pingWord }}
+              <template v-if="routeCount > 0 && routesSet > 1">
+                · {{ t("$vuetify.title.profile.subtitleRoutes", localDigits(routesSet)) }}
+              </template>
+              <template v-if="routeInternets">
+                · {{ t("$vuetify.title.profile.internets", localDigits(routeInternets)) }}
+              </template>
+            </template>
+          </div>
+        </template>
+        <template v-else-if="!pingTitle && routeShown && hasProfileConnections" #footer>
           <button type="button" class="profile-conns__toggle profile-conns__toggle--inline" @click="showConns = !showConns">
             {{ t("$vuetify.title.profile.connections") }}
             <span class="profile-conns__count">{{ localDigits(profileConnectionCount) }}</span>
@@ -990,6 +1049,7 @@ const routeSettingsText = computed(() => {
         </v-expand-transition>
       </template>
     </v-card-text>
+    </Teleport>
 
     <v-dialog v-model="trafficDialog" max-width="640">
       <v-card rounded="xl">
@@ -1157,6 +1217,43 @@ const routeSettingsText = computed(() => {
 }
 
 /* Dedicated IP: its ping big with a tag; the relay's small under it. */
+/* The main card's chart (on a card of its own): one bottom row, how it
+   feels in the corner on the left, the legend on the right. */
+.profile-chart-usage :deep(.live-chart__legend) {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.profile-chart-usage :deep(.live-chart__footer) {
+  align-self: flex-end;
+  flex: 0 1 auto;
+}
+
+.profile-chart-usage :deep(.live-chart__legend > .chart-header-legend) {
+  margin-inline-start: auto;
+}
+
+.profile-bigping__wg-check {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  margin-inline-start: -4px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+
+.profile-bigping__wg-check:hover:not(:disabled) {
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.profile-bigping__wg-check--busy {
+  opacity: 0.6;
+}
+
 .profile-bigping__wg {
   display: flex;
   align-items: center;
@@ -1290,6 +1387,16 @@ const routeSettingsText = computed(() => {
 .profile-menu__switch-control {
   margin-inline-start: 16px;
   flex: 0 0 auto;
+}
+
+/* The main card: Route Settings (and the data chip) stay in the top-right
+   corner, however tall the ping beside them is. */
+.profile-card--main > :deep(.v-card-item) {
+  align-items: flex-start;
+}
+.profile-card--main > :deep(.v-card-item > .v-card-item__append) {
+  align-self: flex-start;
+  flex-wrap: nowrap;
 }
 
 .profile-usage {
