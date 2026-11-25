@@ -10,7 +10,7 @@ import { formatMs } from "~/utils/localeFormat";
  * server's flag, which config and IP, the ping through it, and Disable. */
 const props = defineProps<{ profileId: string }>();
 const { t } = useLocale();
-const { status, selected, active, setEnabled } = useProfileWireGuard(props.profileId);
+const { status, selected, active, setEnabled, checking, checkNow } = useProfileWireGuard(props.profileId);
 const busy = ref(false);
 
 /** The right side: the ping while it works, else what is wrong. */
@@ -78,7 +78,18 @@ async function turnOff(all: boolean) {
         </div>
         <div class="text-caption text-medium-emphasis text-truncate" dir="ltr">{{ selected.name }}</div>
       </div>
-      <span class="text-body-2 font-weight-medium flex-none" :class="`text-${right.color}`">{{ right.text }}</span>
+      <!-- Click: check the tunnel again now. -->
+      <button
+        v-tooltip:top="t('$vuetify.title.profile.wireguard.checkAgain')"
+        type="button"
+        class="wireguard-hint__check text-body-2 font-weight-medium flex-none"
+        :class="`text-${right.color}`"
+        :disabled="checking"
+        @click="checkNow"
+      >
+        <v-progress-circular v-if="checking" indeterminate size="14" width="2" />
+        <template v-else>{{ right.text }}</template>
+      </button>
       <v-btn
         size="small"
         variant="tonal"
@@ -140,5 +151,22 @@ async function turnOff(all: boolean) {
 
 .flex-none {
   flex: none;
+}
+
+/* The ping (or state), clicked to check again. */
+.wireguard-hint__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.wireguard-hint__check:hover:not(:disabled) {
+  background: rgba(var(--v-theme-on-surface), 0.08);
 }
 </style>

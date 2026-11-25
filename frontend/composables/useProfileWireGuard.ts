@@ -1,6 +1,7 @@
 import { computed, ref, type Ref } from "vue";
 import { Events } from "@wailsio/runtime";
 import {
+  CheckWireGuardConfig,
   GetProfileWireGuard,
   GetWireGuardStatus,
   SetProfileWireGuardEnabled,
@@ -46,6 +47,8 @@ interface State {
 }
 
 const states = new Map<string, State>();
+/** Configs being checked again by hand, shared by every place showing one. */
+const checkingConfigs = ref<Record<string, boolean>>({});
 let listening = false;
 
 const OFF: WireGuardStatus = { state: "off", relay: "", direct: false, owner: "", session: "", ping: 0, handshake: 0, error: "" };
@@ -122,6 +125,23 @@ export function useProfileWireGuard(profileId: string) {
   /** In use now: on, and its tunnel up (the profile is active). */
   const active = computed(() => summary.value.enabled && !!selected.value && status.value.state !== "off");
 
+  /** Its config checked again now (a ping clicked): the tunnel's check runs
+   * right away, and the status comes back with it. */
+  const checking = computed(() => !!checkingConfigs.value[summary.value.selected]);
+  async function checkNow() {
+    const id = summary.value.selected;
+    if (!id || checkingConfigs.value[id]) return;
+    checkingConfigs.value = { ...checkingConfigs.value, [id]: true };
+    try {
+      await CheckWireGuardConfig(id);
+      await load(profileId);
+    } catch {
+      // service not running
+    } finally {
+      checkingConfigs.value = { ...checkingConfigs.value, [id]: false };
+    }
+  }
+
   async function setEnabled(enabled: boolean) {
     await SetProfileWireGuardEnabled(profileId, enabled);
     await load(profileId);
@@ -134,5 +154,7 @@ export function useProfileWireGuard(profileId: string) {
     active,
     reload: () => load(profileId),
     setEnabled,
+    checking,
+    checkNow,
   };
 }

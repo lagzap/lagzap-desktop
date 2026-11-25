@@ -17,6 +17,7 @@ func init() {
 	application.RegisterBindingMethodID((*Service).CancelConnect, 3913536671)
 	application.RegisterBindingMethodID((*Service).CheckAccessOffer, 2757333245)
 	application.RegisterBindingMethodID((*Service).CheckForUpdates, 1119934520)
+	application.RegisterBindingMethodID((*Service).CheckWireGuardConfig, 1272367025)
 	application.RegisterBindingMethodID((*Service).CheckoutURL, 3808424986)
 	application.RegisterBindingMethodID((*Service).ClearDNSCache, 3678018421)
 	application.RegisterBindingMethodID((*Service).Close, 3215732723)

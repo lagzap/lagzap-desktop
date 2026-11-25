@@ -82,6 +82,17 @@ export function CheckForUpdates() {
 }
 
 /**
+ * CheckWireGuardConfig measures one config again now (the user clicked its
+ * ping): its ping in ms (0: no answer), and while its tunnel runs, the
+ * tunnel's check right away (its status comes on "wireguard-status").
+ * @param {string} configID
+ * @returns {$CancellablePromise<number>}
+ */
+export function CheckWireGuardConfig(configID) {
+    return $Call.ByID(1272367025, configID);
+}
+
+/**
  * CheckoutURL is the website's checkout for a choice; options are the ones
  * the user changed from their included value. upgrade: the user moves up
  * from their current plan and pays the difference.

@@ -54,6 +54,16 @@ func (s *Service) GetWireGuardStatus(profileID string) adapter.WireGuardStatus {
 	return s.coordinator.WireGuardStatus(profileID)
 }
 
+// CheckWireGuardConfig measures one config again now (the user clicked its
+// ping): its ping in ms (0: no answer), and while its tunnel runs, the
+// tunnel's check right away (its status comes on "wireguard-status").
+func (s *Service) CheckWireGuardConfig(configID string) int {
+	if !s.IsReady() {
+		return 0
+	}
+	return s.coordinator.CheckWireGuard(configID)
+}
+
 // PingWireGuardConfigs is each saved config's ping in ms (0: no answer),
 // one ICMP echo to its WireGuard server.
 func (s *Service) PingWireGuardConfigs() map[string]int {
