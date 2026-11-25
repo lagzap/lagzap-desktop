@@ -18,7 +18,12 @@ env:
   APP_NAME: LagZap
   PUBLIC_RELEASES_REPO: lagzap/lagzap-releases
   INTERNAL_RELEASES_REPO: lagzap/lagzap-desktop
-  GO_VERSION: "1.25.0"
+  # Go 1.26.0 and 1.26.1 corrupt memory on Windows during UDP reads with a
+  # deadline (golang/go#77975, fixed in 1.26.2): the app crashed at random.
+  # GOTOOLCHAIN=local: build with exactly this version, never one picked by
+  # go.mod's go line (1.25.0 here used to switch to 1.26.0).
+  GO_VERSION: "1.26.11"
+  GOTOOLCHAIN: local
   GOPRIVATE: github.com/lagzap/*
   GONOSUMDB: github.com/lagzap/*
   GIT_TERMINAL_PROMPT: "0"
