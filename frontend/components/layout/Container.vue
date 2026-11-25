@@ -67,10 +67,10 @@ onMounted(() => {
 
           <slot name="toolbar" />
 
-          <!-- Home: Settings beside search. -->
+          <!-- Settings beside search, on every page but Settings. -->
           <v-btn
-            v-if="route.name === 'index'"
-            icon="mdi-cog-outline"
+            v-if="route.name !== 'settings'"
+            icon="mdi-cog"
             :density="mobile ? 'comfortable' : 'default'"
             :to="{ name: 'settings' }"
             :aria-label="t('$vuetify.navigation.settings')"

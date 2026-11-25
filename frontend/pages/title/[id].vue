@@ -265,6 +265,11 @@ watch(
   margin-inline-end: 4px;
 }
 
+/* Right to left it sits on the left: grow from there, not past the edge. */
+.v-locale--is-rtl .title-switch--bar {
+  transform-origin: left center;
+}
+
 /* Never turned on yet: a ring pulses out of the switch, nothing more. */
 .title-switch--nudge :deep(.v-switch__track) {
   position: relative;

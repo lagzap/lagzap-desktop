@@ -124,14 +124,16 @@ async function confirmExit(restart: boolean) {
       <v-menu width="300">
         <template v-slot:activator="{ props }">
           <v-list-item rounded="xl" height="56">
+            <!-- The name opens the same menu as the logo (Dashboard is in the
+                 list below). -->
             <template #title>
-              <NuxtLink :to="{ name: 'index' }" class="nav-home" :aria-label="t('$vuetify.navigation.overview')">
+              <span class="nav-home cursor-pointer" v-bind="props">
                 <LogoName class="ms-3 me-1" />
-              </NuxtLink>
+              </span>
             </template>
             <template #prepend>
               <span class="cursor-pointer" v-bind="props">
-                <v-avatar rounded="circle" size="32">
+                <v-avatar rounded="circle" size="40">
                   <LagzapLogo />
                 </v-avatar>
                 <v-badge
@@ -269,6 +271,14 @@ async function confirmExit(restart: boolean) {
     </template>
 
     <v-list nav :lines="false" variant="text" color="tertiary">
+      <v-list-item
+        :to="{ name: 'index' }"
+        exact
+        :title="t('$vuetify.navigation.dashboard')"
+        prepend-icon="mdi-view-dashboard-outline"
+        rounded="xl"
+        density="compact"
+      />
       <v-list-item
         :to="{ name: 'titles' }"
         :title="t('$vuetify.navigation.titles')"

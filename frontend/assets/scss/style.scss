@@ -312,3 +312,32 @@ textarea,
     }
   }
 }
+
+/* Persian (right to left): sideways arrows and chevrons point the other
+   way. Not twice: an element flipped by hand (.flip-rtl), or Vuetify's own
+   prev/next controls, which already swap their icons. */
+.v-locale--is-rtl {
+  .flip-rtl {
+    transform: scaleX(-1);
+  }
+
+  .v-icon:is(
+      .mdi-arrow-right,
+      .mdi-arrow-left,
+      .mdi-chevron-right,
+      .mdi-chevron-left,
+      .mdi-menu-right,
+      .mdi-menu-left,
+      .mdi-arrow-right-thin,
+      .mdi-arrow-left-thin
+    ):not(
+      .flip-rtl *,
+      .v-slide-group__prev *,
+      .v-slide-group__next *,
+      .v-pagination *,
+      .v-window__controls *,
+      .v-breadcrumbs *
+    ) {
+    transform: scaleX(-1);
+  }
+}

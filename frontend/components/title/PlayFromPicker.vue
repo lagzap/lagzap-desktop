@@ -1416,18 +1416,28 @@ watch(
         <!-- Where the game connects from, a small card labelled
              Location. Hover: the quick pick (Automatic, a top city or a
              recent Dedicated IP config); click: the picker. -->
-        <v-menu v-model="quickOpen" open-on-hover :open-delay="0" :close-delay="150" location="bottom start" :offset="8">
+        <!-- Hover or click: the quick pick; double-click: the picker. -->
+        <v-menu
+          v-model="quickOpen"
+          open-on-hover
+          :open-on-click="false"
+          :open-delay="0"
+          :close-delay="150"
+          location="bottom start"
+          :offset="8"
+        >
           <template #activator="{ props: menuProps }">
             <v-card
               v-bind="menuProps"
               variant="flat"
               rounded="lg"
               class="play-from__loc flex-grow-0"
-              @click="quickOpen = false; openPlaces()"
+              @click="quickOpen = true"
+              @dblclick="quickOpen = false; openPlaces()"
             >
               <div class="d-flex align-center ga-4 ps-4 pe-2 py-2">
                 <div style="min-width: 0">
-                  <div class="text-caption text-medium-emphasis">{{ t("$vuetify.title.profile.location") }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ t("$vuetify.title.playFrom.changeLocation") }}</div>
                   <div class="d-flex align-center text-no-wrap">
                     <FlagImg v-if="selected.country" :country="selected.country" :height="14" class="me-2" />
                     <v-icon v-else :icon="selected.icon" size="18" class="me-2" />
@@ -1435,7 +1445,12 @@ watch(
                     <Ping v-if="selectedMs" :latency-ms="selectedMs" class="ms-3" />
                   </div>
                 </div>
-                <v-icon icon="mdi-chevron-right" class="ms-auto text-medium-emphasis" />
+                <!-- Down while its quick pick is open. -->
+                <v-icon
+                  icon="mdi-chevron-right"
+                  class="play-from__loc-chevron ms-auto text-medium-emphasis"
+                  :class="{ 'play-from__loc-chevron--open': quickOpen }"
+                />
               </div>
             </v-card>
           </template>
@@ -1949,6 +1964,21 @@ watch(
 }
 
 /* Not pulled out past the card's edge: the title clips anything outside. */
+/* The Location card's chevron turns down while its quick pick is open. */
+.play-from__loc-chevron {
+  transition: transform 0.2s ease;
+}
+
+.play-from__loc-chevron--open {
+  transform: rotate(90deg);
+}
+
+/* Right to left: mirrored (the app-wide rule), and turned down when open;
+   specific enough to win over that rule. */
+.v-locale--is-rtl .v-icon.play-from__loc-chevron.play-from__loc-chevron--open {
+  transform: scaleX(-1) rotate(90deg);
+}
+
 /* The Location card: as wide as what it says; it opens the picker. */
 .play-from__loc {
   min-width: 200px;
