@@ -62,7 +62,8 @@ onMounted(() => {
     >
       <v-scroll-y-transition leave-absolute>
         <div v-if="!searchMode" class="v-toolbar__content">
-          <v-app-bar-nav-icon @click="sidebar = !sidebar" />
+          <!-- Phone size with the sidebar hidden: the button that opens it. -->
+          <v-app-bar-nav-icon v-if="mobile && !sidebar" @click="sidebar = true" />
           <slot name="header" />
 
           <slot name="toolbar" />
