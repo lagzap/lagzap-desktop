@@ -30,6 +30,11 @@ const searchMode = ref(false);
 // Use fuzzy search composable
 const { searchQuery, searchResults, handleSearch } = useFuzzySearch(titles, store);
 
+// The sidebar's search icon (QuickAccess) asks for the search too.
+const openSearch = () => (searchMode.value = true);
+onMounted(() => window.addEventListener("lz-open-search", openSearch));
+onUnmounted(() => window.removeEventListener("lz-open-search", openSearch));
+
 onMounted(() => {
   window.addEventListener("keydown", (event) => {
     // Use code for language-independent hotkeys

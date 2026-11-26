@@ -93,6 +93,8 @@ interface AppSettings {
   adapterOrder?: string[]
   /** Ordered title IDs for Quick Access favorites (max MAX_FAVORITE_TITLES). */
   favoriteTitleIds?: string[]
+  /** Quick Access favorites as a grid of icons (the default) or a list. */
+  favoritesView?: 'grid' | 'list'
   /** Ordered ticket IDs for Quick Access favorites (max MAX_FAVORITE_TICKETS). */
   favoriteTicketIds?: string[]
   /** Recently opened tickets (max MAX_RECENT_TICKETS). */
@@ -167,6 +169,7 @@ const settings = shallowRef<AppSettings>({
   gpuAcceleration: true,
   discordPresence: true,
   favoriteTitleIds: [],
+  favoritesView: 'grid',
   favoriteTicketIds: [],
   recentTickets: [],
   ...defaultRoutingSettings,
@@ -599,6 +602,10 @@ export const useSettings = (locale?: any, theme?: any) => {
     }
   }
 
+  const setFavoritesView = async (favoritesView: 'grid' | 'list') => {
+    await saveSettings({ favoritesView })
+  }
+
   const setFavoriteTitleIds = async (favoriteTitleIds: string[]) => {
     await saveSettings({
       favoriteTitleIds: normalizeFavoriteTitleIds(favoriteTitleIds),
@@ -732,6 +739,7 @@ export const useSettings = (locale?: any, theme?: any) => {
     setAdapterOrder,
     setInternetPingTarget,
     setFavoriteTitleIds,
+    setFavoritesView,
     setTitleCategorySlug,
     setFavoriteTicketIds,
     setRecentTickets,

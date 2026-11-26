@@ -69,8 +69,7 @@ function toggle() {
       />
       <v-icon
         size="20"
-        class="ms-1 internet-card__icon"
-        :color="on || inherited ? 'primary' : undefined">
+        class="ms-1 internet-card__icon">
         {{ icon }}
       </v-icon>
       <div class="internet-card__text">

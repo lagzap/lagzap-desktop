@@ -462,6 +462,11 @@ export default {
         quickAccess: 'دسترسی‌سریع',
         favorites: 'علاقه‌مندی‌ها',
         recent: 'اخیر',
+        addAppOrGame: 'افزودن برنامه یا بازی',
+        searchTitles: 'جستجوی برنامه‌ها و بازی‌ها',
+        favoritesAsGrid: 'نمایش شبکه‌ای',
+        favoritesAsList: 'نمایش فهرستی',
+        favoritesConnections: '{0} اتصال',
         admin: 'مدیریت'
     },
     overview: {
@@ -1327,6 +1332,11 @@ export default {
         },
         pinFavorite: 'افزودن به علاقه‌مندی‌ها',
         unpinFavorite: 'حذف از علاقه‌مندی‌ها',
+        pickFavorite: 'روی یک برنامه یا بازی بزنید تا به علاقه‌مندی‌ها اضافه شود',
+        pickFavoriteCancel: 'انصراف',
+        pickRecent: 'علاقه‌مندی‌ها پر است: روی یک برنامه یا بازی بزنید تا روشن شود و بالای اخیر بیاید',
+        addedFavoriteOn: '{0} در علاقه‌مندی‌هاست و روشن شد',
+        favoritesFullTurnedOn: 'علاقه‌مندی‌ها پر است: {0} روشن شد و بالای اخیر است',
         openPage: 'باز کردن',
         favoriteLimit: 'حداکثر ۱۰ عنوان می‌توانید پین کنید',
     },

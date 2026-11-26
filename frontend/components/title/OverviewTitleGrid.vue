@@ -5,6 +5,9 @@ import { useLocale } from "vuetify";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
 import TitleFavoriteButton from "~/components/title/TitleFavoriteButton.vue";
 import TitleAvatar from "~/components/plan/TitleAvatar.vue";
+import { useFavoritePick } from "~/composables/useFavoritePick";
+
+const { startPicking } = useFavoritePick();
 
 const titleMenu = useTitleMenu();
 
@@ -35,14 +38,14 @@ const sectionLabel = computed(() => {
     >
       <!-- First: add another, from Apps & Games. -->
       <v-slide-group-item>
-        <NuxtLink :to="{ name: 'titles' }" class="overview-titles__tile text-decoration-none">
+        <button type="button" class="overview-titles__tile overview-titles__add-btn text-decoration-none" @click="startPicking">
           <div class="overview-titles__icon overview-titles__add">
             <v-icon icon="mdi-plus" size="22" />
           </div>
           <span class="overview-titles__name text-caption text-truncate">
             {{ t("$vuetify.overview.addTitle") }}
           </span>
-        </NuxtLink>
+        </button>
       </v-slide-group-item>
       <v-slide-group-item
         v-for="title in overviewTitles"
@@ -69,6 +72,14 @@ const sectionLabel = computed(() => {
 </template>
 
 <style scoped>
+/* The + is a button (it starts picking, no address change): no button look. */
+.overview-titles__add-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
 .overview-titles__tile {
   position: relative;
   display: flex;

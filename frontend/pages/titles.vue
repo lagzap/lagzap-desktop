@@ -10,6 +10,8 @@ import { usePlanAccess } from "~/composables/usePlanAccess";
 import { localDigits } from "~/utils/localeFormat";
 import { useSettings } from "~/composables/useSettings";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
+import { displayAlert } from "~/composables/alert";
+import { useFavoritePick } from "~/composables/useFavoritePick";
 import {
   CATEGORY_ALL,
   CATEGORY_UNCATEGORIZED,
@@ -37,7 +39,30 @@ const { categories, categoryName, filterKeys, titleInFilter } = useTitleCategori
 );
 // Favorites, in the user's order, among the titles shown here.
 const CATEGORY_FAVORITES = "__favorites";
-const { favoriteTitles, isFavorite } = useFavoriteTitles();
+const { favoriteTitles, isFavorite, toggleFavorite, canPinMore } = useFavoriteTitles();
+
+// Opened from a Favorites or Recent + (useFavoritePick): the next app or
+// game clicked is added instead of opened, then the page is as before.
+const { picking: pickingFavorite, stopPicking } = useFavoritePick();
+onBeforeUnmount(stopPicking);
+/** The pick: added to Favorites and turned on. Favorites full: turned on
+ * only, at the top of Recent (on, and just visited). */
+async function pickFavorite(id: string, name: string) {
+  const title = store.titles.find((item) => item.id === id);
+  let pinned = isFavorite(id);
+  if (!pinned && canPinMore.value) {
+    await toggleFavorite(id);
+    pinned = true;
+  }
+  if (title && !store.isTitleActive(id)) await store.toggleTitleState(title);
+  if (!pinned) await store.visitTitle(id);
+  displayAlert(
+    t(pinned ? "$vuetify.title.addedFavoriteOn" : "$vuetify.title.favoritesFullTurnedOn", name),
+    pinned ? "success" : "info",
+    5000,
+  );
+  stopPicking();
+}
 const favorites = computed(() => {
   const shown = new Set(titles.value.map((title) => title.id));
   return favoriteTitles.value.filter((title) => shown.has(title.id));
@@ -219,6 +244,31 @@ const onToggle = (title: (typeof titles.value)[number]) => {
       </template>
 
       <v-card-text class="mb-16" :class="{ 'titles-list--rail': showRail }">
+        <!-- From a Favorites +: the next one clicked is added. Stays at the
+             top while the list scrolls. -->
+        <div
+          v-if="pickingFavorite"
+          class="titles-pick">
+        <v-alert
+          variant="tonal"
+          density="compact"
+          rounded="lg"
+          icon="mdi-star-plus-outline"
+        >
+          <div class="d-flex align-center flex-wrap ga-2">
+            <span class="flex-grow-1">{{ t(canPinMore ? "$vuetify.title.pickFavorite" : "$vuetify.title.pickRecent") }}</span>
+            <v-btn
+              size="small"
+              variant="text"
+              color="on-surface"
+              class="text-none"
+              @click="stopPicking"
+            >
+              {{ t("$vuetify.title.pickFavoriteCancel") }}
+            </v-btn>
+          </div>
+        </v-alert>
+        </div>
         <v-chip-group
           v-if="showCategoryFilter"
           :model-value="selectedCategory"
@@ -279,7 +329,8 @@ const onToggle = (title: (typeof titles.value)[number]) => {
                 class="titles-col"
               >
                 <v-card
-                  :to="{ name: 'title-id', params: { id: item.raw.id } }"
+                  :to="pickingFavorite ? undefined : { name: 'title-id', params: { id: item.raw.id } }"
+                  @click="pickingFavorite && pickFavorite(item.raw.id, store.titleName(item.raw.name))"
                   @contextmenu="titleMenu.openAt($event, item.raw.id)"
                   class="py-1 mb-1 titles-card"
                 >
@@ -408,6 +459,15 @@ const onToggle = (title: (typeof titles.value)[number]) => {
 </template>
 
 <style scoped>
+/* The pick's banner: fixed at the top of the list as it scrolls, on the
+   page's own background so rows do not show through. */
+.titles-pick {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding-bottom: 12px;
+  background: rgb(var(--v-theme-surface));
+}
 .titles-list--rail {
   padding-inline-end: 40px;
 }

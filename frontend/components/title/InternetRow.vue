@@ -124,7 +124,7 @@ const color = computed(() => (props.missing ? "warning" : "primary"));
 }
 .internet-row__share-fill {
   height: 100%;
-  background: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-on-surface), 0.55);
   transition: width 0.4s ease;
 }
 .state-only {

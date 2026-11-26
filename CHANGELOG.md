@@ -30,6 +30,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI read
 - A Retry button on the "Cloud service: Offline" notice.
 - An alert on a game's page when LagZap can't connect it through the chosen location, with a quick way to change location.
 - The location picker lists every location; the ones that can't connect right now say Unavailable.
+- Favorites in the sidebar show as a grid of icons by default, or as a list. Each icon shows whether it's on, its connections and any problem.
+- Add App or Game from the sidebar or the dashboard: the next app or game you pick in Apps & Games is added to your Favorites and turned on. With Favorites full, it's turned on and shown first in Recent.
+- A search button next to Recent.
 
 ### Changed
 - Settings that follow the global ones show the value in use; set for an app they turn gold, with a button back to the global value. Each explanation is now in a ? next to its setting.
@@ -41,6 +44,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI read
 - When a connection couldn't be carried, LagZap could use a lot of CPU and fill its logs while the app kept retrying.
 - A server that didn't answer for a moment could be dropped. LagZap now checks it thoroughly, on each of your internets, before it avoids it.
 - When a server in your chosen location can't connect, LagZap now tries the next one there instead of failing.
+- Favorites could say it was full while showing fewer than 10.
 
 ---
 

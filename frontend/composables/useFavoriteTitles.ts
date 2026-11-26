@@ -49,8 +49,10 @@ export function useFavoriteTitles() {
 
   const isFavorite = (titleId: string) => favoriteIdSet.value.has(titleId);
 
+  // Only favorites that are still titles count: ids left from removed or
+  // renamed titles used to fill the limit while few showed.
   const canPinMore = computed(
-    () => favoriteTitleIds.value.length < MAX_FAVORITE_TITLES
+    () => favoriteTitles.value.length < MAX_FAVORITE_TITLES
   );
 
   const pinTitle = async (titleId: string) => {
@@ -61,7 +63,10 @@ export function useFavoriteTitles() {
       displayAlert(t("$vuetify.title.favoriteLimit"), "warning");
       return false;
     }
-    await setFavoriteTitleIds([...favoriteTitleIds.value, titleId]);
+    // Saved without the ids that are no titles any more (once titles are
+    // loaded: before that every id would look gone).
+    const kept = store.titles.length > 0 ? favoriteTitles.value.map((title) => title.id) : favoriteTitleIds.value;
+    await setFavoriteTitleIds([...kept, titleId]);
     return true;
   };
 

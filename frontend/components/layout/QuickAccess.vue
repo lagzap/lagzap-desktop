@@ -7,6 +7,9 @@ import type { Title } from "~/bindings/github.com/lagzap/zap/data";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
 import TitleActiveToggle from "~/components/title/TitleActiveToggle.vue";
 import TitleAvatar from "~/components/plan/TitleAvatar.vue";
+import { useSettings } from "~/composables/useSettings";
+import { useFavoritePick } from "~/composables/useFavoritePick";
+import { useMonitoringStore } from "~/stores/monitoring";
 
 const { t } = useLocale();
 const store = useStore();
@@ -17,6 +20,7 @@ const {
   favoriteTitles,
   recentTitlesExcludingFavorites,
   reorderFavoriteTitles,
+  canPinMore,
 } = useFavoriteTitles();
 
 const activeTitleId = computed(() => {
@@ -32,6 +36,45 @@ function isFavoriteActive(title: Title) {
 }
 
 const recentTitles = computed(() => recentTitlesExcludingFavorites.value);
+
+/** Favorites as a grid of icons (the default), five a row with their status
+ * as badges on the icon, or a list (name, status on the right). Saved with
+ * the app's settings, like the favorites themselves. */
+const { settings: appSettings, setFavoritesView } = useSettings();
+const grid = computed(() => (appSettings.value.favoritesView ?? "grid") === "grid");
+function toggleFavoritesView() {
+  void setFavoritesView(grid.value ? "list" : "grid");
+}
+
+/** Each title's connections now (the Connections page's count). */
+const { connections } = useMonitoringStore();
+const connectionCounts = computed(() => {
+  const counts = new Map<string, number>();
+  for (const connection of connections.value ?? []) {
+    if (!connection.title_id || connection.profile_id === "") continue;
+    counts.set(connection.title_id, (counts.get(connection.title_id) ?? 0) + 1);
+  }
+  return counts;
+});
+const countLabel = (n: number) => (n > 99 ? "99+" : String(n));
+/** A tile's tooltip: its name, and why it is marked. */
+function tileTip(title: Title): string {
+  const parts = [store.titleName(title.name)];
+  const count = connectionCounts.value.get(title.id) ?? 0;
+  if (count > 0) parts.push(t("$vuetify.navigation.favoritesConnections", count));
+  if (store.hasTitleUnavailableInterfaces(title.id)) {
+    parts.push(`${t("$vuetify.title.profile.unavailableInterfaces")}: ${store.getTitleUnavailableInterfaces(title.id).join(", ")}`);
+  }
+  return parts.join(" · ");
+}
+const { startPicking } = useFavoritePick();
+/** Opens the top bar's search (Container listens). */
+function openSearch() {
+  window.dispatchEvent(new Event("lz-open-search"));
+}
+function toggleTitle(title: Title) {
+  if (store.appReady) void store.toggleTitleState(title);
+}
 
 const showFavoritesHeader = computed(() => localFavorites.value.length > 0);
 
@@ -149,11 +192,24 @@ function onPointerMove(event: PointerEvent) {
     ...favoritesListEl.value.querySelectorAll<HTMLElement>("[data-fav-id]"),
   ];
   let targetIndex = localFavorites.value.length - 1;
-  for (let i = 0; i < rows.length; i++) {
-    const rect = rows[i].getBoundingClientRect();
-    if (event.clientY < rect.top + rect.height / 2) {
-      targetIndex = i;
-      break;
+  if (grid.value) {
+    // The grid: the tile nearest the pointer.
+    let best = Infinity;
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect();
+      const d = Math.hypot(event.clientX - (rect.left + rect.width / 2), event.clientY - (rect.top + rect.height / 2));
+      if (d < best) {
+        best = d;
+        targetIndex = i;
+      }
+    }
+  } else {
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect();
+      if (event.clientY < rect.top + rect.height / 2) {
+        targetIndex = i;
+        break;
+      }
     }
   }
 
@@ -208,8 +264,89 @@ onBeforeUnmount(() => {
 <template>
   <v-list nav density="compact" color="tertiary">
     <template v-if="showFavoritesHeader">
-      <v-list-subheader>{{ t("$vuetify.navigation.favorites") }}</v-list-subheader>
-      <div ref="favoritesListEl" class="qa-favorites">
+      <div class="qa-favorites__head">
+        <v-list-subheader class="flex-grow-1">{{ t("$vuetify.navigation.favorites") }}</v-list-subheader>
+        <v-btn
+          v-tooltip="t(grid ? '$vuetify.navigation.favoritesAsList' : '$vuetify.navigation.favoritesAsGrid')"
+          icon
+          size="x-small"
+          variant="text"
+          density="comfortable"
+          color="on-surface"
+          class="me-1"
+          :aria-label="t(grid ? '$vuetify.navigation.favoritesAsList' : '$vuetify.navigation.favoritesAsGrid')"
+          @click="toggleFavoritesView"
+        >
+          <v-icon size="16">
+            {{ grid ? "mdi-view-list-outline" : "mdi-view-grid-outline" }}
+          </v-icon>
+        </v-btn>
+      </div>
+      <!-- Grid: icons only, five a row; on/off, connections and a problem
+           as badges on the icon; + at the end adds another. -->
+      <div
+        v-if="grid"
+        ref="favoritesListEl"
+        class="qa-favorites qa-fav-grid-wrap">
+        <TransitionGroup
+          tag="div"
+          name="qa-fav"
+          class="qa-fav-grid">
+          <div
+            v-for="(title, index) in localFavorites"
+            :key="title.id"
+            v-tooltip:end="tileTip(title)"
+            :data-fav-id="title.id"
+            class="qa-fav-tile"
+            :class="{
+              'qa-fav-tile--active': isFavoriteActive(title),
+              'qa-fav-row--dragging': draggingId === title.id,
+            }"
+            role="link"
+            tabindex="0"
+            @pointerdown="onRowPointerDown(index, $event)"
+            @click="onFavoriteClick(title, $event)"
+            @keydown.enter="onFavoriteClick(title, $event as unknown as MouseEvent)"
+            @contextmenu="titleMenu.openAt($event, title.id)"
+          >
+            <TitleAvatar
+              :size="28"
+              :image="title.icon_url" />
+            <!-- A problem with its internets. -->
+            <span
+              v-if="store.hasTitleUnavailableInterfaces(title.id)"
+              class="qa-fav-badge qa-fav-badge--warn">!</span>
+            <!-- Its connections now. -->
+            <span
+              v-else-if="connectionCounts.get(title.id)"
+              class="qa-fav-badge qa-fav-badge--count">{{ countLabel(connectionCounts.get(title.id) ?? 0) }}</span>
+            <!-- On or off: click switches it. -->
+            <button
+              type="button"
+              class="qa-fav-state tat"
+              :class="store.isTitleActive(title.id) ? 'qa-fav-state--on' : 'qa-fav-state--off'"
+              :aria-label="t(store.isTitleActive(title.id) ? '$vuetify.title.profile.statusOnShort' : '$vuetify.title.profile.statusOff')"
+              :disabled="!store.appReady"
+              @click.stop="toggleTitle(title)"
+            />
+          </div>
+        </TransitionGroup>
+        <button type="button"
+          v-if="canPinMore"
+          @click="startPicking"
+          class="qa-fav-tile qa-fav-tile--add"
+          :aria-label="t('$vuetify.navigation.addAppOrGame')"
+          v-tooltip:end="t('$vuetify.navigation.addAppOrGame')"
+        >
+          <v-icon
+            icon="mdi-plus"
+            size="16" />
+        </button>
+      </div>
+      <div
+        v-else
+        ref="favoritesListEl"
+        class="qa-favorites">
         <TransitionGroup tag="div" name="qa-fav">
           <v-list-item
             v-for="(title, index) in localFavorites"
@@ -260,12 +397,56 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
+    <!-- Add to Favorites, above Recent: a dashed row the size of a Recent
+         item (the grid has its own + tile). Favorites full: it is Recent's
+         first item instead (the app is turned on and goes to Recent). -->
+    <button type="button"
+      v-if="canPinMore ? !grid || !showFavoritesHeader : !showRecentHeader"
+          @click="startPicking"
+      class="qa-add-row"
+    >
+      <v-icon
+        icon="mdi-plus"
+        size="18"
+        class="qa-add-row__icon" />
+      <span class="text-body-2">{{ t("$vuetify.navigation.addAppOrGame") }}</span>
+    </button>
+
     <template v-if="showRecentHeader">
       <v-divider
         v-if="showFavoritesHeader"
         class="my-1"
       />
-      <v-list-subheader>{{ t("$vuetify.navigation.recent") }}</v-list-subheader>
+      <div class="qa-favorites__head">
+        <v-list-subheader class="flex-grow-1">{{ t("$vuetify.navigation.recent") }}</v-list-subheader>
+        <!-- Search apps and games (the top bar's search). -->
+        <v-btn
+          v-tooltip="t('$vuetify.navigation.searchTitles')"
+          icon
+          size="x-small"
+          variant="text"
+          density="comfortable"
+          color="on-surface"
+          class="me-1"
+          :aria-label="t('$vuetify.navigation.searchTitles')"
+          @click="openSearch"
+        >
+          <v-icon size="16">
+            mdi-magnify
+          </v-icon>
+        </v-btn>
+      </div>
+      <button type="button"
+        v-if="!canPinMore"
+          @click="startPicking"
+        class="qa-add-row"
+      >
+        <v-icon
+          icon="mdi-plus"
+          size="18"
+          class="qa-add-row__icon" />
+        <span class="text-body-2">{{ t("$vuetify.navigation.addAppOrGame") }}</span>
+      </button>
 
       <v-list-item
         v-for="title in recentTitles"
@@ -321,7 +502,9 @@ onBeforeUnmount(() => {
       }"
     >
       <TitleIcon :size="32" :image="ghost.title.icon_url" class="flex-shrink-0" />
-      <span class="text-body-2 text-truncate">
+      <span
+        v-if="!grid"
+        class="text-body-2 text-truncate">
         {{ store.titleName(ghost.title.name) }}
       </span>
     </div>
@@ -331,6 +514,118 @@ onBeforeUnmount(() => {
 <style scoped>
 .qa-favorites {
   position: relative;
+}
+.qa-favorites__head {
+  display: flex;
+  align-items: center;
+}
+
+/* Add, above Recent: a Recent item's size, dashed like the grid's +. */
+.qa-add-row {
+  width: 100%;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 40px;
+  margin: 4px 0 2px;
+  padding: 0 16px 0 14px;
+  border: 1.5px dashed rgba(var(--v-theme-on-surface), 0.25);
+  border-radius: 24px;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+.qa-add-row:hover,
+.qa-add-row:focus-visible {
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  outline: none;
+}
+/* Where a Recent item's 32px icon sits. */
+.qa-add-row__icon {
+  width: 32px;
+  flex: none;
+}
+
+/* The grid: five icons a row, close together, then +. */
+.qa-fav-grid-wrap {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  padding: 2px 8px 6px;
+}
+.qa-fav-grid {
+  display: contents;
+}
+.qa-fav-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+  transition: background-color 0.15s;
+}
+.qa-fav-tile:hover,
+.qa-fav-tile:focus-visible {
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+.qa-fav-tile--active {
+  background: rgba(var(--v-theme-on-surface), 0.1);
+  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-on-surface), 0.2);
+}
+.qa-fav-tile--add {
+  background: none;
+  padding: 0;
+  border: 1.5px dashed rgba(var(--v-theme-on-surface), 0.25);
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+/* Badges on the icon: connections or a problem (top), on/off (bottom). */
+.qa-fav-badge {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+.qa-fav-badge--count {
+  background: rgb(var(--v-theme-surface-variant));
+  color: rgb(var(--v-theme-on-surface-variant));
+}
+.qa-fav-badge--warn {
+  background: rgb(var(--v-theme-warning));
+  color: rgb(var(--v-theme-on-warning));
+}
+.qa-fav-state {
+  position: absolute;
+  bottom: 3px;
+  inset-inline-end: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--v-theme-surface));
+  padding: 0;
+  cursor: pointer;
+}
+.qa-fav-state--on {
+  background: rgb(var(--v-theme-success));
+}
+.qa-fav-state--off {
+  background: rgba(var(--v-theme-on-surface), 0.35);
 }
 
 .qa-fav-row {
