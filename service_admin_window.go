@@ -31,6 +31,25 @@ func (s *Service) GetDNSQueries(after uint64) []adapter.DNSQueryRecord {
 	return s.dnsRouter.QueryLog(after)
 }
 
+// GetDeadServers lists what LagZap avoids right now (dropped relays, servers
+// whose paths as an edge come last, dead entries), for the Admin Tools Dead
+// Servers page.
+func (s *Service) GetDeadServers() []adapter.DeadServerRecord {
+	if s.coordinator == nil || !s.AdminToolsEnabled() {
+		return []adapter.DeadServerRecord{}
+	}
+	return s.coordinator.DeadServers()
+}
+
+// ClearDeadServer ends one of them (Admin Tools, to test): its paths are used
+// again, a dropped relay is measured again.
+func (s *Service) ClearDeadServer(kind, key string) bool {
+	if s.coordinator == nil || !s.AdminToolsEnabled() {
+		return false
+	}
+	return s.coordinator.ClearDeadServer(kind, key)
+}
+
 // OpenAdminTools opens (or focuses) the Admin Tools window. No-op unless
 // AdminToolsEnabled.
 func (s *Service) OpenAdminTools() {

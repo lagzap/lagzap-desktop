@@ -72,6 +72,9 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
         <!-- A game's live speeds, under the chart on the left (its data
              used follows the ping above). -->
         <!-- After them, whatever the card adds (its connections toggle). -->
+        <template v-if="!popup && $slots.range" #range-start>
+          <slot name="range" />
+        </template>
         <template v-if="!popup" #footer-start>
           <div class="ping-usage__footer">
             <ProfileActivityChip v-if="profile && isGame" :profile="profile" part="speed" />

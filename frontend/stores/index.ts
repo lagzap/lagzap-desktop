@@ -1385,6 +1385,38 @@ export const useStore = defineStore("index", () => {
     }
   };
 
+  /** Internets whose internet stopped answering (link still up): LagZap
+   * uses another meanwhile. */
+  const internetDownNames = computed(() => {
+    const down = new Set(latency.value?.internet_down ?? []);
+    // One connected but with no ping at all while others have one (disabled
+    // in Windows, a dead modem): no internet either.
+    const pinged = Object.keys(latency.value?.interfaces ?? {});
+    if (pinged.length > 0) {
+      for (const name of availableInterfaceNames.value) if (!pinged.includes(name)) down.add(name);
+    }
+    return [...down];
+  });
+  /** The internets a profile picked that have no internet now. */
+  const getProfileInternetDown = (profileId: string): string[] => {
+    const profileState = profileStates.value[profileId];
+    const down = internetDownNames.value;
+    if (!profileState || down.length === 0) return [];
+    const picked = [profileState.default_interface ?? "", ...(profileState.network_interfaces ?? [])];
+    return [...new Set(picked.filter((name) => name && down.includes(name)))];
+  };
+  /** Takes name out of a profile (its Default, or one of its internets). */
+  const removeProfileInterface = async (profileId: string, name: string) => {
+    const profileState = profileStates.value[profileId];
+    if (!profileState || !name) return;
+    if (profileState.default_interface === name) profileState.default_interface = "";
+    if (profileState.network_interfaces?.includes(name)) {
+      profileState.network_interfaces = profileState.network_interfaces.filter((n) => n !== name);
+    }
+    updateProfileUnavailableInterfaces(profileId);
+    await saveProfileState(profileId);
+  };
+
   const hasUnavailableInterfaces = (profileId: string): boolean => {
     return profileUnavailableInterfaces.value[profileId]?.length > 0;
   };
@@ -1429,6 +1461,28 @@ export const useStore = defineStore("index", () => {
       unavailable.has(profileState.default_interface)
     ) {
       profileState.default_interface = "";
+    }
+    updateProfileUnavailableInterfaces(profileId);
+    await saveProfileState(profileId);
+  };
+
+  /** Puts replacement where the profile uses missing (its Default, or one of
+   * its internets), keeping the order and never listing one twice. */
+  const replaceUnavailableInterface = async (profileId: string, missing: string, replacement: string) => {
+    const profileState = profileStates.value[profileId];
+    if (!profileState || !missing || !replacement || missing === replacement) {
+      return;
+    }
+    if (profileState.default_interface === missing) {
+      profileState.default_interface = replacement;
+    }
+    if (profileState.network_interfaces?.includes(missing)) {
+      const next: string[] = [];
+      for (const name of profileState.network_interfaces) {
+        const use = name === missing ? replacement : name;
+        if (!next.includes(use)) next.push(use);
+      }
+      profileState.network_interfaces = next;
     }
     updateProfileUnavailableInterfaces(profileId);
     await saveProfileState(profileId);
@@ -1567,6 +1621,10 @@ export const useStore = defineStore("index", () => {
     updateProfileUnavailableInterfaces,
     clearUnavailableInterfaces,
     clearTitleUnavailableInterfaces,
+    replaceUnavailableInterface,
+    internetDownNames,
+    getProfileInternetDown,
+    removeProfileInterface,
     hasUnavailableInterfaces,
     getUnavailableInterfaces,
     hasTitleUnavailableInterfaces,

@@ -21,6 +21,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI read
 
 ---
 
+## [0.1.3-beta.8] - 2026-11-26
+
+### Added
+- Each app's settings show where its traffic goes out as one card: the default internet, one internet, or load balancing over several. Multi Internet and main-and-backup internets have the same cards, and backups can be put in order by dragging them.
+- A warning on a game's page when an internet one of its profiles uses is unplugged, disabled or has no internet, with one click to switch to another internet or remove it.
+- A dot on Settings, and on each part of a game, shows which settings are set for that app; hover it to see which ones.
+- A Retry button on the "Cloud service: Offline" notice.
+- An alert on a game's page when LagZap can't connect it through the chosen location, with a quick way to change location.
+- The location picker lists every location; the ones that can't connect right now say Unavailable.
+
+### Changed
+- Settings that follow the global ones show the value in use; set for an app they turn gold, with a button back to the global value. Each explanation is now in a ? next to its setting.
+- "Network Status" is now "Internet Status".
+- The data used now sits next to the chart's time range.
+
+### Fixed
+- With an internet disabled or unplugged, apps could fail to connect at all. LagZap now uses an internet that is connected.
+- When a connection couldn't be carried, LagZap could use a lot of CPU and fill its logs while the app kept retrying.
+- A server that didn't answer for a moment could be dropped. LagZap now checks it thoroughly, on each of your internets, before it avoids it.
+- When a server in your chosen location can't connect, LagZap now tries the next one there instead of failing.
+
+---
+
 ## [0.1.0-beta.1] - 2026-07-21
 
 ### Added

@@ -20,6 +20,7 @@ export {
     ConnectionLogLine,
     ConnectionStatus,
     DNSQueryRecord,
+    DeadServerRecord,
     DefaultInterfaceFallback,
     DiagramBackups,
     DiagramEstimate,

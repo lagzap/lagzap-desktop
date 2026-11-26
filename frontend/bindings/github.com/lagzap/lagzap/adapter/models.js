@@ -1127,6 +1127,122 @@ export class DNSQueryRecord {
 }
 
 /**
+ * DeadServerRecord is one thing the coordinator avoids right now, for the
+ * Admin Tools Dead Servers page.
+ */
+export class DeadServerRecord {
+    /**
+     * Creates a new DeadServerRecord instance.
+     * @param {Partial<DeadServerRecord>} [$$source = {}] - The source object to create the DeadServerRecord.
+     */
+    constructor($$source = {}) {
+        if (!("kind" in $$source)) {
+            /**
+             * Kind: "relay" (its relay service answered on no path in the full
+             * verify: dropped for that transport), "server" (that relay's server:
+             * paths through it as an edge come last) or "entry" (an entry sessions
+             * found carrying nothing to one relay: left out of that relay's routes).
+             * @member
+             * @type {string}
+             */
+            this["kind"] = "";
+        }
+        if (!("key" in $$source)) {
+            /**
+             * Key identifies it for ClearDeadServer.
+             * @member
+             * @type {string}
+             */
+            this["key"] = "";
+        }
+        if (!("server" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["server"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["server_name"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["relay"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["relay_name"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["network"] = undefined;
+        }
+        if (!("since" in $$source)) {
+            /**
+             * unix ms
+             * @member
+             * @type {number}
+             */
+            this["since"] = 0;
+        }
+        if (!("until" in $$source)) {
+            /**
+             * unix ms; 0 until the next analysis
+             * @member
+             * @type {number}
+             */
+            this["until"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["last_alive"] = undefined;
+        }
+        if (!("paths" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["paths"] = 0;
+        }
+        if (!("reason" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["reason"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DeadServerRecord instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DeadServerRecord}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DeadServerRecord(/** @type {Partial<DeadServerRecord>} */($$parsedSource));
+    }
+}
+
+/**
  * DefaultInterfaceFallback says LagZap left the main adapter (the one picked
  * as Default, else Windows' default) because it has no internet, and which
  * adapter it uses until the main one is stable again.

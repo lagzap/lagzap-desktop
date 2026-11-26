@@ -1,9 +1,10 @@
 <script setup lang="ts" generic="T extends string">
 /** Joined round pills to pick one value, the style of the charts' 1m … 60m
- * range switch. */
+ * range switch. color tints the chosen pill (a theme color). */
 defineProps<{
   items: { value: T; title: string; icon?: string; onClick?: () => void }[];
   disabled?: boolean;
+  color?: string;
 }>();
 const value = defineModel<T>({ required: true });
 
@@ -25,6 +26,7 @@ function pick(item: { value: T; onClick?: () => void }) {
       role="radio"
       class="pill-toggle__pill"
       :class="{ 'pill-toggle__pill--active': value === item.value }"
+      :style="value === item.value && color ? { background: `rgba(var(--v-theme-${color}), 0.18)`, color: `rgb(var(--v-theme-${color}))` } : undefined"
       :aria-checked="value === item.value"
       :disabled="disabled"
       @click="pick(item)"

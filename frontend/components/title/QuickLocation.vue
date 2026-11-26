@@ -56,8 +56,8 @@ const cities = computed(() => {
         ms: bestMs(route),
       };
     })
-    .filter((c) => c.tag && Number.isFinite(c.ms))
-    // By country, then city, A to Z.
+    // Every city, by country then city, A to Z: one that cannot connect now
+    // says Unavailable instead of its ping.
     .sort((a, b) => countryName(a.country).localeCompare(countryName(b.country)) || a.label.localeCompare(b.label));
 });
 
@@ -136,7 +136,8 @@ function pickCity(key: string) {
         </template>
         <v-list-item-title>{{ city.label }}</v-list-item-title>
         <template #append>
-          <Ping :tag="city.tag" />
+          <Ping v-if="Number.isFinite(city.ms)" :tag="city.tag" />
+          <span v-else class="quick-location__unavailable">{{ t("$vuetify.title.playFrom.unavailable") }}</span>
         </template>
       </v-list-item>
       <v-list-item
@@ -156,6 +157,7 @@ function pickCity(key: string) {
       <v-divider class="my-1" />
       <v-list-item
         prepend-icon="mdi-tune-variant"
+        append-icon="mdi-chevron-right"
         :title="t('$vuetify.title.playFrom.moreOptions')"
         @click="open = false; emit('more')"
       />
@@ -164,6 +166,11 @@ function pickCity(key: string) {
 </template>
 
 <style scoped>
+.quick-location__unavailable {
+  font-size: 0.75rem;
+  color: rgb(var(--v-theme-error));
+}
+
 .quick-location {
   letter-spacing: normal;
 }

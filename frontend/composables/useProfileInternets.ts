@@ -1,6 +1,7 @@
 import { computed, onBeforeUnmount, ref, toValue, watch, type MaybeRefOrGetter } from "vue";
 import type { Profile, ProfileState, TitleState } from "~/bindings/github.com/lagzap/zap/data";
 import { ProfileFlag } from "~/constants/profile";
+import { adapterIcon } from "~/utils/adapterIcon";
 import { useStore } from "@/stores";
 import { useNetworkAdapterSettings } from "~/composables/useNetworkAdapterSettings";
 import { useProfileWireGuard } from "~/composables/useProfileWireGuard";
@@ -73,8 +74,11 @@ export function useProfileInternets(
   const multiOn = computed(() => ownInternets.value.length > 1);
   /** Not set on the profile, and the settings already join several internets. */
   const multiInherited = computed(() => ownInternets.value.length === 0 && settingsInternets.value.length > 1);
+  // "-" is Multi Internet off on the Default internet: no internet ticked.
   const multiSelected = computed(() =>
-    ownInternets.value.length > 0 ? ownInternets.value : settingsInternets.value,
+    ownInternets.value.length > 0
+      ? ownInternets.value.filter((n) => n !== "-" && n !== "*")
+      : settingsInternets.value,
   );
   function setOwnInternets(names: string[]) {
     const st = target();
@@ -153,6 +157,24 @@ export function useProfileInternets(
     if (next.length >= 2) setOwnInternets(next);
     else if (next.length === 1) pickSingleBalance(next[0]);
   }
+  /** How many internets the Multi Internet page flags for load balancing
+   * (connected, not metered): two or more and following it balances. */
+  const balancePoolCount = computed(
+    () => loadBalancePool.selection.value.filter((n) => presentAdapters.value.includes(n) && !isMetered(n)).length,
+  );
+  /** Back to the settings: nothing of its own for its internets (the
+   * profile follows its game, the game the settings). */
+  function followBalanceSettings() {
+    if (title) {
+      const st = title.state() as Partial<TitleState> | undefined;
+      if (!st) return;
+      st.default_interface = null as unknown as string;
+      st.network_interfaces = [];
+      changed();
+      return;
+    }
+    void store.followTitle(profile.id, ["internet"]);
+  }
   /** Off on one internet: Go balances only over two or more, else it uses the
    * profile's Default, so the one internet is that Default. */
   function pickSingleBalance(name: string) {
@@ -192,13 +214,6 @@ export function useProfileInternets(
   });
   onBeforeUnmount(() => clearInterval(sharesTimer));
 
-  function adapterIcon(name: string) {
-    const n = name.toLowerCase();
-    if (/wi-?fi|wlan|wireless/.test(n)) return "mdi-wifi";
-    if (/cellular|mobile|wwan|lte|5g/.test(n)) return "mdi-signal-cellular-3";
-    return "mdi-ethernet";
-  }
-
   return {
     splitAdapter,
     splitAdapters,
@@ -219,6 +234,8 @@ export function useProfileInternets(
     setBalanceMode,
     pickBalanceInternet,
     pickSingleBalance,
+    balancePoolCount,
+    followBalanceSettings,
     dedicatedIpOn,
     settings,
     setLoadBalanceWeight,

@@ -12,7 +12,7 @@ import { useProfileRouteCounts } from "~/composables/useProfileRouteCounts";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import PlanLock from "~/components/plan/PlanLock.vue";
 import GlobalOverride from "~/components/common/GlobalOverride.vue";
-import PillToggle from "~/components/common/PillToggle.vue";
+import OverrideSetting from "~/components/common/OverrideSetting.vue";
 import {
   preferredTransportSetting,
   preferredTransportValue,
@@ -20,7 +20,11 @@ import {
 } from "~/composables/useSettings";
 import ProfileDownloadCap from "~/components/title/ProfileDownloadCap.vue";
 import MultipathOffHint from "~/components/title/MultipathOffHint.vue";
+import MultiInternetCard from "~/components/title/MultiInternetCard.vue";
+import BackupInternetsCard from "~/components/title/BackupInternetsCard.vue";
+import SingleInternetCard from "~/components/title/SingleInternetCard.vue";
 import { profileLimit } from "~/composables/useBandwidthControl";
+import { useRouteOverrides } from "~/composables/useRouteOverrides";
 
 const props = defineProps<{
   profile: Profile;
@@ -38,8 +42,11 @@ const props = defineProps<{
   editsTitle?: boolean;
   /** Its internets are set above (load balancing): no Network Adapter here. */
   hideAdapter?: boolean;
+  /** Of the chips, the game's main profile (its settings are the title's). */
+  titleProfileId?: string;
 }>();
 const emit = defineEmits<{ pick: [id: string] }>();
+const { profileOverrides, profileOverrideKinds, overridesText } = useRouteOverrides();
 
 const locale = useLocale();
 const { t } = locale;
@@ -185,24 +192,15 @@ const preferredTransport = computed<TransportChoice>({
   },
 });
 const transportName = (v: PreferredTransportSetting) => t(`$vuetify.settings.route.transport.${v}`);
+/** The transport it follows: its game's, else the setting on Route Options. */
+const followedTransport = computed<PreferredTransportSetting>(() => {
+  const titles = fromTitle("preferred_transport");
+  return titles !== null ? preferredTransportSetting(titles) : (settings.value.preferredTransport ?? "auto");
+});
 const transportItems = computed(() => [
-  (() => {
-    const titles = fromTitle("preferred_transport");
-    return titles !== null
-      ? {
-          value: "global" as TransportChoice,
-          title: `${titleName.value} · ${transportName(preferredTransportSetting(titles))}`,
-          icon: "mdi-link-variant",
-        }
-      : {
-          value: "global" as TransportChoice,
-          title: t("$vuetify.title.profile.followGlobal", transportName(settings.value.preferredTransport ?? "auto")),
-          icon: "mdi-earth",
-        };
-  })(),
-  { value: "auto" as TransportChoice, title: transportName("auto") },
-  { value: "tcp" as TransportChoice, title: transportName("tcp") },
-  { value: "udp" as TransportChoice, title: transportName("udp") },
+  { value: "auto" as PreferredTransportSetting, title: transportName("auto") },
+  { value: "tcp" as PreferredTransportSetting, title: transportName("tcp") },
+  { value: "udp" as PreferredTransportSetting, title: transportName("udp") },
 ]);
 
 const domesticRoutes = computed<boolean | null>({
@@ -272,8 +270,6 @@ watch(
   }
 );
 
-const interfaces = computed(() => store.availableInterfaces);
-
 const availableInterfaceNames = computed(() => store.availableInterfaceNames);
 const selectedInterfaces = computed(
   () => state.value?.network_interfaces || []
@@ -281,16 +277,6 @@ const selectedInterfaces = computed(
 const orphanedInterfaces = computed(() =>
   store.getUnavailableInterfaces(props.profile.id)
 );
-
-/** Available NICs plus orphans so missing adapters still show as closable chips. */
-const interfaceSelectItems = computed(() => {
-  const available = interfaces.value ?? [];
-  const names = new Set(available.map((item) => item.Name));
-  const extras = orphanedInterfaces.value
-    .filter((name) => name && !names.has(name))
-    .map((name) => ({ Name: name }));
-  return [...available, ...extras];
-});
 
 const removeOrphanedInterface = async (interfaceName: string) => {
   const st = state.value;
@@ -306,8 +292,54 @@ const removeOrphanedInterface = async (interfaceName: string) => {
   await saveEdited(props.profile.id);
 };
 
-const clearOrphanedInterfaces = async () => {
-  await store.clearUnavailableInterfaces(props.profile.id);
+// Multi Internet following the settings (no internets of its own) keeps
+// nothing of its own: a Default left from the old Network Adapter field (not
+// shown on the card) is cleared, so the settings are what it reads.
+watch(
+  () => {
+    const flags = props.profile.flags ?? 0;
+    const multi = (flags & (ProfileFlag.MULTIPATH | ProfileFlag.GAME_PACKET)) !== 0;
+    const st = state.value;
+    return multi && !!st && !(st.network_interfaces ?? []).some(Boolean) && !!st.default_interface;
+  },
+  (stale) => {
+    if (stale) void followInternetSettings();
+  },
+  { immediate: true },
+);
+
+/** Its internets follow again: nothing of its own is kept (the profile
+ * follows its game, the game the settings), so no dot and no primary. */
+async function followInternetSettings() {
+  if (props.editsTitle) {
+    const st = own.value as Partial<ProfileState> | undefined;
+    if (!st) return;
+    st.default_interface = null as unknown as string;
+    st.network_interfaces = [];
+    return;
+  }
+  await store.followTitle(props.profile.id, ["internet"]);
+}
+
+/** Prevent disconnect's main internet and backups ("-" = none; both empty
+ * follows the settings). */
+const setPreventInternets = (main: string, backups: string[]) => {
+  if (!main && backups.length === 0) return void followInternetSettings();
+  if (!state.value) return;
+  state.value.default_interface = main;
+  state.value.network_interfaces = backups;
+};
+
+/** Multi Internet's picked internets; none follows the settings. */
+const setNetworkInterfaces = (names: string[]) => {
+  if (names.length === 0) return void followInternetSettings();
+  if (state.value) state.value.network_interfaces = names;
+};
+
+/** The one internet; "" (the Default internet) follows the settings. */
+const setDefaultInterface = (name: string) => {
+  if (!name) return void followInternetSettings();
+  if (state.value) state.value.default_interface = name;
 };
 
 const loadingInterfaces = ref(false);
@@ -364,7 +396,7 @@ onMounted(async () => {
       </v-btn>
     </template>
     <v-card>
-      <v-card-title class="d-flex align-center ga-2">
+      <v-card-title class="d-flex align-center justify-center ga-2">
         <!-- On the title page: whose settings these are, a chip each to
              switch between them. -->
         <v-chip-group
@@ -376,6 +408,12 @@ onMounted(async () => {
           @update:model-value="(id: unknown) => id && emit('pick', String(id))"
         >
           <v-chip v-for="p in profiles" :key="p.id" :value="p.id" variant="tonal" size="small">
+            <!-- Its settings differ from the global ones. -->
+            <span
+              v-if="profileOverrides(p, p.id === titleProfileId)"
+              v-tooltip="overridesText(profileOverrideKinds(p, p.id === titleProfileId))"
+              class="override-dot me-1"
+            />
             {{ store.localized(p.name) }}
           </v-chip>
         </v-chip-group>
@@ -386,12 +424,6 @@ onMounted(async () => {
         <!-- The title page's own options for this profile (Login connections). -->
         <slot name="top" />
         <v-row dense class="mt-2">
-          <!-- Prevent disconnect: the transport its leg uses. -->
-          <v-col v-if="preventOnly" cols="12">
-            <div class="text-body-2 mb-1">{{ t("$vuetify.settings.route.preferredTransport") }}</div>
-            <PillToggle v-model="preferredTransport" :items="transportItems" :disabled="!store.appReady" />
-            <div class="text-caption text-medium-emphasis mt-1">{{ t("$vuetify.settings.route.preferredTransportHint") }}</div>
-          </v-col>
           <template
             v-if="
               (profile.flags & ProfileFlag.MULTIPATH) !== 0 &&
@@ -452,6 +484,8 @@ onMounted(async () => {
               <template v-if="!showAdvancedRouteOptions">
                 <v-number-input
                   v-model="totalRouteCap"
+                  :base-color="profileUsesCustomRoutes ? 'primary' : undefined"
+                  :color="profileUsesCustomRoutes ? 'primary' : undefined"
                   :hint="t('$vuetify.title.profile.routesHint')"
                   persistent-hint
                   variant="outlined"
@@ -472,6 +506,8 @@ onMounted(async () => {
                     <v-number-input
                       :key="`tcp-${resolvedUdpDisplay}`"
                       v-model="tcpRoutes"
+                      :base-color="profileUsesCustomRoutes ? 'primary' : undefined"
+                      :color="profileUsesCustomRoutes ? 'primary' : undefined"
                       :label="t('$vuetify.title.profile.tcpRoutes')"
                       variant="outlined"
                       density="comfortable"
@@ -487,6 +523,8 @@ onMounted(async () => {
                     <v-number-input
                       :key="`udp-${resolvedTcpDisplay}`"
                       v-model="udpRoutes"
+                      :base-color="profileUsesCustomRoutes ? 'primary' : undefined"
+                      :color="profileUsesCustomRoutes ? 'primary' : undefined"
                       :label="t('$vuetify.title.profile.udpRoutes')"
                       variant="outlined"
                       density="comfortable"
@@ -495,16 +533,6 @@ onMounted(async () => {
                       clearable
                       :min="udpRoutesMin"
                       :max="routeMax"
-                      :disabled="!store.appReady"
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <GlobalOverride
-                      v-model="transportFallback"
-                      :label="t('$vuetify.title.profile.transportFallback')"
-                      :hint="t('$vuetify.title.profile.transportFallbackHint')"
-                      :global="fromTitle('relay_transport_fallback') ?? !!settings.relayTransportFallback"
-                      :follow-name="fromTitle('relay_transport_fallback') !== null ? titleName : undefined"
                       :disabled="!store.appReady"
                     />
                   </v-col>
@@ -525,222 +553,99 @@ onMounted(async () => {
             cols="12"
           >
             <template v-if="(profile.flags & ProfileFlag.MULTIPATH) !== 0">
-              <v-select
-                v-model:model-value="
-                  state.network_interfaces
-                "
-                :label="t('$vuetify.title.profile.multiInternet')"
-                :hint="t('$vuetify.title.profile.networkAdaptersHint')"
-                :placeholder="
-                  t('$vuetify.title.profile.networkAdaptersPlaceholder')
-                "
-                :items="interfaceSelectItems"
-                clearable
-                item-value="Name"
-                item-title="Name"
-                variant="outlined"
-                density="comfortable"
-                multiple
-                min-width="175"
-                append-inner-icon="mdi-refresh"
-                :disabled="!store.appReady"
+              <MultiInternetCard
+                class="mb-2"
+                :selected="state.network_interfaces || []"
+                :adapters="availableInterfaceNames"
+                :missing="orphanedInterfaces"
+                :down="store.internetDownNames"
                 :loading="loadingInterfaces"
-                :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
-                @click:append-inner="updateInterfaces"
-              >
-                <template #selection="{ item }">
-                  <v-chip
-                    :key="item.value"
-                    rounded
-                    closable
-                    :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
-                    @click:close="removeOrphanedInterface(item.value)"
-                  >
-                    {{ item.value }}
-                  </v-chip>
-                </template>
-              </v-select>
-              <div
-                v-if="orphanedInterfaces.length > 0"
-                class="d-flex align-center flex-wrap ga-2 mt-1 mb-2"
-              >
-                <v-btn
-                  size="small"
-                  variant="tonal"
-                  color="warning"
-                  :disabled="!store.appReady"
-                  @click="clearOrphanedInterfaces"
-                >
-                  {{ t("$vuetify.title.profile.clearUnavailableInterfaces") }}
-                </v-btn>
-              </div>
+                :disabled="!store.appReady"
+                @change="setNetworkInterfaces"
+                @remove="removeOrphanedInterface"
+                @refresh="updateInterfaces"
+              />
+              <!-- Under its internets: a failed route tries the other transport. -->
+              <GlobalOverride
+                v-if="showAdvancedRouteOptions"
+                v-model="transportFallback"
+                class="mt-3"
+                :label="t('$vuetify.title.profile.transportFallback')"
+                icon="mdi-swap-horizontal"
+                :hint="t('$vuetify.title.profile.transportFallbackHint')"
+                :global="fromTitle('relay_transport_fallback') ?? !!settings.relayTransportFallback"
+                :follow-name="fromTitle('relay_transport_fallback') !== null ? titleName : undefined"
+                :disabled="!store.appReady"
+              />
             </template>
             <template
               v-else-if="(profile.flags & ProfileFlag.PREVENT_DISCONNECT) !== 0"
             >
-              <v-select
-                v-model:model-value="
-                  state.default_interface
-                "
-                :label="t('$vuetify.title.profile.networkAdapter')"
-                :hint="t('$vuetify.title.profile.networkAdaptersHint')"
-                :placeholder="
-                  t('$vuetify.title.profile.networkAdaptersPlaceholder')
-                "
-                :items="interfaceSelectItems"
-                clearable
-                item-value="Name"
-                item-title="Name"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                append-inner-icon="mdi-refresh"
-                :disabled="!store.appReady"
+              <!-- Its main internet and backups, in order (or the settings'). -->
+              <BackupInternetsCard
+                class="mb-2"
+                :main="state.default_interface || ''"
+                :backups="state.network_interfaces || []"
+                :adapters="availableInterfaceNames"
+                :missing="orphanedInterfaces"
+                :down="store.internetDownNames"
                 :loading="loadingInterfaces"
-                :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterface'): undefined"
-                @click:append-inner="updateInterfaces"
+                :disabled="!store.appReady"
+                @change="setPreventInternets"
+                @remove="removeOrphanedInterface"
+                @refresh="updateInterfaces"
               />
-              <v-select
-                v-model:model-value="
-                  state.network_interfaces
-                "
-                :label="t('$vuetify.title.profile.backupInterfaces')"
-                :hint="t('$vuetify.title.profile.backupInterfacesHint')"
-                :placeholder="
-                  t('$vuetify.title.profile.networkAdaptersPlaceholder')
-                "
-                :items="interfaceSelectItems"
-                clearable
-                item-value="Name"
-                item-title="Name"
-                variant="outlined"
-                density="comfortable"
-                multiple
-                min-width="175"
-                append-inner-icon="mdi-refresh"
-                :disabled="!store.appReady"
-                :loading="loadingInterfaces"
-                :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
-                @click:append-inner="updateInterfaces"
-              >
-                <template #selection="{ item }">
-                  <v-chip
-                    :key="item.value"
-                    rounded
-                    closable
-                    :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
-                    @click:close="removeOrphanedInterface(item.value)"
-                  >
-                    {{ item.value }}
-                  </v-chip>
-                </template>
-              </v-select>
+              <!-- Under its internets: the transport its leg uses. -->
               <div
-                v-if="orphanedInterfaces.length > 0"
-                class="d-flex align-center flex-wrap ga-2 mt-1 mb-2"
+                v-if="preventOnly"
+                class="mt-3"
               >
-                <v-btn
-                  size="small"
-                  variant="tonal"
-                  color="warning"
+                <OverrideSetting
+                  :label="t('$vuetify.settings.route.preferredTransport')"
+                  icon="mdi-transit-connection-variant"
+                  :hint="t('$vuetify.settings.route.preferredTransportHint')"
+                  :items="transportItems"
+                  :value="preferredTransport === 'global' ? followedTransport : preferredTransport"
+                  :custom="preferredTransport !== 'global'"
+                  :source="fromTitle('preferred_transport') !== null ? titleName : t('$vuetify.title.profile.followingGlobal')"
+                  :source-icon="fromTitle('preferred_transport') !== null ? 'mdi-link-variant' : 'mdi-earth'"
+                  :source-value="transportName(followedTransport)"
                   :disabled="!store.appReady"
-                  @click="clearOrphanedInterfaces"
-                >
-                  {{ t("$vuetify.title.profile.clearUnavailableInterfaces") }}
-                </v-btn>
+                  @pick="(v: PreferredTransportSetting) => (preferredTransport = v)"
+                  @reset="preferredTransport = 'global'"
+                />
               </div>
             </template>
             <template v-else-if="(profile.flags & ProfileFlag.GAME_PACKET) !== 0">
-              <v-select
-                v-model:model-value="
-                  state.network_interfaces
-                "
-                :label="t('$vuetify.title.profile.multiInternet')"
-                :hint="t('$vuetify.title.profile.networkAdaptersHint')"
-                :placeholder="
-                  t('$vuetify.title.profile.networkAdaptersPlaceholder')
-                "
-                :items="interfaceSelectItems"
-                clearable
-                item-value="Name"
-                item-title="Name"
-                variant="outlined"
-                density="comfortable"
-                multiple
-                min-width="175"
-                append-inner-icon="mdi-refresh"
-                :disabled="!store.appReady"
+              <MultiInternetCard
+                class="mb-2"
+                :selected="state.network_interfaces || []"
+                :adapters="availableInterfaceNames"
+                :missing="orphanedInterfaces"
+                :down="store.internetDownNames"
                 :loading="loadingInterfaces"
-                :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterfaces') : undefined"
-                @click:append-inner="updateInterfaces"
-              >
-                <template #selection="{ item }">
-                  <v-chip
-                    :key="item.value"
-                    rounded
-                    closable
-                    :color="availableInterfaceNames.includes(item.value) ? undefined : 'warning'"
-                    @click:close="removeOrphanedInterface(item.value)"
-                  >
-                    {{ item.value }}
-                  </v-chip>
-                </template>
-              </v-select>
-              <div
-                v-if="orphanedInterfaces.length > 0"
-                class="d-flex align-center flex-wrap ga-2 mt-1 mb-2"
-              >
-                <v-btn
-                  size="small"
-                  variant="tonal"
-                  color="warning"
-                  :disabled="!store.appReady"
-                  @click="clearOrphanedInterfaces"
-                >
-                  {{ t("$vuetify.title.profile.clearUnavailableInterfaces") }}
-                </v-btn>
-              </div>
+                :disabled="!store.appReady"
+                @change="setNetworkInterfaces"
+                @remove="removeOrphanedInterface"
+                @refresh="updateInterfaces"
+              />
             </template>
           </v-col>
           <v-col
             v-else-if="profile.route_action != 'block' && !hideAdapter"
             cols="12"
           >
-            <v-select
-              v-model:model-value="
-                state.default_interface
-              "
-              :label="t('$vuetify.title.profile.networkAdapter')"
-              :hint="t('$vuetify.title.profile.networkAdaptersHint')"
-              :placeholder="
-                t('$vuetify.title.profile.networkAdaptersPlaceholder')
-              "
-              :items="interfaceSelectItems"
-              append-inner-icon="mdi-refresh"
-              clearable
-              item-value="Name"
-              item-title="Name"
-              variant="outlined"
-              density="comfortable"
-              :disabled="!store.appReady"
+            <!-- Its one internet: the Default internet, or one picked. -->
+            <SingleInternetCard
+              :selected="state.default_interface || ''"
+              :adapters="availableInterfaceNames"
+              :missing="orphanedInterfaces"
+              :down="store.internetDownNames"
               :loading="loadingInterfaces"
-              :error-messages="orphanedInterfaces.length > 0 ? t('$vuetify.title.profile.unavailableInterface'): undefined"
-              @click:append-inner="updateInterfaces"
+              :disabled="!store.appReady"
+              @change="setDefaultInterface"
+              @refresh="updateInterfaces"
             />
-            <div
-              v-if="orphanedInterfaces.length > 0"
-              class="d-flex align-center flex-wrap ga-2 mt-1"
-            >
-              <v-btn
-                size="small"
-                variant="tonal"
-                color="warning"
-                :disabled="!store.appReady"
-                @click="clearOrphanedInterfaces"
-              >
-                {{ t("$vuetify.title.profile.clearUnavailableInterfaces") }}
-              </v-btn>
-            </div>
           </v-col>
         </v-row>
 
@@ -757,6 +662,7 @@ onMounted(async () => {
           v-model="domesticRoutes"
           class="mt-4"
           :label="t('$vuetify.title.profile.allowLocalRoutes')"
+          icon="mdi-home-import-outline"
           :hint="t('$vuetify.title.profile.allowLocalRoutesHint')"
           :global="fromTitle('allow_local_routes') ?? settings.allowLocalRoutes ?? true"
           :follow-name="fromTitle('allow_local_routes') !== null ? titleName : undefined"
@@ -769,8 +675,22 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* A profile whose settings differ from the global ones: a small dot, in the
+   text's own color. */
+.override-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.75;
+}
 .route-settings__profiles {
   flex: 1 1 auto;
   min-width: 0;
+}
+/* The profiles' chips, centered over the settings. */
+.route-settings__profiles :deep(.v-slide-group__content) {
+  justify-content: center;
 }
 </style>

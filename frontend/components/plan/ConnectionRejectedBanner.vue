@@ -8,6 +8,9 @@ const { t } = useLocale();
 const store = useStore();
 const router = useRouter();
 const { rejection, dismiss } = useConnectionRejected();
+const route = useRoute();
+/** On the game's own page the page says it (PlayFromPicker), not this. */
+const onItsPage = computed(() => route.name === "title-id" && String(route.params.id) === rejection.value?.title_id);
 
 const turningOff = ref(false);
 
@@ -56,7 +59,7 @@ function changeLocation() {
 
 <template>
   <v-expand-transition>
-    <v-banner v-if="rejection" color="error" class="rejected-banner">
+    <v-banner v-if="rejection && !onItsPage" color="error" class="rejected-banner">
       <template #prepend>
         <v-avatar color="error" variant="tonal" icon="mdi-shield-alert-outline" />
       </template>

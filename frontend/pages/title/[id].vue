@@ -11,6 +11,7 @@ import ChangelogBadge from "~/components/title/ChangelogBadge.vue";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import PlanLock from "~/components/plan/PlanLock.vue";
 import ComingSoonMark from "~/components/title/ComingSoonMark.vue";
+import UnavailableInternetAlert from "~/components/title/UnavailableInternetAlert.vue";
 import AdminLogDialog from "~/components/admin/AdminLogDialog.vue";
 import { useLocalStorage } from "@vueuse/core";
 
@@ -242,6 +243,7 @@ watch(
       </div>
       <!-- No location to pick: each profile its own card, as before. -->
       <div v-else-if="title" class="d-flex flex-column ga-3 pa-3">
+        <UnavailableInternetAlert :profiles="orderedProfiles" />
         <ProfileCard
           v-for="profile in orderedProfiles"
           :key="profile.id"

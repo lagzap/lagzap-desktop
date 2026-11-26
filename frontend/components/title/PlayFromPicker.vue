@@ -19,12 +19,15 @@ import type { Node, Profile, RelayRoute } from "~/bindings/github.com/lagzap/zap
 import { RoutingMode } from "~/bindings/github.com/lagzap/zap/data";
 import type { ProfileState } from "~/bindings/github.com/lagzap/zap/data";
 import { hasGroup } from "~/utils/profileRoute";
+import { useRouteOverrides } from "~/composables/useRouteOverrides";
 import { ProfileFlag } from "~/constants/profile";
 import { useRegionSelection } from "~/composables/useRegionSelection";
 import { useStore } from "@/stores";
 import { useNodeLocationLabel } from "~/composables/useNodeLocationLabel";
 import { recentMinPingMsForRelay } from "~/composables/relayPingDisplay";
 import { usePlanAccess } from "~/composables/usePlanAccess";
+import { useConnectionRejected } from "~/composables/useConnectionRejected";
+import UnavailableInternetAlert from "~/components/title/UnavailableInternetAlert.vue";
 
 /* The title's page: a bar with the Server button (where the game connects
  * from; hover: a quick pick) and Route Settings, then the game's live ping,
@@ -150,13 +153,17 @@ const rank = (tag: string) => {
 /** Open ones first, grouped by continent: by name in the app's continent
  * order, or by ping with the continent that has the lowest ping first.
  * Locked ones last. */
+/** Ascending, unavailable (Infinity) last, without NaN from Infinity - Infinity. */
+const byMs = (x: number, y: number) => (x === y ? 0 : x < y ? -1 : 1);
+/** Whether a place can connect now: a server there has a measured route. */
+const available = (it: Item) => Number.isFinite(it.ms);
 function ordered(open: Item[], locked: Item[]): Item[] {
   const byName = (a: Item, b: Item) => rank(a.region) - rank(b.region) || a.name.localeCompare(b.name);
   const regionBest = new Map<string, number>();
   for (const it of open) regionBest.set(it.region, Math.min(regionBest.get(it.region) ?? Infinity, it.ms));
   const best = (it: Item) => regionBest.get(it.region) ?? Infinity;
   const byPing = (a: Item, b: Item) =>
-    best(a) - best(b) || rank(a.region) - rank(b.region) || a.ms - b.ms || a.name.localeCompare(b.name);
+    byMs(best(a), best(b)) || rank(a.region) - rank(b.region) || byMs(a.ms, b.ms) || a.name.localeCompare(b.name);
   return [...open.sort(sortBy.value === "ping" ? byPing : byName), ...locked.sort(byName)];
 }
 const firstRegion = (nodes: Node[]) => nodes.find((n) => n.region)?.region ?? "";
@@ -174,8 +181,7 @@ const cities = computed<Item[]>(() => {
     locked,
   });
   const open = Object.keys(sel.cityMap.value)
-    .map((key) => item(key, sel.cityMap.value[key] ?? [], sel.lowestPingForCity(key), false))
-    .filter((c) => c.tag && Number.isFinite(c.ms));
+    .map((key) => item(key, sel.cityMap.value[key] ?? [], sel.lowestPingForCity(key), false));
   const locked = Object.entries(sel.lockedCityMap.value).map(([key, nodes]) => item(key, nodes, null, true));
   return ordered(open, locked);
 });
@@ -193,8 +199,7 @@ const countries = computed<Item[]>(() => {
     locked,
   });
   const open = Object.entries(sel.areas.value ?? {})
-    .map(([code, nodes]) => item(code, nodes as Node[], sel.getLowestPingForCountry(nodes as Node[]), false))
-    .filter((c) => c.tag && Number.isFinite(c.ms));
+    .map(([code, nodes]) => item(code, nodes as Node[], sel.getLowestPingForCountry(nodes as Node[]), false));
   const locked = Object.entries(sel.lockedAreas.value).map(([code, nodes]) => item(code, nodes, null, true));
   return ordered(open, locked);
 });
@@ -215,8 +220,7 @@ const servers = computed<Item[]>(() => {
   });
   const open = Object.values(sel.cityMap.value)
     .flat()
-    .map((node) => item(node, sel.getLowestPingForNode(node.name), false))
-    .filter((s) => s.tag && Number.isFinite(s.ms));
+    .map((node) => item(node, sel.getLowestPingForNode(node.name), false));
   const locked = sel.lockedNodes.value.map((node) => item(node, null, true));
   return ordered(open, locked);
 });
@@ -245,12 +249,12 @@ const continents = computed<Item[]>(() =>
 /** The cities Automatic picks from (its servers there), best ping first. */
 const autoCities = computed(() =>
   cities.value
-    .filter((c) => !c.locked && (main.sel.cityMap.value[c.key] ?? []).some(main.sel.autoPickable))
-    .sort((a, b) => a.ms - b.ms),
+    .filter((c) => !c.locked && available(c) && (main.sel.cityMap.value[c.key] ?? []).some(main.sel.autoPickable))
+    .sort((a, b) => byMs(a.ms, b.ms)),
 );
 /** Global's ping: the best open city's. */
 const fastest = computed(() =>
-  cities.value.filter((c) => !c.locked).reduce<Item | null>((b, c) => (!b || c.ms < b.ms ? c : b), null),
+  cities.value.filter((c) => !c.locked && available(c)).reduce<Item | null>((b, c) => (!b || c.ms < b.ms ? c : b), null),
 );
 
 // ---- picking ----
@@ -451,8 +455,8 @@ const quickOpen = ref(false);
  * list stays short; the rest are in the picker). */
 const quickCities = computed(() =>
   cities.value
-    .filter((c) => !c.locked)
-    .sort((a, b) => (a.ms ?? Infinity) - (b.ms ?? Infinity))
+    .filter((c) => !c.locked && available(c))
+    .sort((a, b) => byMs(a.ms, b.ms))
     .slice(0, 5),
 );
 /** Dedicated IP configs picked lately on this PC, newest first. */
@@ -849,6 +853,16 @@ const selectedMs = computed(() => {
   return ms != null && ms > 0 ? ms : undefined;
 });
 
+/** Whether the chosen place can connect now: "available" (a server there
+ * answered), "unavailable" (none can), "" while it is being checked, or
+ * for Direct and a Dedicated IP. */
+const selectedAvailability = computed<"" | "available" | "unavailable">(() => {
+  if (mode.value === "direct" || dedicatedOn.value) return "";
+  if (selectedMs.value) return "available";
+  if (store.optimizing) return "";
+  return "unavailable";
+});
+
 // ---- the rest of the page ----
 
 /** The card is the title's: it shows the profile in use, by kind (the
@@ -1004,6 +1018,35 @@ async function turnOffProfilesOn() {
 function beAware() {
   offAware.value = [...new Set([...offAware.value, ...offShown.value.map((p) => p.id)])];
 }
+/** This game's connections refused: no server could carry them. Said here,
+ * on its own page (the page banner stays out of it), with Change Location
+ * when one is set. */
+const { rejection, dismiss: dismissRejection } = useConnectionRejected();
+const rejectedHere = computed(() => {
+  const r = rejection.value;
+  if (!r) return null;
+  return r.title_id === titleId || listedProfiles.value.some((p) => p.id === r.profile_id) ? r : null;
+});
+const rejectedProfile = computed(() => listedProfiles.value.find((p) => p.id === rejectedHere.value?.profile_id) ?? null);
+const rejectedTitle = computed(() =>
+  rejectedProfile.value
+    ? t("$vuetify.title.playFrom.rejected", [profileName(rejectedProfile.value)])
+    : t("$vuetify.title.playFrom.rejectedAny"),
+);
+const rejectedReason = computed(() => {
+  const r = rejectedHere.value;
+  if (!r) return "";
+  if (r.code === "no_route") {
+    return r.selection ? t("$vuetify.connectionRejected.noRouteIn", [r.selection]) : t("$vuetify.connectionRejected.noRoute");
+  }
+  return r.selection ? t("$vuetify.connectionRejected.noServerIn", [r.selection]) : t("$vuetify.connectionRejected.noServer");
+});
+function changeRejectedLocation() {
+  const p = rejectedProfile.value;
+  dismissRejection();
+  if (p) openLocationFor(p);
+  else quickOpen.value = true;
+}
 /** A profile's options (the Advanced row's ⋮), from its card's chevron or a
  * right-click on it. */
 const optionsFor = ref<Profile | null>(null);
@@ -1147,6 +1190,14 @@ function changePinnedLocation() {
   routeSettingsOpen.value = false;
   openFor(p.id);
 }
+const { profileOverrides, profileOverrideKinds, overridesText } = useRouteOverrides();
+/** Some profile on the Settings panel sets its own: a dot on the button. */
+const routeOverridden = computed(() =>
+  routeProfiles.value.some((p) => profileOverrides(p, p.id === primary.profile.id)),
+);
+const routeOverridesText = computed(() =>
+  overridesText(routeProfiles.value.flatMap((p) => profileOverrideKinds(p, p.id === primary.profile.id))),
+);
 const routeProfile = computed<Profile>(() => routeProfiles.value.find((p) => p.id === routeProfileId.value) ?? shown.value);
 watch(routeSettingsOpen, (open) => {
   if (!open) return;
@@ -1350,7 +1401,8 @@ watch(
                   <span class="pick-tile__row">
                     <FlagImg v-if="item.country" :country="item.country" :height="14" />
                     <span class="pick-tile__name"><span class="pick-tile__label"><span class="pick-tile__head">{{ labelParts(item.label).head }}</span><span v-if="labelParts(item.label).num" class="pick-tile__num">{{ labelParts(item.label).num }}</span></span></span>
-                    <Ping :tag="item.tag" :latency-ms="item.ms" />
+                    <Ping v-if="available(item)" :tag="item.tag" :latency-ms="item.ms" />
+                    <span v-else class="pick-tile__unavailable">{{ t("$vuetify.title.playFrom.unavailable") }}</span>
                     <v-icon v-if="draft.mode === 'server' && draft.node === item.key" icon="mdi-check-circle" size="18" color="primary" />
                   </span>
                 </button>
@@ -1396,7 +1448,8 @@ watch(
                       <span v-if="item.sub" class="pick-tile__sub">{{ item.sub }}</span>
                     </span>
                     <v-icon v-if="item.locked" icon="mdi-cart-outline" size="16" color="amber" />
-                    <Ping v-else-if="item.tag" :tag="item.tag" :latency-ms="item.ms" />
+                    <Ping v-else-if="available(item)" :tag="item.tag" :latency-ms="item.ms" />
+                    <span v-else class="pick-tile__unavailable">{{ t("$vuetify.title.playFrom.unavailable") }}</span>
                     <v-icon v-if="isPicked(tab, item.key)" icon="mdi-check-circle" size="18" color="primary" />
                   </span>
                 </button>
@@ -1442,6 +1495,18 @@ watch(
                     <FlagImg v-if="selected.country" :country="selected.country" :height="14" class="me-2" />
                     <v-icon v-else :icon="selected.icon" size="18" class="me-2" />
                     <span class="font-weight-medium text-truncate">{{ selected.label }}</span>
+                    <!-- Can it connect now: a dot, and a word when it cannot. -->
+                    <span
+                      v-if="selectedAvailability"
+                      v-tooltip:top="t(`$vuetify.title.playFrom.${selectedAvailability}Hint`)"
+                      class="play-from__avail d-inline-flex align-center ms-2"
+                      :class="`play-from__avail--${selectedAvailability}`"
+                    >
+                      <span class="play-from__avail-dot" />
+                      <span v-if="selectedAvailability === 'unavailable'" class="text-caption ms-1">
+                        {{ t("$vuetify.title.playFrom.unavailable") }}
+                      </span>
+                    </span>
                     <Ping v-if="selectedMs" :latency-ms="selectedMs" class="ms-3" />
                   </div>
                 </div>
@@ -1508,6 +1573,7 @@ watch(
             <v-list density="compact" class="py-1">
               <v-list-item
                 prepend-icon="mdi-tune-variant"
+                append-icon="mdi-chevron-right"
                 :title="t('$vuetify.title.playFrom.moreOptions')"
                 @click="quickOpen = false; openPlaces()"
               />
@@ -1548,6 +1614,42 @@ watch(
           </div>
         </v-alert>
       </v-expand-transition>
+      <!-- Its connections refused: no server could carry them. -->
+      <v-expand-transition>
+        <v-alert
+          v-if="rejectedHere"
+          type="error"
+          variant="tonal"
+          density="compact"
+          rounded="lg"
+          class="play-from__off"
+        >
+          <div class="d-flex align-center flex-wrap ga-2">
+            <div class="flex-grow-1">
+              <div class="font-weight-medium">{{ rejectedTitle }}</div>
+              <div class="text-body-2">
+                {{ rejectedReason }}
+                <template v-if="rejectedHere.selection">{{ t("$vuetify.title.playFrom.rejectedTryLocation") }}</template>
+              </div>
+            </div>
+            <v-btn variant="text" color="on-surface" size="small" class="text-none" @click="dismissRejection">
+              {{ t("$vuetify.connectionRejected.close") }}
+            </v-btn>
+            <v-btn
+              v-if="rejectedHere.selection"
+              variant="tonal"
+              color="on-surface"
+              size="small"
+              class="text-none"
+              @click="changeRejectedLocation"
+            >
+              {{ t("$vuetify.title.playFrom.changeLocation") }}
+            </v-btn>
+          </div>
+        </v-alert>
+      </v-expand-transition>
+      <!-- An internet one of its profiles uses is not connected: fix it here. -->
+      <UnavailableInternetAlert :profiles="allProfiles ?? profiles" />
       <!-- How it goes: the game's own card, full width (its ping, route
            diagram, chart and hints). -->
       <div class="play-from title-outlined">
@@ -1706,6 +1808,12 @@ watch(
               class="text-none play-from__server me-1"
               @click="routeSettingsOpen = true"
             >
+              <!-- Some of the game's settings differ from the global ones. -->
+              <span
+                v-if="routeOverridden"
+                v-tooltip="routeOverridesText"
+                class="play-from__override-dot me-2"
+              />
               {{ pinnedOther ? t("$vuetify.title.playFrom.locationSettings") : t("$vuetify.title.profile.settings") }}
             </v-btn>
             <ProfileRouteSettings
@@ -1715,6 +1823,7 @@ watch(
               :profile="routeProfile"
               :profiles="pinnedProfile ? undefined : routeProfiles"
               :edits-title="routeProfile.id === primary.profile.id"
+              :title-profile-id="primary.profile.id"
               :hide-adapter="!!routeBalance"
               title-scope
               @pick="routeProfileId = $event"
@@ -1875,6 +1984,16 @@ watch(
   overflow-x: clip;
 }
 
+/* Settings differ from the global ones: a small dot in the text's color. */
+.play-from__override-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.75;
+}
+
 /* The page's cards: a thin outline, as on Network Status. */
 .title-outlined {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
@@ -1965,6 +2084,29 @@ watch(
 
 /* Not pulled out past the card's edge: the title clips anything outside. */
 /* The Location card's chevron turns down while its quick pick is open. */
+/* A place with no server that can connect now, instead of its ping. */
+.pick-tile__unavailable {
+  flex: none;
+  font-size: 0.75rem;
+  color: rgb(var(--v-theme-error));
+}
+
+/* Can the chosen place connect: green, or red with a word. */
+.play-from__avail-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.play-from__avail--available {
+  color: rgb(var(--v-theme-success));
+}
+
+.play-from__avail--unavailable {
+  color: rgb(var(--v-theme-error));
+}
+
 .play-from__loc-chevron {
   transition: transform 0.2s ease;
 }

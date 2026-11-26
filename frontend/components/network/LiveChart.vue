@@ -1031,12 +1031,17 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <RangeTabs
-        v-if="!fixedView || rangeTabs"
-        :model-value="range"
-        :ranges="OVERVIEW_RANGES"
-        @update:model-value="(r: string) => emit('update:range', r)"
-      />
+      <!-- What the page adds before the range pills (a profile's data
+           used), then the pills. -->
+      <div class="d-flex align-center ga-2">
+        <slot name="range-start" />
+        <RangeTabs
+          v-if="!fixedView || rangeTabs"
+          :model-value="range"
+          :ranges="OVERVIEW_RANGES"
+          @update:model-value="(r: string) => emit('update:range', r)"
+        />
+      </div>
     </div>
 
     <v-expand-transition>

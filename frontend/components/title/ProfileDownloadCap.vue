@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { useLocale } from "vuetify";
 import AppLimitDialog from "~/components/network/bandwidth/AppLimitDialog.vue";
-import PillToggle from "~/components/common/PillToggle.vue";
+import OverrideSetting from "~/components/common/OverrideSetting.vue";
 import { deleteLimit, highTrafficLimit, profileLimit, saveLimit } from "~/composables/useBandwidthControl";
 import { formatSpeed } from "~/utils/localeFormat";
 
-/** A high-traffic profile's download cap: the global high-traffic cap
- * (Settings), never capped, or its own cap. A Custom chip marks a profile
- * that does not follow the global one. */
+/** A high-traffic profile's download cap (OverrideSetting): it follows the
+ * global high-traffic cap (Settings) until set here to never capped or its
+ * own cap; reset follows the global one again. */
 const props = defineProps<{ profileId: string; name: string; disabled?: boolean }>();
 
 const { t } = useLocale();
@@ -17,76 +17,63 @@ const p = (key: string, ...params: unknown[]) => t(`$vuetify.title.profile.${key
 const own = computed(() => profileLimit(props.profileId));
 const dialog = ref(false);
 
-const globalLabel = computed(() => {
+/** The global cap, when it caps. */
+const globalCap = computed(() => {
   const limit = highTrafficLimit.value;
-  const value = limit && limit.enabled ? formatSpeed(limit.download) : p("overrideOff");
-  return p("followGlobal", value);
+  return limit && limit.enabled && limit.download > 0 ? limit.download : 0;
 });
 
-const ownLabel = computed(() =>
-  own.value && own.value.download > 0 ? formatSpeed(own.value.download) : bc("capCustom"),
+type Choice = "off" | "own";
+const inUse = computed<Choice>(() =>
+  own.value ? (own.value.download <= 0 ? "off" : "own") : globalCap.value > 0 ? "own" : "off",
 );
-
-type Choice = "global" | "off" | "own";
-const choice = computed<Choice>({
-  get: () => (!own.value ? "global" : own.value.download <= 0 ? "off" : "own"),
-  set: (next) => {
-    if (next === "global") {
-      if (own.value) deleteLimit(own.value.id);
-    } else if (next === "off") {
-      saveLimit({
-        id: own.value?.id ?? crypto.randomUUID(),
-        kind: "profile",
-        path: props.profileId,
-        download: 0,
-        only_while_gaming: false,
-        enabled: true,
-      });
-    } else {
-      dialog.value = true;
-    }
-  },
+const capLabel = computed(() => {
+  if (own.value && own.value.download > 0) return formatSpeed(own.value.download);
+  if (!own.value && globalCap.value > 0) return formatSpeed(globalCap.value);
+  return bc("capCustom");
 });
+
+function pick(next: Choice) {
+  if (next === "off") {
+    saveLimit({
+      id: own.value?.id ?? crypto.randomUUID(),
+      kind: "profile",
+      path: props.profileId,
+      download: 0,
+      only_while_gaming: false,
+      enabled: true,
+    });
+  } else {
+    dialog.value = true;
+  }
+}
+function reset() {
+  if (own.value) deleteLimit(own.value.id);
+}
 
 const items = computed(() => [
-  { value: "global" as Choice, title: globalLabel.value, icon: "mdi-earth" },
   { value: "off" as Choice, title: bc("capNever") },
-  // Clicking the chosen own cap again edits it.
-  { value: "own" as Choice, title: ownLabel.value, icon: "mdi-speedometer-slow", onClick: () => (dialog.value = true) },
+  // Clicking the cap in use edits it (as this profile's own).
+  { value: "own" as Choice, title: capLabel.value, icon: "mdi-speedometer-slow", onClick: () => (dialog.value = true) },
 ]);
 </script>
 
 <template>
   <div>
-    <div class="d-flex align-center ga-2 mb-1">
-      <span class="text-body-2">
-        {{ bc("downloadCap") }}
-      </span>
-      <v-tooltip
-        v-if="own"
-        :text="p('customHint')"
-        location="top"
-        open-delay="300">
-        <template #activator="{ props: tip }">
-          <v-chip
-            v-bind="tip"
-            color="warning"
-            size="x-small"
-            variant="tonal"
-            prepend-icon="mdi-tune-variant"
-          >
-            {{ p("custom") }}
-          </v-chip>
-        </template>
-      </v-tooltip>
-    </div>
-    <PillToggle
-      v-model="choice"
+    <OverrideSetting
+      :label="bc('downloadCap')"
+      icon="mdi-speedometer-slow"
+      :hint="bc('highTrafficSettingHint')"
       :items="items"
-      :disabled="disabled" />
-    <div class="text-caption text-medium-emphasis mt-1">
-      {{ bc("highTrafficSettingHint") }}
-    </div>
+      :value="inUse"
+      :custom="!!own"
+      :source="p('followingGlobal')"
+      source-icon="mdi-earth"
+      :source-value="globalCap > 0 ? formatSpeed(globalCap) : bc('capNever')"
+      :disabled="disabled"
+      @pick="pick"
+      @reset="reset"
+    />
 
     <AppLimitDialog
       v-model="dialog"

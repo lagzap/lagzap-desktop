@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { useLocale } from "vuetify";
 import { ConnectionStatus } from "~/bindings/github.com/lagzap/lagzap/adapter";
+import { Connect, IsConnecting } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
+import { localDigits } from "~/utils/localeFormat";
 
 /** A small floating card at the bottom while the app cannot reach the cloud
- * service; it confirms briefly once the connection is back, then goes away. */
+ * service; it confirms briefly once the connection is back, then goes away.
+ * Offline (not retrying on its own), Retry tries now, then rests a moment. */
 
 const { t } = useLocale();
 const store = useStore();
@@ -42,9 +45,37 @@ watch(
   { immediate: true },
 );
 
-onUnmounted(clearTimers);
+// Retry: connects now, then waits RETRY_COOLDOWN_S before it can again.
+const RETRY_COOLDOWN_S = 8;
+const cooldown = ref(0);
+let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+
+async function retry() {
+  if (cooldown.value > 0) return;
+  cooldown.value = RETRY_COOLDOWN_S;
+  cooldownTimer = setInterval(() => {
+    cooldown.value -= 1;
+    if (cooldown.value <= 0 && cooldownTimer) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+  }, 1000);
+  try {
+    // An attempt already under way is left to finish, not restarted.
+    if (!(await IsConnecting())) await Connect();
+  } catch {
+    // Still offline: the card stays, Retry comes back after the cooldown.
+  }
+}
+
+onUnmounted(() => {
+  clearTimers();
+  if (cooldownTimer) clearInterval(cooldownTimer);
+});
 
 const reconnecting = computed(() => store.status == ConnectionStatus.StatusReconnecting);
+/** Offline and not retrying on its own: Retry is offered. */
+const canRetry = computed(() => !recovered.value && !reconnecting.value);
 
 const state = computed(() => {
   if (recovered.value) {
@@ -85,6 +116,21 @@ const state = computed(() => {
               {{ state.hint }}
             </div>
           </div>
+          <v-btn
+            v-if="canRetry"
+            size="small"
+            variant="tonal"
+            class="text-none flex-0-0 ms-1"
+            prepend-icon="mdi-refresh"
+            :disabled="cooldown > 0"
+            @click="retry"
+          >
+            {{
+              cooldown > 0
+                ? t("$vuetify.status.retryConnectIn", localDigits(cooldown))
+                : t("$vuetify.status.retryConnect")
+            }}
+          </v-btn>
         </div>
       </v-card>
     </v-slide-y-reverse-transition>

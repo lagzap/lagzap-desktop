@@ -76,7 +76,7 @@ const tip = computed(() => {
         icon="mdi-speedometer-slow"
         :size="regular ? 'default' : 'x-small'"
         variant="text"
-        :density="regular ? 'default' : 'comfortable'"
+        :density="regular ? 'compact' : 'comfortable'"
         :color="regular ? 'on-surface' : cap > 0 ? 'amber' : 'medium-emphasis'"
         :disabled="!store.appReady"
         :aria-label="t('$vuetify.bandwidthControl.downloadCap')"

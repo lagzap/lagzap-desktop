@@ -4,6 +4,8 @@ export interface MultiInterfaceLatency {
   interfaces: Record<string, Latency>;
   best_score: number;
   ping_target?: string;
+  /** Internets whose link is up but whose internet stopped answering. */
+  internet_down?: string[];
 }
 
 /** Material Design hue families — one unique family per network interface. */

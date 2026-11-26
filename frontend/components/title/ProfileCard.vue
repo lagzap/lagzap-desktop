@@ -574,8 +574,6 @@ const routeSettingsText = computed(() => {
             <span class="profile-bigstat__sub">
               <v-icon icon="mdi-arrow-up" size="14" />{{ formatSpeed(uploadSpeed) }}
             </span>
-            <!-- Load balancing on: said under the speed. -->
-            <LoadBalanceNote v-if="pingTitle" :profile="props.profile" />
           </div>
           <div v-else-if="!isGameProfile" class="profile-bigstat">
             <!-- Green while its traffic goes through LagZap. -->
@@ -770,7 +768,7 @@ const routeSettingsText = computed(() => {
       />
       <!-- The data used: a green chip beside ⋮ (click: its traffic). -->
       <span
-        v-if="!row && active && !isGameProfile && (showProfileSections ? gameUsageShown : showUsageInSubtitle)"
+        v-if="!pingTitle && !row && active && !isGameProfile && (showProfileSections ? gameUsageShown : showUsageInSubtitle)"
         class="profile-usage me-1"
       >
         <ProfileActivityChip
@@ -947,6 +945,11 @@ const routeSettingsText = computed(() => {
     <div class="profile-hint-wrap">
       <WireGuardHint :profile-id="props.profile.id" />
     </div>
+    <!-- The main card: where its traffic goes out (load balancing over its
+         internets, or one picked internet), full width. -->
+    <div v-if="pingTitle && active" class="profile-hint-wrap">
+      <LoadBalanceNote :profile="props.profile" />
+    </div>
     <!-- A game on one route: multipath is off, above the hint. -->
     <div v-if="isGameMultiProfile" class="profile-hint-wrap">
       <MultipathOffHint :profile="props.profile" dismissable />
@@ -1000,6 +1003,20 @@ const routeSettingsText = computed(() => {
         :fill="pingTitle"
         :class="pingTitle ? 'profile-chart-usage' : 'mb-2'"
       >
+        <!-- The main card: the data used, beside the chart's range pills.
+             Click: its traffic. -->
+        <template v-if="pingTitle && active && !direct && !isGameProfile && (showProfileSections ? gameUsageShown : showUsageInSubtitle)" #range>
+          <span class="profile-usage">
+            <ProfileActivityChip
+              v-if="showProfileSections"
+              :profile="props.profile"
+              part="usage"
+              clickable
+              @click="showTraffic"
+            />
+            <ProfileActivityChip v-else :profile="props.profile" clickable @click="showTraffic" />
+          </span>
+        </template>
         <!-- The main card: how it feels (or loss and bursts), the routes
              and internets, on the chart's bottom-left corner. -->
         <template v-if="pingTitle && (linkNote || estimate)" #footer>

@@ -248,6 +248,8 @@ const {
   setBalanceMode,
   pickBalanceInternet,
   pickSingleBalance,
+  balancePoolCount,
+  followBalanceSettings,
   dedicatedIpOn,
   setLoadBalanceWeight,
   balanceShares,
@@ -438,7 +440,9 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
           :adapters="balanceAdapters"
           :selected="balanceSelected"
           :single-adapters="splitAdapters"
-          :single="splitAdapter || store.defaultInterface || ''"
+          :single="splitAdapter"
+          :system-default="store.defaultInterface || ''"
+          :down="store.internetDownNames"
           :missing="orphanedInterfaces"
           :shares="balanceShares"
           :loading="loadingInterfaces"
@@ -447,7 +451,9 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
           :icon="adapterIcon"
           @mode="setBalanceMode"
           @pick="pickBalanceInternet"
+          :pool-size="balancePoolCount"
           @single="pickSingleBalance"
+          @reset="followBalanceSettings"
           @weight="(name: string, weight: number) => setLoadBalanceWeight(name, weight)"
           @refresh="updateInterfaces"
         />
@@ -1019,7 +1025,9 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
           :adapters="balanceAdapters"
           :selected="balanceSelected"
           :single-adapters="splitAdapters"
-          :single="splitAdapter || store.defaultInterface || ''"
+          :single="splitAdapter"
+          :system-default="store.defaultInterface || ''"
+          :down="store.internetDownNames"
           :missing="orphanedInterfaces"
           :shares="balanceShares"
           :loading="loadingInterfaces"
@@ -1028,7 +1036,9 @@ onBeforeUnmount(() => clearTimeout(highlightTimer));
           :icon="adapterIcon"
           @mode="setBalanceMode"
           @pick="pickBalanceInternet"
+          :pool-size="balancePoolCount"
           @single="pickSingleBalance"
+          @reset="followBalanceSettings"
           @weight="(name: string, weight: number) => setLoadBalanceWeight(name, weight)"
           @refresh="updateInterfaces"
         />

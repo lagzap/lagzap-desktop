@@ -38,6 +38,11 @@ const navItems = computed(() => [
     icon: "mdi-server-network",
   },
   {
+    name: "admin-dead",
+    title: "Dead Servers",
+    icon: "mdi-server-off",
+  },
+  {
     name: "admin-live",
     title: "Live Relay Monitor",
     icon: "mdi-radar",

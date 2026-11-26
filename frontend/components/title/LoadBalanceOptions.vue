@@ -2,15 +2,21 @@
 import { useLocale } from "vuetify";
 import type { LoadBalanceShare } from "~/bindings/github.com/lagzap/lagzap/adapter";
 import AdapterPing from "~/components/network/AdapterPing.vue";
+import InternetCard from "~/components/title/InternetCard.vue";
+import InternetRow from "~/components/title/InternetRow.vue";
 import LoadBalanceWeight from "~/components/title/LoadBalanceWeight.vue";
 import { localDigits } from "~/utils/localeFormat";
 
-// Load balancing for a High traffic profile: a checkbox, and its internets
-// under it. On: checkboxes; untouched, the ticked ones are those flagged
-// Load balance on the Multi Internet page ("pool"), ticking or unticking one
-// makes the ticked ones the profile's own ("pick"), and unticking down to one
-// turns it off on that one. Off: radios, the one internet the profile uses.
-// Each shows its share of new connections and its ping.
+// The internet a High traffic profile's traffic goes out through, as a card
+// (InternetCard) with one choice of three, each saying where traffic goes:
+//   - Default internet: whatever Windows uses (the card dashed);
+//   - one internet: all of it through that one;
+//   - Load balance: new connections spread over several (checkboxes under
+//     it). Untouched, the ticked ones are those flagged Load balance on the
+//     Multi Internet page ("pool"); ticking or unticking one makes the ticked
+//     ones the profile's own ("pick"), and unticking down to one is that one
+//     internet. Each shows its share (a chip to set its weight, and a bar).
+// A Dedicated IP is one tunnel on one internet: Load balance cannot be picked.
 export type LoadBalanceMode = "off" | "pool" | "pick";
 
 const props = defineProps<{
@@ -19,10 +25,15 @@ const props = defineProps<{
   adapters: string[];
   /** Picked internets (pick). */
   selected: string[];
-  /** Off: the internets to choose one from, and the one in use. */
+  /** Off: the internets to choose one from, and the one picked ("" = the
+   * Default internet, what Windows uses). */
   singleAdapters: string[];
   single: string;
+  /** The internet Windows uses now (what "" means). */
+  systemDefault?: string;
   missing: string[];
+  /** Internets with no internet now (LagZap uses another meanwhile). */
+  down?: string[];
   shares: Record<string, LoadBalanceShare>;
   loading: boolean;
   disabled?: boolean;
@@ -34,6 +45,9 @@ const props = defineProps<{
   /** Why load balancing cannot be on (a Dedicated IP): the switch is off
    * and fixed, one internet is picked below. */
   locked?: string;
+  /** How many internets the Multi Internet page flags for load balancing:
+   * two or more and following the settings balances. */
+  poolSize?: number;
 }>();
 const emit = defineEmits<{
   mode: [mode: LoadBalanceMode];
@@ -41,145 +55,245 @@ const emit = defineEmits<{
   single: [name: string];
   weight: [name: string, weight: number];
   refresh: [];
+  /** Back to the settings: nothing of its own for its internets. */
+  reset: [];
 }>();
 const { t } = useLocale();
 
-function toggle() {
-  emit("mode", props.mode === "off" ? "pool" : "off");
-}
 const inUse = (name: string) => props.selected.includes(name);
 const count = computed(() => props.adapters.filter(inUse).length);
 /** Settings has fewer than two internets flagged: nothing is spread. */
 const poolTooSmall = computed(() => props.mode === "pool" && count.value < 2);
 
-const on = computed(() => props.mode !== "off");
-function onRow(name: string) {
-  if (on.value) emit("pick", name);
-  else emit("single", name);
+/** Nothing of its own: it follows the settings (the Multi Internet page's
+ * load balancing, else the Default internet). Dashed, never primary. */
+const following = computed(() => props.mode === "pool" && !props.single);
+const settingsBalance = computed(() => (props.poolSize ?? 0) >= 2);
+/** Load balance in use (its own, or the settings'). */
+const balancing = computed(() => (following.value ? settingsBalance.value : props.mode !== "off"));
+/** Off: the one internet picked, "" for the Default internet. */
+const choice = computed(() => (balancing.value ? "balance" : props.single || "default"));
+const defaultLabel = () => t("$vuetify.title.profile.server.loadBalanceDefaultInternet");
+const isDown = (name: string) => !!props.down?.includes(name);
+/** Not connected, or no internet: in the warning color, saying which. */
+const broken = (name: string) => props.missing.includes(name) || isDown(name);
+const brokenText = (name: string) =>
+  isDown(name) && !props.missing.includes(name) ? t("$vuetify.title.profile.server.noInternetShort") : undefined;
+
+/** One internet while load balancing: the one Windows uses, else the first. */
+function pickOne() {
+  const names = props.singleAdapters;
+  emit("single", props.systemDefault && names.includes(props.systemDefault) ? props.systemDefault : (names[0] ?? ""));
+}
+/** The Default internet: following the settings when they balance
+ * nothing anyway, else its own choice. */
+function pickDefault() {
+  if (following.value && !settingsBalance.value) return;
+  if (!settingsBalance.value) emit("reset");
+  else emit("single", "");
+}
+/** Load balance: the settings' (following them), or its own ticked ones. */
+function pickBalance() {
+  if (props.locked || balancing.value) return;
+  emit("reset");
 }
 </script>
 
 <template>
-  <v-list-item
-    :class="['load-balance', { 'load-balance--on': mode !== 'off', 'internets-highlight': highlight }]"
-    :disabled="disabled || !!locked"
-    @click="toggle"
+  <InternetCard
+    settings-link
+    class="mx-3 my-2"
+    :on="!following"
+    :title="t('$vuetify.title.profile.server.internetTitle')"
+    :icon="balancing ? 'mdi-scale-balance' : single ? icon(single) : 'mdi-lan'"
+    no-toggle
+    :disabled="disabled"
+    refresh
+    :loading="loading"
+    :highlight="highlight"
+    @refresh="emit('refresh')"
   >
-    <template #prepend>
-      <v-checkbox-btn
-        class="me-2 state-only"
-        density="compact"
-        color="primary"
-        :model-value="mode !== 'off'"
-      />
+    <!-- Set here: back to the settings — words, not an icon (the refresh
+         beside it is round arrows too). -->
+    <template
+      v-if="!following"
+      #action>
+      <v-btn
+        v-tooltip="t('$vuetify.title.profile.followSettings')"
+        size="x-small"
+        variant="tonal"
+        class="text-none me-1"
+        :disabled="disabled"
+        @click.stop="emit('reset')"
+      >
+        {{ t("$vuetify.title.profile.useSettings") }}
+      </v-btn>
     </template>
-    <template #title>
-      <v-avatar size="24" rounded="0">
-        <v-icon :color="mode !== 'off' ? 'primary' : undefined">mdi-scale-balance</v-icon>
-      </v-avatar>
-      <span class="text-caption ms-2">{{ t("$vuetify.title.profile.server.loadBalance") }}</span>
-    </template>
-    <template #append>
-      <span v-if="locked" class="text-caption text-medium-emphasis">{{ locked }}</span>
-      <span v-else-if="poolTooSmall" class="text-caption text-medium-emphasis">
+    <!-- Where its traffic goes now. -->
+    <template #state>
+      <span
+        v-if="following"
+        class="text-medium-emphasis">
+        {{ t("$vuetify.title.profile.orderFromSettings", balancing
+          ? t("$vuetify.title.profile.server.loadBalanceCount", localDigits(count))
+          : systemDefault ? t("$vuetify.title.profile.server.allTrafficDefault", systemDefault) : defaultLabel()) }}
+      </span>
+      <span
+        v-else-if="balancing && poolTooSmall"
+        class="text-medium-emphasis">
         {{ t("$vuetify.title.profile.server.loadBalancePoolOff") }}
       </span>
-      <span v-else-if="mode !== 'off'" class="text-caption text-primary d-flex align-center">
-        <v-icon size="14" class="me-1">mdi-check</v-icon>
+      <span
+        v-else-if="balancing"
+        class="text-primary d-flex align-center">
+        <v-icon
+          size="14"
+          class="me-1">
+          mdi-check
+        </v-icon>
         {{ t("$vuetify.title.profile.server.loadBalanceCount", localDigits(count)) }}
       </span>
-      <span v-else class="text-caption text-medium-emphasis">
-        {{ t("$vuetify.title.profile.server.multiInternetOff") }}
+      <span
+        v-else-if="single && broken(single)"
+        class="text-warning">
+        {{ t(isDown(single) && !missing.includes(single) ? "$vuetify.title.profile.server.allTrafficViaDown" : "$vuetify.title.profile.ifaceMissing", single) }}
       </span>
-      <template v-if="mode !== 'off'">
-        <v-tooltip :text="t('$vuetify.title.profile.server.directRefresh')" location="top" open-delay="200">
-          <template #activator="{ props: tip }">
-            <v-btn
-              v-bind="tip"
-              icon
-              size="x-small"
-              variant="text"
-              density="comfortable"
-              class="ms-1"
-              :loading="loading"
-              @click.stop="emit('refresh')"
-            >
-              <v-icon size="15">mdi-refresh</v-icon>
-            </v-btn>
-          </template>
-        </v-tooltip>
-      </template>
+      <span
+        v-else-if="single"
+        class="text-primary">
+        {{ t("$vuetify.title.profile.server.allTrafficVia", single) }}
+      </span>
+      <span
+        v-else-if="systemDefault"
+        class="text-medium-emphasis">
+        {{ t("$vuetify.title.profile.server.allTrafficDefault", systemDefault) }}
+      </span>
+      <span
+        v-else
+        class="text-medium-emphasis">
+        {{ defaultLabel() }}
+      </span>
     </template>
-  </v-list-item>
-  <v-list-item v-if="poolTooSmall" density="compact" class="ms-8" to="/multi-internet">
-    <template #title>
-      <span class="text-caption text-medium-emphasis">{{ t("$vuetify.title.profile.server.loadBalancePoolHint") }}</span>
-    </template>
-    <template #append>
-      <v-icon size="16">mdi-chevron-right</v-icon>
-    </template>
-  </v-list-item>
-  <v-list-item
-    v-for="name in on ? adapters : singleAdapters"
-      :key="name"
-      density="compact"
-      class="ms-8"
+
+    <!-- Default internet: Windows' choice. -->
+    <InternetRow
+      :name="defaultLabel()"
+      icon="mdi-auto-fix"
+      radio
+      :picked="choice === 'default'"
       :disabled="disabled"
-      @click="onRow(name)"
+      @pick="pickDefault"
     >
-      <template #prepend>
-        <v-checkbox-btn
-          v-if="on"
-          class="me-2 state-only"
-          density="compact"
-          :color="missing.includes(name) ? 'warning' : 'primary'"
-          :model-value="inUse(name)"
-        />
-        <v-radio
-          v-else
-          hide-details
-          class="me-2 state-only"
-          density="compact"
-          :color="missing.includes(name) ? 'warning' : 'primary'"
-          :model-value="single === name"
-        />
-      </template>
-      <template #title>
-        <v-icon size="16" class="me-2" :class="{ 'text-medium-emphasis': on ? !inUse(name) : single !== name }">{{ icon(name) }}</v-icon>
-        <span class="text-caption" :class="{ 'text-medium-emphasis': on ? !inUse(name) : single !== name }">{{ name }}</span>
-      </template>
       <template #append>
-        <span v-if="missing.includes(name)" class="text-caption text-warning">
-          {{ t("$vuetify.title.profile.server.adapterGone") }}
+        <span
+          v-if="systemDefault"
+          class="text-caption text-medium-emphasis">{{ systemDefault }}</span>
+      </template>
+    </InternetRow>
+
+    <!-- One internet: each, or while load balancing one row to come back. -->
+    <template v-if="!balancing">
+      <InternetRow
+        v-for="name in singleAdapters"
+        :key="name"
+        :name="name"
+        :icon="icon(name)"
+        radio
+        :picked="single === name"
+        :missing="broken(name)"
+        :missing-text="brokenText(name)"
+        :disabled="disabled"
+        @pick="emit('single', name)"
+      >
+        <template
+          v-if="!broken(name) && live"
+          #append>
+          <AdapterPing :name="name" />
+        </template>
+      </InternetRow>
+    </template>
+    <InternetRow
+      v-else
+      :name="t('$vuetify.title.profile.server.oneInternet')"
+      icon="mdi-lan"
+      radio
+      :picked="false"
+      :disabled="disabled"
+      @pick="pickOne"
+    />
+
+    <!-- Load balance: several at once, by weight. -->
+    <InternetRow
+      :name="t('$vuetify.title.profile.server.loadBalance')"
+      icon="mdi-scale-balance"
+      radio
+      :picked="balancing"
+      :disabled="disabled || !!locked"
+      @pick="pickBalance"
+    >
+      <template
+        v-if="locked"
+        #append>
+        <span class="text-caption text-medium-emphasis">
+          {{ locked }}
         </span>
-        <template v-else>
+      </template>
+    </InternetRow>
+    <div
+      v-if="balancing"
+      class="load-balance__internets">
+      <v-list-item
+        v-if="poolTooSmall"
+        density="compact"
+        rounded="lg"
+        class="px-2"
+        to="/multi-internet">
+        <template #title>
+          <span class="text-caption text-medium-emphasis">
+            {{ t("$vuetify.title.profile.server.loadBalancePoolHint") }}
+          </span>
+        </template>
+        <template #append>
+          <v-icon size="16">
+            mdi-chevron-right
+          </v-icon>
+        </template>
+      </v-list-item>
+      <InternetRow
+        v-for="name in adapters"
+        :key="name"
+        :name="name"
+        :icon="icon(name)"
+        :picked="inUse(name)"
+        :missing="broken(name)"
+        :missing-text="brokenText(name)"
+        :disabled="disabled"
+        :share="inUse(name) && !broken(name) ? shares[name]?.percent : undefined"
+        @pick="emit('pick', name)"
+      >
+        <template
+          v-if="!broken(name)"
+          #append>
           <LoadBalanceWeight
-            v-if="on && inUse(name)"
+            v-if="inUse(name)"
             :share="shares[name]"
             @set="(weight: number) => emit('weight', name, weight)"
           />
-          <AdapterPing v-if="live" :name="name" />
+          <AdapterPing
+            v-if="live"
+            :name="name" />
         </template>
-      </template>
-    </v-list-item>
+      </InternetRow>
+    </div>
+  </InternetCard>
 </template>
 
 <style scoped>
-.load-balance--on {
-  background: rgba(var(--v-theme-primary), 0.06);
-}
-/* Shows the state only: the row takes the click. */
-.state-only {
-  pointer-events: none;
-}
-
-/* Opened from a tip's Set up: a pulse of the theme color. */
-.internets-highlight {
-  animation: internets-pulse 0.8s ease-in-out 3;
-}
-@keyframes internets-pulse {
-  50% {
-    background: rgba(var(--v-theme-primary), 0.22);
-  }
+/* Load balance's internets, under its choice. */
+.load-balance__internets {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-inline-start: 24px;
 }
 </style>
