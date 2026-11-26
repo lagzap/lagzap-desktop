@@ -18,6 +18,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI read
 ### Fixed
 - LagZap could crash while installing an update and reopening its windows.
 - Updating could fail with a digest mismatch right after a new version came out.
+- Route pings on a location's page could look much lower than they really were after a server outage. They are now worked out correctly and checked on the right internet.
+- A server is no longer avoided because one of your internets was lagging. LagZap sets it aside only when it really stops working, and only on that internet.
+- When a game is about to run out of working connections, LagZap now looks for fresh routes straight away.
 
 ---
 
