@@ -64,6 +64,8 @@ func initUpdater(app *application.App) bool {
 		Prerelease:    constant.IsPrerelease(),
 		ChecksumAsset: "SHA256SUMS",
 		AssetMatcher:  preferUpdateZip,
+		// No 30s cap on the whole download (updater_http.go).
+		HTTPClient: updateHTTPClient(),
 	})
 	if err != nil {
 		slog.Error("updater: github provider", "error", err)
@@ -371,7 +373,7 @@ func runUpdateCheck(app *application.App, autoInstall bool) error {
 func mirrorProviders() []updater.Provider {
 	var out []updater.Provider
 	for _, u := range constant.UpdateMirrorURLs() {
-		p, err := endpoint.New(endpoint.Config{URL: u, Channel: constant.UpdateChannel()})
+		p, err := endpoint.New(endpoint.Config{URL: u, Channel: constant.UpdateChannel(), HTTPClient: updateHTTPClient()})
 		if err != nil {
 			slog.Warn("updater: mirror skipped", "url", u, "error", err)
 			continue
