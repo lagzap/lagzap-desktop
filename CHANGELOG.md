@@ -46,6 +46,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI read
 - When a server in your chosen location can't connect, LagZap now tries the next one there instead of failing.
 - Favorites could say it was full while showing fewer than 10.
 - On a slow internet, downloading an update could fail after 30 seconds. It now takes as long as it needs and only stops if the download stalls for a minute.
+- Some connections of an app in an enabled profile could skip LagZap: the last packets of a connection, and games protected by anti-cheat. They now go through LagZap like the rest.
 
 ---
 
