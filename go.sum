@@ -79,6 +79,8 @@ github.com/lagzap/geoip v0.1.0-beta.2 h1:zEzdupsFTGnDoRTnJHCiaFjYn/WtM2t/w3xoYtZ
 github.com/lagzap/geoip v0.1.0-beta.2/go.mod h1:b46VKX2lUz3Fj7Xb9KwU8POU5gASzDSdIk3ZYgavc2k=
 github.com/lagzap/lagzap v0.1.10-beta.16 h1:RCLis3vbf22kw5VSF+G4M4Se4EhZjvRUl1h12oJPfeg=
 github.com/lagzap/lagzap v0.1.10-beta.16/go.mod h1:NjEZ0I5xkR0Q8WzizXUvcIXcUYF9UKFc+4+DtvMTIXs=
+github.com/lagzap/lagzap v0.1.10-beta.17 h1:X1jeqJxzXzmLWFG1g2hrCQOfPos0nMVVeYj1ZWBLP7s=
+github.com/lagzap/lagzap v0.1.10-beta.17/go.mod h1:NjEZ0I5xkR0Q8WzizXUvcIXcUYF9UKFc+4+DtvMTIXs=
 github.com/lagzap/lagzap-tun v0.1.0-beta.5 h1:+K5mb3tQj72yHviZKcY8BL1ZifiDjS16GwbKa2qp0JI=
 github.com/lagzap/lagzap-tun v0.1.0-beta.5/go.mod h1:eUwgFxTiyuwKMOHv1Bo+qpj3ahV2f9pkLviaGtTwj/E=
 github.com/lagzap/lagzaprd v1.0.1 h1:+v7F18uawmJI4Gj7sy8REswArs8rNjZ6V1PBr2qdYj8=
