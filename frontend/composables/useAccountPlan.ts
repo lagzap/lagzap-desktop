@@ -10,7 +10,8 @@ export const PLAN_STATUS_COLOR: Record<string, string> = {
   active: "success",
   free: "grey",
   trial: "info",
-  admin: "primary",
+  // Never the primary: an admin is shown in a neutral chip.
+  admin: "grey",
   expired: "error",
   none: "error",
   loading: "grey",

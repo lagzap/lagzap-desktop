@@ -992,6 +992,11 @@ onBeforeUnmount(() => {
         {{ t("$vuetify.networkLatency.session") }} {{ localDigits(sessionElapsed) }}
       </span>
       <span v-else-if="noSessionText" class="live-chart__session text-caption">{{ noSessionText }}</span>
+      <!-- What the page adds after the session time (a game's loss and
+           bursts), in the same text. -->
+      <span v-if="$slots['session-end']" class="live-chart__session live-chart__session-end text-caption">
+        <slot name="session-end" />
+      </span>
       <span v-if="!sessionPlain" class="live-chart__divider-line" />
     </div>
     <div v-if="!compact" class="live-chart__header mb-3">
@@ -1274,6 +1279,10 @@ onBeforeUnmount(() => {
   align-items: center;
   position: relative;
   top: 1px;
+}
+
+.live-chart__session-end {
+  min-width: 0;
 }
 
 .live-chart__divider-line {

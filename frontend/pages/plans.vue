@@ -70,6 +70,9 @@ function teamName(n: number): string {
 }
 
 /* ----- Each plan's own options (active apps, ...) ----- */
+/** Each route level's colour, as on the route level meter (never the
+ * primary): Basic green, Advanced cyan, Ultimate violet. */
+const LEVEL_COLORS: Record<number, string> = { 1: "success", 2: "info", 3: "#B388FF" };
 const choices = ref<Record<number, Record<string, number>>>({});
 
 const included = (plan: PricingPlan): Record<string, number> =>
@@ -549,7 +552,7 @@ if (!pricing.value) void loadPlans();
           <div class="d-flex flex-column ga-1 flex-grow-1 min-w-0">
             <div v-if="planLine" class="text-body-1 font-weight-medium">{{ planLine }}</div>
             <div v-else-if="access" class="text-body-2 text-medium-emphasis">{{ t("$vuetify.plans.noPlan") }}</div>
-            <div v-if="teamLine" class="text-body-2 text-primary">
+            <div v-if="teamLine" class="text-body-2">
               <v-icon icon="mdi-account-group-outline" size="16" class="me-1" />{{ teamLine }}
             </div>
           </div>
@@ -583,13 +586,13 @@ if (!pricing.value) void loadPlans();
           :text="t('$vuetify.plans.teamMemberNote')"
         />
 
-        <v-banner v-if="checkout" color="primary" lines="one" rounded="lg" class="plans-banner">
+        <v-banner v-if="checkout" lines="one" rounded="lg" class="plans-banner">
           <template #prepend>
-            <v-avatar color="primary" variant="tonal" icon="mdi-open-in-new" size="36" />
+            <v-avatar variant="tonal" icon="mdi-open-in-new" size="36" />
           </template>
           <v-banner-text>{{ t("$vuetify.plans.checkoutBanner") }}</v-banner-text>
           <template #actions>
-            <v-btn variant="text" color="primary" @click="openAgain">{{ t("$vuetify.plans.openAgain") }}</v-btn>
+            <v-btn variant="text" color="on-surface" @click="openAgain">{{ t("$vuetify.plans.openAgain") }}</v-btn>
           </template>
         </v-banner>
 
@@ -664,10 +667,12 @@ if (!pricing.value) void loadPlans();
               class="lz-panel level-card"
               :class="{ 'level-card--popular': col.popular, 'level-card--current': col.current }"
             >
-              <div v-if="col.popular && !col.current" class="level-card__ribbon bg-primary">{{ t("$vuetify.plans.popular") }}</div>
+              <div v-if="col.popular && !col.current" class="level-card__ribbon">{{ t("$vuetify.plans.popular") }}</div>
 
               <div class="d-flex align-center flex-wrap ga-2">
-                <v-icon icon="mdi-rocket-launch-outline" size="20" color="primary" />
+                <!-- The level's own colour (Basic green, Advanced cyan, Ultimate
+                     violet), as on the route level meter; never the primary. -->
+                <v-icon icon="mdi-rocket-launch-outline" size="20" :color="LEVEL_COLORS[col.level]" />
                 <span class="text-h6 font-weight-bold">{{ col.title }}</span>
                 <v-chip v-if="col.current" size="x-small" color="amber" variant="tonal" prepend-icon="mdi-check">
                   {{ t("$vuetify.plans.currentPlan") }}
@@ -688,9 +693,9 @@ if (!pricing.value) void loadPlans();
                   <span class="text-body-2 text-medium-emphasis">{{ perLabel() }}</span>
                 </div>
                 <span class="text-caption text-medium-emphasis">{{ col.billed }}</span>
-                <span v-if="col.perPlayer" class="text-caption text-primary">{{ col.perPlayer }}</span>
+                <span v-if="col.perPlayer" class="text-caption">{{ col.perPlayer }}</span>
                 <span v-if="col.credit" class="text-caption text-success">{{ col.credit }}</span>
-                <button type="button" class="price-details-toggle text-caption text-primary" @click="detailsOpen = !detailsOpen">
+                <button type="button" class="price-details-toggle text-caption" @click="detailsOpen = !detailsOpen">
                   {{ t("$vuetify.plans.priceDetails") }}
                   <v-icon :icon="detailsOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="14" />
                 </button>
@@ -714,7 +719,7 @@ if (!pricing.value) void loadPlans();
                 rounded="lg"
                 height="44"
                 class="flex-grow-0"
-                :color="col.popular || col.current ? 'primary' : undefined"
+                color="success"
                 :variant="col.popular || col.current ? 'flat' : 'outlined'"
                 prepend-icon="mdi-cart-outline"
                 :disabled="quoting || !col.quote"
@@ -728,7 +733,7 @@ if (!pricing.value) void loadPlans();
               <!-- What it includes; what can be changed has its control on the row -->
               <ul class="level-card__facts">
                 <li v-for="fact in col.facts" :key="fact.key">
-                  <v-icon :icon="fact.icon" size="16" :color="CHECKS.has(fact.key) ? 'success' : 'primary'" />
+                  <v-icon :icon="fact.icon" size="16" :color="CHECKS.has(fact.key) ? 'success' : undefined" />
                   <span class="flex-grow-1 min-w-0">
                     {{ SOON.has(fact.key) ? t(`$vuetify.plans.facts.${fact.key}`) : factText(fact.key, fact.value) }}
                     <v-chip v-if="SOON.has(fact.key)" size="x-small" variant="tonal" class="ms-1">
@@ -748,7 +753,7 @@ if (!pricing.value) void loadPlans();
                       rounded="lg"
                       density="compact"
                       variant="outlined"
-                      color="primary"
+                      color="on-surface"
                       divided
                       class="fact-choices"
                       @update:model-value="(v: number) => setOption(col.plan, fact.option!, v)"
@@ -824,7 +829,7 @@ if (!pricing.value) void loadPlans();
           <div class="d-flex flex-column ga-1 text-body-2 text-medium-emphasis">
             <div><v-icon icon="mdi-check-circle-outline" size="16" color="success" class="me-1" />{{ t("$vuetify.plans.cancelAnytime") }}</div>
             <div>
-              <v-icon icon="mdi-star-four-points-outline" size="16" color="primary" class="me-1" />
+              <v-icon icon="mdi-star-four-points-outline" size="16" class="me-1" />
               <span class="font-weight-medium">{{ t("$vuetify.plans.allFeatures") }}:</span>
               {{ t("$vuetify.plans.featuresPlaceholder") }}
             </div>
@@ -863,10 +868,21 @@ if (!pricing.value) void loadPlans();
   align-items: stretch;
 }
 
+/* The cards share their rows (a subgrid): name, about, price, Buy, the
+   line and what it includes each start at the same height in every card, so
+   the Buy buttons line up however the prices wrap. */
 .level-card {
   position: relative;
   overflow: hidden;
-  gap: 14px;
+  display: grid;
+  grid-row: span 6;
+  grid-template-rows: subgrid;
+  row-gap: 14px;
+  align-content: start;
+}
+
+.level-card > * {
+  align-self: start;
 }
 
 .level-card__about {
@@ -880,17 +896,19 @@ if (!pricing.value) void loadPlans();
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  /* The one primary the user kept on this page. */
   color: rgb(var(--v-theme-primary));
 }
 
+/* Never the primary: the popular column a stronger neutral border, the
+   user's own a solid one and a light wash. */
 .level-card--popular {
-  border: 2px solid rgba(var(--v-theme-primary), 0.7);
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.32);
 }
 
-/* The user's own column: a solid gold border and a light gold wash. */
 .level-card--current {
-  border: 2px solid rgb(var(--v-theme-primary));
-  background: rgba(var(--v-theme-primary), 0.06);
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.6);
+  background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
 /* A fixed-width band whose middle sits on the corner's diagonal, so any
@@ -908,6 +926,10 @@ if (!pricing.value) void loadPlans();
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  /* Neutral, never the primary: light band, dark words (and the reverse in
+     the light theme). */
+  background: rgb(var(--v-theme-on-surface));
+  color: rgb(var(--v-theme-surface));
 }
 
 .v-locale--is-rtl .level-card__ribbon {
@@ -946,9 +968,9 @@ if (!pricing.value) void loadPlans();
 }
 
 .free-row--current {
-  border: 2px solid rgb(var(--v-theme-primary));
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.6);
   border-style: solid;
-  background: rgba(var(--v-theme-primary), 0.06);
+  background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
 .free-row__head {

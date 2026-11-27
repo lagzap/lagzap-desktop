@@ -1290,6 +1290,46 @@ export class DefaultInterfaceFallback {
 }
 
 /**
+ * DetectedTitle is a title whose program this PC has used (it went on the
+ * internet in the days LagZap keeps), found by its profiles' rules.
+ */
+export class DetectedTitle {
+    /**
+     * Creates a new DetectedTitle instance.
+     * @param {Partial<DetectedTitle>} [$$source = {}] - The source object to create the DetectedTitle.
+     */
+    constructor($$source = {}) {
+        if (!("title_id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["title_id"] = "";
+        }
+        if (!("program" in $$source)) {
+            /**
+             * Program is the file name that matched (Battle.net.exe).
+             * @member
+             * @type {string}
+             */
+            this["program"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DetectedTitle instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DetectedTitle}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DetectedTitle(/** @type {Partial<DetectedTitle>} */($$parsedSource));
+    }
+}
+
+/**
  * DiagramBackups: Count ready routes, Ping the best of them (ms).
  */
 export class DiagramBackups {

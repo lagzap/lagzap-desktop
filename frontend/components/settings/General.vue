@@ -15,6 +15,7 @@ const {
   setLaunchOnStartupMinimize,
   setActiveOnStart,
   setEnglishTitleNames,
+  setHideGetStarted,
   setLatinNumbers,
   setDiscordPresence,
   setSuggestions,
@@ -63,6 +64,16 @@ const {
         density="compact"
         class="mb-4"
         @update:model-value="(value) => void setLatinNumbers(!!value)"
+      />
+      <!-- Home's "What do you want to play?": its ✕ turns this off. -->
+      <v-checkbox
+        :label="t('$vuetify.settings.showGetStarted')"
+        :hint="t('$vuetify.settings.showGetStartedHint')"
+        :model-value="!settings.hideGetStarted"
+        persistent-hint
+        density="compact"
+        class="mb-4"
+        @update:model-value="(value) => void setHideGetStarted(!value)"
       />
 
       <v-select

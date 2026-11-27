@@ -3,7 +3,6 @@ import TitleIcon from "~/components/title/TitleIcon.vue";
 import { useDisplay, useLocale } from "vuetify";
 import { useFuzzySearch } from "~/composables/useFuzzySearch";
 import PlanBanner from "~/components/plan/PlanBanner.vue";
-import ConnectionRejectedBanner from "~/components/plan/ConnectionRejectedBanner.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -16,6 +15,8 @@ const props = withDefaults(
 const locale = useLocale();
 const { t } = locale
 const store = useStore();
+// On while LagZap is paused: orange with a pause, not green.
+const { titlePaused } = useLagzapPaused();
 const router = useRouter();
 const route = useRoute();
 const { mobile, height } = useDisplay();
@@ -92,7 +93,7 @@ onMounted(() => {
           />
         </div>
         <div v-else class="v-toolbar__content">
-          <v-btn :icon="locale.isRtl.value ? 'mdi-arrow-right' : 'mdi-arrow-left'" @click="searchMode = false" />
+          <v-btn icon="mdi-arrow-left" @click="searchMode = false" />
           <v-autocomplete
             v-model="searchQuery"
             autofocus
@@ -122,12 +123,12 @@ onMounted(() => {
                   <TitleIcon :image="item.raw.icon_url" :size="40" rounded="circle" class="me-4" />
                 </template>
                 <template #append>
-                  <v-tooltip :text="store.isTitleActive(item.raw.id) ? (store.ndisRunning ? 'Active' : 'Service is not running') : 'Inactive'">
+                  <v-tooltip :text="store.isTitleActive(item.raw.id) ? (store.ndisRunning ? t('$vuetify.status.active') : t('$vuetify.status.serviceNotRunning')) : t('$vuetify.status.inactive')">
                     <template v-slot:activator="{ props }">
                       <v-btn
                         v-bind="props"
-                        :color="store.isTitleActive(item.raw.id) ? 'green' : 'secondary'"
-                        :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
+                        :color="titlePaused(item.raw.id) ? 'warning' : store.isTitleActive(item.raw.id) ? 'green' : 'secondary'"
+                        :icon="titlePaused(item.raw.id) ? 'mdi-pause' : store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
                         variant="text"
                         size="md"
                         :disabled="store.titleComingSoon(item.raw.id)"
@@ -165,7 +166,6 @@ onMounted(() => {
         :class="props.flush ? 'overflow-hidden' : 'overflow-y-auto'"
       >
         <PlanBanner v-if="showPlanBanner" />
-        <ConnectionRejectedBanner v-if="showPlanBanner" />
         <slot />
       </div>
     </v-card>

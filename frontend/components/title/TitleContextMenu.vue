@@ -6,9 +6,9 @@ import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
 import { usePlanAccess } from "~/composables/usePlanAccess";
 import TitleAvatar from "~/components/plan/TitleAvatar.vue";
 
-/* Right-click on a title anywhere: turn it on or off, change where it plays
- * from, its settings, pin it, open its page. Location and Settings open the
- * title page and the picker there. */
+/* Right-click on a title anywhere: its name opens its page, its switch turns
+ * it on or off; then pin it, change where it plays from, its settings.
+ * Location and Settings open the title page and the picker there. */
 const { t } = useLocale();
 const store = useStore();
 const router = useRouter();
@@ -22,6 +22,9 @@ const canToggle = computed(
   () => !!title.value && store.appReady && !titleUnavailable(title.value.id) && !store.titleComingSoon(title.value.id),
 );
 const pinned = computed(() => !!title.value && isFavorite(title.value.id));
+// On while LagZap is paused: orange with a pause knob.
+const { titlePaused } = useLagzapPaused();
+const pausedOn = computed(() => !!title.value && titlePaused(title.value.id));
 
 function toggle() {
   if (title.value && canToggle.value) void store.toggleTitleState(title.value);
@@ -43,32 +46,30 @@ function go(what?: "location" | "settings") {
     :close-on-content-click="false"
   >
     <v-list v-if="title" density="compact" min-width="240">
-      <!-- The title's own switch. -->
-      <v-list-item class="title-menu__switch" :disabled="!canToggle" @click="toggle">
+      <!-- The title: its name opens its page; its switch turns it on or off. -->
+      <v-list-item class="title-menu__head" lines="one" @click="go()">
         <template #prepend>
-          <TitleAvatar :size="28" :image="title.icon_url" class="me-3" />
+          <TitleAvatar :size="20" :image="title.icon_url" class="me-3" />
         </template>
         <v-list-item-title class="title-menu__name">{{ store.titleName(title.name) }}</v-list-item-title>
-        <v-list-item-subtitle>
-          {{ t(active ? "$vuetify.title.profile.statusOnShort" : "$vuetify.title.profile.statusOff") }}
-        </v-list-item-subtitle>
         <template #append>
           <v-switch
             :model-value="active"
-            inset
             hide-details
-            color="cyan"
+            :color="pausedOn ? 'warning' : 'cyan'"
             density="compact"
-            class="ms-4 flex-grow-0"
+            class="title-menu__switch ms-3 flex-grow-0"
             tabindex="-1"
+            :aria-label="t(active ? '$vuetify.title.profile.statusOnShort' : '$vuetify.title.profile.statusOff')"
             :disabled="!canToggle"
             @click.stop.prevent="toggle"
-          />
+          >
+            <template v-if="pausedOn" #thumb>
+              <v-icon icon="mdi-pause" size="12" />
+            </template>
+          </v-switch>
         </template>
       </v-list-item>
-      <v-divider class="my-1" />
-      <v-list-item prepend-icon="mdi-map-marker-outline" :title="t('$vuetify.title.profile.location')" @click="go('location')" />
-      <v-list-item prepend-icon="mdi-cog-outline" :title="t('$vuetify.title.profile.settings')" @click="go('settings')" />
       <v-divider class="my-1" />
       <v-list-item
         :prepend-icon="pinned ? 'mdi-pin-off-outline' : 'mdi-pin-outline'"
@@ -76,14 +77,17 @@ function go(what?: "location" | "settings") {
         :disabled="!pinned && !canPinMore"
         @click="toggleFavorite(title.id); state.open = false"
       />
-      <v-list-item prepend-icon="mdi-open-in-app" :title="t('$vuetify.title.openPage')" @click="go()" />
+      <v-list-item prepend-icon="mdi-map-marker-outline" :title="t('$vuetify.title.profile.location')" @click="go('location')" />
+      <v-list-item prepend-icon="mdi-cog-outline" :title="t('$vuetify.title.profile.settings')" @click="go('settings')" />
     </v-list>
   </v-menu>
 </template>
 
 <style scoped>
-.title-menu__switch {
-  min-height: 56px !important;
+/* A small switch: the row stays one compact line. */
+.title-menu__switch :deep(.v-selection-control) {
+  min-height: 0;
+  height: 24px;
 }
 
 .title-menu__name {

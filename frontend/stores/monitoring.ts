@@ -6,6 +6,7 @@ import type {
   RouteMonitoringStatus,
   RouteProbeEvent,
 } from "~/types/monitoring";
+import { isConnectionBlocked } from "~/composables/useRelayIssue";
 
 const MAX_LOGS = 1000;
 const MAX_ROUTE_PING_HISTORY = 240;
@@ -61,6 +62,7 @@ let connectionsStore: ReturnType<typeof createMonitoringStore> | null = null;
 function createMonitoringStore() {
   let logs: Ref<Log[]> = ref([]);
   let connections: Ref<Connection[]> = ref([]);
+  let blockedConnections: Ref<Connection[]> = ref([]);
   let routes: Ref<RouteMonitoringStatus | null> = ref(null);
   let routeProbeHistory: Ref<Record<string, RouteProbeEvent[]>> = ref({});
   /** NIC names seen on live probes — avoids scanning full probe history. */
@@ -76,7 +78,11 @@ function createMonitoringStore() {
       return;
     }
     lastConnectionsFingerprint = fp;
-    connections.value = next;
+    // Connections LagZap refused stay listed a while, ended (Go keeps them
+    // so the connections table can say why). Apart from the rest, so counts
+    // and cards never take them for traffic.
+    connections.value = next.filter((c) => !isConnectionBlocked(c));
+    blockedConnections.value = next.filter(isConnectionBlocked);
   }
 
   Events.On("log", ({ data }: any) => {
@@ -221,6 +227,9 @@ function createMonitoringStore() {
   return {
     logs: computed(() => logs.value),
     connections: computed(() => connections.value),
+    /** Connections LagZap refused (no server in the location could carry
+     * them), for the connections table. */
+    blockedConnections: computed(() => blockedConnections.value),
     routes: computed(() => routes.value),
     routeProbeHistory: computed(() => routeProbeHistory.value),
     probedInterfaceNames: computed(() => probedInterfaceNames.value),

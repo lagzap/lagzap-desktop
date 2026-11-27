@@ -72,7 +72,7 @@ const profileById = computed(() => new Map(store.profiles.map((profile) => [prof
 /** A DNS rule's tag is its profile's id; the built-in ones keep their tag. */
 function ruleName(tag: string): string {
   const profile = profileById.value.get(tag);
-  return profile ? store.titleName(profile.name) : tag;
+  return profile ? store.localized(profile.name) : tag;
 }
 
 function processName(path: string): string {

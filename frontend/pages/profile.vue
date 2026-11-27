@@ -34,6 +34,7 @@ const changingPassword = ref(false);
                   icon="mdi-dots-vertical"
                   variant="text"
                   size="small"
+                  color="on-surface"
                   :aria-label="t('$vuetify.profile.moreOptions')"
                 />
               </template>

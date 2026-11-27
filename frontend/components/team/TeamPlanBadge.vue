@@ -23,7 +23,6 @@ const label = computed(() => {
     size="small"
     variant="tonal"
     rounded="pill"
-    color="primary"
     prepend-icon="mdi-account-group-outline"
     :to="{ name: 'team' }"
   >

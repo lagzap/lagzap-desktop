@@ -78,7 +78,8 @@ onUnmounted(() => {
   <div>
     <v-menu
       v-model:model-value="menuVisible"
-      location="bottom center"
+      location="end center"
+      :offset="12"
       :disabled="overlayOpen"
     >
       <template #activator="{ props: menuProps }">

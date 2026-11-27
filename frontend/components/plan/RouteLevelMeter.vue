@@ -33,7 +33,7 @@ const nextLevel = computed(() => (levels.value && planLevel.value < 3 ? planLeve
         v-for="level in ROUTE_LEVELS"
         :key="level"
         class="route-level__step"
-        :class="{ 'route-level__step--on': level <= planLevel, 'route-level__step--next': level === nextLevel }"
+        :class="[`route-level__step--l${level}`, { 'route-level__step--on': level <= planLevel, 'route-level__step--next': level === nextLevel }]"
       >
         <div class="route-level__bar" />
         <span class="route-level__name">{{ levelName(level) }}</span>
@@ -92,12 +92,26 @@ const nextLevel = computed(() => (levels.value && planLevel.value < 3 ? planLeve
   background: rgba(var(--v-theme-on-surface), 0.12);
 }
 
+/* Each level its own colour (never the primary): Basic green, Advanced
+   cyan, Ultimate violet. The next level shows its colour faintly. */
+.route-level__step--l1 {
+  --route-level-color: var(--v-theme-success);
+}
+
+.route-level__step--l2 {
+  --route-level-color: var(--v-theme-info);
+}
+
+.route-level__step--l3 {
+  --route-level-color: 179, 136, 255;
+}
+
 .route-level__step--on .route-level__bar {
-  background: rgb(var(--v-theme-primary));
+  background: rgb(var(--route-level-color));
 }
 
 .route-level__step--next .route-level__bar {
-  background: rgba(255, 193, 7, 0.35);
+  background: rgba(var(--route-level-color), 0.35);
 }
 
 .route-level__name {

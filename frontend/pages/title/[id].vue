@@ -37,6 +37,10 @@ watch(
   },
   { immediate: true },
 );
+// The main switch off: this game's switch stays on, orange with a pause
+// knob, and the bar says so with Resume.
+const { paused, resume } = useLagzapPaused();
+const pausedOn = computed(() => paused.value && !!title.value && store.isTitleActive(title.value.id));
 const nudgeSwitch = computed(
   () => !!title.value && !store.isTitleActive(title.value.id) && !turnedOnBefore.value.includes(title.value.id),
 );
@@ -188,16 +192,27 @@ watch(
         <ComingSoonMark v-if="comingSoon" :size="18" class="me-2" />
         <PlanLock v-else-if="title && cannotActivate" unavailable />
         <!-- With the main card, the switch sits there, beside its ⋮. -->
-        <v-switch
-          v-else-if="title && !locationProfiles.length"
-          :model-value="store.isTitleActive(title.id)"
-          inset
-          hide-details
-          color="cyan"
-          :disabled="!store.appReady"
-          class="title-switch flex-grow-0 me-2"
-          @click="store.toggleTitleState(title)"
-        />
+        <template v-else-if="title && !locationProfiles.length">
+          <span v-if="pausedOn" class="title-paused me-2">
+            <v-icon icon="mdi-pause-circle-outline" size="18" color="warning" />
+            {{ t("$vuetify.status.pausedTitle") }}
+            <v-btn size="small" variant="tonal" color="warning" class="ms-1" @click="resume">{{ t("$vuetify.status.resume") }}</v-btn>
+          </span>
+          <v-switch
+            :model-value="store.isTitleActive(title.id)"
+            inset
+            hide-details
+            :color="pausedOn ? 'warning' : 'cyan'"
+            :disabled="!store.appReady"
+            class="title-switch flex-grow-0 me-2"
+            :class="{ 'title-switch--paused': pausedOn }"
+            @click="store.toggleTitleState(title)"
+          >
+            <template v-if="pausedOn" #thumb>
+              <v-icon icon="mdi-pause" size="14" />
+            </template>
+          </v-switch>
+        </template>
       </template>
       <div v-if="comingSoon" class="title-soon">
         <v-icon icon="mdi-clock-outline" size="48" class="title-soon__icon" />
@@ -219,17 +234,26 @@ watch(
           :game-icon="title.icon_url"
           @picking="picking = $event"
         >
+          <span v-if="pausedOn && !cannotActivate" class="title-paused me-3">
+            <v-icon icon="mdi-pause-circle-outline" size="18" color="warning" />
+            {{ t("$vuetify.status.pausedTitle") }}
+            <v-btn size="small" variant="tonal" color="warning" class="ms-1" @click="resume">{{ t("$vuetify.status.resume") }}</v-btn>
+          </span>
           <v-switch
             v-if="!cannotActivate"
             :model-value="store.isTitleActive(title.id)"
             inset
             hide-details
-            color="cyan"
+            :color="pausedOn ? 'warning' : 'cyan'"
             :disabled="!store.appReady"
             class="title-switch--bar flex-grow-0 ms-1"
-            :class="{ 'title-switch--nudge': nudgeSwitch }"
+            :class="{ 'title-switch--nudge': nudgeSwitch, 'title-switch--paused': pausedOn }"
             @click="store.toggleTitleState(title)"
-          />
+          >
+            <template v-if="pausedOn" #thumb>
+              <v-icon icon="mdi-pause" size="14" />
+            </template>
+          </v-switch>
         </PlayFromPicker>
         <ProfileCard
           v-for="profile in picking ? [] : busyProfiles"
@@ -270,6 +294,16 @@ watch(
 /* Right to left it sits on the left: grow from there, not past the edge. */
 .v-locale--is-rtl .title-switch--bar {
   transform-origin: left center;
+}
+
+/* LagZap paused: the game stays on, its switch orange with a pause knob,
+   and the words beside it say the game goes direct. */
+.title-paused {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 /* Never turned on yet: a ring pulses out of the switch, nothing more. */

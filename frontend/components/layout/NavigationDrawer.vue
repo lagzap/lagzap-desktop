@@ -9,9 +9,10 @@ import XIcon from "~/components/icons/XIcon.vue";
 import TelegramIcon from "~/components/icons/TelegramIcon.vue";
 import LatencyChip from "~/components/network/LatencyChip.vue";
 import TitleIcon from "~/components/title/TitleIcon.vue";
-import { localDigits } from "~/utils/localeFormat";
+import { formatSpeed, localDigits } from "~/utils/localeFormat";
+import { useLocalStorage } from "@vueuse/core";
 import { useMonitoringStore } from "~/stores/monitoring";
-import { activeLimitCount } from "~/composables/useBandwidthControl";
+import { activeLimitCount, totalDownloadSpeed, watchBandwidth } from "~/composables/useBandwidthControl";
 import { openAdminTools } from "~/composables/useAdminToolsWindow";
 
 const { t } = useLocale();
@@ -25,7 +26,39 @@ const planSubtitle = computed(
 const { mobile } = useDisplay();
 const store = useStore();
 
-const running = computed(() => store.ndisRunning);
+const { paused, resume } = useLagzapPaused();
+// Bandwidth Control hovered, or its speed pinned (right-click): the speed
+// streams (as on its page) and shows. Pinned is kept on this PC.
+const bandwidthHover = ref(false);
+const speedPinned = useLocalStorage("lz-nav-speed-pinned", false);
+const bandwidthHovered = computed(() => bandwidthHover.value || speedPinned.value);
+let speedStreaming = false;
+watchEffect(() => {
+  const on = bandwidthHovered.value;
+  if (on !== speedStreaming) {
+    speedStreaming = on;
+    watchBandwidth(on);
+  }
+});
+onBeforeUnmount(() => {
+  if (speedStreaming) watchBandwidth(false);
+  speedStreaming = false;
+});
+function setBandwidthHovered(on: boolean) {
+  bandwidthHover.value = on;
+}
+function toggleSpeedPinned(event: MouseEvent) {
+  event.preventDefault();
+  speedPinned.value = !speedPinned.value;
+}
+async function onRoutingToggle(wantOn: boolean | null) {
+  if (wantOn == null || wantOn === store.ndisRunning || store.ndisToggling) return;
+  try {
+    await store.setNDIS(wantOn);
+  } catch (error) {
+    console.warn("Routing toggle failed:", error);
+  }
+}
 
 // Counts beside the menu items: the game connections (the same ones the
 // Connections page lists) and the internets when there is more than one.
@@ -56,17 +89,6 @@ const model = defineModel<boolean>({
   required: false,
   default: false,
 });
-
-async function onRoutingToggle(wantOn: boolean | null) {
-  if (wantOn == null || wantOn === store.ndisRunning || store.ndisToggling) {
-    return;
-  }
-  try {
-    await store.setNDIS(wantOn);
-  } catch (error) {
-    console.warn("Routing toggle failed:", error);
-  }
-}
 
 onActivated(async () => {
   Events.On("service-started", async () => {
@@ -148,12 +170,25 @@ async function confirmExit(restart: boolean) {
             </template>
 
             <template #append>
-              <LatencyChip :latency="store.latency" />
+              <!-- LagZap's main switch: running, or paused (everything goes
+                   direct). -->
+              <v-switch
+                v-tooltip:bottom="t(store.ndisRunning ? '$vuetify.accountStatus.running' : '$vuetify.accountStatus.paused')"
+                :model-value="store.ndisRunning"
+                hide-details
+                density="compact"
+                :color="store.error ? 'red' : 'green'"
+                :disabled="!store.serviceReady || store.loading || store.ndisToggling"
+                :loading="store.ndisToggling"
+                :aria-label="t(store.ndisRunning ? '$vuetify.accountStatus.running' : '$vuetify.accountStatus.paused')"
+                class="nav-main-switch flex-grow-0"
+                @update:model-value="onRoutingToggle"
+              />
             </template>
           </v-list-item>
         </template>
         <v-card>
-          <v-list>
+          <v-list class="py-1">
             <v-list-item
               v-if="user"
               :to="{ name: 'profile' }"
@@ -177,33 +212,14 @@ async function confirmExit(restart: boolean) {
                 </v-avatar>
               </template>
 
+              <!-- Opens the account page; the chevron turns with the
+                   language direction (style.scss). -->
               <template #append>
-                <v-tooltip
-                  :text="
-                    running
-                      ? t('$vuetify.accountStatus.serviceRoutingHint')
-                      : t('$vuetify.accountStatus.servicePausedHint')
-                  "
-                >
-                  <template #activator="{ props: tipProps }">
-                    <div v-bind="tipProps">
-                      <v-switch
-                        :model-value="running"
-                        inset
-                        hide-details
-                        density="comfortable"
-                        :color="store.error ? 'red' : 'green'"
-                        :disabled="!store.serviceReady || store.loading || store.ndisToggling"
-                        :loading="store.ndisToggling"
-                        @update:model-value="onRoutingToggle"
-                      />
-                    </div>
-                  </template>
-                </v-tooltip>
+                <v-icon icon="mdi-chevron-right" size="20" class="text-medium-emphasis" />
               </template>
             </v-list-item>
           </v-list>
-          <v-list density="compact">
+          <v-list density="compact" class="py-1">
             <v-divider />
 
             <v-list-item prepend-icon="mdi-cog" :to="{ name: 'settings' }">
@@ -268,6 +284,14 @@ async function confirmExit(restart: boolean) {
           </div>
         </v-card>
       </v-menu>
+      <!-- LagZap paused: said on every page, with Resume. -->
+      <v-expand-transition>
+        <div v-if="paused" class="nav-paused">
+          <v-icon icon="mdi-pause-circle-outline" size="18" color="warning" />
+          <span class="flex-grow-1 text-truncate">{{ t("$vuetify.accountStatus.paused") }}</span>
+          <v-btn size="x-small" variant="tonal" color="warning" @click="resume">{{ t("$vuetify.status.resume") }}</v-btn>
+        </div>
+      </v-expand-transition>
     </template>
 
     <v-list nav :lines="false" variant="text" color="tertiary">
@@ -300,16 +324,44 @@ async function confirmExit(restart: boolean) {
         prepend-icon="mdi-chart-line"
         rounded="xl"
         density="compact"
-      />
+      >
+        <!-- The internet's ping now: its clicks open its popup and nothing
+             else. The chip's menu stops a click from bubbling, but the click
+             still followed the item's link (prevented here, before the chip,
+             in the capture phase): on the Internet Status page that fired a
+             same-page navigation, and the menu closes on navigation. -->
+        <template #append>
+          <span
+            class="nav-ping"
+            @pointerdown.stop
+            @mousedown.stop
+            @pointerup.stop
+            @mouseup.stop
+            @click.capture.prevent
+            @keydown.enter.stop
+            @keydown.space.stop
+          >
+            <LatencyChip :latency="store.latency" />
+          </span>
+        </template>
+      </v-list-item>
       <v-list-item
         :to="{ name: 'bandwidth-control' }"
         :title="t('$vuetify.navigation.bandwidthControl')"
         prepend-icon="mdi-speedometer"
         rounded="xl"
         density="compact"
+        @mouseenter="setBandwidthHovered(true)"
+        @mouseleave="setBandwidthHovered(false)"
+        @contextmenu="toggleSpeedPinned"
       >
-        <template v-if="activeLimitCount > 0" #append>
-          <span class="nav-count">{{ localDigits(activeLimitCount) }}</span>
+        <!-- Hovered or pinned (right-click): every internet's download
+             now (the page's "All internets"); else how many caps apply. -->
+        <template v-if="bandwidthHovered || activeLimitCount > 0" #append>
+          <span v-if="bandwidthHovered" class="nav-count nav-speed">
+            <v-icon icon="mdi-arrow-down" size="12" />{{ formatSpeed(totalDownloadSpeed) }}
+          </span>
+          <span v-else class="nav-count">{{ localDigits(activeLimitCount) }}</span>
         </template>
       </v-list-item>
       <v-list-item
@@ -320,7 +372,8 @@ async function confirmExit(restart: boolean) {
         density="compact"
       >
         <template v-if="internetCount > 1" #append>
-          <span class="nav-count">{{ localDigits(internetCount) }}</span>
+          <!-- How many internets: shown only while the item is hovered. -->
+          <span class="nav-count nav-count--hover">{{ localDigits(internetCount) }}</span>
         </template>
       </v-list-item>
       <v-list-item
@@ -410,6 +463,22 @@ async function confirmExit(restart: boolean) {
 /* The LagZap name is the way to Overview. */
 /* A count as plain text after the item, not a filled badge; centred in
    the same 36px column as the apps' dots, chips and locks below. */
+.nav-count--hover {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.v-list-item:hover .nav-count--hover,
+.v-list-item:focus-visible .nav-count--hover {
+  opacity: 1;
+}
+
+.nav-speed {
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
 .nav-count {
   display: inline-flex;
   justify-content: center;
@@ -417,6 +486,37 @@ async function confirmExit(restart: boolean) {
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+/* LagZap paused: a strip under the logo (amber tint, plain text). */
+.nav-paused {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 6px 8px 6px 10px;
+  border-radius: 10px;
+  background: rgba(var(--v-theme-warning), 0.14);
+  font-size: 0.8125rem;
+}
+
+/* The ping chip (26px) sits in the item's 32px row without growing it. */
+.nav-ping {
+  display: inline-flex;
+  align-items: center;
+  margin-block: -6px;
+}
+
+/* The main switch beside the logo: small, no row height of its own. */
+.nav-main-switch {
+  flex: none;
+  /* Its knob reaches past the control: room so the sidebar's edge never
+     cuts it (right to left, it sits by that edge). */
+  padding-inline: 6px;
+}
+
+.nav-main-switch :deep(.v-selection-control) {
+  min-height: 0;
 }
 
 .nav-home {
@@ -455,6 +555,14 @@ async function confirmExit(restart: boolean) {
 .nav-titles__icon:not(:last-child) {
   -webkit-mask-image: radial-gradient(circle at calc(100% + 5px) 50%, transparent 12.5px, #000 13px);
   mask-image: radial-gradient(circle at calc(100% + 5px) 50%, transparent 12.5px, #000 13px);
+}
+
+/* Right to left, the next item sits on the left: cut that side. */
+/* An unscoped ancestor, not :global(): Vue turns ":global(.x) .y" into a
+   bare ".x" rule (it masked every right-to-left element). */
+.v-locale--is-rtl .nav-titles__icon:not(:last-child) {
+  -webkit-mask-image: radial-gradient(circle at -5px 50%, transparent 12.5px, #000 13px);
+  mask-image: radial-gradient(circle at -5px 50%, transparent 12.5px, #000 13px);
 }
 
 .nav-titles__icon + .nav-titles__icon,

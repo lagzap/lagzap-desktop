@@ -107,7 +107,7 @@ const items = computed(() =>
         process_name: wireguard ? t("$vuetify.title.profile.wireguard.title") : processName(connection.process),
         title_icon: title?.icon_url ?? "",
         title_name: title ? store.titleName(title.name) : "",
-        profile_name: profile ? store.titleName(profile.name) : "",
+        profile_name: profile ? store.localized(profile.name) : "",
       };
     })
 );

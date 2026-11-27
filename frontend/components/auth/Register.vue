@@ -100,7 +100,7 @@ onMounted(() => {
       <template #prepend>
         <v-btn
           :disabled="isSubmitting"
-          :icon="$vuetify.locale.isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
+          icon="mdi-arrow-left"
           @click="emit('back')"
         />
       </template>

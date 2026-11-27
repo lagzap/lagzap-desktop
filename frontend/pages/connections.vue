@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import TitleIcon from "~/components/title/TitleIcon.vue";
-import type { VDataTable, VDataTableVirtual } from "vuetify/components";
+import type { VDataTable } from "vuetify/components";
 import Container from "~/components/layout/Container.vue";
 import RelayServerCell from "~/components/network/RelayServerCell.vue";
 import ConnectionDetailsDialog from "~/components/network/ConnectionDetailsDialog.vue";
+import ConnectionTitleCards from "~/components/network/ConnectionTitleCards.vue";
 import CountryFlag from "vue-country-flag-next";
 import { connectionRelayLatency } from "~/composables/useProfileDisplayRoutes";
 import { sum } from "es-toolkit";
@@ -14,7 +15,10 @@ const store = useStore();
 const { admin } = usePlanAccess();
 const locale = useLocale();
 const { t } = locale;
-const { connections } = useMonitoringStore();
+const { connections: liveConnections, blockedConnections } = useMonitoringStore();
+// The live ones, then those LagZap just refused: the LagZap Server cell says
+// "Blocked" and why.
+const connections = computed(() => [...(liveConnections.value ?? []), ...(blockedConnections.value ?? [])]);
 const items = computed(
   () =>
     connections.value
@@ -35,8 +39,9 @@ const headers = ref<DataTableHeader[]>([
     key: "title",
     sortable: false,
     nowrap: true,
-    width: "100%",
-    fixed: true,
+    // A fixed width: long names are cut with "…" (.conn-title).
+    width: "200px",
+    maxWidth: "200px",
   },
   {
     title: t("$vuetify.connections.gameServer"),
@@ -114,7 +119,7 @@ const titleName = (id?: string | null) => {
 };
 const profileName = (id?: string | null) => {
   const profile = store.profiles.find((p) => p.id === id);
-  return profile ? store.titleName(profile.name) : "-";
+  return profile ? store.localized(profile.name) : "-";
 };
 function openMenu(event: MouseEvent, target: MenuTarget) {
   event.preventDefault();
@@ -131,7 +136,8 @@ const rowProps = ({
 }: {
   item: { id: string; profile_id?: string | null; title_id?: string | null; network?: string };
 }) => ({
-  class: "cursor-pointer",
+  // A row shows only under its open title: tinted with it (.conn-child).
+  class: "cursor-pointer conn-child",
   onContextmenu: (event: MouseEvent) => {
     if (!item.profile_id) return;
     openMenu(event, {
@@ -195,6 +201,31 @@ async function doDisconnect() {
   }
 }
 
+/** Each title's connections, as the table groups them. */
+const titleCounts = computed(() => {
+  const counts = new Map<string, number>();
+  for (const c of items.value) {
+    if (c.title_id) counts.set(c.title_id, (counts.get(c.title_id) ?? 0) + 1);
+  }
+  return counts;
+});
+
+// The cards above open and close a title's group in the table. Vuetify keeps
+// which groups are open to itself and hands the group header its toggle and
+// check (the same two for every group), so they are kept from there. A
+// group's id is Vuetify's: "root_title_id_<title id>".
+type GroupRef = { id: string };
+const groupApi = shallowRef<{ toggle: (group: GroupRef) => void; isOpen: (group: GroupRef) => boolean } | null>(null);
+function keepGroupApi(toggle: (group: any) => void, isOpen: (group: any) => boolean): string {
+  if (groupApi.value?.toggle !== toggle) groupApi.value = { toggle, isOpen };
+  return "";
+}
+const groupOf = (titleId: string): GroupRef => ({ id: `root_title_id_${titleId}` });
+const isTitleOpen = (titleId: string) => !!groupApi.value?.isOpen(groupOf(titleId));
+function toggleTitleGroup(titleId: string) {
+  groupApi.value?.toggle(groupOf(titleId));
+}
+
 const sortBy = ref<VDataTable["sortBy"]>([
   { key: "metadata.network", order: "desc" },
   { key: "download_speed", order: "desc" },
@@ -209,7 +240,13 @@ const sortBy = ref<VDataTable["sortBy"]>([
           {{ t("$vuetify.connections.connections") }}
         </v-app-bar-title>
       </template>
-      <v-data-table-virtual
+      <div class="connections-page">
+      <!-- Favorites and the apps on: a card opens its connections below. -->
+      <ConnectionTitleCards :counts="titleCounts" :is-open="isTitleOpen" @toggle="toggleTitleGroup" />
+      <!-- The connections, in a card of their own. Every row at once: the
+           page scrolls, not the table. -->
+      <v-card class="connections-table-card">
+      <v-data-table
         :headers
         :items
         :sort-by
@@ -219,22 +256,18 @@ const sortBy = ref<VDataTable["sortBy"]>([
             order: 'desc',
           },
         ]"
+        :items-per-page="-1"
         density="comfortable"
         :mobile="false"
-        :height="$vuetify.display.height - 120"
-        fixed-header
         hide-default-footer
         hover
         :row-props="rowProps"
-        class="bg-transparent h-100 mt-1"
+        class="bg-transparent connections-table"
         @click:row="openDetails"
       >
         <template #item.title="{ item }">
-          <span class="text-caption">
-            {{
-              store.profiles.find((p) => p.id === item.profile_id)?.name?.en ??
-              "-"
-            }}
+          <span class="text-caption conn-title">
+            {{ profileName(item.profile_id) }}
           </span>
         </template>
         <template #item.server="{ item }">
@@ -297,10 +330,12 @@ const sortBy = ref<VDataTable["sortBy"]>([
         <template #item.data-table-group="{ item }">
           <NetworkLabel :network="item.network" />
         </template>
-        <template #group-header="{ item, toggleGroup }">
+        <template #group-header="{ item, toggleGroup, isGroupOpen }">
+          {{ keepGroupApi(toggleGroup, isGroupOpen) }}
           <tr
             v-ripple
             class="cursor-pointer bg"
+            :class="{ 'conn-group--open': isGroupOpen(item) }"
             @click="toggleGroup(item)"
             @contextmenu="openTitleMenu($event, item.items[0].raw.title_id, item.items)"
           >
@@ -312,10 +347,7 @@ const sortBy = ref<VDataTable["sortBy"]>([
               />
             </td>
             <td class="text-no-wrap">
-              {{
-                store.titles.find((t) => t.id === item.items[0].raw.title_id)
-                  ?.name?.en ?? "-"
-              }}
+              <span class="conn-title">{{ titleName(item.items[0].raw.title_id) }}</span>
             </td>
             <td class="text-no-wrap">
               <div class="d-flex align-center">
@@ -363,7 +395,9 @@ const sortBy = ref<VDataTable["sortBy"]>([
             </td>
           </tr>
         </template>
-      </v-data-table-virtual>
+      </v-data-table>
+      </v-card>
+      </div>
       <ConnectionDetailsDialog v-model="detailsOpen" :connection="detailsConnection" />
 
       <v-menu
@@ -439,6 +473,53 @@ const sortBy = ref<VDataTable["sortBy"]>([
 </template>
 
 <style scoped>
+/* The page's padding, as on Apps & Games. */
+.connections-page {
+  padding: 16px;
+}
+
+.connections-table-card {
+  overflow: hidden;
+}
+
+/* Plain headers and cells: no shaded or divided cells, one line under the
+   headers. */
+.connections-table :deep(th) {
+  background: transparent !important;
+  border-inline-end: none !important;
+  white-space: nowrap;
+}
+
+.connections-table :deep(td) {
+  border-inline-end: none !important;
+}
+
+/* The Title column's fixed width: names longer than it end in "…". */
+.conn-title {
+  display: block;
+  max-width: 176px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* An open title: its row and the connections under it share a tint, with a
+   bar down the start of them. */
+.connections-table :deep(tr.conn-group--open),
+.connections-table :deep(tr.conn-child) {
+  background: rgba(var(--v-theme-on-surface), 0.04);
+}
+
+.connections-table :deep(tr.conn-group--open > td:first-child),
+.connections-table :deep(tr.conn-child > td:first-child) {
+  box-shadow: inset 3px 0 0 rgba(var(--v-theme-on-surface), 0.35);
+}
+
+.v-locale--is-rtl .connections-table :deep(tr.conn-group--open > td:first-child),
+.v-locale--is-rtl .connections-table :deep(tr.conn-child > td:first-child) {
+  box-shadow: inset -3px 0 0 rgba(var(--v-theme-on-surface), 0.35);
+}
+
 /* The UDP note is information, not an action. */
 .udp-note {
   cursor: default;

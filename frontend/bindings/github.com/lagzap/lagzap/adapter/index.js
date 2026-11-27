@@ -22,6 +22,7 @@ export {
     DNSQueryRecord,
     DeadServerRecord,
     DefaultInterfaceFallback,
+    DetectedTitle,
     DiagramBackups,
     DiagramEstimate,
     DiagramHop,

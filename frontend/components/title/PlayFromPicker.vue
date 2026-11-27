@@ -48,6 +48,8 @@ const props = defineProps<{
 
 const { t, current: currentLocale } = useLocale();
 const store = useStore();
+// LagZap paused: a profile that is on shows orange with a pause knob.
+const { paused: lagzapPaused } = useLagzapPaused();
 const plan = usePlanAccess();
 
 type Pick = { profile: Profile; sel: ReturnType<typeof useRegionSelection> };
@@ -1696,12 +1698,9 @@ watch(
                       </template>
                     </v-tooltip>
                   </span>
-                  <v-switch
+                  <v-checkbox-btn
                     :model-value="cardFollows"
-                    inset
-                    hide-details
                     density="compact"
-                    color="cyan"
                     class="flex-grow-0"
                     @update:model-value="cardFollows = !!$event"
                   />
@@ -1756,11 +1755,15 @@ watch(
                           inset
                           hide-details
                           density="compact"
-                          color="cyan"
+                          :color="lagzapPaused && store.isProfileActive(optionsFor.id) ? 'warning' : 'cyan'"
                           class="ms-3"
                           @click.stop
                           @update:model-value="setProfileOn(optionsFor!, !!$event)"
-                        />
+                        >
+                          <template v-if="lagzapPaused && store.isProfileActive(optionsFor.id)" #thumb>
+                            <v-icon icon="mdi-pause" size="12" />
+                          </template>
+                        </v-switch>
                       </template>
                     </v-list-item>
                     <v-list-item

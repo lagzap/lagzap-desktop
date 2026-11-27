@@ -44,6 +44,8 @@ const {
   saveTunnel,
   deleteTunnel,
 } = useBandwidthControl();
+// The page shows at once; its content a frame later (placeholders meanwhile).
+const contentReady = useDeferredRender();
 
 const displayName = (path: string, fallback: string) =>
   infoOf(path).name || fallback || bc("unknown");
@@ -467,7 +469,14 @@ function openRoutedProfile(app: AppTraffic) {
         </template>
       </template>
 
-      <div class="bandwidth">
+      <!-- Until the page's content renders (a frame after it shows): its
+           placeholders. -->
+      <div v-if="!contentReady" class="bandwidth">
+        <v-skeleton-loader type="heading, text" class="bw-skeleton" />
+        <v-skeleton-loader type="image" height="120" class="bw-skeleton" />
+        <v-skeleton-loader v-for="n in 4" :key="n" type="list-item-avatar-two-line" class="bw-skeleton" />
+      </div>
+      <div v-else class="bandwidth">
         <v-alert
           v-if="!running"
           type="info"
@@ -1107,6 +1116,11 @@ function openRoutedProfile(app: AppTraffic) {
 </template>
 
 <style scoped>
+.bw-skeleton {
+  border-radius: 12px;
+  background: rgba(var(--v-theme-on-surface), 0.04);
+}
+
 /* Room under the last card for the buttons. */
 .bandwidth {
   display: flex;

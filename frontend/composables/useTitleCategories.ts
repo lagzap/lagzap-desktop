@@ -74,14 +74,15 @@ export function titleCategoryIcon(slug: string | undefined): string | undefined 
   return slug ? CATEGORY_ICONS[slug] : undefined
 }
 
-export function useTitleCategories(titles: Ref<Title[]>, locale: Ref<string>, englishNames: Ref<boolean>) {
+export function useTitleCategories(titles: Ref<Title[]>, locale: Ref<string>) {
   const categories = computed(() => distinctTitleCategories(titles.value))
   const hasUncategorized = computed(() => titles.value.some((t) => titleCategoriesOf(t).length === 0))
 
-  /** name[currentLocale], then name["en"], then slug: the title-name rule. */
+  /** name[currentLocale], then name["en"], then slug. Always in the app's
+   * language: "English game names" is for game and app names only. */
   const categoryName = (category: TitleCategory) => {
     const name = category.name ?? {}
-    return (englishNames.value && name.en) || name[locale.value] || name.en || category.slug || ''
+    return name[locale.value] || name.en || category.slug || ''
   }
 
   /** Keys the screen can filter by right now, in display order. */

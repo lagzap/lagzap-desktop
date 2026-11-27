@@ -91,6 +91,18 @@ const text = computed(() => {
         </v-btn>
       </template>
       <template v-else-if="canUpgrade" #actions>
+        <!-- No plan or expired can be a wrong answer: ask again without a restart. -->
+        <v-btn
+          icon="mdi-refresh"
+          variant="text"
+          size="small"
+          color="on-surface"
+          class="me-1"
+          :loading="retrying"
+          :aria-label="t('$vuetify.plan.retry')"
+          :title="t('$vuetify.plan.retry')"
+          @click="retry"
+        />
         <v-btn variant="tonal" prepend-icon="mdi-cart-outline" @click="openUpgrade">
           {{ t("$vuetify.plan.getPlan") }}
         </v-btn>

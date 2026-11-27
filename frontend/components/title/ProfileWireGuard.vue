@@ -215,7 +215,7 @@ async function remove(config: Config) {
 function titleName(profileId: string): string {
   const profile = store.profiles.find((p) => p.id === profileId);
   const title = profile && store.titles.find((x) => x.id === profile.title_id);
-  return title ? (store.localized(title.name) as string) : "";
+  return title ? (store.titleName(title.name) as string) : "";
 }
 
 /** The other apps and games using a config. */

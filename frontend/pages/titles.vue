@@ -12,6 +12,9 @@ import { useSettings } from "~/composables/useSettings";
 import { useFavoriteTitles } from "~/composables/useFavoriteTitles";
 import { displayAlert } from "~/composables/alert";
 import { useFavoritePick } from "~/composables/useFavoritePick";
+import { useFuzzySearch } from "~/composables/useFuzzySearch";
+import { useElementSize } from "@vueuse/core";
+import { DetectedTitles } from "~/bindings/github.com/lagzap/lagzap-desktop/service";
 import {
   CATEGORY_ALL,
   CATEGORY_UNCATEGORIZED,
@@ -24,6 +27,8 @@ const titleMenu = useTitleMenu();
 const locale = useLocale();
 const { t } = locale;
 const store = useStore();
+// On while LagZap is paused: orange with a pause, not green.
+const { titlePaused } = useLagzapPaused();
 const { titleUnavailable } = usePlanAccess();
 const titles = computed(() => store.getTitles);
 const requestOpen = ref(false);
@@ -32,23 +37,39 @@ const requestOpen = ref(false);
 // checks below stay per title. The header search is global and ignores
 // the category filter.
 const { settings, setTitleCategorySlug } = useSettings();
-const { categories, categoryName, filterKeys, titleInFilter } = useTitleCategories(
-  titles,
-  locale.current,
-  computed(() => settings.value.englishTitleNames === true),
-);
+const { categories, categoryName, filterKeys, titleInFilter } = useTitleCategories(titles, locale.current);
 // Favorites, in the user's order, among the titles shown here.
 const CATEGORY_FAVORITES = "__favorites";
 const { favoriteTitles, isFavorite, toggleFavorite, canPinMore } = useFavoriteTitles();
 
 // Opened from a Favorites or Recent + (useFavoritePick): the next app or
 // game clicked is added instead of opened, then the page is as before.
-const { picking: pickingFavorite, stopPicking } = useFavoritePick();
+const { picking: pickingFavorite, pickMode, startPicking, stopPicking } = useFavoritePick();
+// The page shows at once; its cards a frame later (placeholders meanwhile).
+const contentReady = useDeferredRender();
+/** The Favorites section's + card: pick mode, then down to the other apps
+ * (under All, where they are) to click one. */
+function addFavorite() {
+  startPicking();
+  if (selectedCategory.value !== CATEGORY_ALL) selectCategory(CATEGORY_ALL);
+  void nextTick(() => {
+    document.querySelector('[data-section-head]:not([data-section-head="favorites"])')?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
 onBeforeUnmount(stopPicking);
 /** The pick: added to Favorites and turned on. Favorites full: turned on
  * only, at the top of Recent (on, and just visited). */
 async function pickFavorite(id: string, name: string) {
   const title = store.titles.find((item) => item.id === id);
+  // From an Active +: only turned on.
+  if (pickMode.value === "active") {
+    if (title && !store.isTitleActive(id)) await store.toggleTitleState(title);
+    await store.visitTitle(id);
+    displayAlert(t("$vuetify.title.turnedOnActive", name), "success", 5000);
+    stopPicking();
+    showPicked(id, false);
+    return;
+  }
   let pinned = isFavorite(id);
   if (!pinned && canPinMore.value) {
     await toggleFavorite(id);
@@ -62,7 +83,24 @@ async function pickFavorite(id: string, name: string) {
     5000,
   );
   stopPicking();
+  showPicked(id, pinned);
 }
+/** After a pick: its card (in Favorites when added there) scrolled to the
+ * middle and lit up for a moment. */
+const pickedId = ref<string | null>(null);
+let pickedTimer: ReturnType<typeof setTimeout> | undefined;
+function showPicked(id: string, pinned: boolean) {
+  void nextTick(() => {
+    const section = pinned ? '[data-section="favorites"]' : "";
+    const card = document.querySelector(`[data-title-card="${CSS.escape(id)}"]${section}`)
+      ?? document.querySelector(`[data-title-card="${CSS.escape(id)}"]`);
+    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+    pickedId.value = id;
+    clearTimeout(pickedTimer);
+    pickedTimer = setTimeout(() => (pickedId.value = null), 1800);
+  });
+}
+onBeforeUnmount(() => clearTimeout(pickedTimer));
 const favorites = computed(() => {
   const shown = new Set(titles.value.map((title) => title.id));
   return favoriteTitles.value.filter((title) => shown.has(title.id));
@@ -90,37 +128,115 @@ const byName = (list: typeof titles.value) =>
 
 /** The cards to show: under All, favorites get their own section first;
  * the Favorites filter shows only them. */
+// Search on the page: the top bar's fuzzy match (every language's name and
+// the alias), best first, inside the chosen category.
+const pageQuery = ref("");
+const { searchResults: pageResults, handleSearch: searchPage } = useFuzzySearch(titles, store);
+watch(pageQuery, (value) => searchPage((value ?? "").trim()));
+const searching = computed(() => (pageQuery.value ?? "").trim().length > 0);
 const sections = computed(() => {
   const key = selectedCategory.value;
+  if (searching.value) {
+    const byId = new Map(titles.value.map((title) => [title.id, title]));
+    const found = pageResults.value
+      .map((result) => byId.get(result.id))
+      .filter((title): title is (typeof titles.value)[number] => !!title)
+      .filter((title) => (key === CATEGORY_FAVORITES ? isFavorite(title.id) : titleInFilter(title, key)));
+    return [{ key: "list", title: "", items: found }];
+  }
   if (key === CATEGORY_FAVORITES) {
     return [{ key: "list", title: "", items: favorites.value }];
   }
-  const list = byName(titles.value.filter((title) => titleInFilter(title, key)));
-  if (key !== CATEGORY_ALL || !favorites.value.length) {
-    return [{ key: "list", title: "", items: list }];
+  const inFilter = titles.value.filter((title) => titleInFilter(title, key));
+  const placed = new Set<string>();
+  const take = (list: typeof titles.value) => {
+    const out = list.filter((title) => !placed.has(title.id));
+    out.forEach((title) => placed.add(title.id));
+    return out;
+  };
+  const out: { key: string; title: string; items: typeof titles.value }[] = [];
+  // Favorites (All only), then one group per category under All (one list
+  // in a category); in each, what is on this PC first, then the rest, A to Z.
+  if (key === CATEGORY_ALL) {
+    out.push({ key: "favorites", title: t("$vuetify.titleCategories.favorites"), items: take(favorites.value) });
+    for (const category of categories.value) {
+      const items = take(onPcFirst(inFilter.filter((title) => titleCategoriesOf(title)[0]?.slug === category.slug)));
+      out.push({ key: `cat-${category.slug}`, title: categoryName(category), items });
+    }
+    out.push({ key: "others", title: t("$vuetify.titleCategories.others"), items: take(onPcFirst(inFilter)) });
+  } else {
+    out.push({ key: "list", title: "", items: take(onPcFirst(inFilter)) });
   }
-  return [
-    { key: "favorites", title: t("$vuetify.titleCategories.favorites"), items: favorites.value },
-    { key: "others", title: t("$vuetify.titleCategories.others"), items: list.filter((title) => !isFavorite(title.id)) },
-  ].filter((section) => section.items.length);
+  return out.filter((section) => section.items.length);
 });
-/** Letter -> the first card with it, in the A to Z section. */
+// The list is at most two cards wide (LIST_MAX_WIDTH, in CSS). With room for
+// two columns, Games take the left one and every other group stacks in the
+// right; Favorites stay across the top, two a row. Narrower, or searching, or
+// in one category: today's layout, the groups one under another.
+const listEl = ref<HTMLElement | null>(null);
+const { width: listWidth } = useElementSize(listEl);
+const TWO_COLUMNS_FROM = 720;
+const twoColumns = computed(
+  () => listWidth.value >= TWO_COLUMNS_FROM && !searching.value && selectedCategory.value === CATEGORY_ALL,
+);
+type Column = { key: string; sections: typeof sections.value; cols: number | null };
+const columns = computed((): Column[] => {
+  if (!twoColumns.value) return [{ key: "all", sections: sections.value, cols: null }];
+  const top = sections.value.filter((section) => section.key === "favorites");
+  const left = sections.value.filter((section) => section.key === "cat-game");
+  const right = sections.value.filter((section) => section.key !== "favorites" && section.key !== "cat-game");
+  const list: Column[] = [
+    { key: "top", sections: top, cols: 6 },
+    { key: "left", sections: left, cols: 12 },
+    { key: "right", sections: right, cols: 12 },
+  ];
+  return list.filter((column) => column.sections.length);
+});
+
+/** What is on this PC (A to Z), then the rest (A to Z). */
+function onPcFirst(list: typeof titles.value) {
+  const onPc = new Set(detectedIds.value);
+  const sorted = byName(list);
+  return [...sorted.filter((title) => onPc.has(title.id)), ...sorted.filter((title) => !onPc.has(title.id))];
+}
+/** Titles whose programs this PC used (Go matches them against the
+ * profiles' rules and the titles' names): shown first. Read on open. */
+const detectedIds = ref<string[]>([]);
+onMounted(async () => {
+  try {
+    detectedIds.value = ((await DetectedTitles()) ?? []).map((item) => item.title_id);
+  } catch {
+    detectedIds.value = [];
+  }
+});
+/** Letter -> the first card with it (by name), outside Favorites. */
 const letterAnchors = computed(() => {
-  const sorted = sections.value.at(-1);
   const anchors = new Map<string, string>();
-  if (!sorted || selectedCategory.value === CATEGORY_FAVORITES) return anchors;
-  for (const title of sorted.items) {
+  if (selectedCategory.value === CATEGORY_FAVORITES || searching.value) return anchors;
+  const lists = sections.value.filter((section) => section.key !== "favorites");
+  const all = lists.flatMap((section) => section.items).sort((a, b) => collator.value.compare(nameOf(a), nameOf(b)));
+  for (const title of all) {
     const letter = letterOf(title);
     if (!anchors.has(letter)) anchors.set(letter, title.id);
   }
   return anchors;
 });
+/** The rail's own mark for Favorites, above A. */
+const RAIL_FAVORITES = "★";
+const hasFavoritesSection = computed(() => sections.value.some((section) => section.key === "favorites"));
+/** The rail: the star (Favorites, when shown above the list), then A to Z. */
+const railKeys = computed(() => [...(hasFavoritesSection.value ? [RAIL_FAVORITES] : []), ...letterAnchors.value.keys()]);
 // Only worth it for a list that scrolls and spans a few letters.
 const showRail = computed(() => letterAnchors.value.size >= 4 && (sections.value.at(-1)?.items.length ?? 0) >= 12);
 const railLetter = ref("");
 let railDragging = false;
 
 function jumpTo(letter: string) {
+  if (letter === RAIL_FAVORITES) {
+    railLetter.value = letter;
+    document.querySelector('[data-section-head="favorites"]')?.scrollIntoView({ block: "start" });
+    return;
+  }
   const id = letterAnchors.value.get(letter);
   if (!id) return;
   railLetter.value = letter;
@@ -157,10 +273,12 @@ function updateCurrentLetter() {
   for (const el of scroller.querySelectorAll<HTMLElement>("[data-title-card]")) {
     if (el.getBoundingClientRect().bottom <= top) continue;
     const title = titleById.value.get(el.dataset.titleCard ?? "");
-    // Favorites above the A to Z list: the rail starts at its first letter.
-    currentLetter.value = title && letterAnchors.value.has(letterOf(title)) && !isFavoriteSection(el)
-      ? letterOf(title)
-      : [...letterAnchors.value.keys()][0] ?? "";
+    // In Favorites (above the A to Z list): the star.
+    currentLetter.value = isFavoriteSection(el) && hasFavoritesSection.value
+      ? RAIL_FAVORITES
+      : title && letterAnchors.value.has(letterOf(title))
+        ? letterOf(title)
+        : [...letterAnchors.value.keys()][0] ?? "";
     return;
   }
 }
@@ -209,7 +327,7 @@ onBeforeUnmount(() => {
 });
 /** Letters near the current one grow a little too, like a dock. */
 function railScale(letter: string) {
-  const keys = [...letterAnchors.value.keys()];
+  const keys = railKeys.value;
   const at = keys.indexOf(railLetter.value || currentLetter.value);
   if (at < 0) return 1;
   const d = Math.abs(keys.indexOf(letter) - at);
@@ -243,7 +361,7 @@ const onToggle = (title: (typeof titles.value)[number]) => {
         </v-chip>
       </template>
 
-      <v-card-text class="mb-16" :class="{ 'titles-list--rail': showRail }">
+      <v-card-text class="mb-16 titles-list" :class="{ 'titles-list--rail': showRail }">
         <!-- From a Favorites +: the next one clicked is added. Stays at the
              top while the list scrolls. -->
         <div
@@ -256,7 +374,7 @@ const onToggle = (title: (typeof titles.value)[number]) => {
           icon="mdi-star-plus-outline"
         >
           <div class="d-flex align-center flex-wrap ga-2">
-            <span class="flex-grow-1">{{ t(canPinMore ? "$vuetify.title.pickFavorite" : "$vuetify.title.pickRecent") }}</span>
+            <span class="flex-grow-1">{{ t(pickMode === "active" ? "$vuetify.title.pickActive" : canPinMore ? "$vuetify.title.pickFavorite" : "$vuetify.title.pickRecent") }}</span>
             <v-btn
               size="small"
               variant="text"
@@ -269,6 +387,19 @@ const onToggle = (title: (typeof titles.value)[number]) => {
           </div>
         </v-alert>
         </div>
+        <!-- Search this page (results best first, in the chosen category). -->
+        <v-text-field
+          v-model="pageQuery"
+          :placeholder="t('$vuetify.overview.getStarted.search')"
+          prepend-inner-icon="mdi-magnify"
+          variant="outlined"
+          density="compact"
+          rounded="pill"
+          hide-details
+          clearable
+          class="titles-search mb-2"
+          @keyup.escape="pageQuery = ''"
+        />
         <v-chip-group
           v-if="showCategoryFilter"
           :model-value="selectedCategory"
@@ -309,8 +440,28 @@ const onToggle = (title: (typeof titles.value)[number]) => {
             {{ t("$vuetify.titleCategories.uncategorized") }}
           </v-chip>
         </v-chip-group>
-        <template v-for="section in sections" :key="section.key">
-        <div v-if="section.title" class="titles-section text-subtitle-2 text-medium-emphasis">
+        <!-- Until the cards render (a frame after the page shows): their
+             placeholders. -->
+        <v-row v-if="!contentReady" dense>
+          <v-col v-for="n in 12" :key="n" cols="12" sm="6" md="6" lg="4" xl="3">
+            <v-skeleton-loader type="list-item-avatar" class="titles-skeleton mb-1" />
+          </v-col>
+        </v-row>
+        <div
+          v-if="contentReady && searching && !sections[0]?.items.length"
+          class="text-body-2 text-medium-emphasis text-center py-8"
+        >
+          {{ t("$vuetify.titleCategories.noMatch") }}
+        </div>
+        <div ref="listEl" class="titles-layout" :class="{ 'titles-layout--two': twoColumns }">
+        <div
+          v-for="column in contentReady ? columns : []"
+          :key="column.key"
+          class="titles-layout__col"
+          :class="`titles-layout__col--${column.key}`"
+        >
+        <template v-for="section in column.sections" :key="section.key">
+        <div v-if="section.title" class="titles-section text-subtitle-2 text-medium-emphasis" :data-section-head="section.key">
           {{ section.title }}
         </div>
         <v-data-iterator :items="section.items" :items-per-page="-1">
@@ -320,10 +471,10 @@ const onToggle = (title: (typeof titles.value)[number]) => {
                 v-for="item in items"
                 :key="item.raw.id"
                 cols="12"
-                sm="6"
-                md="6"
-                lg="4"
-                xl="3"
+                :sm="column.cols ?? 6"
+                :md="column.cols ?? 6"
+                :lg="column.cols ?? 4"
+                :xl="column.cols ?? 3"
                 :data-title-card="item.raw.id"
                 :data-section="section.key"
                 class="titles-col"
@@ -333,6 +484,7 @@ const onToggle = (title: (typeof titles.value)[number]) => {
                   @click="pickingFavorite && pickFavorite(item.raw.id, store.titleName(item.raw.name))"
                   @contextmenu="titleMenu.openAt($event, item.raw.id)"
                   class="py-1 mb-1 titles-card"
+                  :class="{ 'titles-card--picked': pickedId === item.raw.id }"
                 >
                   <v-list-item :title="store.titleName(item.raw.name)">
                     <template #prepend>
@@ -371,14 +523,18 @@ const onToggle = (title: (typeof titles.value)[number]) => {
                               <v-btn
                                 class="titles-card__dot"
                                 :color="
-                                  store.isTitleActive(item.raw.id)
-                                    ? 'green'
-                                    : 'secondary'
+                                  titlePaused(item.raw.id)
+                                    ? 'warning'
+                                    : store.isTitleActive(item.raw.id)
+                                      ? 'green'
+                                      : 'secondary'
                                 "
                                 :icon="
-                                  store.ndisRunning
-                                    ? 'mdi-circle-medium'
-                                    : 'mdi-circle-small'
+                                  titlePaused(item.raw.id)
+                                    ? 'mdi-pause'
+                                    : store.ndisRunning
+                                      ? 'mdi-circle-medium'
+                                      : 'mdi-circle-small'
                                 "
                                 variant="text"
                                 size="md"
@@ -391,10 +547,14 @@ const onToggle = (title: (typeof titles.value)[number]) => {
                                 density="compact"
                                 hide-details
                                 readonly
-                                color="green"
+                                :color="titlePaused(item.raw.id) ? 'warning' : 'green'"
                                 :model-value="store.isTitleActive(item.raw.id)"
                                 :disabled="toggleDisabled(item.raw.id)"
-                              />
+                              >
+                                <template v-if="titlePaused(item.raw.id)" #thumb>
+                                  <v-icon icon="mdi-pause" size="14" />
+                                </template>
+                              </v-switch>
                             </span>
                           </template>
                         </v-tooltip>
@@ -403,10 +563,27 @@ const onToggle = (title: (typeof titles.value)[number]) => {
                   </v-list-item>
                 </v-card>
               </v-col>
+              <!-- Favorites with room left: one more card to add one. -->
+              <v-col
+                v-if="section.key === 'favorites' && canPinMore && !pickingFavorite"
+                cols="12"
+                :sm="column.cols ?? 6"
+                :md="column.cols ?? 6"
+                :lg="column.cols ?? 4"
+                :xl="column.cols ?? 3"
+                class="titles-col"
+              >
+                <button type="button" class="titles-card titles-card--add mb-1" @click="addFavorite">
+                  <span class="titles-card__add-icon"><v-icon icon="mdi-plus" size="20" /></span>
+                  <span class="text-body-1">{{ t("$vuetify.title.pinFavorite") }}</span>
+                </button>
+              </v-col>
             </v-row>
           </template>
         </v-data-iterator>
         </template>
+        </div>
+        </div>
       </v-card-text>
 
       <template #outside>
@@ -422,16 +599,23 @@ const onToggle = (title: (typeof titles.value)[number]) => {
           @pointercancel="onRailUp"
         >
           <span
-            v-for="letter in letterAnchors.keys()"
+            v-for="letter in railKeys"
             :key="letter"
             class="titles-rail__letter"
             :class="{ 'titles-rail__letter--on': (railLetter || currentLetter) === letter }"
             :style="{ transform: `scale(${railScale(letter)})` }"
             :data-rail-letter="letter"
-          >{{ letter }}</span>
+            :aria-label="letter === RAIL_FAVORITES ? t('$vuetify.titleCategories.favorites') : undefined"
+          >
+            <v-icon v-if="letter === RAIL_FAVORITES" icon="mdi-star" size="11" />
+            <template v-else>{{ letter }}</template>
+          </span>
         </div>
         <v-scale-transition>
-          <div v-if="railLetter" class="titles-rail__bubble">{{ railLetter }}</div>
+          <div v-if="railLetter" class="titles-rail__bubble">
+            <v-icon v-if="railLetter === RAIL_FAVORITES" icon="mdi-star" size="32" />
+            <template v-else>{{ railLetter }}</template>
+          </div>
         </v-scale-transition>
         <!-- Hidden while its dialog is open. -->
         <v-fab
@@ -526,7 +710,7 @@ const onToggle = (title: (typeof titles.value)[number]) => {
 }
 
 .titles-rail__letter--on {
-  color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-surface));
   font-weight: 800;
 }
 
@@ -543,7 +727,7 @@ const onToggle = (title: (typeof titles.value)[number]) => {
   margin: -36px 0 0 -36px;
   border-radius: 16px;
   background: rgba(var(--v-theme-surface-bright), 0.92);
-  color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-surface));
   font-size: 2rem;
   font-weight: 700;
   pointer-events: none;
@@ -552,10 +736,97 @@ const onToggle = (title: (typeof titles.value)[number]) => {
 
 .titles-section {
   margin: 12px 4px 6px;
+  /* Scrolled to from a Favorites +: clear of the pick banner on top. */
+  scroll-margin-top: 72px;
+}
+
+/* Just picked: a ring that fades out. */
+.titles-card--picked {
+  animation: titles-picked 1.8s ease-out;
+}
+
+@keyframes titles-picked {
+  0%,
+  40% {
+    box-shadow: 0 0 0 2px rgba(var(--v-theme-on-surface), 0.6);
+    background: rgba(var(--v-theme-on-surface), 0.08);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(var(--v-theme-on-surface), 0);
+  }
 }
 
 .titles-section:first-child {
   margin-top: 4px;
+}
+
+/* At most two cards wide (LIST_MAX_WIDTH), however wide the window. */
+.titles-list {
+  max-width: 920px;
+  margin-inline: auto;
+}
+
+/* Two columns: Favorites across the top, Games on the left, the other
+   groups stacked on the right. */
+.titles-layout--two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
+}
+
+.titles-layout--two .titles-layout__col--top {
+  grid-column: 1 / -1;
+}
+
+.titles-layout--two .titles-layout__col--left {
+  grid-column: 1;
+}
+
+.titles-layout--two .titles-layout__col--right {
+  grid-column: 2;
+}
+
+/* The page's search: a pill the width of a phrase. */
+.titles-search {
+  max-width: 380px;
+}
+
+/* A card's placeholder: a card's size and corners. */
+.titles-skeleton {
+  border-radius: 8px;
+  background: rgba(var(--v-theme-on-surface), 0.04);
+}
+
+/* The + card: a card's size (56px tall, icon box and text where a card's
+   are), dashed like the sidebar's add. */
+.titles-card--add {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  border: 1.5px dashed rgba(var(--v-theme-on-surface), 0.25);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* Where a card's 40px icon sits, so the words line up with the names. */
+.titles-card__add-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  flex: none;
+}
+
+.titles-card--add:hover {
+  background: rgba(var(--v-theme-on-surface), 0.04);
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .titles-card__fav {

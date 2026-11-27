@@ -21,7 +21,7 @@ const countryCode = computed(() => (/^[A-Za-z]{2}$/.test(info.value?.Country ?? 
 <template>
   <section class="lz-panel">
     <div class="lz-panel__head">
-      <v-icon icon="mdi-web" size="20" color="primary" />
+      <v-icon icon="mdi-web" size="20" />
       <span class="text-subtitle-1 font-weight-medium">{{ t("$vuetify.profile.connection") }}</span>
     </div>
 
@@ -36,6 +36,7 @@ const countryCode = computed(() => (/^[A-Za-z]{2}$/.test(info.value?.Country ?? 
             :aria-label="showIp ? t('$vuetify.profile.hideIp') : t('$vuetify.profile.showIp')"
             size="x-small"
             variant="text"
+            color="on-surface"
             @click="showIp = !showIp"
           />
         </span>

@@ -32,6 +32,10 @@ const connectionCount = computed(() => titleConnections.value.length);
 const showConnectionChip = computed(() => connectionCount.value > 0);
 
 const titleIsOn = computed(() => store.isTitleActive(props.title.id));
+// On, but LagZap is paused: orange in place of green, a pause in place of
+// the dot and in the switch's knob.
+const { paused } = useLagzapPaused();
+const pausedOn = computed(() => paused.value && titleIsOn.value);
 
 const profileBreakdown = computed(() => {
   const counts = new Map<string, number>();
@@ -188,8 +192,19 @@ const inactiveTooltip = computed(() => {
 
 const toggleDisabled = computed(() => !store.appReady);
 
+// Turning off a title with live connections asks first: they close at once
+// (a game or a download may drop).
+const confirmOff = ref(false);
 async function onToggle() {
+  if (titleIsOn.value && connectionCount.value > 0) {
+    confirmOff.value = true;
+    return;
+  }
   await store.toggleTitleState(props.title);
+}
+async function turnOffConfirmed() {
+  confirmOff.value = false;
+  if (titleIsOn.value) await store.toggleTitleState(props.title);
 }
 </script>
 
@@ -242,8 +257,9 @@ async function onToggle() {
         <v-btn
           v-else
           class="tat__face tat__dot"
-          :color="titleIsOn ? 'green' : 'secondary'"
-          :icon="store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
+          :class="{ 'tat__dot--paused': pausedOn }"
+          :color="pausedOn ? 'warning' : titleIsOn ? 'green' : 'secondary'"
+          :icon="pausedOn ? 'mdi-pause' : store.ndisRunning ? 'mdi-circle-medium' : 'mdi-circle-small'"
           variant="text"
           size="md"
           tabindex="-1"
@@ -255,11 +271,16 @@ async function onToggle() {
           density="compact"
           hide-details
           readonly
-          color="green"
+          :color="pausedOn ? 'warning' : 'green'"
           tabindex="-1"
+          :class="{ 'tat__switch--paused': pausedOn }"
           :model-value="titleIsOn"
           :disabled="toggleDisabled"
-        />
+        >
+          <template v-if="pausedOn" #thumb>
+            <v-icon icon="mdi-pause" size="14" />
+          </template>
+        </v-switch>
       </span>
     </template>
 
@@ -313,6 +334,19 @@ async function onToggle() {
     </div>
     <template v-else>{{ inactiveTooltip }}</template>
   </v-tooltip>
+  <v-dialog v-model="confirmOff" max-width="380">
+    <v-card>
+      <v-card-title class="text-subtitle-1">
+        {{ t("$vuetify.status.turnOffConfirmTitle", store.titleName(props.title.name)) }}
+      </v-card-title>
+      <v-card-text class="text-body-2">{{ t("$vuetify.connections.menu.confirmText") }}</v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="confirmOff = false">{{ t("$vuetify.connections.menu.cancel") }}</v-btn>
+        <v-btn variant="tonal" @click="turnOffConfirmed">{{ t("$vuetify.status.turnOffConfirm") }}</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
@@ -363,14 +397,21 @@ async function onToggle() {
   min-height: 0;
 }
 
+/* Paused: the pause is small, like the dot. */
+.tat__dot--paused :deep(.v-icon) {
+  font-size: 14px;
+}
+
 .v-list-item:hover .tat__face,
-.v-list-item:focus-within .tat__face {
+.v-list-item:focus-within .tat__face,
+.v-card:hover .tat__face {
   opacity: 0;
   transform: scale(0);
 }
 
 .v-list-item:hover .tat__switch,
-.v-list-item:focus-within .tat__switch {
+.v-list-item:focus-within .tat__switch,
+.v-card:hover .tat__switch {
   opacity: 1;
   transform: translate(-50%, -50%) scale(0.6);
 }

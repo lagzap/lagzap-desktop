@@ -6,13 +6,13 @@ import { usePlanAccess } from "~/composables/usePlanAccess";
 import { formatMs } from "~/utils/localeFormat";
 
 /**
- * Overview controls: routing switch · plan · account.
+ * Overview: the plan at the start, the account at the end (the main switch
+ * is beside the logo, in the sidebar).
  * Plan fields stubbed until subscription API exists.
  */
 const { displayName, planName, planStatus, planStatusLabel, user } =
   useAccountStatus();
 const { t } = useLocale();
-const store = useStore();
 const { levelName, routesText } = useRouteLevel();
 const { levels } = useRouteLevels();
 const { canUpgrade, openUpgrade } = usePlanAccess();
@@ -23,88 +23,59 @@ const upgrade = computed(() =>
   levels.value?.upgrade_level && levels.value.upgrade_ms > 0 ? levels.value : null,
 );
 
-const routingOn = computed(() => store.ndisRunning);
 const avatarLetter = computed(() => {
   const raw = user.value?.name || "";
   return raw.length ? raw[0].toUpperCase() : "";
 });
 
-async function onRoutingToggle(wantOn: boolean | null) {
-  if (wantOn == null || wantOn === store.ndisRunning || store.ndisToggling) {
-    return;
-  }
-  try {
-    await store.setNDIS(wantOn);
-  } catch (error) {
-    console.warn("Routing toggle failed:", error);
-  }
-}
 </script>
 
 <template>
   <div class="account-strip">
-    <div class="account-strip__routing">
-      <v-switch
-        :model-value="routingOn"
-        inset
-        hide-details
-        density="comfortable"
-        :color="store.error ? 'red' : 'green'"
-        :disabled="!store.serviceReady || store.loading || store.ndisToggling"
-        :loading="store.ndisToggling"
-        class="account-strip__switch"
-        @update:model-value="onRoutingToggle"
-      />
-      <span class="account-strip__label">
-        {{ t("$vuetify.accountStatus.serviceStatus") }}
-      </span>
-    </div>
-
-    <div class="account-strip__end">
-      <div class="account-strip__meta">
-        <NuxtLink :to="{ name: 'plans' }" class="account-strip__plan-link text-decoration-none">
-          <span class="account-strip__plan">{{ planName }}</span>
-          <span
-            class="account-strip__badge"
-            :class="`account-strip__badge--${planStatus}`"
-          >
-            {{ planStatusLabel }}
-          </span>
-        </NuxtLink>
-        <span v-if="levelLabel" class="account-strip__level">{{ levelLabel }}</span>
-        <v-tooltip v-if="upgrade" :text="t('$vuetify.routeLevel.upgradeOverviewTip')" location="bottom">
-          <template #activator="{ props }">
-            <v-chip
-              v-bind="props"
-              size="small"
-              variant="tonal"
-              color="amber"
-              prepend-icon="mdi-rocket-launch-outline"
-              :disabled="!canUpgrade"
-              @click="openUpgrade"
-            >
-              {{ t("$vuetify.routeLevel.upgradeChip", levelName(upgrade.upgrade_level), formatMs(upgrade.upgrade_ms)) }}
-            </v-chip>
-          </template>
-        </v-tooltip>
-      </div>
-      <NuxtLink
-        :to="{ name: 'profile' }"
-        class="account-strip__user text-decoration-none"
-      >
-        <span class="account-strip__name text-truncate">{{ displayName }}</span>
-        <v-avatar
-          size="28"
-          :variant="avatarLetter ? 'tonal' : 'text'"
-          color="primary"
+    <!-- The plan, at the start (the main switch is beside the logo). -->
+    <div class="account-strip__meta">
+      <NuxtLink :to="{ name: 'plans' }" class="account-strip__plan-link text-decoration-none">
+        <span class="account-strip__plan">{{ planName }}</span>
+        <span
+          class="account-strip__badge"
+          :class="`account-strip__badge--${planStatus}`"
         >
-          <span v-if="avatarLetter" class="text-caption text-uppercase">
-            {{ avatarLetter }}
-          </span>
-          <v-icon v-else icon="mdi-account-circle" size="22" />
-        </v-avatar>
+          {{ planStatusLabel }}
+        </span>
       </NuxtLink>
+      <span v-if="levelLabel" class="account-strip__level">{{ levelLabel }}</span>
+      <v-tooltip v-if="upgrade" :text="t('$vuetify.routeLevel.upgradeOverviewTip')" location="bottom">
+        <template #activator="{ props }">
+          <v-chip
+            v-bind="props"
+            size="small"
+            variant="tonal"
+            color="amber"
+            prepend-icon="mdi-rocket-launch-outline"
+            :disabled="!canUpgrade"
+            @click="openUpgrade"
+          >
+            {{ t("$vuetify.routeLevel.upgradeChip", levelName(upgrade.upgrade_level), formatMs(upgrade.upgrade_ms)) }}
+          </v-chip>
+        </template>
+      </v-tooltip>
     </div>
+    <NuxtLink
+      :to="{ name: 'profile' }"
+      class="account-strip__user text-decoration-none"
+    >
+      <span class="account-strip__name text-truncate">{{ displayName }}</span>
+      <v-avatar
+        size="28"
+        :variant="avatarLetter ? 'tonal' : 'text'"
+        color="primary"
+      >
+        <span v-if="avatarLetter" class="text-caption text-uppercase">
+          {{ avatarLetter }}
+        </span>
+        <v-icon v-else icon="mdi-account-circle" size="22" />
+      </v-avatar>
+    </NuxtLink>
   </div>
 </template>
 
@@ -133,52 +104,6 @@ async function onRoutingToggle(wantOn: boolean | null) {
   justify-content: space-between;
   gap: 20px;
   width: 100%;
-  min-width: 0;
-}
-
-.account-strip__routing {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.account-strip__label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgb(var(--v-theme-on-surface));
-  white-space: nowrap;
-}
-
-.account-strip__switch {
-  flex: 0 0 auto;
-  margin: 0;
-  padding-top: 0;
-}
-
-.account-strip__switch :deep(.v-selection-control) {
-  min-height: 28px;
-}
-
-.account-strip__switch :deep(.v-switch__track) {
-  opacity: 1;
-  background-color: rgba(var(--v-theme-on-surface), 0.22) !important;
-}
-
-.account-strip__switch :deep(.v-switch__thumb) {
-  color: #e8e6d9 !important;
-  background-color: #e8e6d9 !important;
-}
-
-.account-strip__switch :deep(.v-selection-control--dirty .v-switch__track) {
-  background-color: #3d6b3d !important;
-  opacity: 1;
-}
-
-.account-strip__end {
-  display: flex;
-  align-items: center;
-  gap: 16px;
   min-width: 0;
 }
 

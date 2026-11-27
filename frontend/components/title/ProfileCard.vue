@@ -272,6 +272,9 @@ const profileDescription = computed(() => {
 const hasProfileDescription = computed(() => profileDescription.value.length > 0);
 
 const active = computed(() => store.isProfileActive(props.profile.id));
+// On while LagZap is paused: its switch orange with a pause knob.
+const { paused: lagzapPaused } = useLagzapPaused();
+const pausedOn = computed(() => lagzapPaused.value && active.value);
 /** It carries traffic now (busyOnly shows the card only then). */
 const busy = computed(() => active.value && store.appReady && connected.value && totalBytes.value > 0);
 
@@ -374,10 +377,10 @@ const plainDescription = computed(() => {
 });
 
 // Connections LagZap rejected: no server in the profile's location could carry them.
-const { connections: monitoredConnections } = useMonitoringStore();
+const { connections: monitoredConnections, blockedConnections } = useMonitoringStore();
 const notRelayedCount = computed(
   () =>
-    (monitoredConnections.value ?? []).filter(
+    [...(monitoredConnections.value ?? []), ...(blockedConnections.value ?? [])].filter(
       (connection) =>
         connection.profile_id === props.profile.id &&
         isConnectionNotRelayed(connection)
@@ -626,12 +629,16 @@ const routeSettingsText = computed(() => {
         :model-value="active"
         inset
         hide-details
-        color="cyan"
+        :color="pausedOn ? 'warning' : 'cyan'"
         density="compact"
         class="profile-row__switch me-3"
         :disabled="!store.appReady"
         @click.stop.prevent="toggleProfile(!active)"
-      />
+      >
+        <template v-if="pausedOn" #thumb>
+          <v-icon icon="mdi-pause" size="12" />
+        </template>
+      </v-switch>
     </template>
 
     <!-- A row's second line: its ping and data used while in use, else
@@ -853,12 +860,16 @@ const routeSettingsText = computed(() => {
                 :model-value="active"
                 inset
                 hide-details
-                color="cyan"
+                :color="pausedOn ? 'warning' : 'cyan'"
                 density="compact"
                 class="profile-menu__switch-control"
                 tabindex="-1"
                 @click.stop.prevent="toggleProfile(!active)"
-              />
+              >
+                  <template v-if="pausedOn" #thumb>
+                    <v-icon icon="mdi-pause" size="12" />
+                  </template>
+              </v-switch>
             </template>
           </v-list-item>
           <v-divider v-if="!single && !unavailable && !pingTitle && !row" class="my-1" />
@@ -1018,8 +1029,8 @@ const routeSettingsText = computed(() => {
           </span>
         </template>
         <!-- The main card: how it feels (or loss and bursts), the routes
-             and internets, on the chart's bottom-left corner. -->
-        <template v-if="pingTitle && (linkNote || estimate)" #footer>
+             and internets, right after the session time, in its text. -->
+        <template v-if="pingTitle && (linkNote || estimate)" #session>
           <div
             class="profile-bigping__word profile-chart-status"
             :class="{ 'profile-bigping__word--link': !!profileChart?.link }"
@@ -1046,7 +1057,7 @@ const routeSettingsText = computed(() => {
             </template>
           </div>
         </template>
-        <template v-else-if="!pingTitle && routeShown && hasProfileConnections" #footer>
+        <template v-if="!pingTitle && routeShown && hasProfileConnections" #footer>
           <button type="button" class="profile-conns__toggle profile-conns__toggle--inline" @click="showConns = !showConns">
             {{ t("$vuetify.title.profile.connections") }}
             <span class="profile-conns__count">{{ localDigits(profileConnectionCount) }}</span>
@@ -1243,9 +1254,17 @@ const routeSettingsText = computed(() => {
   justify-content: space-between;
 }
 
+/* The whole first row: the speeds on the left, Actual ping and Routes on
+   the right; the open route legend wraps under it, on the right. */
 .profile-chart-usage :deep(.live-chart__footer) {
-  align-self: flex-end;
-  flex: 0 1 auto;
+  flex: 1 1 100%;
+}
+
+/* After the session time, in its own text: same size, spacing and line. */
+.profile-chart-status {
+  font-size: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
 }
 
 .profile-chart-usage :deep(.live-chart__legend > .chart-header-legend) {

@@ -75,6 +75,10 @@ const hasData = computed(() => !!latency.value?.series?.length || !!traffic.valu
         <template v-if="!popup && $slots.range" #range-start>
           <slot name="range" />
         </template>
+        <!-- After the session time: whatever the card adds (loss and bursts). -->
+        <template v-if="!popup && $slots.session" #session-end>
+          <slot name="session" />
+        </template>
         <template v-if="!popup" #footer-start>
           <div class="ping-usage__footer">
             <ProfileActivityChip v-if="profile && isGame" :profile="profile" part="speed" />

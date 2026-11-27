@@ -35,7 +35,21 @@ function isFavoriteActive(title: Title) {
   return activeTitleId.value != null && activeTitleId.value === String(title.id);
 }
 
-const recentTitles = computed(() => recentTitlesExcludingFavorites.value);
+/** Titles turned on that are not favorites: Recent's order first, then any
+ * other. */
+const activeTitles = computed(() => {
+  const recent = recentTitlesExcludingFavorites.value.filter((title) => store.isTitleActive(title.id));
+  const shown = new Set(recent.map((title) => title.id));
+  const pinned = new Set(favoriteTitles.value.map((title) => title.id));
+  const others = (store.titles ?? []).filter(
+    (title) => store.isTitleActive(title.id) && !shown.has(title.id) && !pinned.has(title.id),
+  );
+  return [...recent, ...others];
+});
+/** Recent: the rest, turned off. */
+const recentTitles = computed(() =>
+  recentTitlesExcludingFavorites.value.filter((title) => !store.isTitleActive(title.id)),
+);
 
 /** Favorites as a grid of icons (the default), five a row with their status
  * as badges on the icon, or a list (name, status on the right). Saved with
@@ -68,10 +82,8 @@ function tileTip(title: Title): string {
   return parts.join(" · ");
 }
 const { startPicking } = useFavoritePick();
-/** Opens the top bar's search (Container listens). */
-function openSearch() {
-  window.dispatchEvent(new Event("lz-open-search"));
-}
+// On while LagZap is paused: orange, not green.
+const { titlePaused } = useLagzapPaused();
 function toggleTitle(title: Title) {
   if (store.appReady) void store.toggleTitleState(title);
 }
@@ -79,6 +91,21 @@ function toggleTitle(title: Title) {
 const showFavoritesHeader = computed(() => localFavorites.value.length > 0);
 
 const showRecentHeader = computed(() => recentTitles.value.length > 0);
+
+/** Add App or Game, first in Active: always, except in the favorites grid
+ * while it still has room (the grid has its own + tile). */
+const showAddRow = computed(() => !canPinMore.value || !grid.value || !showFavoritesHeader.value);
+const showActiveSection = computed(() => showAddRow.value || activeTitles.value.length > 0);
+const listSections = computed(() => {
+  const sections: { key: "active" | "recent"; label: string; titles: Title[] }[] = [];
+  if (showActiveSection.value) {
+    sections.push({ key: "active", label: t("$vuetify.navigation.active"), titles: activeTitles.value });
+  }
+  if (showRecentHeader.value) {
+    sections.push({ key: "recent", label: t("$vuetify.navigation.recent"), titles: recentTitles.value });
+  }
+  return sections.map((section, i) => ({ ...section, divider: i > 0 || showFavoritesHeader.value }));
+});
 
 const favoritesListEl = ref<HTMLElement | null>(null);
 const localFavorites = ref<Title[]>([]);
@@ -273,7 +300,7 @@ onBeforeUnmount(() => {
           variant="text"
           density="comfortable"
           color="on-surface"
-          class="me-1"
+          class="me-1 qa-view-toggle"
           :aria-label="t(grid ? '$vuetify.navigation.favoritesAsList' : '$vuetify.navigation.favoritesAsGrid')"
           @click="toggleFavoritesView"
         >
@@ -295,7 +322,7 @@ onBeforeUnmount(() => {
           <div
             v-for="(title, index) in localFavorites"
             :key="title.id"
-            v-tooltip:end="tileTip(title)"
+            v-tooltip:top="tileTip(title)"
             :data-fav-id="title.id"
             class="qa-fav-tile"
             :class="{
@@ -324,7 +351,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="qa-fav-state tat"
-              :class="store.isTitleActive(title.id) ? 'qa-fav-state--on' : 'qa-fav-state--off'"
+              :class="titlePaused(title.id) ? 'qa-fav-state--paused' : store.isTitleActive(title.id) ? 'qa-fav-state--on' : 'qa-fav-state--off'"
               :aria-label="t(store.isTitleActive(title.id) ? '$vuetify.title.profile.statusOnShort' : '$vuetify.title.profile.statusOff')"
               :disabled="!store.appReady"
               @click.stop="toggleTitle(title)"
@@ -336,7 +363,7 @@ onBeforeUnmount(() => {
           @click="startPicking"
           class="qa-fav-tile qa-fav-tile--add"
           :aria-label="t('$vuetify.navigation.addAppOrGame')"
-          v-tooltip:end="t('$vuetify.navigation.addAppOrGame')"
+          v-tooltip:top="t('$vuetify.navigation.addAppOrGame')"
         >
           <v-icon
             icon="mdi-plus"
@@ -397,48 +424,22 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
-    <!-- Add to Favorites, above Recent: a dashed row the size of a Recent
-         item (the grid has its own + tile). Favorites full: it is Recent's
-         first item instead (the app is turned on and goes to Recent). -->
-    <button type="button"
-      v-if="canPinMore ? !grid || !showFavoritesHeader : !showRecentHeader"
-          @click="startPicking"
-      class="qa-add-row"
+    <!-- Active (turned on, not favorites), Add App or Game first; then
+         Recent (turned off), only when it has any. -->
+    <template
+      v-for="section in listSections"
+      :key="section.key"
     >
-      <v-icon
-        icon="mdi-plus"
-        size="18"
-        class="qa-add-row__icon" />
-      <span class="text-body-2">{{ t("$vuetify.navigation.addAppOrGame") }}</span>
-    </button>
-
-    <template v-if="showRecentHeader">
       <v-divider
-        v-if="showFavoritesHeader"
+        v-if="section.divider"
         class="my-1"
       />
       <div class="qa-favorites__head">
-        <v-list-subheader class="flex-grow-1">{{ t("$vuetify.navigation.recent") }}</v-list-subheader>
-        <!-- Search apps and games (the top bar's search). -->
-        <v-btn
-          v-tooltip="t('$vuetify.navigation.searchTitles')"
-          icon
-          size="x-small"
-          variant="text"
-          density="comfortable"
-          color="on-surface"
-          class="me-1"
-          :aria-label="t('$vuetify.navigation.searchTitles')"
-          @click="openSearch"
-        >
-          <v-icon size="16">
-            mdi-magnify
-          </v-icon>
-        </v-btn>
+        <v-list-subheader class="flex-grow-1">{{ section.label }}</v-list-subheader>
       </div>
       <button type="button"
-        v-if="!canPinMore"
-          @click="startPicking"
+        v-if="section.key === 'active' && showAddRow"
+        @click="startPicking"
         class="qa-add-row"
       >
         <v-icon
@@ -449,8 +450,8 @@ onBeforeUnmount(() => {
       </button>
 
       <v-list-item
-        v-for="title in recentTitles"
-        :key="`recent-title-${title.id}`"
+        v-for="title in section.titles"
+        :key="`${section.key}-title-${title.id}`"
         :title="store.titleName(title.name)"
         :to="{ name: 'title-id', params: { id: title.id } }"
         rounded="xl"
@@ -514,6 +515,20 @@ onBeforeUnmount(() => {
 <style scoped>
 .qa-favorites {
   position: relative;
+}
+
+/* Grid or list: shown only while the mouse is on the sidebar (or the
+   button has keyboard focus). */
+.qa-view-toggle {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+/* An unscoped ancestor, not :global(): Vue turns ":global(.x) .y" into a
+   bare ".x" rule. */
+.v-navigation-drawer:hover .qa-view-toggle,
+.qa-view-toggle:focus-visible {
+  opacity: 1;
 }
 .qa-favorites__head {
   display: flex;
@@ -624,8 +639,53 @@ onBeforeUnmount(() => {
 .qa-fav-state--on {
   background: rgb(var(--v-theme-success));
 }
+.qa-fav-state--paused {
+  background: rgb(var(--v-theme-warning));
+}
 .qa-fav-state--off {
   background: rgba(var(--v-theme-on-surface), 0.35);
+}
+/* Hovered, the dot becomes a small switch in the same corner: its knob at
+   the end when on, at the start when off. */
+.qa-fav-state {
+  transition:
+    width 0.16s ease,
+    height 0.16s ease,
+    bottom 0.16s ease,
+    inset-inline-end 0.16s ease;
+}
+.qa-fav-state::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e8e6d9;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition:
+    opacity 0.16s ease,
+    inset-inline-start 0.16s ease;
+}
+.qa-fav-tile:hover .qa-fav-state,
+.qa-fav-tile:focus-visible .qa-fav-state {
+  width: 22px;
+  height: 13px;
+  border-radius: 999px;
+  bottom: 0;
+  inset-inline-end: -2px;
+}
+.qa-fav-tile:hover .qa-fav-state::after,
+.qa-fav-tile:focus-visible .qa-fav-state::after {
+  opacity: 1;
+}
+.qa-fav-tile:hover .qa-fav-state--on::after,
+.qa-fav-tile:hover .qa-fav-state--paused::after,
+.qa-fav-tile:focus-visible .qa-fav-state--on::after,
+.qa-fav-tile:focus-visible .qa-fav-state--paused::after {
+  inset-inline-start: 10px;
 }
 
 .qa-fav-row {

@@ -78,6 +78,9 @@ interface AppSettings {
   allowLocalRoutes?: boolean
   /** Show game and app names in English while the UI is in another language. */
   englishTitleNames?: boolean
+  /** Home's "What do you want to play?" closed with its ✕ (Settings → General
+   * shows it again). */
+  hideGetStarted?: boolean
   /** Latin digits and English units (36 ms, KB/s) while the UI is in another language. */
   latinNumbers?: boolean
   /** Tips on profiles (another internet, a faster internet): on by default. */
@@ -522,6 +525,10 @@ export const useSettings = (locale?: any, theme?: any) => {
     await saveSettings({ englishTitleNames })
   }
 
+  const setHideGetStarted = async (hideGetStarted: boolean) => {
+    await saveSettings({ hideGetStarted })
+  }
+
   const setLatinNumbers = async (latinNumbers: boolean) => {
     await saveSettings({ latinNumbers })
   }
@@ -729,6 +736,7 @@ export const useSettings = (locale?: any, theme?: any) => {
     setPreferredTransport,
     setAllowLocalRoutes,
     setEnglishTitleNames,
+    setHideGetStarted,
     setLatinNumbers,
     setSuggestions,
     hintShown,

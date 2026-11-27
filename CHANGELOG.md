@@ -10,10 +10,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI read
 - Windows release pipeline with auto-updater and GitHub Releases publishing.
 - Crash reports: if LagZap crashes, the report is sent on the next start so we can fix it. Only when usage statistics are allowed.
 - When a game can't connect or a server it uses goes down, its connection log is sent to help us find the problem. IP addresses and site names in it are hidden. Only when usage statistics are allowed.
+- Home suggests games found on your PC, with a search.
+- Apps & Games has a search and groups apps by category.
+- Connections shows your apps as cards, and blocked connections in the table.
+- It's clear everywhere when LagZap is paused.
 
 ### Changed
 - The syncing notice now just says syncing has problems and is retrying.
 - Fixes and improvements while the beta is still in development.
+- The main on/off switch is next to the logo.
 
 ### Fixed
 - LagZap could crash while installing an update and reopening its windows.
@@ -28,29 +33,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). CI read
 ## [0.1.3-beta.8] - 2026-11-26
 
 ### Added
-- Each app's settings show where its traffic goes out as one card: the default internet, one internet, or load balancing over several. Multi Internet and main-and-backup internets have the same cards, and backups can be put in order by dragging them.
-- A warning on a game's page when an internet one of its profiles uses is unplugged, disabled or has no internet, with one click to switch to another internet or remove it.
-- A dot on Settings, and on each part of a game, shows which settings are set for that app; hover it to see which ones.
-- A Retry button on the "Cloud service: Offline" notice.
-- An alert on a game's page when LagZap can't connect it through the chosen location, with a quick way to change location.
-- The location picker lists every location; the ones that can't connect right now say Unavailable.
-- Favorites in the sidebar show as a grid of icons by default, or as a list. Each icon shows whether it's on, its connections and any problem.
-- Add App or Game from the sidebar or the dashboard: the next app or game you pick in Apps & Games is added to your Favorites and turned on. With Favorites full, it's turned on and shown first in Recent.
-- A search button next to Recent.
+- Pick the internet each app uses: one, the default, or load balancing.
+- Warnings when a game's internet or location can't connect.
+- Favorites grid in the sidebar, and Add App or Game.
 
 ### Changed
-- Settings that follow the global ones show the value in use; set for an app they turn gold, with a button back to the global value. Each explanation is now in a ? next to its setting.
-- "Network Status" is now "Internet Status".
-- The data used now sits next to the chart's time range.
+- Settings set for an app are marked.
+- Improvements and bug fixes.
 
 ### Fixed
-- With an internet disabled or unplugged, apps could fail to connect at all. LagZap now uses an internet that is connected.
-- When a connection couldn't be carried, LagZap could use a lot of CPU and fill its logs while the app kept retrying.
-- A server that didn't answer for a moment could be dropped. LagZap now checks it thoroughly, on each of your internets, before it avoids it.
-- When a server in your chosen location can't connect, LagZap now tries the next one there instead of failing.
-- Favorites could say it was full while showing fewer than 10.
-- On a slow internet, downloading an update could fail after 30 seconds. It now takes as long as it needs and only stops if the download stalls for a minute.
-- Some connections of an app in an enabled profile could skip LagZap: the last packets of a connection, and games protected by anti-cheat. They now go through LagZap like the rest.
+- Apps could fail to connect with an internet unplugged.
+- Some connections, including anti-cheat games, could skip LagZap.
+- If a server fails, the next one in your location is tried.
+- High CPU use when a connection couldn't be carried.
+- Updates could fail to download on a slow internet.
 
 ---
 

@@ -54,8 +54,7 @@ function pickTopConnectionForTitle(titleConnections: Connection[]): Connection |
 }
 
 const store = useStore();
-const locale = useLocale();
-const { t } = locale;
+const { t } = useLocale();
 const router = useRouter();
 const { connections } = useMonitoringStore();
 
@@ -115,7 +114,7 @@ const connectionGroups = computed(() => {
 
 function profileName(item: Connection) {
   return (
-    store.profiles.find((p) => p.id === item.profile_id)?.name?.en ?? "-"
+    store.localized(store.profiles.find((p) => p.id === item.profile_id)?.name ?? {}) || "-"
   );
 }
 
@@ -123,10 +122,6 @@ function profileName(item: Connection) {
 function goToConnections() {
   router.push({ name: "connections" });
 }
-
-const navigateIcon = computed(() =>
-  locale.isRtl.value ? "mdi-chevron-left" : "mdi-chevron-right"
-);
 </script>
 
 <template>
@@ -137,7 +132,7 @@ const navigateIcon = computed(() =>
       </v-card-title>
       <template #append>
         <v-icon
-          :icon="navigateIcon"
+          icon="mdi-chevron-right"
           size="small"
           class="text-medium-emphasis"
         />

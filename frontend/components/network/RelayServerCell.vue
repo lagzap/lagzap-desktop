@@ -3,6 +3,7 @@ import CountryFlag from "vue-country-flag-next";
 import { useLocale } from "vuetify";
 import type { Connection } from "~/types/monitoring";
 import {
+  isConnectionBlocked,
   isConnectionNotRelayed,
   useRelayIssueMessage,
 } from "~/composables/useRelayIssue";
@@ -21,6 +22,8 @@ const { getNodeLabel } = useNodeLocationLabel();
 const issueMessage = useRelayIssueMessage();
 
 const notRelayed = computed(() => isConnectionNotRelayed(props.connection));
+/** Refused (no server in the location could carry it), not sent direct. */
+const blocked = computed(() => isConnectionBlocked(props.connection));
 const message = computed(() => issueMessage(props.connection));
 const nodeCountry = computed(
   () => store.nodes?.[props.connection.node_id ?? ""]?.country
@@ -47,7 +50,7 @@ const dedicatedIp = computed(() => {
         <template v-if="notRelayed">
           <v-icon icon="mdi-alert-outline" color="warning" size="16" />
           <span :class="[textClass, 'ms-1 text-warning']">
-            {{ t("$vuetify.connections.notRelayed") }}
+            {{ blocked ? t("$vuetify.connections.blockedConnection") : t("$vuetify.connections.notRelayed") }}
           </span>
         </template>
         <template v-else>

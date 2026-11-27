@@ -387,6 +387,21 @@ export function profileLimit(profileId: string) {
   return limits.value.find((limit) => limit.kind === "profile" && limit.path === profileId) ?? null;
 }
 
+/** Every internet's download now, added up (the page's "All internets"). */
+export const totalDownloadSpeed = computed(() =>
+  internets.value.reduce((sum, item) => sum + (item.download_speed ?? 0), 0),
+);
+
+/** Streams while something outside the page needs it: the sidebar's
+ * Bandwidth Control item while hovered. Every on needs its off. */
+export function watchBandwidth(on: boolean) {
+  if (on) {
+    if (watchers++ === 0) start();
+  } else if (watchers > 0 && --watchers === 0) {
+    stop();
+  }
+}
+
 /** The Bandwidth Control page: streams while mounted. */
 export function useBandwidthControl() {
   onMounted(() => {

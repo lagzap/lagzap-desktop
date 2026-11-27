@@ -42,7 +42,7 @@ async function copyId() {
 
 <template>
   <section class="lz-panel account-header">
-    <v-avatar size="64" color="primary" variant="tonal" class="account-header__avatar">
+    <v-avatar size="64" variant="tonal" class="account-header__avatar">
       <span v-if="initials" class="text-h6 font-weight-bold">{{ initials }}</span>
       <v-icon v-else icon="mdi-account" size="32" />
     </v-avatar>
@@ -54,6 +54,7 @@ async function copyId() {
           icon="mdi-pencil-outline"
           variant="text"
           size="x-small"
+          color="on-surface"
           :aria-label="t('$vuetify.gamerTag.change')"
           @click="editingTag = true"
         />
@@ -66,7 +67,7 @@ async function copyId() {
         </template>
       </div>
       <div class="d-flex flex-wrap align-center ga-2 mt-2">
-        <v-chip v-if="planName" size="small" variant="tonal" rounded="pill" color="primary" prepend-icon="mdi-crown-outline" :to="{ name: 'plans' }">
+        <v-chip v-if="planName" size="small" variant="tonal" rounded="pill" prepend-icon="mdi-crown-outline" :to="{ name: 'plans' }">
           {{ planName }}
         </v-chip>
         <TeamPlanBadge />

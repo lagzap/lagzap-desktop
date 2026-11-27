@@ -7,6 +7,13 @@ export function isConnectionNotRelayed(connection: Connection): boolean {
   return !!connection.relay_issue?.code;
 }
 
+/** Refused outright, not relayed and not sent direct. The plan issues are
+ * the exception: those connections go direct out of the chosen internet. */
+export function isConnectionBlocked(connection: Connection): boolean {
+  const code = connection.relay_issue?.code;
+  return !!code && code !== "plan_required" && code !== "plan_locked";
+}
+
 /** Tooltip text explaining why a connection was rejected. */
 export function useRelayIssueMessage() {
   const { t } = useLocale();

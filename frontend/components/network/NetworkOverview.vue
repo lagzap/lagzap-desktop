@@ -2,6 +2,7 @@
 import OverviewChart from "~/components/network/OverviewChart.vue";
 import TopConnectionsPreview from "~/components/network/TopConnectionsPreview.vue";
 import OverviewTitleGrid from "~/components/title/OverviewTitleGrid.vue";
+import OverviewGetStarted from "~/components/title/OverviewGetStarted.vue";
 import { getJitterAccent, getLossAccent, getScoreAccent } from "~/composables/useLatencyMetrics";
 import { useOverviewChart } from "~/composables/useOverviewChart";
 import { useHumanSpeed } from "~/composables/helper";
@@ -47,6 +48,9 @@ function openBandwidth(open?: string) {
     <div class="overview-status px-4 pt-4">
       <AccountStatusStrip />
     </div>
+
+    <!-- Nothing on yet: where to start, above the Favorites. -->
+    <OverviewGetStarted />
 
     <OverviewTitleGrid />
 

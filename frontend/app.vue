@@ -43,6 +43,8 @@ watchEffect(() => {
 const isMaximized = ref<boolean>(false);
 const loaded = ref(false);
 const route = useRoute();
+// For back and forward (onMounted below): read here, before any await.
+const router = useRouter();
 /** Pop-out latency / admin windows use their own chrome; hide main title-bar buttons. */
 const isOverlayWindow = computed(
   () =>
@@ -68,6 +70,33 @@ onMounted(async () => {
     },
     true
   );
+
+  // Back and forward, without on-screen buttons: the mouse's side buttons,
+  // Alt+Left / Alt+Right and the keyboard's Browser Back / Forward keys. Done
+  // here so it works whatever the webview does (and only once: its own
+  // handling is cancelled). Once per page: a hot reload remounts this.
+  const nav = window as unknown as { __lzBackNav?: boolean };
+  if (!nav.__lzBackNav) {
+  nav.__lzBackNav = true;
+  window.addEventListener(
+    "mouseup",
+    (e) => {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      if (e.button === 3) router.back();
+      else router.forward();
+    },
+    true
+  );
+  window.addEventListener("keydown", (e) => {
+    const back = e.key === "BrowserBack" || (e.altKey && e.key === "ArrowLeft");
+    const forward = e.key === "BrowserForward" || (e.altKey && e.key === "ArrowRight");
+    if (!back && !forward) return;
+    e.preventDefault();
+    if (back) router.back();
+    else router.forward();
+  });
+  }
 
   if (isLoaded.value) {
     await syncThemeFromSetting(settings.value.theme ?? "system", theme);

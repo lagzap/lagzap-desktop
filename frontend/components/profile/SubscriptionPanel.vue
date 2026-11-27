@@ -25,7 +25,7 @@ const upgradeLabel = computed(() =>
 <template>
   <section class="lz-panel subscription">
     <div class="lz-panel__head">
-      <v-icon icon="mdi-card-account-details-star-outline" size="20" color="primary" />
+      <v-icon icon="mdi-card-account-details-star-outline" size="20" />
       <span class="text-subtitle-1 font-weight-medium">{{ t("$vuetify.profile.subscription") }}</span>
       <v-spacer />
       <TeamPlanBadge />
@@ -71,7 +71,7 @@ const upgradeLabel = computed(() =>
       <v-btn
         v-if="offerOpen"
         variant="flat"
-        color="primary"
+        color="on-surface"
         rounded="lg"
         prepend-icon="mdi-gift-outline"
         @click="screenOpen = true"
@@ -81,14 +81,14 @@ const upgradeLabel = computed(() =>
       <v-btn
         v-if="plan.canUpgrade.value"
         variant="tonal"
-        color="primary"
+        color="on-surface"
         rounded="lg"
         prepend-icon="mdi-rocket-launch-outline"
         @click="plan.openUpgrade"
       >
         {{ upgradeLabel }}
       </v-btn>
-      <v-btn variant="tonal" rounded="lg" prepend-icon="mdi-account-group-outline" :to="{ name: 'team' }">
+      <v-btn variant="tonal" color="on-surface" rounded="lg" prepend-icon="mdi-account-group-outline" :to="{ name: 'team' }">
         {{ t("$vuetify.team.title") }}
       </v-btn>
     </div>
